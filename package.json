@@ -1,0 +1,38 @@
+{
+  "name": "@epostak/sdk",
+  "version": "1.0.0",
+  "description": "Official Node.js SDK for ePošťák Enterprise API — Peppol e-invoicing",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "peppol",
+    "e-invoice",
+    "efaktura",
+    "epostak",
+    "slovakia",
+    "api"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
