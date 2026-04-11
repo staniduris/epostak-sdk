@@ -6,15 +6,16 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 ## Available SDKs
 
-| Language                | Directory                      | Package                  | Install                        |
-| ----------------------- | ------------------------------ | ------------------------ | ------------------------------ |
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | `npm install @epostak/sdk`     |
-| Python                  | [`python/`](./python/)         | `epostak`                | `pip install epostak`          |
-| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | `composer require epostak/sdk` |
-| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | `dotnet add package EPostak`   |
-| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | Maven / Gradle                 |
+| Language                | Directory                      | Package                  | Status                     |
+| ----------------------- | ------------------------------ | ------------------------ | -------------------------- |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | `npm install @epostak/sdk` |
+| Python                  | [`python/`](./python/)         | `epostak`                | Source on GitHub           |
+| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | Source on GitHub           |
+| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | Source on GitHub           |
+| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | Source on GitHub           |
+| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | Source on GitHub           |
 
-Each directory contains the full SDK with its own README, examples, and package configuration.
+TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
 
 ---
 
