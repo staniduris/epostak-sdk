@@ -112,4 +112,55 @@ public sealed class WebhooksResource
     /// </example>
     public Task DeleteAsync(string id, CancellationToken ct = default)
         => _http.RequestVoidAsync(HttpMethod.Delete, $"/webhooks/{Uri.EscapeDataString(id)}", ct);
+
+    /// <summary>
+    /// Send a test event to a webhook endpoint. Useful for verifying your
+    /// webhook URL is reachable and responding correctly.
+    /// </summary>
+    /// <param name="id">The webhook subscription UUID to test.</param>
+    /// <param name="webhookEvent">Optional event type to simulate (e.g. "document.created").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Test result with success status, HTTP status code, and response time.</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.Webhooks.TestAsync("wh_abc123");
+    /// Console.WriteLine($"Success: {result.Success}, Time: {result.ResponseTime}ms");
+    /// </code>
+    /// </example>
+    public Task<WebhookTestResponse> TestAsync(string id, string? webhookEvent = null, CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, string>();
+        if (webhookEvent != null) body["event"] = webhookEvent;
+        return _http.RequestAsync<WebhookTestResponse>(HttpMethod.Post, $"/webhooks/{Uri.EscapeDataString(id)}/test", body, ct);
+    }
+
+    /// <summary>
+    /// Get paginated delivery history for a webhook. Use this to inspect
+    /// individual delivery attempts, filter by status, and debug failures.
+    /// </summary>
+    /// <param name="id">The webhook subscription UUID.</param>
+    /// <param name="parameters">Optional pagination and filter parameters.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Paginated list of delivery records with total count.</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.Webhooks.DeliveriesAsync("wh_abc123", new WebhookDeliveriesParams
+    /// {
+    ///     Status = "FAILED",
+    ///     Limit = 50
+    /// });
+    /// foreach (var d in result.Deliveries)
+    ///     Console.WriteLine($"{d.Event}: {d.Status} ({d.Attempts} attempts)");
+    /// </code>
+    /// </example>
+    public Task<WebhookDeliveriesResponse> DeliveriesAsync(string id, WebhookDeliveriesParams? parameters = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (parameters?.Limit != null) query.Add($"limit={parameters.Limit}");
+        if (parameters?.Offset != null) query.Add($"offset={parameters.Offset}");
+        if (parameters?.Status != null) query.Add($"status={Uri.EscapeDataString(parameters.Status)}");
+        if (parameters?.Event != null) query.Add($"event={Uri.EscapeDataString(parameters.Event)}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+        return _http.RequestAsync<WebhookDeliveriesResponse>(HttpMethod.Get, $"/webhooks/{Uri.EscapeDataString(id)}/deliveries{qs}", ct);
+    }
 }

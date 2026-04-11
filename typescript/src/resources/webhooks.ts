@@ -11,6 +11,10 @@ import type {
   WebhookQueueResponse,
   WebhookQueueAllParams,
   WebhookQueueAllResponse,
+  WebhookTestResponse,
+  WebhookDeliveriesParams,
+  WebhookDeliveriesResponse,
+  WebhookEvent,
 } from "../types.js";
 
 /**
@@ -255,5 +259,60 @@ export class WebhooksResource extends BaseResource {
    */
   delete(id: string): Promise<{ deleted: boolean }> {
     return this.request("DELETE", `/webhooks/${encodeURIComponent(id)}`);
+  }
+
+  /**
+   * Send a test event to a webhook endpoint. Useful for verifying your
+   * webhook URL is reachable and responding correctly.
+   *
+   * @param id - Webhook UUID to test
+   * @param event - Event type to simulate (defaults to server-chosen event)
+   * @returns Test result with success status, HTTP status code, and response time
+   *
+   * @example
+   * ```typescript
+   * const result = await client.webhooks.test('webhook-uuid');
+   * console.log(result.success, result.responseTime + 'ms');
+   * ```
+   */
+  test(id: string, event?: WebhookEvent): Promise<WebhookTestResponse> {
+    const body: Record<string, string> = {};
+    if (event) body.event = event;
+    return this.request(
+      "POST",
+      `/webhooks/${encodeURIComponent(id)}/test`,
+      body,
+    );
+  }
+
+  /**
+   * Get paginated delivery history for a webhook. Use this to inspect
+   * individual delivery attempts, filter by status, and debug failures.
+   *
+   * @param id - Webhook UUID
+   * @param params - Optional pagination and filter parameters
+   * @returns Paginated list of delivery records with total count
+   *
+   * @example
+   * ```typescript
+   * const { deliveries, total } = await client.webhooks.deliveries('webhook-uuid', {
+   *   status: 'FAILED',
+   *   limit: 50,
+   * });
+   * ```
+   */
+  deliveries(
+    id: string,
+    params?: WebhookDeliveriesParams,
+  ): Promise<WebhookDeliveriesResponse> {
+    return this.request(
+      "GET",
+      `/webhooks/${encodeURIComponent(id)}/deliveries${buildQuery({
+        limit: params?.limit,
+        offset: params?.offset,
+        status: params?.status,
+        event: params?.event,
+      })}`,
+    );
   }
 }

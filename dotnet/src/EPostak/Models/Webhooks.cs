@@ -178,6 +178,123 @@ public sealed class WebhookWithDeliveries
     public List<WebhookDelivery> Deliveries { get; set; } = [];
 }
 
+// ---------------------------------------------------------------------------
+// Webhook test & delivery history
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Response from sending a test event to a webhook endpoint.
+/// </summary>
+public sealed class WebhookTestResponse
+{
+    /// <summary>Whether the test delivery was successful.</summary>
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    /// <summary>HTTP status code returned by the webhook URL, or null if the request failed.</summary>
+    [JsonPropertyName("statusCode")]
+    public int? StatusCode { get; set; }
+
+    /// <summary>Round-trip response time in milliseconds.</summary>
+    [JsonPropertyName("responseTime")]
+    public double ResponseTime { get; set; }
+
+    /// <summary>The webhook UUID that was tested.</summary>
+    [JsonPropertyName("webhookId")]
+    public string WebhookId { get; set; } = "";
+
+    /// <summary>The event type used for the test.</summary>
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = "";
+
+    /// <summary>Error message if the test delivery failed.</summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// A single delivery record with full detail, used in paginated delivery history.
+/// </summary>
+public sealed class WebhookDeliveryDetail
+{
+    /// <summary>Delivery UUID.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    /// <summary>The parent webhook UUID.</summary>
+    [JsonPropertyName("webhookId")]
+    public string WebhookId { get; set; } = "";
+
+    /// <summary>Event type that triggered this delivery.</summary>
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = "";
+
+    /// <summary>Delivery status (SUCCESS, FAILED, PENDING, RETRYING).</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    /// <summary>Number of delivery attempts made.</summary>
+    [JsonPropertyName("attempts")]
+    public int Attempts { get; set; }
+
+    /// <summary>HTTP status code returned by the webhook URL.</summary>
+    [JsonPropertyName("responseStatus")]
+    public int? ResponseStatus { get; set; }
+
+    /// <summary>Truncated response body from the webhook URL.</summary>
+    [JsonPropertyName("responseBody")]
+    public string? ResponseBody { get; set; }
+
+    /// <summary>ISO 8601 timestamp of the last delivery attempt.</summary>
+    [JsonPropertyName("lastAttemptAt")]
+    public string? LastAttemptAt { get; set; }
+
+    /// <summary>ISO 8601 timestamp of the next scheduled retry, or null.</summary>
+    [JsonPropertyName("nextRetryAt")]
+    public string? NextRetryAt { get; set; }
+
+    /// <summary>ISO 8601 timestamp when the delivery was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = "";
+}
+
+/// <summary>
+/// Parameters for fetching paginated webhook delivery history.
+/// </summary>
+public sealed class WebhookDeliveriesParams
+{
+    /// <summary>Max deliveries to return (1-100, default 20).</summary>
+    public int? Limit { get; set; }
+    /// <summary>Number of deliveries to skip (default 0).</summary>
+    public int? Offset { get; set; }
+    /// <summary>Filter by status: SUCCESS, FAILED, PENDING, RETRYING.</summary>
+    public string? Status { get; set; }
+    /// <summary>Filter by event type.</summary>
+    public string? Event { get; set; }
+}
+
+/// <summary>
+/// Paginated response of webhook delivery history.
+/// </summary>
+public sealed class WebhookDeliveriesResponse
+{
+    /// <summary>Array of delivery records.</summary>
+    [JsonPropertyName("deliveries")]
+    public List<WebhookDeliveryDetail> Deliveries { get; set; } = [];
+
+    /// <summary>Total number of deliveries matching the filter.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Number of deliveries returned.</summary>
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+
+    /// <summary>Offset used for pagination.</summary>
+    [JsonPropertyName("offset")]
+    public int Offset { get; set; }
+}
+
 /// <summary>
 /// Internal wrapper for the webhooks list API response.
 /// </summary>

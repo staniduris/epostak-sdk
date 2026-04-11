@@ -2,11 +2,14 @@ package sk.epostak.sdk.resources;
 
 import sk.epostak.sdk.HttpClient;
 import sk.epostak.sdk.models.Webhook;
+import sk.epostak.sdk.models.WebhookDeliveriesResponse;
 import sk.epostak.sdk.models.WebhookDetail;
+import sk.epostak.sdk.models.WebhookTestResponse;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 /**
  * Manage webhook subscriptions for push-based event delivery.
@@ -125,6 +128,65 @@ public final class WebhooksResource {
      */
     public DeletedResponse delete(String id) {
         return http.delete("/webhooks/" + HttpClient.encode(id), DeletedResponse.class);
+    }
+
+    /**
+     * Send a test event to a webhook endpoint. Useful for verifying your
+     * webhook URL is reachable and responding correctly.
+     *
+     * @param id    the webhook UUID to test
+     * @param event the event type to simulate (e.g. {@code "document.created"}), or {@code null} for the server default
+     * @return the test result with success status, HTTP status code, and response time
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookTestResponse test(String id, String event) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (event != null) body.put("event", event);
+        return http.post("/webhooks/" + HttpClient.encode(id) + "/test", body, WebhookTestResponse.class);
+    }
+
+    /**
+     * Send a test event to a webhook endpoint using the server default event type.
+     *
+     * @param id the webhook UUID to test
+     * @return the test result
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookTestResponse test(String id) {
+        return test(id, null);
+    }
+
+    /**
+     * Get paginated delivery history for a webhook.
+     *
+     * @param id     the webhook UUID
+     * @param params optional query parameters: {@code limit} (1-100), {@code offset},
+     *               {@code status} (SUCCESS/FAILED/PENDING/RETRYING), {@code event}
+     * @return paginated delivery records with total count
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookDeliveriesResponse deliveries(String id, Map<String, Object> params) {
+        StringJoiner qj = new StringJoiner("&", "?", "");
+        qj.setEmptyValue("");
+        if (params != null) {
+            for (var entry : params.entrySet()) {
+                if (entry.getValue() != null) {
+                    qj.add(HttpClient.encode(entry.getKey()) + "=" + HttpClient.encode(String.valueOf(entry.getValue())));
+                }
+            }
+        }
+        return http.get("/webhooks/" + HttpClient.encode(id) + "/deliveries" + qj, WebhookDeliveriesResponse.class);
+    }
+
+    /**
+     * Get paginated delivery history for a webhook with default parameters.
+     *
+     * @param id the webhook UUID
+     * @return paginated delivery records
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookDeliveriesResponse deliveries(String id) {
+        return deliveries(id, null);
     }
 
     // -- internal wrappers ----------------------------------------------------

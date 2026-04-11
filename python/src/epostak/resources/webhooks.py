@@ -251,3 +251,55 @@ class WebhooksResource(_BaseResource):
             client.webhooks.delete("webhook-uuid")
         """
         self._request("DELETE", f"/webhooks/{quote(id, safe='')}")
+
+    def test(self, id: str, event: Optional[str] = None) -> Dict[str, Any]:
+        """Send a test event to a webhook endpoint.
+
+        Args:
+            id: Webhook UUID to test.
+            event: Event type to simulate, e.g. ``"document.created"``.
+                If omitted, the server picks a default event.
+
+        Returns:
+            Dict with ``success`` (bool), ``statusCode`` (int or None),
+            ``responseTime`` (int), ``webhookId``, ``event``, and optional ``error``.
+
+        Example::
+
+            result = client.webhooks.test("webhook-uuid", event="document.received")
+            print(result["success"], result["responseTime"])
+        """
+        body: Dict[str, Any] = {}
+        if event is not None:
+            body["event"] = event
+        return self._request("POST", f"/webhooks/{quote(id, safe='')}/test", json=body)
+
+    def deliveries(
+        self,
+        id: str,
+        *,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        status: Optional[str] = None,
+        event: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get paginated delivery history for a webhook.
+
+        Args:
+            id: Webhook UUID.
+            limit: Max deliveries to return, 1-100 (default 20).
+            offset: Number of deliveries to skip (default 0).
+            status: Filter by status: ``"SUCCESS"``, ``"FAILED"``, ``"PENDING"``, ``"RETRYING"``.
+            event: Filter by event type, e.g. ``"document.received"``.
+
+        Returns:
+            Dict with ``deliveries`` list, ``total``, ``limit``, and ``offset``.
+
+        Example::
+
+            result = client.webhooks.deliveries("webhook-uuid", status="FAILED", limit=50)
+            for d in result["deliveries"]:
+                print(d["event"], d["status"], d["attempts"])
+        """
+        params = _build_query({"limit": limit, "offset": offset, "status": status, "event": event})
+        return self._request("GET", f"/webhooks/{quote(id, safe='')}/deliveries", params=params)

@@ -101,6 +101,37 @@ module EPostak
         @http.request(:delete, "/webhooks/#{encode(id)}")
       end
 
+      # Send a test event to a webhook endpoint.
+      #
+      # @param id [String] Webhook UUID to test
+      # @param event [String, nil] Event type to simulate (e.g. "document.created"). Nil uses server default.
+      # @return [Hash] Test result with "success", "statusCode", "responseTime", "webhookId", "event", and optional "error"
+      #
+      # @example
+      #   result = client.webhooks.test("webhook-uuid", event: "document.received")
+      #   puts result["success"] ? "OK" : result["error"]
+      def test(id, event: nil)
+        body = {}
+        body[:event] = event if event
+        @http.request(:post, "/webhooks/#{encode(id)}/test", body: body)
+      end
+
+      # Get paginated delivery history for a webhook.
+      #
+      # @param id [String] Webhook UUID
+      # @param limit [Integer, nil] Max deliveries to return (1-100, default 20)
+      # @param offset [Integer, nil] Number of deliveries to skip (default 0)
+      # @param status [String, nil] Filter by status: "SUCCESS", "FAILED", "PENDING", "RETRYING"
+      # @param event [String, nil] Filter by event type
+      # @return [Hash] Paginated response with "deliveries", "total", "limit", "offset"
+      #
+      # @example
+      #   result = client.webhooks.deliveries("webhook-uuid", status: "FAILED", limit: 50)
+      #   result["deliveries"].each { |d| puts "#{d['event']}: #{d['status']}" }
+      def deliveries(id, **params)
+        @http.request(:get, "/webhooks/#{encode(id)}/deliveries", params: params)
+      end
+
       private
 
       def encode(value)

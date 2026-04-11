@@ -859,6 +859,74 @@ export interface WebhookListResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Webhook test & delivery history
+// ---------------------------------------------------------------------------
+
+/** Response from sending a test event to a webhook endpoint. */
+export interface WebhookTestResponse {
+  /** Whether the test delivery was successful */
+  success: boolean;
+  /** HTTP status code returned by the webhook URL, or `null` if the request failed */
+  statusCode: number | null;
+  /** Round-trip response time in milliseconds */
+  responseTime: number;
+  /** The webhook UUID that was tested */
+  webhookId: string;
+  /** The event type used for the test */
+  event: string;
+  /** Error message if the test delivery failed */
+  error?: string;
+}
+
+/** A single delivery record with full detail (used in paginated delivery history). */
+export interface WebhookDeliveryDetail {
+  /** Delivery UUID */
+  id: string;
+  /** ID of the parent webhook */
+  webhookId: string;
+  /** Event type that triggered this delivery */
+  event: string;
+  /** Delivery status */
+  status: "SUCCESS" | "FAILED" | "PENDING" | "RETRYING";
+  /** Number of delivery attempts made */
+  attempts: number;
+  /** HTTP status code returned by the webhook URL */
+  responseStatus: number | null;
+  /** Truncated response body from the webhook URL */
+  responseBody: string | null;
+  /** ISO 8601 timestamp of the last delivery attempt */
+  lastAttemptAt: string | null;
+  /** ISO 8601 timestamp of the next scheduled retry, or `null` if not retrying */
+  nextRetryAt: string | null;
+  /** ISO 8601 timestamp when the delivery was created */
+  createdAt: string;
+}
+
+/** Query parameters for fetching paginated webhook delivery history. */
+export interface WebhookDeliveriesParams {
+  /** Maximum number of deliveries to return (1-100). Defaults to `20`. */
+  limit?: number;
+  /** Number of deliveries to skip for pagination. Defaults to `0`. */
+  offset?: number;
+  /** Filter by delivery status */
+  status?: "SUCCESS" | "FAILED" | "PENDING" | "RETRYING";
+  /** Filter by event type (e.g. `"document.received"`) */
+  event?: string;
+}
+
+/** Paginated response of webhook delivery history. */
+export interface WebhookDeliveriesResponse {
+  /** Array of delivery records */
+  deliveries: WebhookDeliveryDetail[];
+  /** Total number of deliveries matching the filter */
+  total: number;
+  /** Number of deliveries returned */
+  limit: number;
+  /** Offset used for pagination */
+  offset: number;
+}
+
+// ---------------------------------------------------------------------------
 // Webhook pull queue
 // ---------------------------------------------------------------------------
 

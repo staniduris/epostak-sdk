@@ -90,6 +90,11 @@ export type {
   WebhookDelivery,
   WebhookWithDeliveries,
   WebhookListResponse,
+  // Webhook test & delivery history
+  WebhookTestResponse,
+  WebhookDeliveryDetail,
+  WebhookDeliveriesParams,
+  WebhookDeliveriesResponse,
   // Webhook queue
   WebhookQueueParams,
   WebhookQueueItem,
