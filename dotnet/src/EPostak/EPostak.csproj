@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>EPostak</RootNamespace>
+    <PackageId>EPostak</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>ePostak</Authors>
+    <Description>Official .NET SDK for the ePostak Enterprise API — send and receive Peppol e-invoices in Slovakia.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://epostak.sk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/epostak/epostak-sdk-dotnet</RepositoryUrl>
+    <PackageTags>epostak;peppol;einvoice;ubl;slovakia</PackageTags>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,140 @@
+package sk.epostak.sdk.resources;
+
+import sk.epostak.sdk.HttpClient;
+import sk.epostak.sdk.models.Webhook;
+import sk.epostak.sdk.models.WebhookDetail;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Manage webhook subscriptions for push-based event delivery.
+ * <p>
+ * Supports creating, listing, updating, and deleting webhook endpoints.
+ * For polling-based consumption, use the {@link #queue()} sub-resource instead.
+ * <p>
+ * Access via {@code client.webhooks()}.
+ *
+ * <pre>{@code
+ * // Register a webhook for document events
+ * WebhookDetail hook = client.webhooks().create(
+ *     "https://example.com/webhook",
+ *     List.of("document.received", "document.delivered"));
+ * System.out.println("Secret: " + hook.secret()); // Save this for signature verification
+ * }</pre>
+ */
+public final class WebhooksResource {
+
+    private final HttpClient http;
+    private final WebhookQueueResource queue;
+
+    /**
+     * Creates a new webhooks resource.
+     *
+     * @param http the HTTP client used for API communication
+     */
+    public WebhooksResource(HttpClient http) {
+        this.http = http;
+        this.queue = new WebhookQueueResource(http);
+    }
+
+    /**
+     * Access the webhook pull queue for polling-based event consumption.
+     *
+     * @return the queue sub-resource
+     */
+    public WebhookQueueResource queue() {
+        return queue;
+    }
+
+    /**
+     * Register a new webhook endpoint. The response includes an HMAC-SHA256
+     * signing secret that should be stored securely for verifying webhook payloads.
+     *
+     * @param url    the webhook endpoint URL (must be HTTPS)
+     * @param events list of event types to subscribe to (e.g. {@code "document.received"}),
+     *               or {@code null} to subscribe to all events
+     * @return the created webhook detail including the signing secret
+     * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
+     */
+    public WebhookDetail create(String url, List<String> events) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("url", url);
+        if (events != null) body.put("events", events);
+        return http.post("/webhooks", body, WebhookDetail.class);
+    }
+
+    /**
+     * Register a new webhook endpoint subscribing to all event types.
+     *
+     * @param url the webhook endpoint URL (must be HTTPS)
+     * @return the created webhook detail including the signing secret
+     * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
+     */
+    public WebhookDetail create(String url) {
+        return create(url, null);
+    }
+
+    /**
+     * List all registered webhook endpoints.
+     *
+     * @return list of webhooks, or an empty list if none
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public List<Webhook> list() {
+        WebhookListWrapper wrapper = http.get("/webhooks", WebhookListWrapper.class);
+        return wrapper != null ? wrapper.data() : List.of();
+    }
+
+    /**
+     * Get webhook detail including delivery history for recent events.
+     *
+     * @param id the webhook UUID
+     * @return the webhook detail with delivery attempts
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookDetail get(String id) {
+        return http.get("/webhooks/" + HttpClient.encode(id), WebhookDetail.class);
+    }
+
+    /**
+     * Update a webhook endpoint. Only provided (non-null) fields are changed.
+     *
+     * @param id       the webhook UUID
+     * @param url      new endpoint URL, or {@code null} to keep current
+     * @param events   new event type list, or {@code null} to keep current
+     * @param isActive set to {@code false} to pause delivery, or {@code null} to keep current
+     * @return the updated webhook
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public Webhook update(String id, String url, List<String> events, Boolean isActive) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (url != null) body.put("url", url);
+        if (events != null) body.put("events", events);
+        if (isActive != null) body.put("is_active", isActive);
+        return http.patch("/webhooks/" + HttpClient.encode(id), body, Webhook.class);
+    }
+
+    /**
+     * Delete a webhook endpoint. This is irreversible.
+     *
+     * @param id the webhook UUID
+     * @return the deletion confirmation
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public DeletedResponse delete(String id) {
+        return http.delete("/webhooks/" + HttpClient.encode(id), DeletedResponse.class);
+    }
+
+    // -- internal wrappers ----------------------------------------------------
+
+    private record WebhookListWrapper(List<Webhook> data) {}
+
+    /**
+     * Response from deleting a webhook.
+     *
+     * @param deleted {@code true} if the webhook was successfully deleted
+     */
+    public record DeletedResponse(boolean deleted) {}
+}

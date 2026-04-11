@@ -1,0 +1,111 @@
+# frozen_string_literal: true
+
+require "erb"
+
+module EPostak
+  module Resources
+    # Resource for managing webhook subscriptions and the pull queue.
+    #
+    # Webhooks notify your server about document events (sent, received, validated).
+    # Choose between push webhooks (server receives HTTPS POST) or the pull queue
+    # (your code polls for events).
+    #
+    # @example Create a push webhook
+    #   webhook = client.webhooks.create(
+    #     url: "https://example.com/webhooks/epostak",
+    #     events: ["document.received", "document.sent"]
+    #   )
+    #   # Store webhook["secret"] for HMAC verification
+    class Webhooks
+      # @return [Resources::WebhookQueue] Sub-resource for the pull queue (polling-based event consumption)
+      attr_reader :queue
+
+      # @param http [EPostak::HttpClient] Internal HTTP client
+      def initialize(http)
+        @http  = http
+        @queue = WebhookQueue.new(http)
+      end
+
+      # Create a new webhook subscription. Returns the HMAC-SHA256 signing secret
+      # which is only available at creation time -- store it securely.
+      #
+      # @param url [String] HTTPS URL to receive webhook POST requests
+      # @param events [Array<String>, nil] Event types to subscribe to (nil = all events).
+      #   Available events: "document.received", "document.sent", "document.validated",
+      #   "document.status_changed", "document.response_received"
+      # @return [Hash] Webhook details including the one-time "secret" signing key
+      #
+      # @example
+      #   webhook = client.webhooks.create(
+      #     url: "https://example.com/webhooks",
+      #     events: ["document.received"]
+      #   )
+      #   puts webhook["secret"] # => Store this securely!
+      def create(url:, events: nil)
+        body = { url: url }
+        body[:events] = events if events
+        @http.request(:post, "/webhooks", body: body)
+      end
+
+      # List all webhook subscriptions for the current account.
+      #
+      # @return [Hash] Response with "data" array of webhook objects
+      #
+      # @example
+      #   response = client.webhooks.list
+      #   response["data"].each { |w| puts "#{w['url']} (active: #{w['isActive']})" }
+      def list
+        @http.request(:get, "/webhooks")
+      end
+
+      # Get a webhook subscription by ID, including recent delivery history.
+      # Use the delivery history to debug failed webhook deliveries.
+      #
+      # @param id [String] Webhook UUID
+      # @return [Hash] Webhook details with "deliveries" array
+      #
+      # @example
+      #   webhook = client.webhooks.get("webhook-uuid")
+      #   failed = webhook["deliveries"].select { |d| d["status"] == "failed" }
+      def get(id)
+        @http.request(:get, "/webhooks/#{encode(id)}")
+      end
+
+      # Update a webhook subscription. Use this to change the URL, event filter,
+      # or pause/resume the webhook.
+      #
+      # @param id [String] Webhook UUID
+      # @param params [Hash] Fields to update (url, events, isActive)
+      # @return [Hash] The updated webhook
+      #
+      # @example Pause a webhook
+      #   client.webhooks.update("webhook-uuid", isActive: false)
+      #
+      # @example Change URL and events
+      #   client.webhooks.update("webhook-uuid",
+      #     url: "https://new-url.com/webhooks",
+      #     events: ["document.received", "document.validated"]
+      #   )
+      def update(id, **params)
+        @http.request(:patch, "/webhooks/#{encode(id)}", body: params)
+      end
+
+      # Delete a webhook subscription. Stops all future deliveries.
+      #
+      # @param id [String] Webhook UUID to delete
+      # @return [Hash] Confirmation with "deleted" => true
+      #
+      # @example
+      #   client.webhooks.delete("webhook-uuid")
+      def delete(id)
+        @http.request(:delete, "/webhooks/#{encode(id)}")
+      end
+
+      private
+
+      def encode(value)
+        ERB::Util.url_encode(value)
+      end
+    end
+  end
+end
