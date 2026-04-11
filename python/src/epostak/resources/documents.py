@@ -8,6 +8,8 @@ resource modules.
 
 from __future__ import annotations
 
+import random
+import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
@@ -29,6 +31,11 @@ if TYPE_CHECKING:
         ValidationResult,
     )
 
+_RETRY_METHODS = frozenset({"GET", "DELETE"})
+_RETRY_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+_BASE_DELAY = 0.5
+_MAX_DELAY = 30.0
+
 
 def _build_query(params: Dict[str, Any]) -> Dict[str, str]:
     """Build query params dict, dropping None values."""
@@ -38,17 +45,48 @@ def _build_query(params: Dict[str, Any]) -> Dict[str, str]:
 class _BaseResource:
     """Shared base for all resource classes."""
 
-    def __init__(self, client: httpx.Client, base_url: str, api_key: str, firm_id: Optional[str]) -> None:
+    def __init__(
+        self,
+        client: httpx.Client,
+        base_url: str,
+        api_key: str,
+        firm_id: Optional[str],
+        *,
+        max_retries: int = 3,
+    ) -> None:
         self._client = client
         self._base_url = base_url
         self._api_key = api_key
         self._firm_id = firm_id
+        self._max_retries = max_retries
 
     def _headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {"Authorization": f"Bearer {self._api_key}"}
         if self._firm_id:
             headers["X-Firm-Id"] = self._firm_id
         return headers
+
+    def _should_retry(self, method: str, status_code: int) -> bool:
+        return method.upper() in _RETRY_METHODS and status_code in _RETRY_STATUS_CODES
+
+    def _sleep_for_retry(self, attempt: int, response: Any = None) -> None:
+        # Respect Retry-After header on 429
+        retry_after: Optional[float] = None
+        if response is not None:
+            raw = response.headers.get("retry-after")
+            if raw is not None:
+                try:
+                    retry_after = float(raw)
+                except (ValueError, TypeError):
+                    pass
+
+        if retry_after is not None:
+            delay = min(retry_after, _MAX_DELAY)
+        else:
+            jitter = random.random()  # noqa: S311
+            delay = min(_BASE_DELAY * (2 ** attempt) + jitter, _MAX_DELAY)
+
+        time.sleep(delay)
 
     def _request(
         self,
@@ -64,35 +102,53 @@ class _BaseResource:
         from epostak.errors import EPostakError
 
         url = f"{self._base_url}{path}"
-        try:
-            response = self._client.request(
-                method,
-                url,
-                headers=self._headers(),
-                json=json,
-                data=data,
-                files=files,
-                params=params,
-                timeout=30.0,
-            )
-        except Exception as exc:
-            raise EPostakError(0, {"error": str(exc)}) from exc
+        last_exc: Optional[EPostakError] = None
 
-        if not response.is_success:
+        for attempt in range(self._max_retries + 1):
+            response = None
             try:
-                body = response.json()
-            except Exception:
-                body = {"error": response.reason_phrase or "API request failed"}
-            raise EPostakError(response.status_code, body)
+                response = self._client.request(
+                    method,
+                    url,
+                    headers=self._headers(),
+                    json=json,
+                    data=data,
+                    files=files,
+                    params=params,
+                    timeout=30.0,
+                )
+            except Exception as exc:
+                last_exc = EPostakError(0, {"error": str(exc)})
+                last_exc.__cause__ = exc
+                # Network errors are retryable for idempotent methods
+                if attempt < self._max_retries and method.upper() in _RETRY_METHODS:
+                    self._sleep_for_retry(attempt)
+                    continue
+                raise last_exc from exc
 
-        if raw:
-            return response
+            if not response.is_success:
+                try:
+                    body = response.json()
+                except Exception:
+                    body = {"error": response.reason_phrase or "API request failed"}
+                last_exc = EPostakError(response.status_code, body)
 
-        # 204 No Content
-        if response.status_code == 204 or response.headers.get("content-length") == "0":
-            return None
+                if attempt < self._max_retries and self._should_retry(method, response.status_code):
+                    self._sleep_for_retry(attempt, response)
+                    continue
+                raise last_exc
 
-        return response.json()
+            if raw:
+                return response
+
+            # 204 No Content
+            if response.status_code == 204 or response.headers.get("content-length") == "0":
+                return None
+
+            return response.json()
+
+        # Should not reach here, but guard against it
+        raise last_exc or EPostakError(0, {"error": "Request failed after retries"})
 
 
 class InboxResource(_BaseResource):
@@ -201,9 +257,17 @@ class DocumentsResource(_BaseResource):
     inbox: InboxResource
     """Access received (inbox) documents."""
 
-    def __init__(self, client: httpx.Client, base_url: str, api_key: str, firm_id: Optional[str]) -> None:
-        super().__init__(client, base_url, api_key, firm_id)
-        self.inbox = InboxResource(client, base_url, api_key, firm_id)
+    def __init__(
+        self,
+        client: httpx.Client,
+        base_url: str,
+        api_key: str,
+        firm_id: Optional[str],
+        *,
+        max_retries: int = 3,
+    ) -> None:
+        super().__init__(client, base_url, api_key, firm_id, max_retries=max_retries)
+        self.inbox = InboxResource(client, base_url, api_key, firm_id, max_retries=max_retries)
 
     def get(self, id: str) -> Document:
         """Get a document by ID.

@@ -35,4 +35,11 @@ public sealed class EPostakConfig
     /// (<c>sk_int_*</c>) on most endpoints. Ignored for direct keys (<c>sk_live_*</c>).
     /// </summary>
     public string? FirmId { get; init; }
+
+    /// <summary>
+    /// Maximum number of retries on 429 (Too Many Requests) and 5xx responses.
+    /// Uses exponential backoff with jitter. Defaults to 3. Set to 0 to disable retries.
+    /// Only GET and DELETE requests are retried by default.
+    /// </summary>
+    public int MaxRetries { get; init; } = 3;
 }

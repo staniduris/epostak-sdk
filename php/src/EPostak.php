@@ -30,6 +30,7 @@ class EPostak
     private string $apiKey;
     private string $baseUrl;
     private ?string $firmId;
+    private int $maxRetries;
 
     public Documents $documents;
     public Firms $firms;
@@ -42,10 +43,11 @@ class EPostak
     /**
      * Create a new ePošťák API client.
      *
-     * @param array{apiKey: string, baseUrl?: string, firmId?: string} $config Configuration array.
-     *   - `apiKey`  (required) Your Enterprise API key.
-     *   - `baseUrl` (optional) Override the API base URL (default: https://epostak.sk/api/enterprise).
-     *   - `firmId`  (optional) Scope all requests to this firm ID.
+     * @param array{apiKey: string, baseUrl?: string, firmId?: string, maxRetries?: int} $config Configuration array.
+     *   - `apiKey`     (required) Your Enterprise API key.
+     *   - `baseUrl`    (optional) Override the API base URL (default: https://epostak.sk/api/enterprise).
+     *   - `firmId`     (optional) Scope all requests to this firm ID.
+     *   - `maxRetries` (optional) Maximum retries on 429/5xx responses (default: 3).
      *
      * @throws \InvalidArgumentException If apiKey is missing or not a string.
      *
@@ -65,8 +67,9 @@ class EPostak
         $this->apiKey = $config['apiKey'];
         $this->baseUrl = $config['baseUrl'] ?? self::DEFAULT_BASE_URL;
         $this->firmId = $config['firmId'] ?? null;
+        $this->maxRetries = $config['maxRetries'] ?? 3;
 
-        $http = new HttpClient($this->baseUrl, $this->apiKey, $this->firmId);
+        $http = new HttpClient($this->baseUrl, $this->apiKey, $this->firmId, $this->maxRetries);
 
         $this->documents = new Documents($http);
         $this->firms = new Firms($http);
@@ -96,6 +99,7 @@ class EPostak
             'apiKey' => $this->apiKey,
             'baseUrl' => $this->baseUrl,
             'firmId' => $firmId,
+            'maxRetries' => $this->maxRetries ?? 3,
         ]);
     }
 }

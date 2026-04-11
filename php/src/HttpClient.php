@@ -21,16 +21,22 @@ class HttpClient
     private Client $client;
     private string $apiKey;
     private ?string $firmId;
+    private int $maxRetries;
+
+    /** @var string[] HTTP methods that are safe to retry by default. */
+    private const RETRYABLE_METHODS = ['GET', 'DELETE'];
 
     /**
-     * @param string      $baseUrl API base URL (e.g. 'https://epostak.sk/api/enterprise').
-     * @param string      $apiKey  Bearer token for authentication.
-     * @param string|null $firmId  Optional firm ID sent via X-Firm-Id header.
+     * @param string      $baseUrl    API base URL (e.g. 'https://epostak.sk/api/enterprise').
+     * @param string      $apiKey     Bearer token for authentication.
+     * @param string|null $firmId     Optional firm ID sent via X-Firm-Id header.
+     * @param int         $maxRetries Maximum number of retries on 429/5xx (default 3).
      */
-    public function __construct(string $baseUrl, string $apiKey, ?string $firmId = null)
+    public function __construct(string $baseUrl, string $apiKey, ?string $firmId = null, int $maxRetries = 3)
     {
         $this->apiKey = $apiKey;
         $this->firmId = $firmId;
+        $this->maxRetries = $maxRetries;
 
         $this->client = new Client([
             'base_uri' => rtrim($baseUrl, '/') . '/',
@@ -68,35 +74,82 @@ class HttpClient
         // Strip leading slash — Guzzle base_uri resolution needs relative paths
         $path = ltrim($path, '/');
 
-        try {
-            $response = $this->client->request($method, $path, $options);
-        } catch (GuzzleException $e) {
-            throw new EPostakError(0, ['error' => $e->getMessage()]);
-        }
+        $retryable = in_array(strtoupper($method), self::RETRYABLE_METHODS, true);
+        $lastException = null;
 
-        $statusCode = $response->getStatusCode();
-
-        if ($statusCode === 204) {
-            return null;
-        }
-
-        $body = $response->getBody()->getContents();
-
-        if ($statusCode >= 400) {
-            $decoded = [];
+        for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             try {
-                $decoded = json_decode($body, true) ?? [];
-            } catch (\Throwable) {
-                $decoded = ['error' => $response->getReasonPhrase()];
+                $response = $this->client->request($method, $path, $options);
+            } catch (GuzzleException $e) {
+                throw new EPostakError(0, ['error' => $e->getMessage()]);
             }
-            throw new EPostakError($statusCode, $decoded);
+
+            $statusCode = $response->getStatusCode();
+
+            // Retry on 429 or 5xx for safe methods
+            if ($retryable && $attempt < $this->maxRetries && ($statusCode === 429 || $statusCode >= 500)) {
+                $delay = $this->calculateDelay($attempt, $response);
+                usleep((int) ($delay * 1_000_000));
+                continue;
+            }
+
+            if ($statusCode === 204) {
+                return null;
+            }
+
+            $body = $response->getBody()->getContents();
+
+            if ($statusCode >= 400) {
+                $decoded = [];
+                try {
+                    $decoded = json_decode($body, true) ?? [];
+                } catch (\Throwable) {
+                    $decoded = ['error' => $response->getReasonPhrase()];
+                }
+                throw new EPostakError($statusCode, $decoded);
+            }
+
+            if ($body === '' || $body === '{}') {
+                return [];
+            }
+
+            return json_decode($body, true);
         }
 
-        if ($body === '' || $body === '{}') {
-            return [];
+        // Should not be reached, but satisfy static analysis
+        throw new EPostakError(0, ['error' => 'Max retries exceeded']);
+    }
+
+    /**
+     * Calculate the backoff delay for a retry attempt.
+     *
+     * Uses exponential backoff with jitter: min(base_delay * 2^attempt + jitter, 30s).
+     * Respects the Retry-After header on 429 responses.
+     *
+     * @param int $attempt Current attempt number (0-based).
+     * @param \Psr\Http\Message\ResponseInterface $response The HTTP response.
+     * @return float Delay in seconds.
+     */
+    private function calculateDelay(int $attempt, $response): float
+    {
+        $baseDelay = 0.5;
+        $maxDelay = 30.0;
+
+        // Respect Retry-After header on 429
+        if ($response->getStatusCode() === 429 && $response->hasHeader('Retry-After')) {
+            $retryAfter = $response->getHeaderLine('Retry-After');
+            if (is_numeric($retryAfter)) {
+                return min((float) $retryAfter, $maxDelay);
+            }
+            // Try parsing as HTTP date
+            $timestamp = strtotime($retryAfter);
+            if ($timestamp !== false) {
+                return min(max(0, $timestamp - time()), $maxDelay);
+            }
         }
 
-        return json_decode($body, true);
+        $jitter = mt_rand(0, 1000) / 1000.0; // 0–1s of jitter
+        return min($baseDelay * (2 ** $attempt) + $jitter, $maxDelay);
     }
 
     /**

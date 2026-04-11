@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Internal HTTP wrapper around {@link java.net.http.HttpClient}.
@@ -27,6 +29,7 @@ public final class HttpClient {
 
     private static final Gson GSON = new Gson();
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
+    private static final Set<String> RETRYABLE_METHODS = Set.of("GET", "DELETE");
 
     /** Base URL for API requests, e.g. {@code "https://epostak.sk/api/enterprise"}. */
     private final String baseUrl;
@@ -34,23 +37,38 @@ public final class HttpClient {
     private final String apiKey;
     /** Optional firm UUID sent as {@code X-Firm-Id} header. */
     private final String firmId;
+    /** Maximum number of retries on 429/5xx for GET/DELETE requests. */
+    private final int maxRetries;
     /** Underlying JDK HTTP client. */
     private final java.net.http.HttpClient client;
 
     /**
      * Creates a new HTTP client.
      *
+     * @param baseUrl    the API base URL
+     * @param apiKey     the API key for Bearer authentication
+     * @param firmId     optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
+     * @param maxRetries maximum number of retries on 429/5xx (default 3)
+     */
+    HttpClient(String baseUrl, String apiKey, String firmId, int maxRetries) {
+        this.baseUrl = baseUrl;
+        this.apiKey = apiKey;
+        this.firmId = firmId;
+        this.maxRetries = maxRetries;
+        this.client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(TIMEOUT)
+                .build();
+    }
+
+    /**
+     * Creates a new HTTP client with default retry count (3).
+     *
      * @param baseUrl the API base URL
      * @param apiKey  the API key for Bearer authentication
      * @param firmId  optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
      */
     HttpClient(String baseUrl, String apiKey, String firmId) {
-        this.baseUrl = baseUrl;
-        this.apiKey = apiKey;
-        this.firmId = firmId;
-        this.client = java.net.http.HttpClient.newBuilder()
-                .connectTimeout(TIMEOUT)
-                .build();
+        this(baseUrl, apiKey, firmId, 3);
     }
 
     // -- convenience request methods ------------------------------------------
@@ -299,26 +317,70 @@ public final class HttpClient {
     }
 
     private <T> T execute(HttpRequest request, Class<T> type) {
-        HttpResponse<String> response;
-        try {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
-            throw new EPostakException(0, e.getMessage());
+        boolean retryable = RETRYABLE_METHODS.contains(request.method());
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            HttpResponse<String> response;
+            try {
+                response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            } catch (IOException | InterruptedException e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                throw new EPostakException(0, e.getMessage());
+            }
+
+            int status = response.statusCode();
+
+            // Retry on 429 or 5xx for safe methods
+            if (retryable && attempt < maxRetries && (status == 429 || status >= 500)) {
+                long delayMs = calculateDelayMs(attempt, response);
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new EPostakException(0, "Retry interrupted");
+                }
+                continue;
+            }
+
+            if (status >= 400) {
+                handleError(status, response.body());
+            }
+
+            // 204 No Content or empty body
+            if (status == 204 || response.body() == null || response.body().isEmpty()) {
+                return null;
+            }
+
+            return GSON.fromJson(response.body(), type);
         }
 
-        int status = response.statusCode();
+        throw new EPostakException(0, "Max retries exceeded");
+    }
 
-        if (status >= 400) {
-            handleError(status, response.body());
+    /**
+     * Calculate the backoff delay in milliseconds.
+     * Uses exponential backoff with jitter: min(base_delay * 2^attempt + jitter, 30s).
+     * Respects the Retry-After header on 429 responses.
+     */
+    private long calculateDelayMs(int attempt, HttpResponse<?> response) {
+        double baseDelay = 0.5;
+        double maxDelay = 30.0;
+
+        if (response.statusCode() == 429) {
+            var retryAfter = response.headers().firstValue("Retry-After");
+            if (retryAfter.isPresent()) {
+                try {
+                    double seconds = Double.parseDouble(retryAfter.get());
+                    return (long) (Math.min(seconds, maxDelay) * 1000);
+                } catch (NumberFormatException ignored) {
+                    // Fall through to exponential backoff
+                }
+            }
         }
 
-        // 204 No Content or empty body
-        if (status == 204 || response.body() == null || response.body().isEmpty()) {
-            return null;
-        }
-
-        return GSON.fromJson(response.body(), type);
+        double jitter = ThreadLocalRandom.current().nextDouble(); // 0–1s of jitter
+        double delay = Math.min(baseDelay * Math.pow(2, attempt) + jitter, maxDelay);
+        return (long) (delay * 1000);
     }
 
     private void handleError(int status, String body) {

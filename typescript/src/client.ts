@@ -25,6 +25,13 @@ export interface EPostakConfig {
    * (`sk_int_*`). Each API call will include `X-Firm-Id` header.
    */
   firmId?: string;
+  /**
+   * Maximum number of automatic retries on 429 (rate-limit) and 5xx errors.
+   * Uses exponential backoff with jitter. Defaults to 3, set 0 to disable.
+   * Only GET and DELETE are retried by default; POST/PATCH/PUT require
+   * explicit opt-in via the `retry` option on individual requests.
+   */
+  maxRetries?: number;
 }
 
 /**
@@ -65,6 +72,7 @@ export class EPostak {
       apiKey: config.apiKey,
       baseUrl: config.baseUrl ?? DEFAULT_BASE_URL,
       firmId: config.firmId,
+      maxRetries: config.maxRetries ?? 3,
     };
 
     this.documents = new DocumentsResource(this.clientConfig);
@@ -102,6 +110,7 @@ export class EPostak {
       apiKey: this.clientConfig.apiKey,
       baseUrl: this.clientConfig.baseUrl,
       firmId,
+      maxRetries: this.clientConfig.maxRetries,
     });
   }
 }

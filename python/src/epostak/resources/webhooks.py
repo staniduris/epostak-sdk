@@ -128,9 +128,17 @@ class WebhooksResource(_BaseResource):
     queue: WebhookQueueResource
     """Access the webhook pull queue for polling-based consumption."""
 
-    def __init__(self, client: httpx.Client, base_url: str, api_key: str, firm_id: Optional[str]) -> None:
-        super().__init__(client, base_url, api_key, firm_id)
-        self.queue = WebhookQueueResource(client, base_url, api_key, firm_id)
+    def __init__(
+        self,
+        client: httpx.Client,
+        base_url: str,
+        api_key: str,
+        firm_id: Optional[str],
+        *,
+        max_retries: int = 3,
+    ) -> None:
+        super().__init__(client, base_url, api_key, firm_id, max_retries=max_retries)
+        self.queue = WebhookQueueResource(client, base_url, api_key, firm_id, max_retries=max_retries)
 
     def create(
         self,

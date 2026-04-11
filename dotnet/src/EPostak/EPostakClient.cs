@@ -89,7 +89,7 @@ public sealed class EPostakClient : IDisposable
         _http = httpClient;
         _ownsHttpClient = ownsHttpClient;
 
-        var requestor = new HttpRequestor(_http, config.ApiKey, config.BaseUrl, config.FirmId);
+        var requestor = new HttpRequestor(_http, config.ApiKey, config.BaseUrl, config.FirmId, config.MaxRetries);
 
         Documents = new DocumentsResource(requestor);
         Firms = new FirmsResource(requestor);
@@ -124,6 +124,7 @@ public sealed class EPostakClient : IDisposable
                 ApiKey = _config.ApiKey,
                 BaseUrl = _config.BaseUrl,
                 FirmId = firmId,
+                MaxRetries = _config.MaxRetries,
             },
             _http,
             ownsHttpClient: false);

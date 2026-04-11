@@ -43,19 +43,21 @@ module EPostak
     # @param base_url [String] Base URL for the API. Override for staging or local testing.
     # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when using
     #   integrator keys (+sk_int_*+). Sets the +X-Firm-Id+ header on each request.
+    # @param max_retries [Integer] Maximum retries on 429/5xx responses (default: 3).
     #
     # @raise [ArgumentError] If api_key is nil or empty
     #
     # @example
     #   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
-    def initialize(api_key:, base_url: EPostak::DEFAULT_BASE_URL, firm_id: nil)
+    def initialize(api_key:, base_url: EPostak::DEFAULT_BASE_URL, firm_id: nil, max_retries: 3)
       raise ArgumentError, "api_key is required" if api_key.nil? || api_key.empty?
 
-      @api_key  = api_key
-      @base_url = base_url
-      @firm_id  = firm_id
+      @api_key     = api_key
+      @base_url    = base_url
+      @firm_id     = firm_id
+      @max_retries = max_retries
 
-      http = HttpClient.new(api_key: @api_key, base_url: @base_url, firm_id: @firm_id)
+      http = HttpClient.new(api_key: @api_key, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
       @documents = Resources::Documents.new(http)
       @firms     = Resources::Firms.new(http)
@@ -83,7 +85,7 @@ module EPostak
     #   firm_b = integrator.with_firm("firm-b-uuid")
     #   firm_b.documents.inbox.list
     def with_firm(firm_id)
-      self.class.new(api_key: @api_key, base_url: @base_url, firm_id: firm_id)
+      self.class.new(api_key: @api_key, base_url: @base_url, firm_id: firm_id, max_retries: @max_retries)
     end
   end
 end

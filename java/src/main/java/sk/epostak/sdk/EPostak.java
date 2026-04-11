@@ -37,6 +37,9 @@ public final class EPostak {
     private final ExtractResource extract;
     private final AccountResource account;
 
+    /** Maximum number of retries on 429/5xx. */
+    private final int maxRetries;
+
     private EPostak(Builder builder) {
         if (builder.apiKey == null || builder.apiKey.isBlank()) {
             throw new IllegalArgumentException("EPostak: apiKey is required");
@@ -45,7 +48,8 @@ public final class EPostak {
         this.apiKey = builder.apiKey;
         this.baseUrl = builder.baseUrl != null ? builder.baseUrl : DEFAULT_BASE_URL;
         this.firmId = builder.firmId;
-        this.httpClient = new HttpClient(this.baseUrl, this.apiKey, this.firmId);
+        this.maxRetries = builder.maxRetries;
+        this.httpClient = new HttpClient(this.baseUrl, this.apiKey, this.firmId, this.maxRetries);
 
         this.documents = new DocumentsResource(httpClient);
         this.firms = new FirmsResource(httpClient);
@@ -138,6 +142,7 @@ public final class EPostak {
                 .apiKey(this.apiKey)
                 .baseUrl(this.baseUrl)
                 .firmId(firmId)
+                .maxRetries(this.maxRetries)
                 .build();
     }
 
@@ -155,6 +160,8 @@ public final class EPostak {
         private String baseUrl;
         /** Firm UUID for integrator key scoping. Optional. */
         private String firmId;
+        /** Maximum retries on 429/5xx for GET/DELETE. Defaults to 3. */
+        private int maxRetries = 3;
 
         private Builder() {}
 
@@ -191,6 +198,18 @@ public final class EPostak {
          */
         public Builder firmId(String firmId) {
             this.firmId = firmId;
+            return this;
+        }
+
+        /**
+         * Set the maximum number of retries on 429/5xx responses for GET/DELETE requests.
+         * Uses exponential backoff with jitter. Defaults to 3. Set to 0 to disable.
+         *
+         * @param maxRetries the maximum number of retries
+         * @return this builder
+         */
+        public Builder maxRetries(int maxRetries) {
+            this.maxRetries = maxRetries;
             return this;
         }
 

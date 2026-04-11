@@ -8,7 +8,15 @@ export interface ClientConfig {
   apiKey: string;
   /** Optional firm UUID for integrator keys — sent as `X-Firm-Id` header */
   firmId: string | undefined;
+  /** Maximum number of retries on 429/5xx errors. Default 3, set 0 to disable. */
+  maxRetries: number;
 }
+
+const DEFAULT_MAX_RETRIES = 3;
+const BASE_DELAY_MS = 500;
+const MAX_DELAY_MS = 30_000;
+/** HTTP methods retried by default (idempotent / safe). */
+const DEFAULT_RETRYABLE_METHODS = new Set(["GET", "DELETE"]);
 
 /**
  * Base class for all API resource classes. Provides the authenticated `request()`
@@ -33,7 +41,12 @@ export class BaseResource {
     method: string,
     path: string,
     body?: unknown,
-    options?: { headers?: Record<string, string>; rawResponse?: boolean },
+    options?: {
+      headers?: Record<string, string>;
+      rawResponse?: boolean;
+      /** Allow retries even for non-idempotent methods (POST/PATCH/PUT). */
+      retry?: boolean;
+    },
   ): Promise<T> {
     return request<T>(
       this.config.baseUrl,
@@ -42,7 +55,10 @@ export class BaseResource {
       method,
       path,
       body,
-      options,
+      {
+        ...options,
+        maxRetries: this.config.maxRetries,
+      },
     );
   }
 }
@@ -62,11 +78,28 @@ export function buildQuery(
   return s ? `?${s}` : "";
 }
 
+/** Sleep helper for retry backoff. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Compute delay for a retry attempt with exponential backoff + jitter. */
+function retryDelay(attempt: number): number {
+  const jitter = Math.random() * BASE_DELAY_MS;
+  return Math.min(BASE_DELAY_MS * 2 ** attempt + jitter, MAX_DELAY_MS);
+}
+
+/** Whether the HTTP status code is retryable (429 or 5xx). */
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 /**
  * Core fetch wrapper used by all resource methods.
  * Handles Bearer authentication, `X-Firm-Id` header for integrator keys,
- * JSON serialization, FormData pass-through, and error normalization
- * into {@link EPostakError} instances.
+ * JSON serialization, FormData pass-through, error normalization
+ * into {@link EPostakError} instances, and automatic retries with
+ * exponential backoff on 429 / 5xx responses.
  *
  * @param baseUrl - API base URL
  * @param apiKey - Bearer token for authentication
@@ -74,9 +107,9 @@ export function buildQuery(
  * @param method - HTTP method (GET, POST, PATCH, DELETE)
  * @param path - API endpoint path (appended to baseUrl)
  * @param body - Request body — JSON-serializable object or FormData
- * @param options - Additional headers or `rawResponse: true` to return the raw `Response`
+ * @param options - Additional headers, `rawResponse: true`, retry overrides, or `maxRetries`
  * @returns Parsed JSON response of type `T`, raw `Response` if rawResponse is true, or `undefined` for 204 responses
- * @throws {EPostakError} On non-2xx responses or network errors
+ * @throws {EPostakError} On non-2xx responses (after exhausting retries) or network errors
  */
 export async function request<T>(
   baseUrl: string,
@@ -85,7 +118,14 @@ export async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  options?: { headers?: Record<string, string>; rawResponse?: boolean },
+  options?: {
+    headers?: Record<string, string>;
+    rawResponse?: boolean;
+    /** Allow retries for non-idempotent methods (POST/PATCH/PUT). */
+    retry?: boolean;
+    /** Maximum number of retries. Defaults to {@link DEFAULT_MAX_RETRIES}. */
+    maxRetries?: number;
+  },
 ): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -107,37 +147,66 @@ export async function request<T>(
     fetchBody = JSON.stringify(body);
   }
 
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers,
-      body: fetchBody,
-    });
-  } catch (err) {
-    throw new EPostakError(0, {
-      error: err instanceof Error ? err.message : "Network error",
-    });
-  }
+  const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const upperMethod = method.toUpperCase();
+  const canRetry =
+    maxRetries > 0 &&
+    (DEFAULT_RETRYABLE_METHODS.has(upperMethod) || options?.retry === true);
 
-  if (!res.ok) {
-    let errorBody: Record<string, unknown> = {};
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let res: Response;
     try {
-      errorBody = (await res.json()) as Record<string, unknown>;
-    } catch {
-      errorBody = { error: res.statusText };
+      res = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers,
+        body: fetchBody,
+      });
+    } catch (err) {
+      throw new EPostakError(0, {
+        error: err instanceof Error ? err.message : "Network error",
+      });
     }
-    throw new EPostakError(res.status, errorBody);
-  }
 
-  if (options?.rawResponse) {
-    return res as unknown as T;
-  }
+    // Retry on retryable status codes if we have attempts left
+    if (canRetry && isRetryableStatus(res.status) && attempt < maxRetries) {
+      // Respect Retry-After header (value in seconds) when present
+      const retryAfterHeader = res.headers.get("Retry-After");
+      let delayMs: number;
+      if (retryAfterHeader) {
+        const retryAfterSeconds = Number(retryAfterHeader);
+        delayMs = Number.isFinite(retryAfterSeconds)
+          ? retryAfterSeconds * 1000
+          : retryDelay(attempt);
+      } else {
+        delayMs = retryDelay(attempt);
+      }
+      await sleep(delayMs);
+      attempt++;
+      continue;
+    }
 
-  // Handle 204 No Content (e.g. DELETE ack, batch-ack)
-  if (res.status === 204 || res.headers.get("content-length") === "0") {
-    return undefined as unknown as T;
-  }
+    if (!res.ok) {
+      let errorBody: Record<string, unknown> = {};
+      try {
+        errorBody = (await res.json()) as Record<string, unknown>;
+      } catch {
+        errorBody = { error: res.statusText };
+      }
+      throw new EPostakError(res.status, errorBody);
+    }
 
-  return res.json() as Promise<T>;
+    if (options?.rawResponse) {
+      return res as unknown as T;
+    }
+
+    // Handle 204 No Content (e.g. DELETE ack, batch-ack)
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as unknown as T;
+    }
+
+    return res.json() as Promise<T>;
+  }
 }

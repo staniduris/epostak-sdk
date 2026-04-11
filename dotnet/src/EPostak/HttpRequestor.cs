@@ -17,6 +17,10 @@ internal sealed class HttpRequestor
     private readonly string _apiKey;
     private readonly string? _firmId;
     private readonly string _baseUrl;
+    private readonly int _maxRetries;
+
+    /// <summary>HTTP methods that are safe to retry by default.</summary>
+    private static readonly HashSet<HttpMethod> RetryableMethods = new() { HttpMethod.Get, HttpMethod.Delete };
 
     /// <summary>
     /// Shared JSON serializer options used across all requests: snake_case naming,
@@ -29,6 +33,8 @@ internal sealed class HttpRequestor
         PropertyNameCaseInsensitive = true,
     };
 
+    private static readonly Random Rng = new();
+
     /// <summary>
     /// Create a new requestor bound to an API key and optional firm scope.
     /// </summary>
@@ -36,12 +42,14 @@ internal sealed class HttpRequestor
     /// <param name="apiKey">Bearer token for API authentication.</param>
     /// <param name="baseUrl">Base URL of the API (trailing slash is trimmed).</param>
     /// <param name="firmId">Optional firm UUID to include as <c>X-Firm-Id</c> header on every request.</param>
-    internal HttpRequestor(HttpClient http, string apiKey, string baseUrl, string? firmId)
+    /// <param name="maxRetries">Maximum number of retries on 429/5xx for GET/DELETE requests (default 3).</param>
+    internal HttpRequestor(HttpClient http, string apiKey, string baseUrl, string? firmId, int maxRetries = 3)
     {
         _http = http;
         _apiKey = apiKey;
         _baseUrl = baseUrl.TrimEnd('/');
         _firmId = firmId;
+        _maxRetries = maxRetries;
     }
 
     /// <summary>
@@ -163,77 +171,184 @@ internal sealed class HttpRequestor
     /// <summary>
     /// Send a request, check for errors, and deserialize the JSON response body.
     /// Returns <c>default</c> for 204 No Content responses.
+    /// Retries on 429/5xx for GET/DELETE methods with exponential backoff.
     /// </summary>
     private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken ct)
     {
-        HttpResponseMessage response;
-        try
+        var retryable = RetryableMethods.Contains(request.Method);
+
+        for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
-            response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            throw new EPostakException($"Network error: {ex.Message}", ex);
+            HttpResponseMessage response;
+            // Clone the request for retries (HttpRequestMessage can only be sent once)
+            using var req = attempt == 0 ? request : CloneRequest(request);
+            try
+            {
+                response = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                throw new EPostakException($"Network error: {ex.Message}", ex);
+            }
+
+            using (response)
+            {
+                if (retryable && attempt < _maxRetries && ShouldRetry(response))
+                {
+                    await DelayForRetry(attempt, response, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                    await ThrowApiError(response, ct).ConfigureAwait(false);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+                    return default!;
+
+                var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                return (await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct).ConfigureAwait(false))!;
+            }
         }
 
-        using (response)
-        {
-            if (!response.IsSuccessStatusCode)
-                await ThrowApiError(response, ct).ConfigureAwait(false);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
-                return default!;
-
-            var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            return (await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, ct).ConfigureAwait(false))!;
-        }
+        throw new EPostakException(0, "Max retries exceeded");
     }
 
     /// <summary>
     /// Send a request and check for errors, discarding the response body.
+    /// Retries on 429/5xx for GET/DELETE methods with exponential backoff.
     /// </summary>
     private async Task SendVoidAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        HttpResponseMessage response;
-        try
-        {
-            response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            throw new EPostakException($"Network error: {ex.Message}", ex);
-        }
+        var retryable = RetryableMethods.Contains(request.Method);
 
-        using (response)
+        for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
-            if (!response.IsSuccessStatusCode)
-                await ThrowApiError(response, ct).ConfigureAwait(false);
+            HttpResponseMessage response;
+            using var req = attempt == 0 ? request : CloneRequest(request);
+            try
+            {
+                response = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                throw new EPostakException($"Network error: {ex.Message}", ex);
+            }
+
+            using (response)
+            {
+                if (retryable && attempt < _maxRetries && ShouldRetry(response))
+                {
+                    await DelayForRetry(attempt, response, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                    await ThrowApiError(response, ct).ConfigureAwait(false);
+            }
+
+            return;
         }
     }
 
     /// <summary>
     /// Send a request and return the raw response (caller owns disposal).
     /// Throws <see cref="EPostakException"/> on non-success status codes.
+    /// Retries on 429/5xx for GET/DELETE methods with exponential backoff.
     /// </summary>
     private async Task<HttpResponseMessage> SendRawAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        HttpResponseMessage response;
-        try
+        var retryable = RetryableMethods.Contains(request.Method);
+
+        for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
-            response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            throw new EPostakException($"Network error: {ex.Message}", ex);
+            HttpResponseMessage response;
+            using var req = attempt == 0 ? request : CloneRequest(request);
+            try
+            {
+                response = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                throw new EPostakException($"Network error: {ex.Message}", ex);
+            }
+
+            if (retryable && attempt < _maxRetries && ShouldRetry(response))
+            {
+                var retryDelay = GetRetryDelay(attempt, response);
+                response.Dispose();
+                await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+                continue;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                using (response)
+                    await ThrowApiError(response, ct).ConfigureAwait(false);
+            }
+
+            return response;
         }
 
-        if (!response.IsSuccessStatusCode)
+        throw new EPostakException(0, "Max retries exceeded");
+    }
+
+    /// <summary>Check if a response status indicates a retryable condition (429 or 5xx).</summary>
+    private static bool ShouldRetry(HttpResponseMessage response)
+    {
+        var code = (int)response.StatusCode;
+        return code == 429 || code >= 500;
+    }
+
+    /// <summary>
+    /// Calculate and await the backoff delay. Respects Retry-After header on 429.
+    /// Formula: min(base_delay * 2^attempt + jitter, 30s).
+    /// </summary>
+    private static async Task DelayForRetry(int attempt, HttpResponseMessage response, CancellationToken ct)
+    {
+        await Task.Delay(GetRetryDelay(attempt, response), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Calculate the backoff delay as a TimeSpan. Safe to call before disposing the response.
+    /// </summary>
+    private static TimeSpan GetRetryDelay(int attempt, HttpResponseMessage response)
+    {
+        const double baseDelay = 0.5;
+        const double maxDelay = 30.0;
+
+        double delay;
+
+        if ((int)response.StatusCode == 429 && response.Headers.RetryAfter is not null)
         {
-            using (response)
-                await ThrowApiError(response, ct).ConfigureAwait(false);
+            if (response.Headers.RetryAfter.Delta is { } delta)
+            {
+                delay = Math.Min(delta.TotalSeconds, maxDelay);
+            }
+            else if (response.Headers.RetryAfter.Date is { } date)
+            {
+                delay = Math.Min(Math.Max(0, (date - DateTimeOffset.UtcNow).TotalSeconds), maxDelay);
+            }
+            else
+            {
+                delay = Math.Min(baseDelay * Math.Pow(2, attempt) + Rng.NextDouble(), maxDelay);
+            }
+        }
+        else
+        {
+            delay = Math.Min(baseDelay * Math.Pow(2, attempt) + Rng.NextDouble(), maxDelay);
         }
 
-        return response;
+        return TimeSpan.FromSeconds(delay);
+    }
+
+    /// <summary>Clone an HttpRequestMessage for retry (original can only be sent once).</summary>
+    private static HttpRequestMessage CloneRequest(HttpRequestMessage original)
+    {
+        var clone = new HttpRequestMessage(original.Method, original.RequestUri);
+        foreach (var header in original.Headers)
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        clone.Content = original.Content;
+        return clone;
     }
 
     /// <summary>

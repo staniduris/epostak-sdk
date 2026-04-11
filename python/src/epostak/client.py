@@ -32,6 +32,10 @@ class EPostak:
         base_url: Base URL for the API. Defaults to ``https://epostak.sk/api/enterprise``.
         firm_id: Firm UUID to act on behalf of. Required when using integrator
             keys (``sk_int_*``). Each API call will include ``X-Firm-Id`` header.
+        max_retries: Maximum number of retry attempts for failed requests
+            (default 3). Retries use exponential backoff with jitter and apply
+            to GET/DELETE requests that receive HTTP 429 or 5xx responses.
+            Set to 0 to disable retries.
 
     Example::
 
@@ -71,6 +75,7 @@ class EPostak:
         *,
         base_url: str = DEFAULT_BASE_URL,
         firm_id: Optional[str] = None,
+        max_retries: int = 3,
     ) -> None:
         if not api_key or not isinstance(api_key, str):
             raise ValueError("EPostak: api_key is required")
@@ -78,15 +83,17 @@ class EPostak:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._firm_id = firm_id
+        self._max_retries = max_retries
         self._client = httpx.Client()
 
-        self.documents = DocumentsResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.firms = FirmsResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.peppol = PeppolResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.webhooks = WebhooksResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.reporting = ReportingResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.extract = ExtractResource(self._client, self._base_url, self._api_key, self._firm_id)
-        self.account = AccountResource(self._client, self._base_url, self._api_key, self._firm_id)
+        retry_kw = {"max_retries": max_retries}
+        self.documents = DocumentsResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.firms = FirmsResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.peppol = PeppolResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.webhooks = WebhooksResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.reporting = ReportingResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.extract = ExtractResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        self.account = AccountResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
 
     def with_firm(self, firm_id: str) -> EPostak:
         """Create a new client instance scoped to a specific firm.
@@ -110,6 +117,7 @@ class EPostak:
             api_key=self._api_key,
             base_url=self._base_url,
             firm_id=firm_id,
+            max_retries=self._max_retries,
         )
 
     def close(self) -> None:
