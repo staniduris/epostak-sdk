@@ -12,8 +12,12 @@
  * } catch (err) {
  *   if (err instanceof EPostakError) {
  *     console.error(`HTTP ${err.status}: ${err.message}`);
- *     if (err.code === 'VALIDATION_ERROR') {
- *       console.error('Details:', err.details);
+ *     if (err.code === 'VALIDATION_FAILED') {
+ *       // Peppol BIS 3.0 validation failed — err.details has the errors
+ *       console.error('Validation errors:', err.details);
+ *     } else if (err.code === 'VALIDATION_ERROR') {
+ *       // Input validation (missing fields, bad format, etc.)
+ *       console.error('Input errors:', err.details);
  *     }
  *   }
  * }

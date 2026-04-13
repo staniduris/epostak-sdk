@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 — 2026-04-14
+
+### Breaking behavior change
+
+- **`documents.send()` now throws 422 `VALIDATION_FAILED`** when a document fails Peppol BIS 3.0 Schematron validation. Previously, validation failures were silently queued. `err.details` contains the list of validation errors. Use `documents.validate()` to pre-check.
+- **`documents.send()` returns 502 `SEND_FAILED`** on Peppol network transport failures (retryable). Queue insertion failures no longer return a false `202 QUEUED`.
+
+### Documentation
+
+- Added `@throws` JSDoc to `documents.send()` for 422 and 502 error codes
+- Updated error handling examples with `VALIDATION_FAILED` / `SEND_FAILED` codes
+- Added error code table to README
+
+### Languages
+
+All documentation changes applied to: TypeScript
+
+---
+
 ## 1.1.0 — 2026-04-11
 
 ### New endpoints

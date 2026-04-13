@@ -269,12 +269,19 @@ try {
 } catch (err) {
   if (err instanceof EPostakError) {
     console.error(err.status);   // HTTP status (0 for network errors)
-    console.error(err.code);     // e.g. 'VALIDATION_ERROR'
+    console.error(err.code);     // e.g. 'VALIDATION_FAILED', 'SEND_FAILED'
     console.error(err.message);  // Human-readable
-    console.error(err.details);  // Validation details (422)
+    console.error(err.details);  // Validation error list (422)
   }
 }
 ```
+
+**Common error codes from `documents.send()`:**
+
+| Status | Code                | Meaning                                                                  |
+| ------ | ------------------- | ------------------------------------------------------------------------ |
+| 422    | `VALIDATION_FAILED` | Document failed Peppol BIS 3.0 validation. `details` has the error list. |
+| 502    | `SEND_FAILED`       | Peppol network temporarily unavailable. Retryable.                       |
 
 ---
 

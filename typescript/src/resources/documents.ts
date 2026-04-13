@@ -190,6 +190,10 @@ export class DocumentsResource extends BaseResource {
    *
    * @param body - Invoice data as JSON fields or raw UBL XML
    * @returns Document ID, Peppol message ID, and status confirmation
+   * @throws {EPostakError} 422 `VALIDATION_FAILED` — the document failed Peppol BIS 3.0
+   *   Schematron validation. `err.details` contains the list of validation errors.
+   *   Use `documents.validate()` to pre-check before sending.
+   * @throws {EPostakError} 502 `SEND_FAILED` — Peppol network temporarily unavailable. Retryable.
    *
    * @example
    * ```typescript
