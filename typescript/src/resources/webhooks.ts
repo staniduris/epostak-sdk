@@ -14,6 +14,7 @@ import type {
   WebhookTestResponse,
   WebhookDeliveriesParams,
   WebhookDeliveriesResponse,
+  WebhookRotateSecretResponse,
   WebhookEvent,
 } from "../types.js";
 
@@ -313,6 +314,34 @@ export class WebhooksResource extends BaseResource {
         status: params?.status,
         event: params?.event,
       })}`,
+    );
+  }
+
+  /**
+   * Rotate a webhook's signing secret. Issues a fresh HMAC-SHA256 secret and
+   * invalidates the previous one immediately. The new secret is returned
+   * ONCE — store it right away, there is no way to retrieve it later.
+   * Any in-flight deliveries signed with the old secret will no longer
+   * verify on the receiving side, so deploy the new secret to your
+   * verification code before or just after calling this.
+   *
+   * Use this when the current secret may have leaked (logs, ops handoff,
+   * ex-employee access) — it is a non-destructive alternative to
+   * delete-and-recreate.
+   *
+   * @param id - Webhook UUID whose secret to rotate
+   * @returns The new signing secret (only shown once) + confirmation message
+   *
+   * @example
+   * ```typescript
+   * const { secret } = await client.webhooks.rotateSecret('webhook-uuid');
+   * // Immediately store `secret` in your secrets manager.
+   * ```
+   */
+  rotateSecret(id: string): Promise<WebhookRotateSecretResponse> {
+    return this.request(
+      "POST",
+      `/webhooks/${encodeURIComponent(id)}/rotate-secret`,
     );
   }
 }

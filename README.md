@@ -39,16 +39,15 @@ const result = await client.documents.send({
 
 ---
 
-## Peppol Participant ID Formats (Slovakia)
+## Peppol Participant ID Format (Slovakia)
 
-Slovak participants can be identified using these Peppol schemes:
+Per Slovak PASR requirements, Slovak participants are identified with a single Peppol scheme:
 
-| Scheme | Identifier                         | Format              | Example             |
-| ------ | ---------------------------------- | ------------------- | ------------------- |
-| `0245` | DIČ (daňové identifikačné číslo)   | `0245:XXXXXXXXXX`   | `0245:1234567890`   |
-| `9950` | IČ DPH (VAT number with SK prefix) | `9950:SKXXXXXXXXXX` | `9950:SK1234567890` |
+| Scheme | Identifier                       | Format            | Example           |
+| ------ | -------------------------------- | ----------------- | ----------------- |
+| `0245` | DIČ (daňové identifikačné číslo) | `0245:XXXXXXXXXX` | `0245:1234567890` |
 
-Use `0245:DIČ` for tax-registered businesses. Use `9950:SKXXXXXXXXXX` as an alternative using the EU VAT number format.
+Use `0245:DIČ` for all Slovak firms. The `9950:SK...` VAT-number form is **not** supported by ePošťák — PASR mandates a single canonical scheme.
 
 ---
 

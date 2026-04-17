@@ -35,12 +35,13 @@ console.log(result.documentId, result.messageId);
 
 ---
 
-## Peppol ID Formats (Slovakia)
+## Peppol ID Format (Slovakia)
 
-| Scheme | Identifier              | Format              | Example             |
-| ------ | ----------------------- | ------------------- | ------------------- |
-| `0245` | DIČ                     | `0245:XXXXXXXXXX`   | `0245:1234567890`   |
-| `9950` | IČ DPH (with SK prefix) | `9950:SKXXXXXXXXXX` | `9950:SK1234567890` |
+| Scheme | Identifier | Format            | Example           |
+| ------ | ---------- | ----------------- | ----------------- |
+| `0245` | DIČ        | `0245:XXXXXXXXXX` | `0245:1234567890` |
+
+Per Slovak PASR, only `0245:DIČ` is used. The `9950:SK...` VAT form is not supported.
 
 ---
 

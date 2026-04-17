@@ -55,7 +55,10 @@ export interface LineItem {
   unit?: string;
   /** Price per single unit, excluding VAT */
   unitPrice: number;
-  /** VAT rate as a percentage (e.g. `23` for the standard Slovak 23% rate) */
+  /**
+   * VAT rate as a percentage. Slovak legal rates only: `0`, `5`, `10`, `19`, `23`.
+   * Any other value is rejected by the API with `422 VALIDATION_ERROR`.
+   */
   vatRate: number;
   /** Optional discount as a percentage applied to this line (e.g. `10` for 10% off) */
   discount?: number;
@@ -924,6 +927,20 @@ export interface WebhookDeliveriesResponse {
   limit: number;
   /** Offset used for pagination */
   offset: number;
+}
+
+/**
+ * Response from rotating a webhook's signing secret. The new secret is
+ * returned ONCE — store it immediately. The previous secret is invalidated
+ * on the server side and will not verify HMAC signatures from this point on.
+ */
+export interface WebhookRotateSecretResponse {
+  /** The webhook UUID whose secret was rotated */
+  id: string;
+  /** The new HMAC-SHA256 signing secret (only returned once) */
+  secret: string;
+  /** Human-readable confirmation message */
+  message: string;
 }
 
 // ---------------------------------------------------------------------------

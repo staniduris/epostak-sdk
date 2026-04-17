@@ -243,7 +243,7 @@ response = client.firms.documents("firm-uuid", direction: "inbound", limit: 100)
 
 #### Register a Peppol identifier
 
-Slovak Peppol ID format: `0245:DIC` (e.g. `0245:1234567890`) or `9950:SKXXXXXXXXXX` (e.g. `9950:SK1234567890`).
+Slovak Peppol ID format: `0245:DIC` (e.g. `0245:1234567890`). Per Slovak PASR, only the `0245` scheme is used — the `9950:SK...` VAT form is not supported.
 
 ```ruby
 result = client.firms.register_peppol_id("firm-uuid",
@@ -498,16 +498,15 @@ Common error statuses:
 | 429    | Rate limited (retry after delay)               |
 | 500    | Server error                                   |
 
-## Peppol ID formats
+## Peppol ID format
 
-Slovak Peppol identifiers use these schemes:
+Slovak Peppol identifiers use a single scheme per Slovak PASR:
 
-| Scheme | Format              | Example             |
-| ------ | ------------------- | ------------------- |
-| `0245` | DIC (tax ID number) | `0245:1234567890`   |
-| `9950` | SK + DIC            | `9950:SK1234567890` |
+| Scheme | Format              | Example           |
+| ------ | ------------------- | ----------------- |
+| `0245` | DIC (tax ID number) | `0245:1234567890` |
 
-**Never use scheme `0191`** -- that is not valid for Slovak participants.
+**Do not use scheme `9950:SK...`** (VAT-number form) or `0191` — neither is valid for Slovak participants.
 
 ## License
 

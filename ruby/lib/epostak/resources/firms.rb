@@ -62,8 +62,9 @@ module EPostak
       # Register a new Peppol identifier for a firm. This enables the firm
       # to send and receive documents on the Peppol network under this identifier.
       #
-      # Slovak Peppol ID format: "0245:DIC" (e.g. "0245:1234567890")
-      # or "9950:SKXXXXXXXXXX" (e.g. "9950:SK1234567890").
+      # Slovak Peppol ID format: "0245:DIC" (e.g. "0245:1234567890"). Per
+      # Slovak PASR, only the 0245 scheme is used — "9950:SK..." is not
+      # supported.
       #
       # @param id [String] Firm UUID
       # @param scheme [String] Peppol identifier scheme (e.g. "0245")
