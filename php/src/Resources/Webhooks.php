@@ -146,4 +146,24 @@ class Webhooks
             'query' => $params,
         ]);
     }
+
+    /**
+     * Rotate a webhook's HMAC-SHA256 signing secret. The new secret is
+     * returned ONCE — store it immediately. The previous secret is
+     * invalidated on the server side; any in-flight deliveries signed
+     * with it will stop verifying. Non-destructive alternative to
+     * delete+recreate when a secret leaks.
+     *
+     * @param string $id Webhook UUID.
+     * @return array { id: string, secret: string, message: string } — secret only shown once.
+     * @throws EPostakError On API error.
+     *
+     * @example
+     *   $res = $client->webhooks->rotateSecret('webhook-uuid');
+     *   file_put_contents('/secure/webhook-secret', $res['secret']);
+     */
+    public function rotateSecret(string $id): array
+    {
+        return $this->http->request('POST', '/webhooks/' . urlencode($id) . '/rotate-secret');
+    }
 }

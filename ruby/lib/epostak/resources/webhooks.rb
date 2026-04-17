@@ -132,6 +132,23 @@ module EPostak
         @http.request(:get, "/webhooks/#{encode(id)}/deliveries", params: params)
       end
 
+      # Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret
+      # and invalidates the previous one immediately. The new secret is
+      # returned ONCE — store it right away; there is no way to retrieve it
+      # later. In-flight deliveries signed with the old secret will no longer
+      # verify on the receiving side. Non-destructive alternative to
+      # delete+recreate when a secret leaks.
+      #
+      # @param id [String] Webhook UUID whose secret to rotate
+      # @return [Hash] { "id" => ..., "secret" => ..., "message" => ... } — secret only shown once
+      #
+      # @example
+      #   res = client.webhooks.rotate_secret("webhook-uuid")
+      #   ENV["EPOSTAK_WEBHOOK_SECRET"] = res["secret"]
+      def rotate_secret(id)
+        @http.request(:post, "/webhooks/#{encode(id)}/rotate-secret")
+      end
+
       private
 
       def encode(value)

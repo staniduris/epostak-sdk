@@ -163,4 +163,29 @@ public sealed class WebhooksResource
         var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
         return _http.RequestAsync<WebhookDeliveriesResponse>(HttpMethod.Get, $"/webhooks/{Uri.EscapeDataString(id)}/deliveries{qs}", ct);
     }
+
+    /// <summary>
+    /// Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret
+    /// and invalidates the previous one immediately. The new secret is
+    /// returned ONCE — store it right away; there is no way to retrieve it
+    /// later. Any in-flight deliveries signed with the old secret will stop
+    /// verifying on the receiving side. Non-destructive alternative to
+    /// delete+recreate when a secret leaks.
+    /// </summary>
+    /// <param name="id">Webhook UUID whose secret to rotate.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The new signing secret (only shown once) and a confirmation message.</returns>
+    /// <example>
+    /// <code>
+    /// var res = await client.Webhooks.RotateSecretAsync("wh_abc123");
+    /// secretsManager.Save("epostak_webhook_secret", res.Secret);
+    /// </code>
+    /// </example>
+    public Task<WebhookRotateSecretResponse> RotateSecretAsync(string id, CancellationToken ct = default)
+    {
+        return _http.RequestAsync<WebhookRotateSecretResponse>(
+            HttpMethod.Post,
+            $"/webhooks/{Uri.EscapeDataString(id)}/rotate-secret",
+            ct);
+    }
 }

@@ -303,3 +303,25 @@ class WebhooksResource(_BaseResource):
         """
         params = _build_query({"limit": limit, "offset": offset, "status": status, "event": event})
         return self._request("GET", f"/webhooks/{quote(id, safe='')}/deliveries", params=params)
+
+    def rotate_secret(self, id: str) -> Dict[str, Any]:
+        """Rotate a webhook's HMAC-SHA256 signing secret.
+
+        Issues a fresh signing secret and invalidates the previous one
+        immediately. The new secret is returned ONCE -- store it right
+        away. In-flight deliveries signed with the old secret will no
+        longer verify on the receiving side. Non-destructive alternative
+        to deleting and recreating the webhook when a secret leaks.
+
+        Args:
+            id: Webhook UUID whose secret to rotate.
+
+        Returns:
+            Dict with ``id``, ``secret`` (only shown once), and ``message``.
+
+        Example::
+
+            res = client.webhooks.rotate_secret("webhook-uuid")
+            save_to_secrets_manager(res["secret"])
+        """
+        return self._request("POST", f"/webhooks/{quote(id, safe='')}/rotate-secret")

@@ -296,6 +296,27 @@ public sealed class WebhookDeliveriesResponse
 }
 
 /// <summary>
+/// Response from rotating a webhook's HMAC-SHA256 signing secret.
+/// The new <see cref="Secret"/> is returned ONCE — store it immediately.
+/// The previous secret is invalidated; in-flight deliveries signed with
+/// it will no longer verify on the receiving side.
+/// </summary>
+public sealed class WebhookRotateSecretResponse
+{
+    /// <summary>The webhook UUID whose secret was rotated.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>The new HMAC-SHA256 signing secret (only returned once).</summary>
+    [JsonPropertyName("secret")]
+    public string Secret { get; set; } = string.Empty;
+
+    /// <summary>Human-readable confirmation message.</summary>
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Internal wrapper for the webhooks list API response.
 /// </summary>
 public sealed class WebhookListResponse

@@ -4,6 +4,7 @@ import sk.epostak.sdk.HttpClient;
 import sk.epostak.sdk.models.Webhook;
 import sk.epostak.sdk.models.WebhookDeliveriesResponse;
 import sk.epostak.sdk.models.WebhookDetail;
+import sk.epostak.sdk.models.WebhookRotateSecretResponse;
 import sk.epostak.sdk.models.WebhookTestResponse;
 
 import java.util.LinkedHashMap;
@@ -187,6 +188,26 @@ public final class WebhooksResource {
      */
     public WebhookDeliveriesResponse deliveries(String id) {
         return deliveries(id, null);
+    }
+
+    /**
+     * Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret
+     * and invalidates the previous one immediately. The returned {@code secret}
+     * is shown ONCE — store it right away; there is no way to retrieve it
+     * later. In-flight deliveries signed with the old secret will no longer
+     * verify on the receiving side. Non-destructive alternative to
+     * delete+recreate when a secret leaks.
+     *
+     * @param id webhook UUID whose secret to rotate
+     * @return the new signing secret (only shown once) and a confirmation message
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookRotateSecretResponse rotateSecret(String id) {
+        return http.post(
+            "/webhooks/" + HttpClient.encode(id) + "/rotate-secret",
+            null,
+            WebhookRotateSecretResponse.class
+        );
     }
 
     // -- internal wrappers ----------------------------------------------------
