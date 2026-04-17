@@ -446,7 +446,7 @@ class FirmSummary(TypedDict, total=False):
 class FirmPeppolIdentifier(TypedDict):
     """A Peppol identifier registered for a firm."""
 
-    scheme: str  # Peppol scheme, e.g. "0245" (SK DIČ) or "9950" (SK IČ DPH)
+    scheme: str  # Peppol scheme. SK: "0245" only (DIČ). "9950" is not supported per PASR.
     identifier: str  # Identifier value within the scheme
 
 

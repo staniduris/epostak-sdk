@@ -77,7 +77,7 @@ class PeppolResource(_BaseResource):
         """Look up a Peppol participant via SMP.
 
         Args:
-            scheme: Peppol scheme, e.g. ``"0245"`` (SK DIČ) or ``"9950"`` (SK IČ DPH).
+            scheme: Peppol scheme. For Slovak participants use ``"0245"`` (DIČ) — per Slovak PASR the ``"9950"`` VAT-number form is not supported.
             identifier: Peppol identifier value, e.g. ``"12345678"``.
 
         Returns:
