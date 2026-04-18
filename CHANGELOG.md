@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — 2026-04-18
+
+### Backend pricing change (no SDK code change required)
+
+- **ePošťák Enterprise API switched to pay-per-success billing.** You're charged only when Peppol confirms delivery of an outbound document or when a real inbound document arrives. Validation failures, SMP miss, AS4 transport errors and sandbox firms generate no charge.
+- **Tiered rates** (per firm, per month). Outbound: €0.10 (1–1 000) / €0.08 (1 001–2 000) / €0.06 (2 001+). Inbound: €0.08 / €0.07 / €0.06 in the same tiers. Canonical pricing table lives on the `/api` landing page.
+- **No base fee, no minimum.** Web UI subscriptions (Zadarmo / Štandard / Firma) are free until **2027-01-01**; only API integrators generate revenue in this window.
+- **Sandbox firms** (`is_sandbox = true`) are excluded from metering — safe default for new integrator accounts.
+- **Metering is live but invoicing is gated** by the backend `BILLING_ENABLED` flag until ePošťák receives its Peppol Authority production certificate. Pre-launch API traffic will not be billed retroactively.
+
+No SDK calls, method signatures or error codes change. See https://epostak.sk/api/docs/enterprise for the full billing reference.
+
+---
+
 ## 1.3.0 — 2026-04-17
 
 ### New endpoint
