@@ -166,14 +166,17 @@ $check = $client->documents->preflight('0245:1234567890');
 // => ['receiverPeppolId', 'registered', 'supportsDocumentType', 'smpUrl']
 ```
 
-#### `documents->convert($direction, $data, $xml)` -- Convert between JSON and UBL
+#### `documents->convert($inputFormat, $outputFormat, $document)` -- Convert between JSON and UBL
 
 ```php
 // JSON to UBL
-$result = $client->documents->convert('json_to_ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+$result = $client->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+echo $result['document']; // UBL XML string
 
 // UBL to JSON
-$result = $client->documents->convert('ubl_to_json', null, '<Invoice xmlns="...">...</Invoice>');
+$result = $client->documents->convert('ubl', 'json', '<Invoice xmlns="...">...</Invoice>');
+print_r($result['document']); // associative array
+// $result['output_format'], $result['warnings']
 ```
 
 ---
@@ -524,46 +527,46 @@ try {
 
 ## Full API Endpoint Map
 
-| SDK Method                                    | HTTP   | Path                                 |
-| --------------------------------------------- | ------ | ------------------------------------ |
-| `documents->get($id)`                         | GET    | `/documents/{id}`                    |
-| `documents->update($id, $data)`               | PATCH  | `/documents/{id}`                    |
-| `documents->send($body)`                      | POST   | `/documents/send`                    |
-| `documents->status($id)`                      | GET    | `/documents/{id}/status`             |
-| `documents->evidence($id)`                    | GET    | `/documents/{id}/evidence`           |
-| `documents->pdf($id)`                         | GET    | `/documents/{id}/pdf`                |
-| `documents->ubl($id)`                         | GET    | `/documents/{id}/ubl`                |
-| `documents->respond($id, $status, $note)`     | POST   | `/documents/{id}/respond`            |
-| `documents->validate($body)`                  | POST   | `/documents/validate`                |
-| `documents->preflight($receiverPeppolId)`     | POST   | `/documents/preflight`               |
-| `documents->convert($direction, $data, $xml)` | POST   | `/documents/convert`                 |
-| `documents->inbox->list($params)`             | GET    | `/documents/inbox`                   |
-| `documents->inbox->get($id)`                  | GET    | `/documents/inbox/{id}`              |
-| `documents->inbox->acknowledge($id)`          | POST   | `/documents/inbox/{id}/acknowledge`  |
-| `documents->inbox->listAll($params)`          | GET    | `/documents/inbox/all`               |
-| `peppol->lookup($scheme, $id)`                | GET    | `/peppol/participants/{scheme}/{id}` |
-| `peppol->directory->search($params)`          | GET    | `/peppol/directory/search`           |
-| `peppol->companyLookup($ico)`                 | GET    | `/company/lookup/{ico}`              |
-| `firms->list()`                               | GET    | `/firms`                             |
-| `firms->get($id)`                             | GET    | `/firms/{id}`                        |
-| `firms->documents($id, $params)`              | GET    | `/firms/{id}/documents`              |
-| `firms->registerPeppolId($id, $scheme, $id)`  | POST   | `/firms/{id}/peppol-identifiers`     |
-| `firms->assign($ico)`                         | POST   | `/firms/assign`                      |
-| `firms->assignBatch($icos)`                   | POST   | `/firms/assign/batch`                |
-| `webhooks->create($url, $events)`             | POST   | `/webhooks`                          |
-| `webhooks->list()`                            | GET    | `/webhooks`                          |
-| `webhooks->get($id)`                          | GET    | `/webhooks/{id}`                     |
-| `webhooks->update($id, $data)`                | PATCH  | `/webhooks/{id}`                     |
-| `webhooks->delete($id)`                       | DELETE | `/webhooks/{id}`                     |
-| `webhooks->queue->pull($params)`              | GET    | `/webhook-queue`                     |
-| `webhooks->queue->ack($eventId)`              | DELETE | `/webhook-queue/{eventId}`           |
-| `webhooks->queue->batchAck($ids)`             | POST   | `/webhook-queue/batch-ack`           |
-| `webhooks->queue->pullAll($params)`           | GET    | `/webhook-queue/all`                 |
-| `webhooks->queue->batchAckAll($ids)`          | POST   | `/webhook-queue/all/batch-ack`       |
-| `reporting->statistics($params)`              | GET    | `/reporting/statistics`              |
-| `account->get()`                              | GET    | `/account`                           |
-| `extract->single($path, $mime)`               | POST   | `/extract`                           |
-| `extract->batch($files)`                      | POST   | `/extract/batch`                     |
+| SDK Method                                                   | HTTP   | Path                                 |
+| ------------------------------------------------------------ | ------ | ------------------------------------ |
+| `documents->get($id)`                                        | GET    | `/documents/{id}`                    |
+| `documents->update($id, $data)`                              | PATCH  | `/documents/{id}`                    |
+| `documents->send($body)`                                     | POST   | `/documents/send`                    |
+| `documents->status($id)`                                     | GET    | `/documents/{id}/status`             |
+| `documents->evidence($id)`                                   | GET    | `/documents/{id}/evidence`           |
+| `documents->pdf($id)`                                        | GET    | `/documents/{id}/pdf`                |
+| `documents->ubl($id)`                                        | GET    | `/documents/{id}/ubl`                |
+| `documents->respond($id, $status, $note)`                    | POST   | `/documents/{id}/respond`            |
+| `documents->validate($body)`                                 | POST   | `/documents/validate`                |
+| `documents->preflight($receiverPeppolId)`                    | POST   | `/documents/preflight`               |
+| `documents->convert($inputFormat, $outputFormat, $document)` | POST   | `/documents/convert`                 |
+| `documents->inbox->list($params)`                            | GET    | `/documents/inbox`                   |
+| `documents->inbox->get($id)`                                 | GET    | `/documents/inbox/{id}`              |
+| `documents->inbox->acknowledge($id)`                         | POST   | `/documents/inbox/{id}/acknowledge`  |
+| `documents->inbox->listAll($params)`                         | GET    | `/documents/inbox/all`               |
+| `peppol->lookup($scheme, $id)`                               | GET    | `/peppol/participants/{scheme}/{id}` |
+| `peppol->directory->search($params)`                         | GET    | `/peppol/directory/search`           |
+| `peppol->companyLookup($ico)`                                | GET    | `/company/lookup/{ico}`              |
+| `firms->list()`                                              | GET    | `/firms`                             |
+| `firms->get($id)`                                            | GET    | `/firms/{id}`                        |
+| `firms->documents($id, $params)`                             | GET    | `/firms/{id}/documents`              |
+| `firms->registerPeppolId($id, $scheme, $id)`                 | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms->assign($ico)`                                        | POST   | `/firms/assign`                      |
+| `firms->assignBatch($icos)`                                  | POST   | `/firms/assign/batch`                |
+| `webhooks->create($url, $events)`                            | POST   | `/webhooks`                          |
+| `webhooks->list()`                                           | GET    | `/webhooks`                          |
+| `webhooks->get($id)`                                         | GET    | `/webhooks/{id}`                     |
+| `webhooks->update($id, $data)`                               | PATCH  | `/webhooks/{id}`                     |
+| `webhooks->delete($id)`                                      | DELETE | `/webhooks/{id}`                     |
+| `webhooks->queue->pull($params)`                             | GET    | `/webhook-queue`                     |
+| `webhooks->queue->ack($eventId)`                             | DELETE | `/webhook-queue/{eventId}`           |
+| `webhooks->queue->batchAck($ids)`                            | POST   | `/webhook-queue/batch-ack`           |
+| `webhooks->queue->pullAll($params)`                          | GET    | `/webhook-queue/all`                 |
+| `webhooks->queue->batchAckAll($ids)`                         | POST   | `/webhook-queue/all/batch-ack`       |
+| `reporting->statistics($params)`                             | GET    | `/reporting/statistics`              |
+| `account->get()`                                             | GET    | `/account`                           |
+| `extract->single($path, $mime)`                              | POST   | `/extract`                           |
+| `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
 
 All paths are relative to `https://epostak.sk/api/enterprise`.
 

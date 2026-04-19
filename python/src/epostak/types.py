@@ -40,8 +40,11 @@ WebhookEvent = Literal[
 DocumentDirection = Literal["inbound", "outbound"]
 """Direction of a document relative to the authenticated firm."""
 
-ConvertDirection = Literal["json_to_ubl", "ubl_to_json"]
-"""Conversion direction for the ``/documents/convert`` endpoint."""
+ConvertInputFormat = Literal["json", "ubl"]
+"""Input format for the ``/documents/convert`` endpoint."""
+
+ConvertOutputFormat = Literal["ubl", "json"]
+"""Output format for the ``/documents/convert`` endpoint."""
 
 InboxStatus = Literal["RECEIVED", "ACKNOWLEDGED"]
 """Status filter for inbox queries: ``"RECEIVED"`` (new) or ``"ACKNOWLEDGED"`` (processed)."""
@@ -370,11 +373,20 @@ class PreflightResult(TypedDict, total=False):
     smpUrl: Optional[str]  # SMP lookup URL used for the check
 
 
-class ConvertResult(TypedDict):
+class ConvertRequest(TypedDict):
+    """Request body for ``POST /documents/convert``."""
+
+    input_format: str  # "json" or "ubl" -- format of the supplied ``document``
+    output_format: str  # "ubl" or "json" -- desired output format
+    document: Union[str, Dict[str, Any]]  # UBL XML string (input_format="ubl") or JSON dict (input_format="json")
+
+
+class ConvertResult(TypedDict, total=False):
     """Result of a JSON-to-UBL or UBL-to-JSON conversion."""
 
-    direction: str  # The conversion direction that was used
-    result: Union[str, Dict[str, Any]]  # UBL XML string (json_to_ubl) or parsed JSON dict (ubl_to_json)
+    output_format: str  # type: ignore[misc]  # "ubl" or "json" -- format of ``document``
+    document: Union[str, Dict[str, Any]]  # type: ignore[misc]  # UBL XML string (output_format="ubl") or parsed JSON dict (output_format="json")
+    warnings: List[str]  # Non-fatal warnings emitted during conversion
 
 
 # ---------------------------------------------------------------------------

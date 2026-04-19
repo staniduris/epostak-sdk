@@ -66,33 +66,64 @@ public enum InboxStatus
 }
 
 /// <summary>
-/// Conversion direction for the document format converter.
+/// Input format for the document format converter.
 /// </summary>
-[JsonConverter(typeof(ConvertDirectionConverter))]
-public enum ConvertDirection
+[JsonConverter(typeof(ConvertInputFormatConverter))]
+public enum ConvertInputFormat
 {
-    /// <summary>Convert structured JSON data to UBL 2.1 XML.</summary>
-    JsonToUbl,
-    /// <summary>Parse UBL 2.1 XML into structured JSON.</summary>
-    UblToJson
+    /// <summary>Input is structured JSON data.</summary>
+    Json,
+    /// <summary>Input is UBL 2.1 XML.</summary>
+    Ubl
 }
 
-internal sealed class ConvertDirectionConverter : JsonConverter<ConvertDirection>
+internal sealed class ConvertInputFormatConverter : JsonConverter<ConvertInputFormat>
 {
-    public override ConvertDirection Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override ConvertInputFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         => reader.GetString() switch
         {
-            "json_to_ubl" => ConvertDirection.JsonToUbl,
-            "ubl_to_json" => ConvertDirection.UblToJson,
-            var s => throw new JsonException($"Unknown ConvertDirection: {s}")
+            "json" => ConvertInputFormat.Json,
+            "ubl" => ConvertInputFormat.Ubl,
+            var s => throw new JsonException($"Unknown ConvertInputFormat: {s}")
         };
 
-    public override void Write(Utf8JsonWriter writer, ConvertDirection value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, ConvertInputFormat value, JsonSerializerOptions options)
         => writer.WriteStringValue(value switch
         {
-            ConvertDirection.JsonToUbl => "json_to_ubl",
-            ConvertDirection.UblToJson => "ubl_to_json",
-            _ => throw new JsonException($"Unknown ConvertDirection: {value}")
+            ConvertInputFormat.Json => "json",
+            ConvertInputFormat.Ubl => "ubl",
+            _ => throw new JsonException($"Unknown ConvertInputFormat: {value}")
+        });
+}
+
+/// <summary>
+/// Output format for the document format converter.
+/// </summary>
+[JsonConverter(typeof(ConvertOutputFormatConverter))]
+public enum ConvertOutputFormat
+{
+    /// <summary>Output is UBL 2.1 XML.</summary>
+    Ubl,
+    /// <summary>Output is structured JSON data.</summary>
+    Json
+}
+
+internal sealed class ConvertOutputFormatConverter : JsonConverter<ConvertOutputFormat>
+{
+    public override ConvertOutputFormat Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        => reader.GetString() switch
+        {
+            "ubl" => ConvertOutputFormat.Ubl,
+            "json" => ConvertOutputFormat.Json,
+            var s => throw new JsonException($"Unknown ConvertOutputFormat: {s}")
+        };
+
+    public override void Write(Utf8JsonWriter writer, ConvertOutputFormat value, JsonSerializerOptions options)
+        => writer.WriteStringValue(value switch
+        {
+            ConvertOutputFormat.Ubl => "ubl",
+            ConvertOutputFormat.Json => "json",
+            _ => throw new JsonException($"Unknown ConvertOutputFormat: {value}")
         });
 }
 
@@ -949,17 +980,21 @@ public sealed class PreflightResult
 /// </summary>
 public sealed class ConvertRequest
 {
-    /// <summary>Conversion direction: <see cref="ConvertDirection.JsonToUbl"/> or <see cref="ConvertDirection.UblToJson"/>.</summary>
-    [JsonPropertyName("direction")]
-    public required ConvertDirection Direction { get; set; }
+    /// <summary>Input format: <see cref="ConvertInputFormat.Json"/> or <see cref="ConvertInputFormat.Ubl"/>.</summary>
+    [JsonPropertyName("input_format")]
+    public required ConvertInputFormat InputFormat { get; set; }
 
-    /// <summary>Structured JSON document data. Required when direction is <see cref="ConvertDirection.JsonToUbl"/>.</summary>
-    [JsonPropertyName("data")]
-    public Dictionary<string, object>? Data { get; set; }
+    /// <summary>Output format: <see cref="ConvertOutputFormat.Ubl"/> or <see cref="ConvertOutputFormat.Json"/>.</summary>
+    [JsonPropertyName("output_format")]
+    public required ConvertOutputFormat OutputFormat { get; set; }
 
-    /// <summary>UBL 2.1 XML string. Required when direction is <see cref="ConvertDirection.UblToJson"/>.</summary>
-    [JsonPropertyName("xml")]
-    public string? Xml { get; set; }
+    /// <summary>
+    /// The source document. A <see cref="Dictionary{TKey, TValue}"/> (or any object serializable to JSON)
+    /// when <see cref="InputFormat"/> is <see cref="ConvertInputFormat.Json"/>, or a <see cref="string"/>
+    /// containing UBL 2.1 XML when <see cref="InputFormat"/> is <see cref="ConvertInputFormat.Ubl"/>.
+    /// </summary>
+    [JsonPropertyName("document")]
+    public required object Document { get; set; }
 }
 
 /// <summary>
@@ -967,11 +1002,19 @@ public sealed class ConvertRequest
 /// </summary>
 public sealed class ConvertResult
 {
-    /// <summary>The conversion direction that was performed.</summary>
-    [JsonPropertyName("direction")]
-    public ConvertDirection Direction { get; set; }
+    /// <summary>The output format that was produced.</summary>
+    [JsonPropertyName("output_format")]
+    public ConvertOutputFormat OutputFormat { get; set; }
 
-    /// <summary>The conversion output: UBL XML string for JsonToUbl, or parsed JSON object for UblToJson.</summary>
-    [JsonPropertyName("result")]
-    public object Result { get; set; } = "";
+    /// <summary>
+    /// The converted document: a UBL XML <see cref="string"/> when <see cref="OutputFormat"/> is
+    /// <see cref="ConvertOutputFormat.Ubl"/>, or a parsed JSON object (<see cref="JsonElement"/>)
+    /// when <see cref="OutputFormat"/> is <see cref="ConvertOutputFormat.Json"/>.
+    /// </summary>
+    [JsonPropertyName("document")]
+    public object Document { get; set; } = "";
+
+    /// <summary>Non-fatal warnings produced by the converter (e.g. lossy fields, schema hints).</summary>
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = new();
 }

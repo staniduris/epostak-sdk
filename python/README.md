@@ -174,20 +174,24 @@ check = client.documents.preflight("0245:1234567890")
 # -> {"receiverPeppolId", "registered", "supportsDocumentType", "smpUrl"}
 ```
 
-#### `documents.convert(direction, data=None, xml=None)` -- Convert between JSON and UBL
+#### `documents.convert(input_format, output_format, document)` -- Convert between JSON and UBL
 
 ```python
 # JSON -> UBL
 result = client.documents.convert(
-    "json_to_ubl",
-    data={"invoiceNumber": "FV-001", "items": [...]},
+    input_format="json",
+    output_format="ubl",
+    document={"invoiceNumber": "FV-001", "items": [...]},
 )
+print(result["document"])  # UBL XML string
 
 # UBL -> JSON
 result = client.documents.convert(
-    "ubl_to_json",
-    xml='<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">...</Invoice>',
+    input_format="ubl",
+    output_format="json",
+    document='<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">...</Invoice>',
 )
+print(result["document"])  # parsed JSON dict
 ```
 
 ---
@@ -520,46 +524,46 @@ except EPostakError as err:
 
 ## Full API Endpoint Map
 
-| SDK Method                                | HTTP   | Path                                 |
-| ----------------------------------------- | ------ | ------------------------------------ |
-| `documents.get(id)`                       | GET    | `/documents/{id}`                    |
-| `documents.update(id, **kwargs)`          | PATCH  | `/documents/{id}`                    |
-| `documents.send(body)`                    | POST   | `/documents/send`                    |
-| `documents.status(id)`                    | GET    | `/documents/{id}/status`             |
-| `documents.evidence(id)`                  | GET    | `/documents/{id}/evidence`           |
-| `documents.pdf(id)`                       | GET    | `/documents/{id}/pdf`                |
-| `documents.ubl(id)`                       | GET    | `/documents/{id}/ubl`                |
-| `documents.respond(id, status, note)`     | POST   | `/documents/{id}/respond`            |
-| `documents.validate(body)`                | POST   | `/documents/validate`                |
-| `documents.preflight(receiver_peppol_id)` | POST   | `/documents/preflight`               |
-| `documents.convert(direction, data, xml)` | POST   | `/documents/convert`                 |
-| `documents.inbox.list(...)`               | GET    | `/documents/inbox`                   |
-| `documents.inbox.get(id)`                 | GET    | `/documents/inbox/{id}`              |
-| `documents.inbox.acknowledge(id)`         | POST   | `/documents/inbox/{id}/acknowledge`  |
-| `documents.inbox.list_all(...)`           | GET    | `/documents/inbox/all`               |
-| `peppol.lookup(scheme, identifier)`       | GET    | `/peppol/participants/{scheme}/{id}` |
-| `peppol.directory.search(...)`            | GET    | `/peppol/directory/search`           |
-| `peppol.company_lookup(ico)`              | GET    | `/company/lookup/{ico}`              |
-| `firms.list()`                            | GET    | `/firms`                             |
-| `firms.get(id)`                           | GET    | `/firms/{id}`                        |
-| `firms.documents(id, ...)`                | GET    | `/firms/{id}/documents`              |
-| `firms.register_peppol_id(id, ...)`       | POST   | `/firms/{id}/peppol-identifiers`     |
-| `firms.assign(ico)`                       | POST   | `/firms/assign`                      |
-| `firms.assign_batch(icos)`                | POST   | `/firms/assign/batch`                |
-| `webhooks.create(url, events)`            | POST   | `/webhooks`                          |
-| `webhooks.list()`                         | GET    | `/webhooks`                          |
-| `webhooks.get(id)`                        | GET    | `/webhooks/{id}`                     |
-| `webhooks.update(id, ...)`                | PATCH  | `/webhooks/{id}`                     |
-| `webhooks.delete(id)`                     | DELETE | `/webhooks/{id}`                     |
-| `webhooks.queue.pull(...)`                | GET    | `/webhook-queue`                     |
-| `webhooks.queue.ack(event_id)`            | DELETE | `/webhook-queue/{event_id}`          |
-| `webhooks.queue.batch_ack(ids)`           | POST   | `/webhook-queue/batch-ack`           |
-| `webhooks.queue.pull_all(...)`            | GET    | `/webhook-queue/all`                 |
-| `webhooks.queue.batch_ack_all(ids)`       | POST   | `/webhook-queue/all/batch-ack`       |
-| `reporting.statistics(...)`               | GET    | `/reporting/statistics`              |
-| `account.get()`                           | GET    | `/account`                           |
-| `extract.single(file, mime_type)`         | POST   | `/extract`                           |
-| `extract.batch(files)`                    | POST   | `/extract/batch`                     |
+| SDK Method                                                 | HTTP   | Path                                 |
+| ---------------------------------------------------------- | ------ | ------------------------------------ |
+| `documents.get(id)`                                        | GET    | `/documents/{id}`                    |
+| `documents.update(id, **kwargs)`                           | PATCH  | `/documents/{id}`                    |
+| `documents.send(body)`                                     | POST   | `/documents/send`                    |
+| `documents.status(id)`                                     | GET    | `/documents/{id}/status`             |
+| `documents.evidence(id)`                                   | GET    | `/documents/{id}/evidence`           |
+| `documents.pdf(id)`                                        | GET    | `/documents/{id}/pdf`                |
+| `documents.ubl(id)`                                        | GET    | `/documents/{id}/ubl`                |
+| `documents.respond(id, status, note)`                      | POST   | `/documents/{id}/respond`            |
+| `documents.validate(body)`                                 | POST   | `/documents/validate`                |
+| `documents.preflight(receiver_peppol_id)`                  | POST   | `/documents/preflight`               |
+| `documents.convert(input_format, output_format, document)` | POST   | `/documents/convert`                 |
+| `documents.inbox.list(...)`                                | GET    | `/documents/inbox`                   |
+| `documents.inbox.get(id)`                                  | GET    | `/documents/inbox/{id}`              |
+| `documents.inbox.acknowledge(id)`                          | POST   | `/documents/inbox/{id}/acknowledge`  |
+| `documents.inbox.list_all(...)`                            | GET    | `/documents/inbox/all`               |
+| `peppol.lookup(scheme, identifier)`                        | GET    | `/peppol/participants/{scheme}/{id}` |
+| `peppol.directory.search(...)`                             | GET    | `/peppol/directory/search`           |
+| `peppol.company_lookup(ico)`                               | GET    | `/company/lookup/{ico}`              |
+| `firms.list()`                                             | GET    | `/firms`                             |
+| `firms.get(id)`                                            | GET    | `/firms/{id}`                        |
+| `firms.documents(id, ...)`                                 | GET    | `/firms/{id}/documents`              |
+| `firms.register_peppol_id(id, ...)`                        | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms.assign(ico)`                                        | POST   | `/firms/assign`                      |
+| `firms.assign_batch(icos)`                                 | POST   | `/firms/assign/batch`                |
+| `webhooks.create(url, events)`                             | POST   | `/webhooks`                          |
+| `webhooks.list()`                                          | GET    | `/webhooks`                          |
+| `webhooks.get(id)`                                         | GET    | `/webhooks/{id}`                     |
+| `webhooks.update(id, ...)`                                 | PATCH  | `/webhooks/{id}`                     |
+| `webhooks.delete(id)`                                      | DELETE | `/webhooks/{id}`                     |
+| `webhooks.queue.pull(...)`                                 | GET    | `/webhook-queue`                     |
+| `webhooks.queue.ack(event_id)`                             | DELETE | `/webhook-queue/{event_id}`          |
+| `webhooks.queue.batch_ack(ids)`                            | POST   | `/webhook-queue/batch-ack`           |
+| `webhooks.queue.pull_all(...)`                             | GET    | `/webhook-queue/all`                 |
+| `webhooks.queue.batch_ack_all(ids)`                        | POST   | `/webhook-queue/all/batch-ack`       |
+| `reporting.statistics(...)`                                | GET    | `/reporting/statistics`              |
+| `account.get()`                                            | GET    | `/account`                           |
+| `extract.single(file, mime_type)`                          | POST   | `/extract`                           |
+| `extract.batch(files)`                                     | POST   | `/extract/batch`                     |
 
 All paths are relative to `https://epostak.sk/api/enterprise`.
 

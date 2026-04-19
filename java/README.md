@@ -187,22 +187,24 @@ PreflightResult check = client.documents().preflight("0245:1234567890", null);
 // check.registered(), check.supportsDocumentType(), check.smpUrl()
 ```
 
-#### `documents().convert(direction, data, xml)` -- Convert between JSON and UBL
+#### `documents().convert(inputFormat, outputFormat, document)` -- Convert between JSON and UBL
 
 ```java
 // JSON to UBL
 ConvertResult result = client.documents().convert(
-    "json_to_ubl",
-    Map.of("invoiceNumber", "FV-001", "items", List.of(...)),
-    null
+    "json",
+    "ubl",
+    Map.of("invoiceNumber", "FV-001", "items", List.of(...))
 );
+// result.outputFormat() == "ubl", result.document() is a UBL XML String, result.warnings()
 
 // UBL to JSON
 ConvertResult result = client.documents().convert(
-    "ubl_to_json",
-    null,
+    "ubl",
+    "json",
     "<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\">..."
 );
+// result.outputFormat() == "json", result.document() is a parsed JSON object
 ```
 
 ---

@@ -23,7 +23,8 @@ export type {
   InvoiceResponseCode,
   WebhookEvent,
   DocumentDirection,
-  ConvertDirection,
+  ConvertInputFormat,
+  ConvertOutputFormat,
   InboxStatus,
   // Line items
   LineItem,

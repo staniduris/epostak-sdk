@@ -1,12 +1,19 @@
 package sk.epostak.sdk.models;
 
+import com.google.gson.annotations.SerializedName;
+
+import java.util.List;
+
 /**
  * Result of a JSON/UBL conversion.
  *
- * @param direction the conversion direction: {@code "json_to_ubl"} or {@code "ubl_to_json"}
- * @param result    a UBL XML string for {@code json_to_ubl}, or a parsed JSON object for {@code ubl_to_json}
+ * @param outputFormat the format of the returned document: {@code "ubl"} or {@code "json"}
+ * @param document     a UBL XML string when {@code outputFormat == "ubl"}, or a parsed JSON
+ *                     object when {@code outputFormat == "json"}
+ * @param warnings     non-fatal warnings emitted during conversion, or an empty list
  */
 public record ConvertResult(
-        String direction,
-        Object result
+        @SerializedName("output_format") String outputFormat,
+        @SerializedName("document") Object document,
+        @SerializedName("warnings") List<String> warnings
 ) {}

@@ -169,14 +169,19 @@ check = client.documents.preflight(receiver_peppol_id: "0245:1234567890")
 ```ruby
 # JSON to UBL
 result = client.documents.convert(
-  direction: "json_to_ubl",
-  data: { invoiceNumber: "FV-001", items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }] }
+  input_format: "json",
+  output_format: "ubl",
+  document: { invoiceNumber: "FV-001", items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }] }
 )
-puts result["result"] # => UBL XML string
+puts result["document"] # => UBL XML string
 
 # UBL to JSON
-result = client.documents.convert(direction: "ubl_to_json", xml: "<Invoice>...</Invoice>")
-puts result["result"] # => parsed invoice hash
+result = client.documents.convert(
+  input_format: "ubl",
+  output_format: "json",
+  document: "<Invoice>...</Invoice>"
+)
+puts result["document"] # => parsed invoice hash
 ```
 
 ---

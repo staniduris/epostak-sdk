@@ -193,23 +193,29 @@ class Documents
     /**
      * Convert between JSON and UBL XML formats.
      *
-     * @param string      $direction Conversion direction: 'json_to_ubl' or 'ubl_to_json'.
-     * @param array|null  $data      JSON document data (required when direction is 'json_to_ubl').
-     * @param string|null $xml       UBL XML string (required when direction is 'ubl_to_json').
-     * @return array Conversion result containing the output in the target format.
+     * @param string       $inputFormat  Source format: 'json' or 'ubl'.
+     * @param string       $outputFormat Target format: 'ubl' or 'json'.
+     * @param array|string $document     Document to convert — array for JSON input, XML string for UBL input.
+     * @return array { output_format: string, document: array|string, warnings: string[] } Conversion result.
      * @throws EPostakError On API or conversion error.
+     *
+     * @example
+     *   // JSON to UBL
+     *   $result = $client->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+     *   echo $result['document']; // UBL XML string
+     *
+     *   // UBL to JSON
+     *   $result = $client->documents->convert('ubl', 'json', '<Invoice xmlns="...">...</Invoice>');
+     *   print_r($result['document']); // associative array
      */
-    public function convert(string $direction, ?array $data = null, ?string $xml = null): array
+    public function convert(string $inputFormat, string $outputFormat, array|string $document): array
     {
-        $body = ['direction' => $direction];
-        if ($data !== null) {
-            $body['data'] = $data;
-        }
-        if ($xml !== null) {
-            $body['xml'] = $xml;
-        }
         return $this->http->request('POST', '/documents/convert', [
-            'json' => $body,
+            'json' => [
+                'input_format' => $inputFormat,
+                'output_format' => $outputFormat,
+                'document' => $document,
+            ],
         ]);
     }
 }

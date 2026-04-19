@@ -240,11 +240,13 @@ class WebhooksResource(_BaseResource):
     def delete(self, id: str) -> None:
         """Delete a webhook subscription.
 
+        The server responds with HTTP 204 No Content on success.
+
         Args:
             id: Webhook UUID.
 
         Returns:
-            None (HTTP 204).
+            ``None``.
 
         Example::
 

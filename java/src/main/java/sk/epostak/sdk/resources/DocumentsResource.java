@@ -222,23 +222,24 @@ public final class DocumentsResource {
      *
      * <pre>{@code
      * // JSON to UBL
-     * ConvertResult ubl = client.documents().convert("json_to_ubl", jsonData, null);
+     * ConvertResult ubl = client.documents().convert("json", "ubl", jsonData);
      *
      * // UBL to JSON
-     * ConvertResult json = client.documents().convert("ubl_to_json", null, xmlString);
+     * ConvertResult json = client.documents().convert("ubl", "json", xmlString);
      * }</pre>
      *
-     * @param direction {@code "json_to_ubl"} or {@code "ubl_to_json"}
-     * @param data      JSON document data (for {@code json_to_ubl}), may be {@code null}
-     * @param xml       UBL XML string (for {@code ubl_to_json}), may be {@code null}
-     * @return the conversion result
+     * @param inputFormat  the format of {@code document}: {@code "json"} or {@code "ubl"}
+     * @param outputFormat the desired output format: {@code "ubl"} or {@code "json"}
+     * @param document     the document to convert — a {@code Map}/POJO for JSON input,
+     *                     or a UBL XML {@code String} for UBL input
+     * @return the conversion result containing {@code outputFormat}, {@code document}, and {@code warnings}
      * @throws sk.epostak.sdk.EPostakException if the conversion fails or the request fails
      */
-    public ConvertResult convert(String direction, Map<String, Object> data, String xml) {
+    public ConvertResult convert(String inputFormat, String outputFormat, Object document) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("direction", direction);
-        if (data != null) body.put("data", data);
-        if (xml != null) body.put("xml", xml);
+        body.put("input_format", inputFormat);
+        body.put("output_format", outputFormat);
+        body.put("document", document);
         return http.post("/documents/convert", body, ConvertResult.class);
     }
 }

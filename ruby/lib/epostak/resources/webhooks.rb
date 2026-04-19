@@ -92,11 +92,13 @@ module EPostak
 
       # Delete a webhook subscription. Stops all future deliveries.
       #
+      # Returns HTTP 204 No Content on success; the SDK returns +nil+.
+      #
       # @param id [String] Webhook UUID to delete
-      # @return [Hash] Confirmation with "deleted" => true
+      # @return [nil] Nothing on success (HTTP 204 No Content)
       #
       # @example
-      #   client.webhooks.delete("webhook-uuid")
+      #   client.webhooks.delete("webhook-uuid") # => nil
       def delete(id)
         @http.request(:delete, "/webhooks/#{encode(id)}")
       end

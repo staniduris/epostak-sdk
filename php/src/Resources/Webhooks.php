@@ -94,13 +94,15 @@ class Webhooks
     /**
      * Delete a webhook subscription.
      *
+     * Returns no content on success (HTTP 204).
+     *
      * @param string $id Webhook UUID.
-     * @return array Deletion confirmation.
+     * @return void
      * @throws EPostakError On API error.
      */
-    public function delete(string $id): array
+    public function delete(string $id): void
     {
-        return $this->http->request('DELETE', '/webhooks/' . urlencode($id));
+        $this->http->request('DELETE', '/webhooks/' . urlencode($id));
     }
 
     /**

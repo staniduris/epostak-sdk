@@ -222,15 +222,16 @@ public sealed class DocumentsResource
     /// Convert between JSON and UBL XML document formats. Useful for previewing the UBL
     /// that would be generated from JSON data, or parsing received UBL into structured JSON.
     /// </summary>
-    /// <param name="request">The conversion direction and source data (JSON or UBL XML).</param>
+    /// <param name="request">The input/output formats and the source document (JSON object or UBL XML string).</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The converted output in the target format.</returns>
+    /// <returns>The converted output in the target format, plus any non-fatal warnings.</returns>
     /// <example>
     /// <code>
     /// var result = await client.Documents.ConvertAsync(new ConvertRequest
     /// {
-    ///     Direction = ConvertDirection.UblToJson,
-    ///     Xml = ublXmlString
+    ///     InputFormat = ConvertInputFormat.Ubl,
+    ///     OutputFormat = ConvertOutputFormat.Json,
+    ///     Document = ublXmlString
     /// });
     /// </code>
     /// </example>

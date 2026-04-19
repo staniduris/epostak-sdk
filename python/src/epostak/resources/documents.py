@@ -480,31 +480,43 @@ class DocumentsResource(_BaseResource):
 
     def convert(
         self,
-        direction: str,
-        data: Optional[Dict[str, Any]] = None,
-        xml: Optional[str] = None,
+        input_format: str,
+        output_format: str,
+        document: Any,
     ) -> ConvertResult:
-        """Convert between JSON and UBL XML.
+        """Convert a document between JSON and UBL XML.
 
         Args:
-            direction: ``"json_to_ubl"`` or ``"ubl_to_json"``.
-            data: JSON document data (required for ``json_to_ubl``).
-            xml: UBL XML string (required for ``ubl_to_json``).
+            input_format: Format of ``document``: ``"json"`` or ``"ubl"``.
+            output_format: Desired output format: ``"ubl"`` or ``"json"``.
+            document: The document payload -- a dict when ``input_format="json"``,
+                an XML string when ``input_format="ubl"``.
 
         Returns:
-            Dict with ``direction`` and ``result`` (UBL XML string or parsed JSON dict).
+            Dict with ``output_format``, ``document`` (UBL XML string or parsed
+            JSON dict, matching ``output_format``), and optional ``warnings``.
 
         Example::
 
+            # JSON -> UBL
             result = client.documents.convert(
-                "json_to_ubl",
-                data={"invoiceNumber": "FV-001", "items": [...]},
+                input_format="json",
+                output_format="ubl",
+                document={"invoiceNumber": "FV-001", "items": [...]},
             )
-            print(result["result"])  # UBL XML string
+            print(result["document"])  # UBL XML string
+
+            # UBL -> JSON
+            result = client.documents.convert(
+                input_format="ubl",
+                output_format="json",
+                document='<Invoice xmlns="urn:oasis:...">...</Invoice>',
+            )
+            print(result["document"])  # parsed JSON dict
         """
-        body: Dict[str, Any] = {"direction": direction}
-        if data is not None:
-            body["data"] = data
-        if xml is not None:
-            body["xml"] = xml
+        body: Dict[str, Any] = {
+            "input_format": input_format,
+            "output_format": output_format,
+            "document": document,
+        }
         return self._request("POST", "/documents/convert", json=body)

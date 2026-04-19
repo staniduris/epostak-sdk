@@ -384,15 +384,17 @@ export class DocumentsResource extends BaseResource {
    * @example
    * ```typescript
    * // JSON to UBL
-   * const { result: ublXml } = await client.documents.convert({
-   *   direction: 'json_to_ubl',
-   *   data: { invoiceNumber: 'FV-001', items: [...] },
+   * const { document: ublXml, warnings } = await client.documents.convert({
+   *   input_format: 'json',
+   *   output_format: 'ubl',
+   *   document: { invoiceNumber: 'FV-001', items: [...] },
    * });
    *
    * // UBL to JSON
-   * const { result: parsed } = await client.documents.convert({
-   *   direction: 'ubl_to_json',
-   *   xml: '<Invoice>...</Invoice>',
+   * const { document: parsed, warnings } = await client.documents.convert({
+   *   input_format: 'ubl',
+   *   output_format: 'json',
+   *   document: '<Invoice>...</Invoice>',
    * });
    * ```
    */

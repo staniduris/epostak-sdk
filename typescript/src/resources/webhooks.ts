@@ -249,16 +249,16 @@ export class WebhooksResource extends BaseResource {
 
   /**
    * Delete a webhook subscription. Stops all future deliveries for this webhook.
+   * Returns `204 No Content` on success.
    *
    * @param id - Webhook UUID to delete
-   * @returns Confirmation with `deleted: true`
    *
    * @example
    * ```typescript
    * await client.webhooks.delete('webhook-uuid');
    * ```
    */
-  delete(id: string): Promise<{ deleted: boolean }> {
+  delete(id: string): Promise<void> {
     return this.request("DELETE", `/webhooks/${encodeURIComponent(id)}`);
   }
 

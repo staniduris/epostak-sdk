@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.3.1 — 2026-04-19
+
+### Breaking API changes (all SDKs updated)
+
+- **`documents.convert()` request/response rewritten.** Old `{direction, data?, xml?}` / `{direction, result}` replaced with `{input_format, output_format, document}` / `{output_format, document, warnings}`. The API now supports arbitrary `input→output` pairs (currently `json↔ubl`) and returns a warnings array for non-fatal conversion issues. `ConvertDirection` enum replaced with separate `ConvertInputFormat` and `ConvertOutputFormat` types. Migration:
+  ```typescript
+  // before
+  const { result: xml } = await client.documents.convert({ direction: 'json_to_ubl', data: {...} });
+  // after
+  const { document: xml, warnings } = await client.documents.convert({
+    input_format: 'json', output_format: 'ubl', document: {...}
+  });
+  ```
+- **`webhooks.delete(id)` now returns `void` (HTTP 204 No Content).** Previously returned `{deleted: true}` with HTTP 200. No application-level impact — awaiting the promise still signals success, and any non-2xx still throws `EPostakError`.
+
+### API behavior changes (server-side hardening, reflected in SDK)
+
+- **Idempotency key column widened** from VARCHAR(64) to VARCHAR(255). Long `firmId:method:path:clientKey` tuples no longer 500 on the first request.
+- **Malformed UUIDs now return `400 BAD_REQUEST`** (Prisma P2023/P2007) instead of unhandled 500s on all `/documents/{id}/…` and `/webhooks/{id}` routes.
+- **`documents/convert` error shape normalized** to `{error:{code,message}}` via the shared `errorResponse()` wrapper. Previously some code paths returned 422 with inline bodies.
+- **OCR retry loop fixed** — Gemini `generateContent` is now wrapped in the retry `try/catch`, so transient 5xx/parse errors retry with backoff instead of failing the whole batch.
+- **Webhook update/delete use single-query tenant-isolated find-or-404** — old pre-check `findUnique()` removed in favor of `updateMany/deleteMany` scoped by `{id, firmId}`. Correctness unchanged, one less DB round-trip per call.
+
+### SDK versions
+
+| Language                              | Version |
+| ------------------------------------- | ------- |
+| TypeScript (`@epostak/sdk`)           | 1.3.1   |
+| Python (`epostak`)                    | 0.1.1   |
+| Ruby (`epostak` gem)                  | 1.0.1   |
+| Java (Maven `sk.epostak:epostak-sdk`) | 1.0.1   |
+| PHP (`epostak/sdk`)                   | 1.0.1   |
+| .NET (`EPostak.Sdk`)                  | 1.0.1   |
+
+### OpenAPI
+
+- `public/api-docs/enterprise/openapi.json` bumped `1.0.0 → 1.0.1`. `ConvertDocumentRequest`, `ConvertDocumentResponse`, and `DELETE /webhooks/{id}` reworked to match new shapes. Examples updated.
+
+---
+
 ## Unreleased — 2026-04-18
 
 ### Backend pricing change (no SDK code change required)

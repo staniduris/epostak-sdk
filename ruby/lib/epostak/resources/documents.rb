@@ -183,22 +183,32 @@ module EPostak
       # Convert between JSON and UBL XML formats without sending.
       # Useful for previewing the UBL output or parsing received XML into structured data.
       #
-      # @param direction [String] Conversion direction: "json_to_ubl" or "ubl_to_json"
-      # @param data [Hash, nil] JSON invoice data (for json_to_ubl direction)
-      # @param xml [String, nil] UBL XML string (for ubl_to_json direction)
-      # @return [Hash] Converted output (UBL XML string or parsed JSON object)
+      # @param input_format [String] Format of the input document: "json" or "ubl"
+      # @param output_format [String] Desired output format: "ubl" or "json"
+      # @param document [Hash, String] The document to convert — a Hash for JSON input, a UBL XML string for UBL input
+      # @return [Hash] Conversion result with "output_format", "document", and "warnings" keys
       #
       # @example JSON to UBL
-      #   result = client.documents.convert(direction: "json_to_ubl", data: { invoiceNumber: "FV-001", items: [...] })
-      #   puts result["result"] # => UBL XML string
+      #   result = client.documents.convert(
+      #     input_format: "json",
+      #     output_format: "ubl",
+      #     document: { invoiceNumber: "FV-001", items: [...] }
+      #   )
+      #   puts result["document"] # => UBL XML string
       #
       # @example UBL to JSON
-      #   result = client.documents.convert(direction: "ubl_to_json", xml: "<Invoice>...</Invoice>")
-      #   puts result["result"] # => Parsed invoice hash
-      def convert(direction:, data: nil, xml: nil)
-        body = { direction: direction }
-        body[:data] = data if data
-        body[:xml] = xml if xml
+      #   result = client.documents.convert(
+      #     input_format: "ubl",
+      #     output_format: "json",
+      #     document: "<Invoice>...</Invoice>"
+      #   )
+      #   puts result["document"] # => Parsed invoice hash
+      def convert(input_format:, output_format:, document:)
+        body = {
+          input_format: input_format,
+          output_format: output_format,
+          document: document
+        }
         @http.request(:post, "/documents/convert", body: body)
       end
 

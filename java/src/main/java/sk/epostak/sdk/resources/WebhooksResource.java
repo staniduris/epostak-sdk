@@ -121,14 +121,13 @@ public final class WebhooksResource {
     }
 
     /**
-     * Delete a webhook endpoint. This is irreversible.
+     * Delete a webhook endpoint. This is irreversible. Returns HTTP 204 on success.
      *
      * @param id the webhook UUID
-     * @return the deletion confirmation
      * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
      */
-    public DeletedResponse delete(String id) {
-        return http.delete("/webhooks/" + HttpClient.encode(id), DeletedResponse.class);
+    public void delete(String id) {
+        http.deleteVoid("/webhooks/" + HttpClient.encode(id));
     }
 
     /**
@@ -213,11 +212,4 @@ public final class WebhooksResource {
     // -- internal wrappers ----------------------------------------------------
 
     private record WebhookListWrapper(List<Webhook> data) {}
-
-    /**
-     * Response from deleting a webhook.
-     *
-     * @param deleted {@code true} if the webhook was successfully deleted
-     */
-    public record DeletedResponse(boolean deleted) {}
 }

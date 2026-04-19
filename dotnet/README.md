@@ -150,8 +150,9 @@ var preflight = await client.Documents.PreflightAsync(new PreflightRequest
 // Convert between JSON and UBL
 var converted = await client.Documents.ConvertAsync(new ConvertRequest
 {
-    Direction = ConvertDirection.UblToJson,
-    Xml = "<Invoice>...</Invoice>"
+    InputFormat = ConvertInputFormat.Ubl,
+    OutputFormat = ConvertOutputFormat.Json,
+    Document = "<Invoice>...</Invoice>"
 });
 ```
 

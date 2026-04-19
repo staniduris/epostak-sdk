@@ -27,12 +27,11 @@ export type WebhookEvent =
  */
 export type DocumentDirection = "inbound" | "outbound";
 
-/**
- * Conversion direction for the `/documents/convert` endpoint.
- * - `"json_to_ubl"` — convert structured JSON to UBL 2.1 XML
- * - `"ubl_to_json"` — parse UBL 2.1 XML into structured JSON
- */
-export type ConvertDirection = "json_to_ubl" | "ubl_to_json";
+/** Input format accepted by the `/documents/convert` endpoint. */
+export type ConvertInputFormat = "json" | "ubl";
+
+/** Output format produced by the `/documents/convert` endpoint. */
+export type ConvertOutputFormat = "ubl" | "json";
 
 /**
  * Processing status of an inbound document in your inbox.
@@ -549,20 +548,22 @@ export interface PreflightResult {
 
 /** Request body for converting between JSON and UBL XML formats. */
 export interface ConvertRequest {
-  /** Conversion direction */
-  direction: ConvertDirection;
-  /** Structured document data (required when `direction` is `"json_to_ubl"`) */
-  data?: Record<string, unknown>;
-  /** UBL XML string (required when `direction` is `"ubl_to_json"`) */
-  xml?: string;
+  /** Input format of `document` — `"json"` for structured object, `"ubl"` for XML string. */
+  input_format: ConvertInputFormat;
+  /** Desired output format — must differ from `input_format`. */
+  output_format: ConvertOutputFormat;
+  /** The document to convert. Object when `input_format` is `"json"`, XML string when `"ubl"`. */
+  document: Record<string, unknown> | string;
 }
 
 /** Result of a format conversion. */
 export interface ConvertResult {
-  /** The conversion direction that was performed */
-  direction: ConvertDirection;
-  /** UBL XML string when direction is `"json_to_ubl"`, or parsed JSON object when `"ubl_to_json"` */
-  result: string | Record<string, unknown>;
+  /** The output format that was produced */
+  output_format: ConvertOutputFormat;
+  /** Parsed JSON object when `output_format` is `"json"`, UBL XML string when `"ubl"` */
+  document: Record<string, unknown> | string;
+  /** Non-fatal warnings raised during conversion (empty array when none) */
+  warnings: string[];
 }
 
 // ---------------------------------------------------------------------------
