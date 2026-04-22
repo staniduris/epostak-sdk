@@ -137,6 +137,30 @@ public sealed class DocumentsResource
         => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/pdf", ct);
 
     /// <summary>
+    /// Download the signed AS4 envelope of a document from the 10-year WORM archive
+    /// (S3 Object Lock COMPLIANCE mode). Returns the raw multipart AS4 payload exactly
+    /// as it was transmitted on the Peppol network — signed, timestamped, and
+    /// tamper-evident. Available on api-enterprise plan during an active contract;
+    /// every document that ever flowed through the AP is retrievable for 10 years.
+    /// </summary>
+    /// <remarks>
+    /// Returns <c>404</c> when the invoice doesn't exist, doesn't belong to the firm,
+    /// or the envelope hasn't been archived yet (the archive cron runs on a short
+    /// interval, so brand-new documents may briefly miss — retry shortly).
+    /// </remarks>
+    /// <param name="id">The document UUID.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The signed AS4 envelope bytes.</returns>
+    /// <example>
+    /// <code>
+    /// byte[] envelope = await client.Documents.EnvelopeAsync("doc_abc123");
+    /// await File.WriteAllBytesAsync($"{id}.as4", envelope);
+    /// </code>
+    /// </example>
+    public Task<byte[]> EnvelopeAsync(string id, CancellationToken ct = default)
+        => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/envelope", ct);
+
+    /// <summary>
     /// Download the UBL XML source of a document. This is the canonical Peppol BIS 3.0
     /// representation that was sent or received over the network.
     /// </summary>
@@ -153,11 +177,15 @@ public sealed class DocumentsResource
         => _http.RequestStringAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/ubl", ct);
 
     /// <summary>
-    /// Respond to a received document with an Invoice Response (accept, reject, or query).
-    /// Sends a Peppol BIS Invoice Response 3.0 message back to the original sender.
+    /// Respond to a received document with an Invoice Response. Sends a Peppol BIS
+    /// Invoice Response 3.0 message back to the original sender. The
+    /// <see cref="InvoiceRespondRequest.Status"/> must be one of the seven UNCL4343
+    /// codes: <c>AB</c> (accepted billing), <c>IP</c> (in process), <c>UQ</c> (under
+    /// query), <c>CA</c> (conditionally accepted), <c>RE</c> (rejected), <c>AP</c>
+    /// (accepted), or <c>PD</c> (paid).
     /// </summary>
     /// <param name="id">The document UUID of the received invoice to respond to.</param>
-    /// <param name="request">The response status (AP/RE/UQ) and optional note.</param>
+    /// <param name="request">The response status and optional note (max 500 chars).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Confirmation of the response including document ID and timestamp.</returns>
     /// <example>

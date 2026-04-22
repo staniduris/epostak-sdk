@@ -1,7 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 /**
  * Summary of a firm in the integrator's portfolio.
  *
@@ -15,6 +13,6 @@ public record FirmSummary(
         String id,
         String name,
         String ico,
-        @SerializedName("peppol_id") String peppolId,
-        @SerializedName("peppol_status") String peppolStatus
+        String peppolId,
+        String peppolStatus
 ) {}

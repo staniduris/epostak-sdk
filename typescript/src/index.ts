@@ -26,6 +26,9 @@ export type {
   ConvertInputFormat,
   ConvertOutputFormat,
   InboxStatus,
+  ValidateFormat,
+  ReportingPeriod,
+  WebhookDeliveryStatus,
   // Line items
   LineItem,
   LineItemResponse,
@@ -37,6 +40,7 @@ export type {
   SendDocumentXmlRequest,
   SendDocumentRequest,
   SendDocumentResponse,
+  DocumentAttachment,
   // Update document
   UpdateDocumentRequest,
   // Document
@@ -54,17 +58,20 @@ export type {
   // Document lifecycle
   StatusHistoryEntry,
   DocumentStatusResponse,
+  DocumentStatusValidation,
   DocumentEvidenceResponse,
   InvoiceRespondRequest,
   InvoiceRespondResponse,
   // Validate / preflight / convert
+  ValidateDocumentRequest,
   ValidationResult,
+  ValidationFinding,
   PreflightRequest,
   PreflightResult,
   ConvertRequest,
   ConvertResult,
   // Peppol
-  SmpParticipantCapability,
+  PeppolAccessPoint,
   PeppolParticipant,
   DirectorySearchParams,
   DirectoryEntry,
@@ -72,7 +79,6 @@ export type {
   CompanyLookup,
   // Firms
   FirmSummary,
-  FirmPeppolIdentifier,
   FirmDetail,
   FirmsListResponse,
   FirmDocumentsParams,
@@ -96,6 +102,7 @@ export type {
   WebhookDeliveryDetail,
   WebhookDeliveriesParams,
   WebhookDeliveriesResponse,
+  WebhookRotateSecretResponse,
   // Webhook queue
   WebhookQueueParams,
   WebhookQueueItem,
@@ -107,6 +114,7 @@ export type {
   // Reporting
   StatisticsParams,
   Statistics,
+  StatisticsParty,
   // Account
   Account,
   // Extract
@@ -115,6 +123,8 @@ export type {
   BatchExtractResult,
   // Auth introspection & rotation
   AuthStatusKey,
+  AuthStatusFirm,
+  AuthStatusPlan,
   AuthStatusRateLimit,
   AuthStatusIntegrator,
   AuthStatusResponse,

@@ -1,6 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
@@ -20,13 +19,10 @@ public final class Document {
     /** Direction: {@code "outbound"} (sent) or {@code "inbound"} (received). */
     private final String direction;
     /** Document type, e.g. {@code "invoice"}, {@code "credit_note"}. */
-    @SerializedName("doc_type")
     private final String docType;
     /** Issue date in ISO 8601 format (YYYY-MM-DD). */
-    @SerializedName("issue_date")
     private final String issueDate;
     /** Due date in ISO 8601 format (YYYY-MM-DD). May be {@code null}. */
-    @SerializedName("due_date")
     private final String dueDate;
     /** Currency code, e.g. {@code "EUR"}. */
     private final String currency;
@@ -39,13 +35,10 @@ public final class Document {
     /** Document monetary totals. */
     private final DocumentTotals totals;
     /** Peppol AS4 message ID. May be {@code null} for drafts. */
-    @SerializedName("peppol_message_id")
     private final String peppolMessageId;
     /** ISO 8601 timestamp of document creation. */
-    @SerializedName("created_at")
     private final String createdAt;
     /** ISO 8601 timestamp of last update. */
-    @SerializedName("updated_at")
     private final String updatedAt;
 
     public Document(String id, String number, String status, String direction,
@@ -117,9 +110,9 @@ public final class Document {
             String name,
             String ico,
             String dic,
-            @SerializedName("ic_dph") String icDph,
+            String icDph,
             PartyAddress address,
-            @SerializedName("peppol_id") String peppolId
+            String peppolId
     ) {}
 
     /**
@@ -152,10 +145,10 @@ public final class Document {
             String description,
             double quantity,
             String unit,
-            @SerializedName("unit_price") double unitPrice,
-            @SerializedName("vat_rate") double vatRate,
-            @SerializedName("vat_category") String vatCategory,
-            @SerializedName("line_total") double lineTotal
+            double unitPrice,
+            double vatRate,
+            String vatCategory,
+            double lineTotal
     ) {}
 
     /**
@@ -166,8 +159,8 @@ public final class Document {
      * @param withVat    total amount including VAT
      */
     public record DocumentTotals(
-            @SerializedName("without_vat") double withoutVat,
+            double withoutVat,
             double vat,
-            @SerializedName("with_vat") double withVat
+            double withVat
     ) {}
 }

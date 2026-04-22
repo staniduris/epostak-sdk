@@ -29,11 +29,13 @@ module EPostak
       # Create a new webhook subscription. Returns the HMAC-SHA256 signing secret
       # which is only available at creation time -- store it securely.
       #
-      # @param url [String] HTTPS URL to receive webhook POST requests
+      # @param url [String] HTTPS URL to receive webhook POST requests. HTTPS is required; +http://+ URLs are rejected.
       # @param events [Array<String>, nil] Event types to subscribe to (nil = all events).
-      #   Available events: "document.received", "document.sent", "document.validated",
-      #   "document.status_changed", "document.response_received"
-      # @return [Hash] Webhook details including the one-time "secret" signing key
+      #   Available events (7): +document.created+, +document.sent+, +document.received+,
+      #   +document.validated+, +document.delivered+, +document.rejected+,
+      #   +document.response_received+.
+      # @return [Hash] Webhook details { "id", "url", "events", "secret", "isActive", "createdAt" }
+      #   — +secret+ is shown only once; store it securely.
       #
       # @example
       #   webhook = client.webhooks.create(
@@ -131,7 +133,7 @@ module EPostak
       #   result = client.webhooks.deliveries("webhook-uuid", status: "FAILED", limit: 50)
       #   result["deliveries"].each { |d| puts "#{d['event']}: #{d['status']}" }
       def deliveries(id, **params)
-        @http.request(:get, "/webhooks/#{encode(id)}/deliveries", params: params)
+        @http.request(:get, "/webhooks/#{encode(id)}/deliveries", query: params)
       end
 
       # Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret

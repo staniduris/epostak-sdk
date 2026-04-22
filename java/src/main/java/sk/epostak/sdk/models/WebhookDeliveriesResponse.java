@@ -1,6 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
@@ -23,24 +22,25 @@ public record WebhookDeliveriesResponse(
      * @param id             delivery UUID
      * @param webhookId      the parent webhook UUID
      * @param event          event type that triggered this delivery
-     * @param status         delivery status (SUCCESS, FAILED, PENDING, RETRYING)
+     * @param status         delivery status (UPPERCASE): one of {@code "PENDING"},
+     *                       {@code "SUCCESS"}, {@code "FAILED"}, {@code "RETRYING"}
      * @param attempts       number of delivery attempts made
-     * @param responseStatus HTTP status code returned by the webhook URL
-     * @param responseBody   truncated response body from the webhook URL
-     * @param lastAttemptAt  ISO 8601 timestamp of the last delivery attempt
+     * @param responseStatus HTTP status code returned by the webhook URL, or {@code null}
+     * @param responseBody   truncated response body from the webhook URL (up to 1000 chars)
+     * @param lastAttemptAt  ISO 8601 timestamp of the last delivery attempt, or {@code null}
      * @param nextRetryAt    ISO 8601 timestamp of the next scheduled retry, or {@code null}
      * @param createdAt      ISO 8601 timestamp when the delivery was created
      */
     public record DeliveryDetail(
             String id,
-            @SerializedName("webhookId") String webhookId,
+            String webhookId,
             String event,
             String status,
             int attempts,
-            @SerializedName("responseStatus") Integer responseStatus,
-            @SerializedName("responseBody") String responseBody,
-            @SerializedName("lastAttemptAt") String lastAttemptAt,
-            @SerializedName("nextRetryAt") String nextRetryAt,
-            @SerializedName("createdAt") String createdAt
+            Integer responseStatus,
+            String responseBody,
+            String lastAttemptAt,
+            String nextRetryAt,
+            String createdAt
     ) {}
 }

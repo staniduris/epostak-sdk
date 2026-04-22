@@ -1,16 +1,14 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 /**
- * Response from sending a document via Peppol.
+ * Response from sending a document via Peppol. Returned as HTTP 201 on success.
  *
  * @param documentId the unique document UUID assigned by the API
  * @param messageId  the Peppol AS4 message ID
- * @param status     initial delivery status, e.g. {@code "SENDING"}
+ * @param status     delivery status, {@code "SENT"} on successful transmission
  */
 public record SendDocumentResponse(
-        @SerializedName("document_id") String documentId,
-        @SerializedName("message_id") String messageId,
+        String documentId,
+        String messageId,
         String status
 ) {}

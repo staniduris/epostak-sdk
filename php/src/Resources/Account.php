@@ -36,24 +36,33 @@ class Account
      * Inspect the authenticated API key, firm, plan, and rate limits.
      *
      * Useful for debugging credentials, verifying which firm an integrator
-     * key is currently scoped to, and discovering per-minute rate limits.
+     * key is currently scoped to, and discovering the current rate-limit
+     * window.
      *
      * @return array{
-     *   key: array{keyId: string, prefix: string, createdAt: string, lastUsedAt: ?string},
-     *   firm: array{id: string, name: string, ico: ?string},
-     *   plan: string,
-     *   rateLimit: array{getPerMin: int, postPerMin: int},
-     *   integrator?: ?array{id: string, name: string}
+     *   key: array{
+     *     id: string,
+     *     name: string,
+     *     prefix: string,
+     *     permissions: array,
+     *     active: bool,
+     *     createdAt: string,
+     *     lastUsedAt: ?string
+     *   },
+     *   firm: array{id: string, peppolStatus: string},
+     *   plan: array{name: string, expiresAt: ?string, active: bool},
+     *   rateLimit: array{perMinute: int, window: string},
+     *   integrator: ?array{id: string}
      * } Status object with key metadata, firm, plan, rate limits, and optional integrator.
      * @throws EPostakError On API error.
      *
      * @example
      *   $info = $client->account->status();
-     *   echo $info['firm']['name'], " on plan ", $info['plan'];
+     *   echo $info['key']['prefix'], " on plan ", $info['plan']['name'];
      */
     public function status(): array
     {
-        return $this->http->request('POST', '/auth/status');
+        return $this->http->request('GET', '/auth/status');
     }
 
     /**
@@ -63,10 +72,10 @@ class Account
      * The previous secret is invalidated on success.
      *
      * Integrator keys (`sk_int_*`) cannot be rotated through this endpoint;
-     * the server returns HTTP 409, which throws EPostakError.
+     * the server returns HTTP 403, which throws EPostakError.
      *
-     * @return array{keyId: string, key: string, prefix: string, rotatedAt: string} New key material.
-     * @throws EPostakError On API error (409 for integrator keys).
+     * @return array{key: string, prefix: string, message: string} New key material.
+     * @throws EPostakError On API error (403 for integrator keys).
      *
      * @example
      *   $new = $client->account->rotateSecret();

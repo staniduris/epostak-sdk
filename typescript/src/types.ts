@@ -4,11 +4,25 @@
 
 /**
  * Peppol Invoice Response status code per BIS 3.0 spec.
- * - `"AP"` — Accepted: the buyer accepts the invoice
- * - `"RE"` — Rejected: the buyer rejects the invoice
+ * - `"AB"` — Accepted Billing
+ * - `"IP"` — In Process
  * - `"UQ"` — Under Query: the buyer has questions about the invoice
+ * - `"CA"` — Conditionally Accepted
+ * - `"RE"` — Rejected
+ * - `"AP"` — Accepted
+ * - `"PD"` — Paid
+ *
+ * State rule: once a final status (AP/RE/PD) is set the document cannot be
+ * re-responded. After `UQ` one more update is allowed.
  */
-export type InvoiceResponseCode = "AP" | "RE" | "UQ";
+export type InvoiceResponseCode =
+  | "AB"
+  | "IP"
+  | "UQ"
+  | "CA"
+  | "RE"
+  | "AP"
+  | "PD";
 
 /**
  * Webhook event types that can trigger notifications.
@@ -18,7 +32,10 @@ export type WebhookEvent =
   | "document.created"
   | "document.sent"
   | "document.received"
-  | "document.validated";
+  | "document.validated"
+  | "document.delivered"
+  | "document.rejected"
+  | "document.response_received";
 
 /**
  * Direction of a document relative to the authenticated firm.
@@ -34,11 +51,13 @@ export type ConvertInputFormat = "json" | "ubl";
 export type ConvertOutputFormat = "ubl" | "json";
 
 /**
- * Processing status of an inbound document in your inbox.
- * - `"RECEIVED"` — document arrived but has not been acknowledged yet
- * - `"ACKNOWLEDGED"` — document was acknowledged (marked as processed)
+ * Processing status of an inbound document in your inbox (query filter).
+ * - `"received"` — document arrived but has not been acknowledged yet
+ * - `"acknowledged"` — document was acknowledged (marked as processed)
+ *
+ * The backend normalizes any case, so uppercase values also work.
  */
-export type InboxStatus = "RECEIVED" | "ACKNOWLEDGED";
+export type InboxStatus = "received" | "acknowledged";
 
 // ---------------------------------------------------------------------------
 // Line items
@@ -120,6 +139,7 @@ export interface Party {
 /**
  * Request body for sending an invoice using structured JSON fields.
  * The API generates UBL XML automatically from these fields.
+ * Up to 999 line items; body cap 25 MB (attachments are base64-embedded).
  */
 export interface SendDocumentJsonRequest {
   /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
@@ -154,7 +174,7 @@ export interface SendDocumentJsonRequest {
   receiverAddress?: string;
   /** Receiver's ISO 3166-1 alpha-2 country code (e.g. `"SK"`) */
   receiverCountry?: string;
-  /** Invoice line items — at least one is required */
+  /** Invoice line items — at least one is required, max 999 */
   items: LineItem[];
   /**
    * Invoice attachments (BG-24). Embedded into the generated UBL XML as
@@ -281,7 +301,7 @@ export interface InboxDocument {
   id: string;
   /** Invoice number (e.g. `"FV-2026-0042"`) */
   number: string;
-  /** Current processing status (e.g. `"SENT"`, `"DELIVERED"`, `"RECEIVED"`, `"ACKNOWLEDGED"`) */
+  /** Current processing status (e.g. `"sent"`, `"delivered"`, `"received"`, `"acknowledged"`) */
   status: string;
   /** Whether this document was sent or received by the authenticated firm */
   direction: DocumentDirection;
@@ -317,9 +337,9 @@ export interface InboxDocument {
 export interface InboxListParams {
   /** Number of documents to skip (for pagination). Defaults to `0`. */
   offset?: number;
-  /** Maximum number of documents to return (for pagination). Defaults to `20`. */
+  /** Maximum number of documents to return (1-100). Defaults to `20`. */
   limit?: number;
-  /** Filter by processing status (`"RECEIVED"` or `"ACKNOWLEDGED"`) */
+  /** Filter by processing status (`"received"` or `"acknowledged"`) */
   status?: InboxStatus;
   /** ISO 8601 timestamp — only return documents created after this date (e.g. `"2026-01-01T00:00:00Z"`) */
   since?: string;
@@ -452,12 +472,21 @@ export interface InboxAllResponse {
 
 /** A single entry in a document's status change history. */
 export interface StatusHistoryEntry {
-  /** Status at this point in time (e.g. `"SENT"`, `"DELIVERED"`, `"FAILED"`) */
+  /** Status at this point in time (e.g. `"sent"`, `"delivered"`, `"failed"`) */
   status: string;
   /** ISO 8601 timestamp when the status changed */
   timestamp: string;
   /** Human-readable detail about the transition, or `null` */
   detail: string | null;
+}
+
+/**
+ * Validation result shape from `/documents/{id}/status`.
+ * `null` when the document has not yet been validated.
+ */
+export interface DocumentStatusValidation {
+  /** Validation error messages (e.g. schematron rule violations) */
+  errors: string[];
 }
 
 /** Full status and lifecycle information for a document. */
@@ -474,13 +503,13 @@ export interface DocumentStatusResponse {
   receiverPeppolId: string | null;
   /** Ordered list of status transitions from creation to current state */
   statusHistory: StatusHistoryEntry[];
-  /** Validation result (warnings, errors) from Peppol validation, or `null` */
-  validationResult: Record<string, unknown> | null;
+  /** Validation result with errors list, or `null` if not yet validated */
+  validationResult: DocumentStatusValidation | null;
   /** ISO 8601 timestamp when the document was delivered to the receiver, or `null` */
   deliveredAt: string | null;
   /** ISO 8601 timestamp when the document was acknowledged by the receiver, or `null` */
   acknowledgedAt: string | null;
-  /** Buyer's Invoice Response status (`"AP"`, `"RE"`, `"UQ"`), or `null` if not yet responded */
+  /** Buyer's Invoice Response status (e.g. `"AP"`, `"RE"`, `"UQ"`), or `null` if not yet responded */
   invoiceResponseStatus: InvoiceResponseCode | null;
   /** AS4 message ID assigned by the Peppol access point, or `null` */
   as4MessageId: string | null;
@@ -507,8 +536,8 @@ export interface DocumentEvidenceResponse {
   mlrDocument: Record<string, unknown> | null;
   /** Invoice Response from the buyer (accept/reject/query), or `null` if not yet responded */
   invoiceResponse: {
-    /** Response status code, or `null` */
-    status: InvoiceResponseCode | null;
+    /** Response status code */
+    status: InvoiceResponseCode;
     /** Full Invoice Response document */
     document: Record<string, unknown>;
   } | null;
@@ -516,65 +545,137 @@ export interface DocumentEvidenceResponse {
   deliveredAt: string | null;
   /** ISO 8601 timestamp when the document was sent, or `null` */
   sentAt: string | null;
+  /** Tax Data Document (SK TDD) reporting info, when reported */
+  tdd?: {
+    /** ISO 8601 timestamp when TDD was reported to FS SR */
+    reportedAt: string;
+    /** `true` if TDD was successfully reported */
+    reported: boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Invoice response (respond to received document)
 // ---------------------------------------------------------------------------
 
-/** Request body for responding to a received invoice (accept, reject, or query). */
+/** Request body for responding to a received invoice. */
 export interface InvoiceRespondRequest {
-  /** Response status: `"AP"` = accepted, `"RE"` = rejected, `"UQ"` = under query */
+  /**
+   * Response status code. One of:
+   * `"AB"` (accepted billing), `"IP"` (in process), `"UQ"` (under query),
+   * `"CA"` (conditionally accepted), `"RE"` (rejected), `"AP"` (accepted),
+   * `"PD"` (paid).
+   */
   status: InvoiceResponseCode;
-  /** Optional note explaining the response (e.g. reason for rejection) */
+  /** Optional note explaining the response, max 500 chars. */
   note?: string;
 }
 
-/** Response returned after successfully sending an Invoice Response to the supplier. */
+/**
+ * Response returned after sending an Invoice Response to the supplier.
+ * Returned with HTTP 200 when dispatched, or 202 when the dispatch failed
+ * and the response is queued for retry.
+ */
 export interface InvoiceRespondResponse {
   /** ID of the document that was responded to */
   documentId: string;
-  /** The response status that was sent */
+  /** The response status that was recorded */
   responseStatus: InvoiceResponseCode;
-  /** ISO 8601 timestamp when the response was sent */
+  /** ISO 8601 timestamp when the response was recorded */
   respondedAt: string;
+  /** Peppol AS4 message ID of the dispatched response, or `null` when queued */
+  peppolMessageId: string | null;
+  /** `"sent"` when dispatched, `"failed_queued"` when dispatch failed and queued for retry */
+  dispatchStatus: "sent" | "failed_queued";
+  /** Dispatch error message — only present when `dispatchStatus === "failed_queued"` */
+  dispatchError?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Validate / preflight / convert
 // ---------------------------------------------------------------------------
 
-/** Result of validating a document before sending — checks Peppol BIS 3.0 compliance. */
+/** Input format for the `/documents/validate` endpoint. */
+export type ValidateFormat = "json" | "ubl";
+
+/** Request body for `POST /documents/validate`. */
+export interface ValidateDocumentRequest {
+  /** `"json"` when `document` is a structured invoice object, `"ubl"` when it's a UBL XML string. */
+  format: ValidateFormat;
+  /** The document to validate — object for `format: "json"`, XML string for `format: "ubl"`. */
+  document: Record<string, unknown> | string;
+}
+
+/** Individual validation finding (error or warning) from the validator. */
+export interface ValidationFinding {
+  /** Rule ID that was violated (e.g. `"BR-CO-10"`) */
+  ruleId?: string;
+  /** Human-readable message describing the violation */
+  message: string;
+  /** Severity (e.g. `"fatal"`, `"error"`, `"warning"`), when provided */
+  severity?: string;
+  /** XPath to the offending node in the UBL XML, or `null` */
+  location?: string | null;
+}
+
+/**
+ * Response from `POST /documents/validate`. HTTP 200 when valid, 422 when
+ * not (SDK raises on 422 by default — use `EPostakError.details` to read
+ * the failing findings).
+ */
 export interface ValidationResult {
   /** `true` if the document passes all validation rules */
   valid: boolean;
-  /** Non-fatal warnings (e.g. missing optional fields) */
-  warnings: string[];
-  /** Generated UBL XML preview — only present when validating JSON input, `null` for XML input */
-  ubl: string | null;
+  /** Number of errors found */
+  errorCount: number;
+  /** Number of non-fatal warnings found */
+  warningCount: number;
+  /** List of errors (empty when `valid`) */
+  errors: ValidationFinding[];
+  /** Non-fatal warnings */
+  warnings: ValidationFinding[];
 }
 
-/** Request body for the preflight check — verifies a Peppol receiver exists and supports the document type. */
+/** Request body for `POST /documents/preflight`. */
 export interface PreflightRequest {
   /** Peppol participant ID to check (e.g. `"0245:1234567890"`) */
   receiverPeppolId: string;
-  /** Peppol document type identifier to check support for (defaults to standard Invoice) */
-  documentTypeId?: string;
+  /**
+   * Optional document type shortname — one of `"invoice"`, `"credit-note"`,
+   * `"order"`, `"despatch-advice"`. Defaults to `"invoice"` if omitted.
+   */
+  documentType?: string;
+  /** Optional invoice JSON object — when provided, validation runs against the generated UBL */
+  invoice?: Record<string, unknown>;
+  /** Optional UBL XML string — when provided, validation runs against this XML directly */
+  xml?: string;
 }
 
-/** Result of a preflight check against the Peppol SMP. */
+/**
+ * Response from `POST /documents/preflight`. The tri-state booleans
+ * (`recipientAcceptsDocumentType`, `validationPassed`) may be `null` when
+ * the corresponding layer couldn't be evaluated (e.g. SMP couldn't confirm
+ * support for the specific doctype, or no document payload was provided).
+ */
 export interface PreflightResult {
-  /** The Peppol participant ID that was checked */
-  receiverPeppolId: string;
-  /** `true` if the participant is registered in the Peppol network */
-  registered: boolean;
-  /** `true` if the participant's SMP indicates support for the requested document type */
-  supportsDocumentType: boolean;
-  /** URL of the participant's SMP record, or `null` if not registered */
-  smpUrl: string | null;
+  /**
+   * Overall go/no-go. `true` when `recipientFound === true`,
+   * `recipientAcceptsDocumentType !== false` and `validationPassed !== false`.
+   */
+  canSend: boolean;
+  /** `true` when the participant was found via internal/SML/directory lookup */
+  recipientFound: boolean;
+  /** `true` / `false` when the doctype is confirmed supported/unsupported, `null` when indeterminate */
+  recipientAcceptsDocumentType: boolean | null;
+  /** `true` / `false` for pass/fail validation, `null` when no document was provided or the validator was unreachable */
+  validationPassed: boolean | null;
+  /** Validation error messages (empty when `validationPassed !== false`) */
+  validationErrors: string[];
+  /** Informational warnings in Slovak (registration lookups, doctype notes, etc.) */
+  warnings: string[];
 }
 
-/** Request body for converting between JSON and UBL XML formats. */
+/** Request body for `POST /documents/convert`. */
 export interface ConvertRequest {
   /** Input format of `document` — `"json"` for structured object, `"ubl"` for XML string. */
   input_format: ConvertInputFormat;
@@ -584,11 +685,11 @@ export interface ConvertRequest {
   document: Record<string, unknown> | string;
 }
 
-/** Result of a format conversion. */
+/** Response from `POST /documents/convert`. */
 export interface ConvertResult {
   /** The output format that was produced */
   output_format: ConvertOutputFormat;
-  /** Parsed JSON object when `output_format` is `"json"`, UBL XML string when `"ubl"` */
+  /** UBL XML string when `output_format` is `"ubl"`, parsed JSON object when `"json"`. */
   document: Record<string, unknown> | string;
   /** Non-fatal warnings raised during conversion (empty array when none) */
   warnings: string[];
@@ -598,32 +699,39 @@ export interface ConvertResult {
 // Peppol
 // ---------------------------------------------------------------------------
 
-/** A document type capability advertised by a Peppol participant via their SMP record. */
-export interface SmpParticipantCapability {
-  /** Peppol document type identifier (e.g. `"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."`) */
-  documentTypeId: string;
-  /** Peppol process identifier (e.g. `"urn:fdc:peppol.eu:2017:poacc:billing:01:1.0"`) */
-  processId: string;
-  /** AS4 transport profile identifier (e.g. `"peppol-transport-as4-v2_0"`) */
-  transportProfile: string;
+/** Access point metadata returned with a resolved Peppol participant. */
+export interface PeppolAccessPoint {
+  /** AS4 endpoint URL of the receiving access point */
+  url?: string;
+  /** Transport profile identifier, e.g. `"peppol-transport-as4-v2_0"` */
+  transportProfile?: string;
+  /** Access-point X.509 certificate (PEM) when available */
+  certificate?: string;
 }
 
-/** Peppol participant details retrieved from the SMP (Service Metadata Publisher). */
+/**
+ * Peppol participant details returned by SMP lookup.
+ * Shape follows the backend `/peppol/participants/{scheme}/{identifier}` route:
+ * a 404 becomes `{found: false}` and the SDK translates that into a thrown
+ * `EPostakError(404)`. On a hit, `found === true` plus metadata.
+ */
 export interface PeppolParticipant {
-  /** Peppol participant ID (e.g. `"0245:1234567890"`) */
-  peppolId: string;
-  /** Registered business name, or `null` if not available in the Business Card */
-  name: string | null;
-  /** ISO 3166-1 alpha-2 country code, or `null` */
-  country: string | null;
-  /** List of document types and processes this participant supports */
-  capabilities: SmpParticipantCapability[];
+  /** `true` when the participant is reachable on the Peppol network */
+  found: boolean;
+  /** `true` when resolved via an internal (own-AP) shortcut */
+  internal?: boolean;
+  /** Access-point metadata when resolved via SML/SMP */
+  accessPoint?: PeppolAccessPoint | null;
+  /** Peppol document type IDs advertised by the recipient's SMP record */
+  supportedDocumentTypes?: string[];
+  /** Lookup source tag (e.g. `"sml"`, `"directory"`, `"internal"`) */
+  source?: string | null;
 }
 
-/** Query parameters for searching the Peppol Business Card directory. */
+/** Query parameters for `GET /peppol/directory/search`. */
 export interface DirectorySearchParams {
-  /** Free-text search query (matches business name, identifiers, etc.) */
-  q?: string;
+  /** Free-text search query — required, min 2 characters. Matches business name or exact participant ID. */
+  q: string;
   /** ISO 3166-1 alpha-2 country code to filter results (e.g. `"SK"`, `"CZ"`) */
   country?: string;
   /** Page number (1-based). Defaults to `1`. */
@@ -634,26 +742,26 @@ export interface DirectorySearchParams {
 
 /** A single entry from the Peppol Business Card directory. */
 export interface DirectoryEntry {
-  /** Peppol participant ID */
-  peppolId: string;
+  /** Full Peppol participant ID (e.g. `"0245:1234567890"`) */
+  participantId: string;
   /** Registered business name */
   name: string;
   /** ISO 3166-1 alpha-2 country code */
-  country: string;
-  /** ISO 8601 timestamp when the participant was registered, or `null` */
-  registeredAt: string | null;
+  countryCode: string;
+  /** Registration date in `YYYY-MM-DD`, or `null` if unknown */
+  registrationDate: string | null;
 }
 
 /** Paginated search results from the Peppol Business Card directory. */
 export interface DirectorySearchResult {
   /** Array of matching directory entries */
-  results: DirectoryEntry[];
-  /** Total number of results matching the query */
-  total: number;
+  items: DirectoryEntry[];
   /** Current page number (1-based) */
   page: number;
   /** Number of results per page */
   page_size: number;
+  /** `true` if more pages are available beyond this one */
+  has_next: boolean;
 }
 
 /**
@@ -693,24 +801,30 @@ export interface FirmSummary {
   peppolStatus: string;
 }
 
-/** A Peppol identifier (scheme + value) registered for a firm. */
-export interface FirmPeppolIdentifier {
-  /** Peppol identifier scheme (e.g. `"0245"` for Slovak DIČ) */
-  scheme: string;
-  /** The identifier value within the scheme (e.g. the ICO number) */
-  identifier: string;
-}
-
-/** Detailed firm information including tax IDs, address, and Peppol identifiers. */
-export interface FirmDetail extends FirmSummary {
+/** Detailed firm information including tax IDs, address, and plan. */
+export interface FirmDetail {
+  /** Firm UUID */
+  id: string;
+  /** Legal name */
+  name: string;
+  /** Slovak ICO */
+  ico: string | null;
   /** Tax identification number (DIC), or `null` */
   dic: string | null;
   /** VAT identification number (IC DPH), or `null` */
   icDph: string | null;
-  /** Registered address of the firm */
-  address?: PartyAddress;
-  /** All Peppol identifiers registered for this firm */
-  peppolIdentifiers: FirmPeppolIdentifier[];
+  /** Registered address */
+  address: {
+    street: string | null;
+    city: string | null;
+    zip: string | null;
+  };
+  /** Peppol participant ID, or `null` */
+  peppolId: string | null;
+  /** Peppol registration status */
+  peppolStatus: string;
+  /** Subscription plan name (e.g. `"api-enterprise"`, `"integrator-managed"`) */
+  plan: string;
   /** ISO 8601 timestamp when the firm was created in the system */
   createdAt: string;
 }
@@ -723,24 +837,28 @@ export interface FirmsListResponse {
 
 /** Query parameters for listing a firm's documents. */
 export interface FirmDocumentsParams {
-  /** Number of documents to skip (for pagination). Defaults to `0`. */
-  offset?: number;
-  /** Maximum number of documents to return. Defaults to `20`. */
-  limit?: number;
+  /** Page number (1-based). */
+  page?: number;
+  /** Number of documents per page. */
+  page_size?: number;
   /** Filter by document direction (`"inbound"` or `"outbound"`) */
   direction?: DocumentDirection;
+  /** Filter by document status */
+  status?: string;
+  /** ISO 8601 date — lower bound on `createdAt` */
+  from?: string;
+  /** ISO 8601 date — upper bound on `createdAt` */
+  to?: string;
 }
 
 /** Response after registering a new Peppol identifier for a firm. */
 export interface PeppolIdentifierResponse {
   /** Full Peppol participant ID (e.g. `"0245:1234567890"`) */
   peppolId: string;
-  /** Peppol identifier scheme */
-  scheme: string;
-  /** Identifier value within the scheme */
-  identifier: string;
-  /** ISO 8601 timestamp when the identifier was registered */
-  registeredAt: string;
+  /** Registration status (e.g. `"pending"`). The SMP registration is completed asynchronously. */
+  registrationStatus: string;
+  /** Human-readable confirmation message */
+  message: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -803,7 +921,7 @@ export interface BatchAssignFirmResult {
   };
   /** `"active"` for newly assigned, `"already_assigned"` if previously assigned */
   status?: "active" | "already_assigned";
-  /** Error code if assignment failed for this ICO */
+  /** Error code if assignment failed for this ICO (e.g. `"NOT_FOUND"`, `"FORBIDDEN"`) */
   error?: string;
   /** Human-readable error message */
   message?: string;
@@ -825,6 +943,8 @@ export interface CreateWebhookRequest {
   url: string;
   /** Event types to subscribe to — defaults to all events if omitted */
   events?: WebhookEvent[];
+  /** Whether the webhook is active (defaults to `true`) */
+  isActive?: boolean;
 }
 
 /** Request body for updating an existing webhook subscription. Omit fields to leave unchanged. */
@@ -847,6 +967,8 @@ export interface Webhook {
   events: WebhookEvent[];
   /** Whether the webhook is currently active and receiving events */
   isActive: boolean;
+  /** Number of consecutive delivery failures (used for auto-disable threshold) */
+  failedAttempts: number;
   /** ISO 8601 timestamp when the webhook was created */
   createdAt: string;
 }
@@ -855,12 +977,29 @@ export interface Webhook {
  * Webhook details including the signing secret.
  * The `secret` is only returned once at creation time — store it securely.
  */
-export interface WebhookDetail extends Webhook {
-  /** HMAC-SHA256 signing secret for verifying webhook payloads — only returned on creation */
-  secret?: string;
+export interface WebhookDetail {
+  /** Webhook UUID */
+  id: string;
+  /** HTTPS URL */
+  url: string;
+  /** Event types */
+  events: WebhookEvent[];
+  /** HMAC-SHA256 signing secret (only returned on creation) */
+  secret: string;
+  /** Whether the webhook is active */
+  isActive: boolean;
+  /** ISO 8601 timestamp when created */
+  createdAt: string;
 }
 
-/** A single webhook delivery attempt record. */
+/** Uppercase delivery status enum, as stored in the backend. */
+export type WebhookDeliveryStatus =
+  | "PENDING"
+  | "SUCCESS"
+  | "FAILED"
+  | "RETRYING";
+
+/** A single webhook delivery attempt record (condensed, as returned with `GET /webhooks/{id}`). */
 export interface WebhookDelivery {
   /** Delivery UUID */
   id: string;
@@ -868,8 +1007,8 @@ export interface WebhookDelivery {
   webhookId: string;
   /** Event type that triggered this delivery (e.g. `"document.received"`) */
   event: string;
-  /** Delivery status (e.g. `"success"`, `"failed"`, `"pending"`) */
-  status: string;
+  /** Delivery status — UPPERCASE enum */
+  status: WebhookDeliveryStatus;
   /** Number of delivery attempts made (includes retries) */
   attempts: number;
   /** HTTP status code returned by the webhook URL, or `null` if the request failed */
@@ -880,7 +1019,7 @@ export interface WebhookDelivery {
 
 /** Webhook details with recent delivery history. */
 export interface WebhookWithDeliveries extends Webhook {
-  /** Recent delivery attempts for this webhook */
+  /** Most recent delivery attempts for this webhook (up to 20) */
   deliveries: WebhookDelivery[];
 }
 
@@ -902,7 +1041,7 @@ export interface WebhookTestResponse {
   statusCode: number | null;
   /** Round-trip response time in milliseconds */
   responseTime: number;
-  /** The webhook UUID that was tested */
+  /** The test webhook id assigned to this invocation (for correlation) */
   webhookId: string;
   /** The event type used for the test */
   event: string;
@@ -918,8 +1057,8 @@ export interface WebhookDeliveryDetail {
   webhookId: string;
   /** Event type that triggered this delivery */
   event: string;
-  /** Delivery status */
-  status: "SUCCESS" | "FAILED" | "PENDING" | "RETRYING";
+  /** Delivery status (UPPERCASE) */
+  status: WebhookDeliveryStatus;
   /** Number of delivery attempts made */
   attempts: number;
   /** HTTP status code returned by the webhook URL */
@@ -941,7 +1080,7 @@ export interface WebhookDeliveriesParams {
   /** Number of deliveries to skip for pagination. Defaults to `0`. */
   offset?: number;
   /** Filter by delivery status */
-  status?: "SUCCESS" | "FAILED" | "PENDING" | "RETRYING";
+  status?: WebhookDeliveryStatus;
   /** Filter by event type (e.g. `"document.received"`) */
   event?: string;
 }
@@ -1049,12 +1188,27 @@ export interface WebhookQueueAllResponse {
 // Reporting
 // ---------------------------------------------------------------------------
 
+/** Reporting period shorthand accepted by `GET /reporting/statistics`. */
+export type ReportingPeriod = "month" | "quarter" | "year";
+
 /** Query parameters for the reporting statistics endpoint. */
 export interface StatisticsParams {
-  /** Start of the reporting period in `YYYY-MM-DD` format. Defaults to 30 days ago. */
+  /** Preset period — `"month"` (current month), `"quarter"` or `"year"`. Ignored when `from`/`to` are supplied. */
+  period?: ReportingPeriod;
+  /** Start of the reporting period in `YYYY-MM-DD` format. */
   from?: string;
-  /** End of the reporting period in `YYYY-MM-DD` format. Defaults to today. */
+  /** End of the reporting period in `YYYY-MM-DD` format. */
   to?: string;
+}
+
+/** Top-N recipient / sender row in the statistics response. */
+export interface StatisticsParty {
+  /** Legal name, or `null` if unavailable */
+  name: string | null;
+  /** Peppol participant ID, or `null` */
+  peppol_id: string | null;
+  /** Number of documents in this period */
+  count: number;
 }
 
 /** Aggregated document statistics for a given time period. */
@@ -1066,24 +1220,26 @@ export interface Statistics {
     /** End date in `YYYY-MM-DD` format */
     to: string;
   };
-  /** Outbound (sent) document statistics */
-  outbound: {
-    /** Total outbound documents in the period */
+  /** Outbound (sent) documents aggregated by document type */
+  sent: {
+    /** Total sent documents in the period */
     total: number;
-    /** Successfully delivered documents */
-    delivered: number;
-    /** Documents that failed to deliver */
-    failed: number;
+    /** Count broken down by `doc_type` (e.g. `{Invoice: 42, CreditNote: 3}`) */
+    by_type: Record<string, number>;
   };
-  /** Inbound (received) document statistics */
-  inbound: {
-    /** Total inbound documents in the period */
+  /** Inbound (received) documents aggregated by document type */
+  received: {
+    /** Total received documents in the period */
     total: number;
-    /** Documents that have been acknowledged */
-    acknowledged: number;
-    /** Documents still awaiting acknowledgment */
-    pending: number;
+    /** Count broken down by `doc_type` */
+    by_type: Record<string, number>;
   };
+  /** Delivery rate for outbound documents (0–1, three decimal places) */
+  delivery_rate: number;
+  /** Top 5 recipients in the period */
+  top_recipients: StatisticsParty[];
+  /** Top 5 senders in the period */
+  top_senders: StatisticsParty[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1105,17 +1261,26 @@ export interface Account {
   };
   /** Current subscription plan */
   plan: {
-    /** Plan name (e.g. `"starter"`, `"business"`, `"enterprise"`) */
+    /** Plan name (e.g. `"api-enterprise"`, `"starter"`, `"business"`) */
     name: string;
     /** Plan status — `"active"` or `"expired"` */
     status: "active" | "expired";
   };
-  /** Document usage counters for the current billing period */
+  /** Document usage counters */
   usage: {
     /** Number of outbound (sent) documents */
     outbound: number;
     /** Number of inbound (received) documents */
     inbound: number;
+    /** Number of OCR extractions in the current calendar month */
+    ocr_extractions: number;
+  };
+  /** Monthly limits for the current plan. `-1` means unlimited. */
+  limits: {
+    /** Maximum documents per month (-1 = unlimited) */
+    documents_per_month: number;
+    /** Maximum OCR extractions per month */
+    ocr_per_month: number;
   };
 }
 
@@ -1125,72 +1290,83 @@ export interface Account {
 
 /** Key metadata returned by the auth status introspection endpoint. */
 export interface AuthStatusKey {
-  /** Opaque key ID (not the plaintext secret) */
-  keyId: string;
+  /** Opaque key ID (UUID) */
+  id: string;
+  /** Human-readable key name set by the firm */
+  name: string;
   /** Short prefix identifying the key (e.g. `"sk_live_abc"`) — safe to log */
   prefix: string;
+  /** Permission scopes granted to this key (e.g. `["documents:send"]`) */
+  permissions: string[];
+  /** Whether the key is currently active */
+  active: boolean;
   /** ISO 8601 timestamp when the key was created */
   createdAt: string;
   /** ISO 8601 timestamp of the last successful request, or `null` if never used */
   lastUsedAt: string | null;
 }
 
+/** Firm info returned by the auth status endpoint. */
+export interface AuthStatusFirm {
+  /** Firm UUID */
+  id: string;
+  /** Peppol registration status (e.g. `"active"`, `"pending"`, `"none"`) */
+  peppolStatus: string;
+}
+
+/** Plan info returned by the auth status endpoint. */
+export interface AuthStatusPlan {
+  /** Plan name (e.g. `"api-enterprise"`, `"business"`) */
+  name: string;
+  /** ISO 8601 expiration timestamp, or `null` when plan has no expiry (e.g. free) */
+  expiresAt: string | null;
+  /** `true` when plan is non-free and not expired */
+  active: boolean;
+}
+
 /** Rate-limit info returned by the auth status introspection endpoint. */
 export interface AuthStatusRateLimit {
-  /** Maximum requests allowed in the current window */
-  limit: number;
-  /** Requests remaining in the current window */
-  remaining: number;
-  /** Window duration in seconds */
-  windowSeconds: number;
+  /** Requests allowed per minute (200 for all enterprise keys) */
+  perMinute: number;
+  /** Human-readable window descriptor (e.g. `"60s"`) */
+  window: string;
 }
 
 /** Integrator summary returned when the key belongs to an integrator account. */
 export interface AuthStatusIntegrator {
   /** Integrator UUID */
   id: string;
-  /** Integrator display name */
-  name: string;
 }
 
 /**
- * Response from `POST /auth/status` — introspects the calling API key
+ * Response from `GET /auth/status` — introspects the calling API key
  * without revealing the plaintext secret.
  */
 export interface AuthStatusResponse {
   /** Metadata about the API key being used */
   key: AuthStatusKey;
   /** The firm this key is authenticated against */
-  firm: {
-    /** Firm UUID */
-    id: string;
-    /** Legal name of the firm */
-    name: string;
-    /** Slovak business registration number (ICO), or `null` */
-    ico: string | null;
-  };
-  /** Current subscription plan (e.g. `"api-enterprise"`, `"business"`) */
-  plan: string;
+  firm: AuthStatusFirm;
+  /** Current subscription plan */
+  plan: AuthStatusPlan;
   /** Applicable rate-limit configuration */
   rateLimit: AuthStatusRateLimit;
-  /** Integrator details — only present when the key is `sk_int_*` */
-  integrator?: AuthStatusIntegrator;
+  /** Integrator summary — `null` when the key is `sk_live_*` */
+  integrator: AuthStatusIntegrator | null;
 }
 
 /**
  * Response from `POST /auth/rotate-secret` — the new plaintext key is
  * returned ONCE. Store it immediately; the previous key is deactivated.
- * Integrator keys (`sk_int_*`) are rejected with 409.
+ * Integrator keys (`sk_int_*`) are rejected with 403.
  */
 export interface RotateSecretResponse {
-  /** Opaque key ID of the newly created key */
-  keyId: string;
   /** The new plaintext API key (`sk_live_...`) — returned only once */
   key: string;
   /** Short prefix of the new key — safe to store for reference */
   prefix: string;
-  /** ISO 8601 timestamp when the rotation completed */
-  rotatedAt: string;
+  /** Human-readable confirmation message */
+  message: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1211,25 +1387,26 @@ export type BatchSendItem = SendDocumentRequest & {
 export interface BatchSendResult {
   /** Zero-based index of the item in the original request */
   index: number;
-  /** `"success"` if the item was sent, `"error"` if it failed */
-  status: "success" | "error";
+  /** HTTP status code returned by the underlying `/documents/send` call (201, 422, 502, etc.) */
+  status: number;
   /**
-   * On success: the normal send response (document ID, message ID, status).
-   * On error: an error object with `code` and `message`.
+   * The full response body from the underlying send. On success, a
+   * {@link SendDocumentResponse}; on failure, an error envelope
+   * `{error: {code, message}}` — use the HTTP `status` to distinguish.
    */
-  result: SendDocumentResponse | { code: string; message: string };
+  result: SendDocumentResponse | { error: { code: string; message: string } };
 }
 
 /**
  * Response from `POST /documents/send/batch` — always returns 200.
- * Per-item errors live in `results[].status === "error"`.
+ * Per-item errors surface as `results[].status >= 400`.
  */
 export interface BatchSendResponse {
   /** Total number of items in the request */
   total: number;
-  /** Number of items that were sent successfully */
+  /** Number of items where `status < 300` */
   succeeded: number;
-  /** Number of items that failed */
+  /** Number of items where `status >= 300` */
   failed: number;
   /** Individual per-item results, in request order */
   results: BatchSendResult[];
@@ -1246,9 +1423,11 @@ export interface BatchSendResponse {
  */
 export interface ParsedUblDocument {
   /** Normalized invoice JSON extracted from the UBL XML */
-  document: Record<string, unknown>;
-  /** Non-fatal warnings raised during parsing (empty array when none) */
-  warnings: string[];
+  invoice: Record<string, unknown>;
+  /** Extra fields not representable in the normalized invoice shape (custom XPaths, Peppol extensions) */
+  extras: Record<string, unknown>;
+  /** Allowance/charge records parsed from the XML (empty when none) */
+  allowances: Array<Record<string, unknown>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1258,8 +1437,8 @@ export interface ParsedUblDocument {
 /**
  * Granular state that can be set via `POST /documents/{id}/mark`.
  * - `"delivered"` — Peppol delivery confirmed (manual override)
- * - `"processed"` — document was processed by the recipient's system
- * - `"failed"` — terminal failure; no further retries
+ * - `"processed"` — document was processed by the recipient's system (sets `acknowledgedAt`)
+ * - `"failed"` — terminal failure; no further retries (also mutates status to `"failed"`)
  * - `"read"` — recipient opened / viewed the document
  */
 export type DocumentMarkState = "delivered" | "processed" | "failed" | "read";
@@ -1278,13 +1457,13 @@ export interface MarkDocumentResponse {
   id: string;
   /** The granular state that was applied */
   state: DocumentMarkState;
-  /** The resulting aggregate status (e.g. `"DELIVERED"`, `"FAILED"`) */
+  /** The resulting aggregate status. Only mutated to `"failed"` when `state === "failed"`. */
   status: string;
   /** ISO 8601 timestamp of delivery, or `null` */
   deliveredAt: string | null;
-  /** ISO 8601 timestamp of acknowledgement, or `null` */
+  /** ISO 8601 timestamp of acknowledgement (set when `state === "processed"`), or `null` */
   acknowledgedAt: string | null;
-  /** ISO 8601 timestamp when the document was marked as read, or `null` */
+  /** ISO 8601 timestamp when the document was marked as read (set when `state === "read"`), or `null` */
   readAt: string | null;
 }
 
@@ -1292,29 +1471,52 @@ export interface MarkDocumentResponse {
 // Peppol capabilities probe
 // ---------------------------------------------------------------------------
 
-/** Request body for `POST /peppol/capabilities` — Storecove-style capability probe. */
+/** Request body for `POST /peppol/capabilities`. */
 export interface PeppolCapabilitiesRequest {
-  /** Peppol identifier scheme (e.g. `"0245"` for Slovak DIČ) */
-  scheme: string;
-  /** Identifier value within the scheme */
-  identifier: string;
-  /** Optional specific document type ID to check for support */
+  /** Peppol participant (scheme + identifier) to probe */
+  participant: {
+    /** Peppol identifier scheme (e.g. `"0245"` for Slovak DIČ) */
+    scheme: string;
+    /** Identifier value within the scheme */
+    identifier: string;
+  };
+  /** Optional specific Peppol BIS 3 document type ID to check support for */
   documentType?: string;
+  /** Optional Peppol process ID to restrict matches to */
+  processId?: string;
 }
 
 /**
- * Response from `POST /peppol/capabilities` — describes what a Peppol
- * participant is able to receive over the network.
+ * Response from `POST /peppol/capabilities`. Returns 404 with `{found:false}`
+ * when the participant isn't registered; 200 with `{found:true, ...}` otherwise.
+ * `matchedDocumentType` is populated only when `documentType` was provided.
  */
 export interface PeppolCapabilitiesResponse {
   /** `true` if the participant was found in SMP */
   found: boolean;
-  /** High-level document families accepted (e.g. `["invoice", "creditNote"]`) */
-  accepts: string[];
+  /**
+   * `true` when the participant accepts the requested `documentType`, or
+   * `true` (all-accept) when no `documentType` was provided.
+   */
+  accepts: boolean;
+  /** Participant identifier echoed back */
+  participant?: {
+    scheme: string;
+    identifier: string;
+    id: string;
+  };
+  /** Access-point metadata when resolved, or `null` when using an internal route */
+  accessPoint?: PeppolAccessPoint | null;
+  /** `true` when resolved via an internal (own-AP) shortcut */
+  internal?: boolean;
   /** Full list of specific document type IDs advertised by the SMP */
   supportedDocumentTypes: string[];
-  /** The matched document type ID when `documentType` was provided in the request */
-  matchedDocumentType?: string;
+  /** The matched document type ID when `documentType` was provided and supported, `null` otherwise */
+  matchedDocumentType: string | null;
+  /** Lookup source tag (`"sml"`, `"directory"`, `"internal"`) or `null` */
+  source: string | null;
+  /** Reason for negative lookup (only present when `found: false`) */
+  reason?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1337,14 +1539,26 @@ export interface BatchLookupRequest {
 
 /** Per-participant result in a batch lookup response. */
 export interface BatchLookupResult {
-  /** Peppol identifier scheme */
-  scheme: string;
-  /** Identifier value within the scheme */
-  identifier: string;
+  /** Zero-based index in the original request */
+  index: number;
+  /** Participant echoed back with combined `id` */
+  participant: {
+    scheme: string;
+    identifier: string;
+    id: string;
+  };
   /** `true` if the participant was found in SMP */
   found: boolean;
-  /** Participant details when `found === true`, otherwise omitted */
-  participant?: PeppolParticipant;
+  /** Access-point metadata, or `null` if not applicable */
+  accessPoint?: PeppolAccessPoint | null;
+  /** `true` when resolved via an internal (own-AP) shortcut */
+  internal?: boolean;
+  /** Full list of supported Peppol document type IDs, or `null` when not found */
+  supportedDocumentTypes?: string[] | null;
+  /** Lookup source tag (`"sml"`, `"directory"`, `"internal"`) or `null` */
+  source?: string | null;
+  /** Error message for this participant when validation / lookup failed */
+  error?: string;
 }
 
 /** Response from `POST /peppol/participants/batch`. */
@@ -1418,8 +1632,12 @@ export interface ExtractResult {
   extraction: Record<string, unknown>;
   /** Generated UBL 2.1 XML from the extracted data */
   ubl_xml: string;
-  /** Confidence score from 0 to 1 indicating extraction reliability */
-  confidence: number;
+  /** Coarse confidence bucket: `"high"`, `"medium"`, or `"low"` */
+  confidence: "high" | "medium" | "low";
+  /** Per-field confidence scores (0–1) mapped onto the coarse bucket */
+  confidence_scores: Record<string, number>;
+  /** `true` when `confidence === "low"` or `"medium"` — human review recommended */
+  needs_review: boolean;
   /** Original file name of the uploaded document */
   file_name: string;
 }
@@ -1432,22 +1650,14 @@ export interface BatchExtractItem {
   extraction?: Record<string, unknown>;
   /** Generated UBL XML, present on success */
   ubl_xml?: string;
-  /** Confidence score as a string, present on success */
-  confidence?: string;
+  /** Confidence bucket, present on success */
+  confidence?: "high" | "medium" | "low";
   /** Error message if extraction failed for this file */
   error?: string;
 }
 
 /** Result of a batch extraction operation across multiple files. */
 export interface BatchExtractResult {
-  /** Unique batch ID for reference */
-  batch_id: string;
-  /** Total number of files in the batch */
-  total: number;
-  /** Number of files successfully extracted */
-  successful: number;
-  /** Number of files that failed extraction */
-  failed: number;
-  /** Individual results for each file */
+  /** Individual results for each file (mixed success/failure) */
   results: BatchExtractItem[];
 }

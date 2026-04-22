@@ -37,24 +37,24 @@ export class AccountResource extends BaseResource {
 
   /**
    * Introspect the calling API key without revealing the plaintext secret.
-   * Returns metadata about the key, the firm it is bound to, the current plan,
-   * the applicable rate limit, and — when the key is an integrator key —
-   * the integrator summary.
+   * Returns metadata about the key, the firm it is bound to, the current
+   * plan with expiration, the applicable per-minute rate limit, and —
+   * when the key is an integrator key — the integrator summary.
    *
    * @returns Key introspection details
    *
    * @example
    * ```typescript
    * const status = await client.account.status();
-   * console.log(`Key ${status.key.prefix} — plan: ${status.plan}`);
-   * console.log(`Remaining: ${status.rateLimit.remaining}/${status.rateLimit.limit}`);
+   * console.log(`Key ${status.key.prefix} — plan: ${status.plan.name}`);
+   * console.log(`Rate limit: ${status.rateLimit.perMinute}/${status.rateLimit.window}`);
    * if (status.integrator) {
-   *   console.log(`Integrator: ${status.integrator.name}`);
+   *   console.log(`Integrator: ${status.integrator.id}`);
    * }
    * ```
    */
   status(): Promise<AuthStatusResponse> {
-    return this.request("POST", "/auth/status");
+    return this.request("GET", "/auth/status");
   }
 
   /**
@@ -62,12 +62,11 @@ export class AccountResource extends BaseResource {
    * new plaintext `sk_live_*` key. The new key is returned ONCE — store it
    * immediately in a secret manager.
    *
-   * Integrator keys (`sk_int_*`) are rejected with HTTP 409 because they
-   * span multiple firms and must be rotated by ePošťák support with prior
-   * notification. Contact info@epostak.sk for those.
+   * Integrator keys (`sk_int_*`) are rejected with HTTP 403; they span
+   * multiple firms and must be rotated through the integrator dashboard.
    *
-   * @returns The new key details including the plaintext secret
-   * @throws {EPostakError} 409 — when called with an integrator key
+   * @returns `{key, prefix, message}` — the new plaintext secret is returned once
+   * @throws {EPostakError} 403 — when called with an integrator key
    *
    * @example
    * ```typescript

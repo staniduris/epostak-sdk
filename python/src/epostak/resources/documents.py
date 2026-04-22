@@ -421,21 +421,86 @@ class DocumentsResource(_BaseResource):
         response = self._request("GET", f"/documents/{quote(id, safe='')}/ubl", raw=True)
         return response.text
 
-    def respond(self, id: str, status: str, note: Optional[str] = None) -> InvoiceRespondResponse:
-        """Send an invoice response for a received document.
+    def envelope(self, id: str) -> bytes:
+        """Download the signed AS4 envelope for a document.
+
+        Streams the exact multipart AS4 payload that was transmitted on the
+        Peppol network (signed, timestamped, tamper-evident) straight from
+        the 10-year WORM archive. The underlying MinIO bucket uses S3 Object
+        Lock in COMPLIANCE mode, so the bytes you receive are cryptographically
+        immutable — we cannot modify or delete them before the retention
+        window expires.
+
+        Available on the ``api-enterprise`` plan for every document that
+        ever flowed through our Access Point, with no age limit during an
+        active contract. Works for both inbound and outbound documents.
+
+        The server also returns the following response headers (not exposed
+        here because the method returns raw bytes):
+
+        - ``X-Envelope-Archived-At`` -- ISO 8601 timestamp of when the
+          envelope was written to WORM storage.
+        - ``X-Envelope-Direction`` -- ``"inbound"`` or ``"outbound"``.
+        - ``Content-Disposition: attachment; filename="{id}.as4"``.
+
+        The archive cron runs on a short interval; brand-new documents may
+        briefly 404 until their envelope has been persisted. Retry shortly
+        or contact support if the condition persists.
 
         Args:
             id: Document UUID.
-            status: Response code -- ``"AP"`` (accepted), ``"RE"`` (rejected), or ``"UQ"`` (under query).
-            note: Optional note to include with the response.
 
         Returns:
-            Dict with ``documentId``, ``responseStatus``, and ``respondedAt``.
+            Raw AS4 envelope bytes (multipart MIME, S/MIME-signed).
+
+        Example::
+
+            envelope_bytes = client.documents.envelope("doc-uuid")
+            with open("doc-uuid.as4", "wb") as f:
+                f.write(envelope_bytes)
+        """
+        response = self._request("GET", f"/documents/{quote(id, safe='')}/envelope", raw=True)
+        return response.content
+
+    def respond(self, id: str, status: str, note: Optional[str] = None) -> InvoiceRespondResponse:
+        """Send an invoice response for a received document.
+
+        Dispatches an Invoice Response (UBL Application Response) back to
+        the supplier via Peppol AS4. The call returns synchronously:
+        HTTP 200 on successful dispatch, HTTP 202 on dispatch failure
+        (the response is still persisted and can be retried).
+
+        An initial ``"UQ"`` (under query) response may be followed by a
+        final status (``AP``/``RE``/``CA``/etc.); any other non-UQ status
+        is terminal.
+
+        Args:
+            id: Document UUID.
+            status: Response code. Must be one of the seven UBL Application
+                Response codes (see :data:`~epostak.types.InvoiceResponseCode`):
+
+                - ``"AB"`` accepted for billing
+                - ``"IP"`` in process
+                - ``"UQ"`` under query
+                - ``"CA"`` conditionally accepted
+                - ``"RE"`` rejected
+                - ``"AP"`` accepted
+                - ``"PD"`` paid
+
+            note: Optional note to include with the response (max 500 chars).
+
+        Returns:
+            Dict with ``documentId``, ``responseStatus``, ``respondedAt``,
+            ``peppolMessageId`` (None on dispatch failure), ``dispatchStatus``
+            (``"sent"`` or ``"failed_queued"``), and optional ``dispatchError``.
 
         Example::
 
             result = client.documents.respond("doc-uuid", status="AP", note="Accepted")
-            print(result["respondedAt"])
+            if result["dispatchStatus"] == "sent":
+                print("Dispatched as", result["peppolMessageId"])
+            else:
+                print("Queued for retry:", result.get("dispatchError"))
         """
         body: Dict[str, Any] = {"status": status}
         if note is not None:
@@ -532,12 +597,12 @@ class DocumentsResource(_BaseResource):
         return self._request("POST", "/documents/convert", json=body)
 
     def send_batch(self, items: List[Dict[str, Any]]) -> BatchSendResponse:
-        """Send up to 100 documents in a single request.
+        """Send up to 50 documents in a single request.
 
         Each item uses the same body format as :meth:`send` and may carry an
         optional ``idempotencyKey`` field to make retries safe.  Partial
         failures do not fail the whole request -- inspect ``results`` and
-        ``failed`` for per-item outcomes.
+        ``failed`` for per-item outcomes. Maximum request body size is 20 MB.
 
         Args:
             items: List of send request bodies.

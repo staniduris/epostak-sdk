@@ -39,34 +39,36 @@ class AccountResource(_BaseResource):
         key is currently scoped to, and discovering per-minute rate limits.
 
         Returns:
-            Dict with ``key`` (keyId/prefix/createdAt/lastUsedAt), ``firm``
-            (id/name/ico), ``plan``, ``rateLimit`` (getPerMin/postPerMin), and
-            ``integrator`` (present only for ``sk_int_*`` keys, otherwise None).
+            Dict with ``key`` (id/name/prefix/permissions/active/createdAt/lastUsedAt),
+            ``firm`` (id/peppolStatus), ``plan`` (name/expiresAt/active),
+            ``rateLimit`` (perMinute/window), and ``integrator`` (``{id}``
+            for ``sk_int_*`` keys, otherwise None).
 
         Example::
 
             info = client.account.status()
-            print(info["firm"]["name"], info["plan"])
-            print(f"Limits: {info['rateLimit']['postPerMin']} POST/min")
+            print(info["firm"]["id"], info["plan"]["name"])
+            print(f"Rate limit: {info['rateLimit']['perMinute']}/min")
         """
-        return self._request("POST", "/auth/status")
+        return self._request("GET", "/auth/status")
 
     def rotate_secret(self) -> RotateSecretResponse:
         """Rotate the plaintext secret for the current API key.
 
-        The returned ``key`` is shown exactly once -- store it immediately.
-        The previous secret is invalidated on success.
+        Atomically deactivates the current key and issues a new one under
+        the same name / permissions. The returned ``key`` is shown exactly
+        once -- store it immediately.
 
         Integrator keys (``sk_int_*``) cannot be rotated through this
-        endpoint; the server returns HTTP 409, which raises
+        endpoint; the server returns HTTP 403, which raises
         :class:`~epostak.errors.EPostakError`.
 
         Returns:
-            Dict with ``keyId``, ``key`` (new plaintext), ``prefix``, and ``rotatedAt``.
+            Dict with ``key`` (new plaintext, shown ONCE), ``prefix``, and ``message``.
 
         Example::
 
             new = client.account.rotate_secret()
             save_somewhere_secure(new["key"])
         """
-        return self._request("POST", "/auth/rotate-secret", json={})
+        return self._request("POST", "/auth/rotate-secret")

@@ -147,11 +147,47 @@ class Documents
     }
 
     /**
-     * Send an invoice response (accept, reject, or query).
+     * Download the signed AS4 envelope for a document from the 10-year WORM archive.
+     *
+     * Streams the raw multipart AS4 payload as transmitted on the Peppol network —
+     * signed, timestamped and tamper-evident. Useful for compliance audits and
+     * third-party dispute resolution where the original transport wrapper is
+     * required rather than just the UBL payload.
+     *
+     * Returns 404 if the envelope has not yet been archived (the archive cron
+     * runs on a short interval, so brand-new documents may briefly miss).
+     *
+     * @param string $id Document UUID.
+     * @return string Raw AS4 envelope bytes. Write to a file with file_put_contents().
+     * @throws EPostakError On API error (404 if envelope not yet archived).
+     *
+     * @example
+     *   $envelope = $client->documents->envelope('doc_abc123');
+     *   file_put_contents('/tmp/doc_abc123.as4', $envelope);
+     */
+    public function envelope(string $id): string
+    {
+        return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/envelope');
+    }
+
+    /**
+     * Send an invoice response (BIS Invoice Response per Peppol BIS 3.0).
+     *
+     * Allowed status codes (UNCL 4343 subset):
+     *   - 'AB' — accepted billing
+     *   - 'IP' — in process
+     *   - 'UQ' — under query
+     *   - 'CA' — conditionally accepted
+     *   - 'RE' — rejected
+     *   - 'AP' — accepted
+     *   - 'PD' — paid
+     *
+     * Once a response other than 'UQ' has been submitted, the invoice
+     * response is final and this endpoint returns 400.
      *
      * @param string      $id     Document UUID of the received invoice.
-     * @param string      $status Response code: 'AP' (accepted), 'RE' (rejected), or 'UQ' (under query).
-     * @param string|null $note   Optional free-text note explaining the response.
+     * @param string      $status Response code: one of AB, IP, UQ, CA, RE, AP, PD.
+     * @param string|null $note   Optional free-text note (max 500 characters).
      * @return array Response confirmation.
      * @throws EPostakError On API error.
      */

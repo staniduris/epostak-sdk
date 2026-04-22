@@ -39,12 +39,13 @@ public sealed class AccountResource
     /// <example>
     /// <code>
     /// var status = await client.Account.StatusAsync();
-    /// Console.WriteLine($"Acting as: {status.Firm.Name} ({status.Plan})");
-    /// Console.WriteLine($"Rate: {status.RateLimit.Remaining}/{status.RateLimit.Limit}");
+    /// Console.WriteLine($"Firm: {status.Firm.Id} ({status.Firm.PeppolStatus})");
+    /// Console.WriteLine($"Plan: {status.Plan.Name} (active: {status.Plan.Active})");
+    /// Console.WriteLine($"Rate: {status.RateLimit.PerMinute}/{status.RateLimit.Window}");
     /// </code>
     /// </example>
     public Task<AuthStatusResponse> StatusAsync(CancellationToken ct = default)
-        => _http.RequestAsync<AuthStatusResponse>(HttpMethod.Post, "/auth/status", new { }, ct);
+        => _http.RequestAsync<AuthStatusResponse>(HttpMethod.Get, "/auth/status", ct);
 
     /// <summary>
     /// Rotate the current API key's secret. The new key value is returned only once --

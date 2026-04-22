@@ -1,7 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 import java.util.List;
 
 /**
@@ -15,24 +13,55 @@ import java.util.List;
 public record BatchLookupResponse(
         int total,
         int found,
-        @SerializedName("not_found") int notFound,
+        int notFound,
         List<LookupResult> results
 ) {
     /**
      * Result of a single participant lookup in a batch.
      *
-     * @param scheme      the scheme that was queried
-     * @param identifier  the identifier that was queried
-     * @param found       {@code true} if the participant was found
-     * @param participant the resolved participant details, or {@code null} when {@code found == false}
-     * @param error       error message when lookup failed for reasons other than "not found",
-     *                    or {@code null}
+     * @param index                  zero-based position of this participant in the request
+     * @param participant            the {@code {scheme, identifier, id}} triple (with {@code id == null}
+     *                               when validation failed up-front)
+     * @param found                  {@code true} if the participant was found in the SMP
+     * @param accessPoint            SMP access point (URL + transport profile), or {@code null}
+     * @param internal               {@code true} when the participant is hosted on our own AP
+     * @param supportedDocumentTypes UBL document type IDs the participant advertises, or {@code null}
+     * @param source                 origin of the lookup data: {@code "internal"}, {@code "sml"},
+     *                               or {@code "directory"}, or {@code null}
+     * @param error                  error message when validation or lookup failed, or {@code null}
      */
     public record LookupResult(
-            String scheme,
-            String identifier,
+            int index,
+            Participant participant,
             boolean found,
-            PeppolParticipant participant,
+            AccessPoint accessPoint,
+            Boolean internal,
+            List<String> supportedDocumentTypes,
+            String source,
             String error
-    ) {}
+    ) {
+        /**
+         * Participant identifier triple echoed back in each batch result.
+         *
+         * @param scheme     Peppol identifier scheme, e.g. {@code "0245"}
+         * @param identifier identifier value
+         * @param id         combined form {@code "scheme:identifier"}, or {@code null} on invalid input
+         */
+        public record Participant(
+                String scheme,
+                String identifier,
+                String id
+        ) {}
+
+        /**
+         * SMP access point metadata.
+         *
+         * @param url              AS4 endpoint URL
+         * @param transportProfile transport profile identifier, e.g. {@code "peppol-transport-as4-v2_0"}, or {@code null}
+         */
+        public record AccessPoint(
+                String url,
+                String transportProfile
+        ) {}
+    }
 }

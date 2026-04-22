@@ -33,11 +33,11 @@ public sealed class AccountFirm
 /// </summary>
 public sealed class AccountPlan
 {
-    /// <summary>Plan name (e.g. "Starter", "Business", "Enterprise").</summary>
+    /// <summary>Plan name (e.g. "free", "api-enterprise", "business").</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
-    /// <summary>Plan status (e.g. "active", "trialing", "past_due", "cancelled").</summary>
+    /// <summary>Plan status (e.g. "active", "expired").</summary>
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 }
@@ -54,10 +54,28 @@ public sealed class AccountUsage
     /// <summary>Number of inbound (received) documents in the current billing period.</summary>
     [JsonPropertyName("inbound")]
     public int Inbound { get; set; }
+
+    /// <summary>Number of OCR extractions (<c>POST /extract</c>) in the current calendar month.</summary>
+    [JsonPropertyName("ocr_extractions")]
+    public int OcrExtractions { get; set; }
 }
 
 /// <summary>
-/// Account information combining firm details, subscription plan, and usage data.
+/// Plan-based limits for the account. A value of <c>-1</c> means unlimited.
+/// </summary>
+public sealed class AccountLimits
+{
+    /// <summary>Maximum documents per month (<c>-1</c> for unlimited).</summary>
+    [JsonPropertyName("documents_per_month")]
+    public int DocumentsPerMonth { get; set; }
+
+    /// <summary>Maximum OCR extractions per month (<c>-1</c> for unlimited).</summary>
+    [JsonPropertyName("ocr_per_month")]
+    public int OcrPerMonth { get; set; }
+}
+
+/// <summary>
+/// Account information combining firm details, subscription plan, usage counters, and plan limits.
 /// </summary>
 public sealed class Account
 {
@@ -69,9 +87,13 @@ public sealed class Account
     [JsonPropertyName("plan")]
     public AccountPlan Plan { get; set; } = new();
 
-    /// <summary>Document usage counters for the current billing period.</summary>
+    /// <summary>Document and OCR usage counters for the current billing period.</summary>
     [JsonPropertyName("usage")]
     public AccountUsage Usage { get; set; } = new();
+
+    /// <summary>Plan-based limits (documents per month, OCR per month).</summary>
+    [JsonPropertyName("limits")]
+    public AccountLimits Limits { get; set; } = new();
 }
 
 // ---------------------------------------------------------------------------
@@ -87,13 +109,21 @@ public sealed class AuthStatusKey
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
 
+    /// <summary>Human-readable name assigned to the key.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
     /// <summary>Human-visible prefix of the key (e.g. <c>sk_live_abc</c>).</summary>
     [JsonPropertyName("prefix")]
     public string Prefix { get; set; } = "";
 
-    /// <summary>Key type: <c>direct</c> or <c>integrator</c>.</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
+    /// <summary>Scoped permissions granted to this key (free-form strings).</summary>
+    [JsonPropertyName("permissions")]
+    public List<string> Permissions { get; set; } = [];
+
+    /// <summary>Whether the key is currently active (not revoked).</summary>
+    [JsonPropertyName("active")]
+    public bool Active { get; set; }
 
     /// <summary>ISO 8601 timestamp when the key was created.</summary>
     [JsonPropertyName("createdAt")]
@@ -113,39 +143,41 @@ public sealed class AuthStatusFirm
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
 
-    /// <summary>Legal business name.</summary>
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    /// <summary>Slovak business registration number (ICO). Null if not a Slovak entity.</summary>
-    [JsonPropertyName("ico")]
-    public string? Ico { get; set; }
-
-    /// <summary>Primary Peppol participant identifier. Null if not yet registered.</summary>
-    [JsonPropertyName("peppolId")]
-    public string? PeppolId { get; set; }
-
     /// <summary>Peppol registration status (e.g. <c>active</c>, <c>pending</c>).</summary>
     [JsonPropertyName("peppolStatus")]
     public string PeppolStatus { get; set; } = "";
 }
 
 /// <summary>
-/// Rate limit window and remaining budget for the current API key.
+/// Subscription plan info returned by <c>POST /auth/status</c>.
+/// </summary>
+public sealed class AuthStatusPlan
+{
+    /// <summary>Plan identifier (e.g. <c>free</c>, <c>api-enterprise</c>).</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp when the plan expires. Null for plans without an expiry.</summary>
+    [JsonPropertyName("expiresAt")]
+    public string? ExpiresAt { get; set; }
+
+    /// <summary>Whether the plan is currently active.</summary>
+    [JsonPropertyName("active")]
+    public bool Active { get; set; }
+}
+
+/// <summary>
+/// Rate limit window descriptor for the current API key.
 /// </summary>
 public sealed class AuthStatusRateLimit
 {
     /// <summary>Request ceiling per window.</summary>
-    [JsonPropertyName("limit")]
-    public int Limit { get; set; }
+    [JsonPropertyName("perMinute")]
+    public int PerMinute { get; set; }
 
-    /// <summary>Requests remaining in the current window.</summary>
-    [JsonPropertyName("remaining")]
-    public int Remaining { get; set; }
-
-    /// <summary>ISO 8601 timestamp when the window resets.</summary>
-    [JsonPropertyName("resetAt")]
-    public string ResetAt { get; set; } = "";
+    /// <summary>Window identifier (e.g. <c>60s</c>).</summary>
+    [JsonPropertyName("window")]
+    public string Window { get; set; } = "";
 }
 
 /// <summary>
@@ -153,9 +185,9 @@ public sealed class AuthStatusRateLimit
 /// </summary>
 public sealed class AuthStatusIntegrator
 {
-    /// <summary>Number of client firms managed under this integrator key.</summary>
-    [JsonPropertyName("firmsManaged")]
-    public int FirmsManaged { get; set; }
+    /// <summary>Integrator account UUID.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
 }
 
 /// <summary>
@@ -173,11 +205,11 @@ public sealed class AuthStatusResponse
     [JsonPropertyName("firm")]
     public AuthStatusFirm Firm { get; set; } = new();
 
-    /// <summary>Current subscription plan identifier (e.g. <c>starter</c>, <c>business</c>).</summary>
+    /// <summary>Current subscription plan.</summary>
     [JsonPropertyName("plan")]
-    public string Plan { get; set; } = "";
+    public AuthStatusPlan Plan { get; set; } = new();
 
-    /// <summary>Rate limit window and remaining budget for this key.</summary>
+    /// <summary>Rate limit window descriptor for this key.</summary>
     [JsonPropertyName("rateLimit")]
     public AuthStatusRateLimit RateLimit { get; set; } = new();
 
@@ -197,14 +229,10 @@ public sealed class AuthStatusResponse
 /// </summary>
 /// <remarks>
 /// Not available for integrator subkeys (<c>sk_int_*</c>); the server responds
-/// with HTTP 409 in that case.
+/// with HTTP 403 in that case.
 /// </remarks>
 public sealed class RotateSecretResponse
 {
-    /// <summary>Key UUID whose secret was rotated.</summary>
-    [JsonPropertyName("keyId")]
-    public string KeyId { get; set; } = "";
-
     /// <summary>The new API key value. Only returned once.</summary>
     [JsonPropertyName("key")]
     public string Key { get; set; } = "";
@@ -213,7 +241,7 @@ public sealed class RotateSecretResponse
     [JsonPropertyName("prefix")]
     public string Prefix { get; set; } = "";
 
-    /// <summary>ISO 8601 timestamp when the rotation completed.</summary>
-    [JsonPropertyName("rotatedAt")]
-    public string RotatedAt { get; set; } = "";
+    /// <summary>Human-readable confirmation message.</summary>
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
 }

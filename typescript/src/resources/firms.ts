@@ -66,14 +66,14 @@ export class FirmsResource extends BaseResource {
    * Useful for integrators to view a client's document history.
    *
    * @param id - Firm UUID
-   * @param params - Optional pagination and direction filter
+   * @param params - Optional pagination (`page`/`page_size`), direction, status, and date range
    * @returns Paginated list of the firm's documents
    *
    * @example
    * ```typescript
    * const { documents } = await client.firms.documents('firm-uuid', {
    *   direction: 'inbound',
-   *   limit: 100,
+   *   page_size: 100,
    * });
    * ```
    */
@@ -84,9 +84,12 @@ export class FirmsResource extends BaseResource {
     return this.request(
       "GET",
       `/firms/${encodeURIComponent(id)}/documents${buildQuery({
-        offset: params?.offset,
-        limit: params?.limit,
+        page: params?.page,
+        page_size: params?.page_size,
         direction: params?.direction,
+        status: params?.status,
+        from: params?.from,
+        to: params?.to,
       })}`,
     );
   }

@@ -65,7 +65,9 @@ class WebhookQueue
     /**
      * Batch acknowledge multiple events, removing them from the queue.
      *
-     * @param string[] $eventIds Array of event UUIDs to acknowledge.
+     * Max 1000 event IDs per call.
+     *
+     * @param string[] $eventIds Array of event UUIDs to acknowledge (max 1000).
      * @return array|null Always null (HTTP 204 No Content).
      * @throws EPostakError On API error.
      */
@@ -82,9 +84,10 @@ class WebhookQueue
      * Requires an integrator API key. Returns events from all assigned firms.
      *
      * @param array{limit?: int, since?: string} $params Optional filters:
-     *   - `limit` Max events to return.
+     *   - `limit` Max events to return (default 100, max 500).
      *   - `since` ISO 8601 datetime cutoff.
-     * @return array Pending events from all firms.
+     * @return array{events: list<array{event_id: string, firm_id: string, event: string, payload: array, created_at: string}>, count: int}
+     *   Pending events from all firms.
      * @throws EPostakError On API error.
      */
     public function pullAll(array $params = []): array
@@ -99,9 +102,9 @@ class WebhookQueue
     /**
      * Batch acknowledge events across all firms (integrator only).
      *
-     * Requires an integrator API key.
+     * Requires an integrator API key. Max 1000 event IDs per call.
      *
-     * @param string[] $eventIds Array of event UUIDs to acknowledge.
+     * @param string[] $eventIds Array of event UUIDs to acknowledge (max 1000).
      * @return array{acknowledged: int} Count of acknowledged events.
      * @throws EPostakError On API error.
      */

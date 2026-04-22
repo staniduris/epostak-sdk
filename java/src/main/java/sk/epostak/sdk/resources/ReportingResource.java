@@ -16,8 +16,9 @@ import java.util.Map;
  *
  * <pre>{@code
  * Statistics stats = client.reporting().statistics("2026-01-01", "2026-03-31");
- * System.out.println("Sent: " + stats.outbound().total());
- * System.out.println("Received: " + stats.inbound().total());
+ * System.out.println("Sent: " + stats.sent().total());
+ * System.out.println("Received: " + stats.received().total());
+ * System.out.println("Delivery rate: " + stats.deliveryRate());
  * }</pre>
  */
 public final class ReportingResource {

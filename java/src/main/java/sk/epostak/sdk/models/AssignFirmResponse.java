@@ -3,10 +3,10 @@ package sk.epostak.sdk.models;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * Response from assigning a firm to an integrator by ICO.
+ * Response from assigning a firm to an integrator by ICO. Returned as HTTP 201.
  *
  * @param firm   the assigned firm details
- * @param status assignment status, e.g. {@code "assigned"}, {@code "already_assigned"}
+ * @param status assignment status, typically {@code "active"}
  */
 public record AssignFirmResponse(
         AssignedFirm firm,

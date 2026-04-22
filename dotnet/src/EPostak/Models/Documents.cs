@@ -8,18 +8,26 @@ namespace EPostak.Models;
 // ---------------------------------------------------------------------------
 
 /// <summary>
-/// Peppol BIS Invoice Response 3.0 status codes.
-/// Used when responding to a received invoice.
+/// Peppol BIS Invoice Response 3.0 status codes (UNCL4343 subset). Used when
+/// responding to a received invoice.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<InvoiceResponseCode>))]
 public enum InvoiceResponseCode
 {
-    /// <summary>Accepted -- the invoice is approved for payment.</summary>
-    AP,
-    /// <summary>Rejected -- the invoice is rejected (e.g. incorrect data, disputed amount).</summary>
+    /// <summary>Accepted Billing — the invoice has been accepted for billing/processing.</summary>
+    AB,
+    /// <summary>In Process — the invoice is being processed but not yet accepted.</summary>
+    IP,
+    /// <summary>Under Query — the invoice requires clarification before acceptance or rejection.</summary>
+    UQ,
+    /// <summary>Conditionally Accepted — accepted subject to conditions described in the note.</summary>
+    CA,
+    /// <summary>Rejected — the invoice is rejected (e.g. incorrect data, disputed amount).</summary>
     RE,
-    /// <summary>Under Query -- the invoice requires clarification before acceptance or rejection.</summary>
-    UQ
+    /// <summary>Accepted — the invoice is approved for payment.</summary>
+    AP,
+    /// <summary>Paid — the invoice has been paid.</summary>
+    PD
 }
 
 /// <summary>
@@ -851,7 +859,7 @@ public sealed class DocumentStatusResponse
     [JsonPropertyName("acknowledgedAt")]
     public string? AcknowledgedAt { get; set; }
 
-    /// <summary>Invoice response status from the receiver: AP (accepted), RE (rejected), or UQ (under query). Null if no response yet.</summary>
+    /// <summary>Invoice response status from the receiver: one of AB, IP, UQ, CA, RE, AP, PD. Null if no response yet.</summary>
     [JsonPropertyName("invoiceResponseStatus")]
     public InvoiceResponseCode? InvoiceResponseStatus { get; set; }
 
@@ -878,7 +886,7 @@ public sealed class DocumentStatusResponse
 /// </summary>
 public sealed class InvoiceResponseEvidence
 {
-    /// <summary>Response status: AP (accepted), RE (rejected), or UQ (under query).</summary>
+    /// <summary>Response status: one of AB, IP, UQ, CA, RE, AP, PD.</summary>
     [JsonPropertyName("status")]
     public InvoiceResponseCode? Status { get; set; }
 
@@ -927,11 +935,15 @@ public sealed class DocumentEvidenceResponse
 /// </summary>
 public sealed class InvoiceRespondRequest
 {
-    /// <summary>Response status: AP (accepted for payment), RE (rejected), or UQ (under query / needs clarification).</summary>
+    /// <summary>
+    /// Response status: one of <c>AB</c> (accepted billing), <c>IP</c> (in process),
+    /// <c>UQ</c> (under query), <c>CA</c> (conditionally accepted), <c>RE</c> (rejected),
+    /// <c>AP</c> (accepted), <c>PD</c> (paid).
+    /// </summary>
     [JsonPropertyName("status")]
     public required InvoiceResponseCode Status { get; set; }
 
-    /// <summary>Optional note explaining the response (e.g. reason for rejection or clarification needed).</summary>
+    /// <summary>Optional note explaining the response (max 500 chars).</summary>
     [JsonPropertyName("note")]
     public string? Note { get; set; }
 }
@@ -945,13 +957,25 @@ public sealed class InvoiceRespondResponse
     [JsonPropertyName("documentId")]
     public string DocumentId { get; set; } = "";
 
-    /// <summary>The response status that was sent (AP, RE, or UQ).</summary>
+    /// <summary>The response status that was sent (one of AB, IP, UQ, CA, RE, AP, PD).</summary>
     [JsonPropertyName("responseStatus")]
     public InvoiceResponseCode ResponseStatus { get; set; }
 
     /// <summary>Timestamp when the response was sent (ISO 8601).</summary>
     [JsonPropertyName("respondedAt")]
     public string RespondedAt { get; set; } = "";
+
+    /// <summary>Peppol AS4 message identifier for tracking the dispatch. Null if not dispatched.</summary>
+    [JsonPropertyName("peppolMessageId")]
+    public string? PeppolMessageId { get; set; }
+
+    /// <summary>Dispatch status: <c>sent</c> if transmitted, <c>failed_queued</c> if dispatch failed and will retry.</summary>
+    [JsonPropertyName("dispatchStatus")]
+    public string? DispatchStatus { get; set; }
+
+    /// <summary>Dispatch error message when <see cref="DispatchStatus"/> is <c>failed_queued</c>.</summary>
+    [JsonPropertyName("dispatchError")]
+    public string? DispatchError { get; set; }
 }
 
 // ---------------------------------------------------------------------------

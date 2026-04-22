@@ -1,13 +1,12 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 import java.util.List;
 
 /**
  * Request body for sending multiple documents in a single API call via
  * {@code POST /documents/send/batch}. Each item wraps a {@link SendDocumentRequest}
- * and may include an optional idempotency key.
+ * and may include an optional idempotency key; the batch endpoint forwards the
+ * key as the {@code Idempotency-Key} header on each per-item sub-request.
  *
  * <pre>{@code
  * BatchSendRequest req = new BatchSendRequest(List.of(
@@ -22,7 +21,7 @@ import java.util.List;
  * ));
  * }</pre>
  *
- * @param items the documents to send, in order; max 100 items per batch
+ * @param items the documents to send, in order; max 50 items per batch
  */
 public record BatchSendRequest(
         List<BatchItem> items
@@ -37,7 +36,7 @@ public record BatchSendRequest(
      */
     public record BatchItem(
             SendDocumentRequest document,
-            @SerializedName("idempotency_key") String idempotencyKey
+            String idempotencyKey
     ) {
         /**
          * Convenience constructor without an idempotency key.

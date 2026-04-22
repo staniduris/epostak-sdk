@@ -1,6 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
 import java.util.Map;
 
@@ -10,31 +9,33 @@ import java.util.Map;
  * @param id                    document UUID
  * @param status                current status, e.g. {@code "DELIVERED"}, {@code "FAILED"}
  * @param documentType          UBL document type identifier
- * @param senderPeppolId        sender's Peppol participant ID
- * @param receiverPeppolId      receiver's Peppol participant ID
- * @param statusHistory         ordered list of status transitions
+ * @param senderPeppolId        sender's Peppol participant ID, or {@code null}
+ * @param receiverPeppolId      receiver's Peppol participant ID, or {@code null}
+ * @param statusHistory         ordered list of status transitions (may be empty)
  * @param validationResult      validation details (warnings, errors), or {@code null}
  * @param deliveredAt           ISO 8601 delivery timestamp, or {@code null}
  * @param acknowledgedAt        ISO 8601 acknowledgement timestamp, or {@code null}
- * @param invoiceResponseStatus invoice response status (AP/RE/UQ), or {@code null}
- * @param as4MessageId          AS4 message ID
+ * @param invoiceResponseStatus invoice response status (one of {@code AB}, {@code IP},
+ *                              {@code UQ}, {@code CA}, {@code RE}, {@code AP}, {@code PD}),
+ *                              or {@code null}
+ * @param as4MessageId          AS4 message ID, or {@code null}
  * @param createdAt             ISO 8601 creation timestamp
  * @param updatedAt             ISO 8601 last-update timestamp
  */
 public record DocumentStatusResponse(
         String id,
         String status,
-        @SerializedName("document_type") String documentType,
-        @SerializedName("sender_peppol_id") String senderPeppolId,
-        @SerializedName("receiver_peppol_id") String receiverPeppolId,
-        @SerializedName("status_history") List<StatusHistoryEntry> statusHistory,
-        @SerializedName("validation_result") Map<String, Object> validationResult,
-        @SerializedName("delivered_at") String deliveredAt,
-        @SerializedName("acknowledged_at") String acknowledgedAt,
-        @SerializedName("invoice_response_status") String invoiceResponseStatus,
-        @SerializedName("as4_message_id") String as4MessageId,
-        @SerializedName("created_at") String createdAt,
-        @SerializedName("updated_at") String updatedAt
+        String documentType,
+        String senderPeppolId,
+        String receiverPeppolId,
+        List<StatusHistoryEntry> statusHistory,
+        Map<String, Object> validationResult,
+        String deliveredAt,
+        String acknowledgedAt,
+        String invoiceResponseStatus,
+        String as4MessageId,
+        String createdAt,
+        String updatedAt
 ) {
     /**
      * A single entry in the document status history timeline.

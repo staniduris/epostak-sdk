@@ -26,14 +26,26 @@ else:
 # Shared primitives
 # ---------------------------------------------------------------------------
 
-InvoiceResponseCode = Literal["AP", "RE", "UQ"]
-"""Response code for an invoice: ``"AP"`` (accepted), ``"RE"`` (rejected), ``"UQ"`` (under query)."""
+InvoiceResponseCode = Literal["AB", "IP", "UQ", "CA", "RE", "AP", "PD"]
+"""Invoice response codes (UBL Application Response, UNCL4343 / EN 16931).
+
+- ``"AB"`` accepted for billing
+- ``"IP"`` in process
+- ``"UQ"`` under query
+- ``"CA"`` conditionally accepted
+- ``"RE"`` rejected
+- ``"AP"`` accepted
+- ``"PD"`` paid
+"""
 
 WebhookEvent = Literal[
     "document.created",
     "document.sent",
     "document.received",
     "document.validated",
+    "document.delivered",
+    "document.rejected",
+    "document.response_received",
 ]
 """Event types that a webhook subscription can listen for."""
 
@@ -153,7 +165,7 @@ SendDocumentRequest = Dict[str, Any]
 
 
 class SendDocumentResponse(TypedDict):
-    """Successful response from sending a document."""
+    """Successful response from sending a document (HTTP 201)."""
 
     documentId: str  # UUID of the created document
     messageId: str  # Peppol AS4 message ID
@@ -340,17 +352,28 @@ class DocumentStatusResponse(TypedDict, total=False):
 class _InvoiceResponseEvidence(TypedDict, total=False):
     """Invoice response evidence embedded in delivery evidence."""
 
-    status: Optional[str]  # Response status: "AP", "RE", or "UQ"
+    status: Optional[str]  # Response status (one of :data:`InvoiceResponseCode`)
     document: Dict[str, Any]  # type: ignore[misc]  # Raw invoice response document
 
 
+class _TddEvidence(TypedDict, total=False):
+    """SK Tax Data Document (TDD) reporting evidence.
+
+    Present only for documents that have been reported to FS SR.
+    """
+
+    reportedAt: str  # type: ignore[misc]  # ISO 8601 timestamp of the TDD report
+    reported: bool  # type: ignore[misc]  # True if FS SR acknowledged the TDD submission
+
+
 class DocumentEvidenceResponse(TypedDict, total=False):
-    """Delivery evidence for a sent document (AS4 receipts, MLR, invoice response)."""
+    """Delivery evidence for a sent document (AS4 receipts, MLR, invoice response, TDD)."""
 
     documentId: str  # type: ignore[misc]  # Document UUID
     as4Receipt: Optional[Dict[str, Any]]  # AS4 receipt from the access point
     mlrDocument: Optional[Dict[str, Any]]  # Message Level Response document
     invoiceResponse: Optional[_InvoiceResponseEvidence]  # Invoice response from the receiver
+    tdd: Optional[_TddEvidence]  # SK Tax Data Document reporting evidence, if applicable
     deliveredAt: Optional[str]  # ISO 8601 timestamp of delivery confirmation
     sentAt: Optional[str]  # ISO 8601 timestamp when the document was sent
 
@@ -360,12 +383,21 @@ class DocumentEvidenceResponse(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-class InvoiceRespondResponse(TypedDict):
-    """Response after sending an invoice response (accept/reject/query)."""
+class InvoiceRespondResponse(TypedDict, total=False):
+    """Response after sending an invoice response (accept/reject/query/etc.).
 
-    documentId: str  # UUID of the document responded to
-    responseStatus: str  # The response code sent: "AP", "RE", or "UQ"
-    respondedAt: str  # ISO 8601 timestamp of the response
+    The server dispatches the invoice response via Peppol AS4 synchronously.
+    On dispatch success the call returns 200; on dispatch failure the
+    response is still persisted and the call returns 202 with
+    ``dispatchStatus="failed_queued"`` plus ``dispatchError``.
+    """
+
+    documentId: str  # type: ignore[misc]  # UUID of the document responded to
+    responseStatus: str  # type: ignore[misc]  # The response code sent (one of :data:`InvoiceResponseCode`)
+    respondedAt: str  # type: ignore[misc]  # ISO 8601 timestamp of the response
+    peppolMessageId: Optional[str]  # type: ignore[misc]  # Peppol AS4 message ID of the outbound response, None on dispatch failure
+    dispatchStatus: str  # type: ignore[misc]  # "sent" on success, "failed_queued" when AS4 dispatch errored
+    dispatchError: Optional[str]  # Dispatch error message, present only when dispatchStatus is "failed_queued"
 
 
 # ---------------------------------------------------------------------------
@@ -431,19 +463,24 @@ class PeppolParticipant(TypedDict, total=False):
 class DirectoryEntry(TypedDict, total=False):
     """A single entry from the Peppol Business Card directory."""
 
-    peppolId: str  # type: ignore[misc]  # Peppol participant ID
+    participantId: str  # type: ignore[misc]  # Peppol participant ID, e.g. "0245:12345678"
     name: str  # type: ignore[misc]  # Registered business name
-    country: str  # type: ignore[misc]  # ISO country code
-    registeredAt: Optional[str]  # ISO 8601 registration date, if known
+    countryCode: str  # type: ignore[misc]  # ISO country code
+    registrationDate: Optional[str]  # Registration date (YYYY-MM-DD), None if unknown
 
 
 class DirectorySearchResult(TypedDict):
-    """Paginated result from a Peppol directory search."""
+    """Paginated result from a Peppol directory search.
 
-    results: List[DirectoryEntry]  # Matching directory entries
-    total: int  # Total number of matches
-    page: int  # Current page number (0-based)
+    Pagination uses a cursor-style ``has_next`` flag instead of a total count
+    because the underlying directory has ~3.6M entries and counting hits is
+    expensive. Use ``page`` + ``page_size`` to advance.
+    """
+
+    items: List[DirectoryEntry]  # Matching directory entries on this page
+    page: int  # Current page number (1-based)
     page_size: int  # Requested page size
+    has_next: bool  # True if another page of results is available
 
 
 class CompanyLookup(TypedDict, total=False):
@@ -695,14 +732,26 @@ class _AccountUsage(TypedDict):
 
     outbound: int  # Number of outbound documents sent
     inbound: int  # Number of inbound documents received
+    ocr_extractions: int  # Number of OCR extractions in the current calendar month
+
+
+class _AccountLimits(TypedDict):
+    """Plan limits for the current billing period.
+
+    ``-1`` means unlimited on a given dimension.
+    """
+
+    documents_per_month: int  # Documents-per-month cap; -1 = unlimited
+    ocr_per_month: int  # OCR extractions-per-month cap; -1 = unlimited
 
 
 class Account(TypedDict):
-    """Full account information including firm, plan, and usage."""
+    """Full account information including firm, plan, usage, and plan limits."""
 
     firm: _AccountFirm  # Firm details for the authenticated API key
     plan: _AccountPlan  # Current subscription plan
     usage: _AccountUsage  # Document usage in the current billing period
+    limits: _AccountLimits  # Plan caps for the current billing period
 
 
 # ---------------------------------------------------------------------------
@@ -713,42 +762,59 @@ class Account(TypedDict):
 class _AccountStatusKey(TypedDict, total=False):
     """API key metadata returned by the status endpoint."""
 
-    keyId: str  # type: ignore[misc]  # API key UUID
+    id: str  # type: ignore[misc]  # API key UUID
+    name: Optional[str]  # Human-readable label for the key
     prefix: str  # type: ignore[misc]  # Visible key prefix (e.g. "sk_live_abcd")
+    permissions: List[str]  # type: ignore[misc]  # Permission scopes granted to the key
+    active: bool  # type: ignore[misc]  # True if the key is enabled
     createdAt: str  # type: ignore[misc]  # ISO 8601 creation timestamp
     lastUsedAt: Optional[str]  # ISO 8601 timestamp of last use, or None
 
 
-class _AccountStatusFirm(TypedDict, total=False):
-    """Firm info in the status response."""
+class _AccountStatusFirm(TypedDict):
+    """Firm info in the status response.
 
-    id: str  # type: ignore[misc]  # Firm UUID
-    name: str  # type: ignore[misc]  # Legal company name
-    ico: Optional[str]  # Slovak company ID (ICO)
+    Only ``id`` and ``peppolStatus`` are returned here — call :meth:`AccountResource.get`
+    for the full firm profile.
+    """
+
+    id: str  # Firm UUID
+    peppolStatus: str  # Peppol registration status, e.g. "ACTIVE"
+
+
+class _AccountStatusPlan(TypedDict):
+    """Subscription plan info embedded in the status response."""
+
+    name: str  # Plan slug, e.g. "api-enterprise", "free"
+    expiresAt: Optional[str]  # ISO 8601 plan expiry timestamp, None for non-expiring plans
+    active: bool  # True if the plan is currently active (non-free and not expired)
 
 
 class _AccountStatusRateLimit(TypedDict):
-    """Per-minute rate-limit thresholds for the current key."""
+    """Rate-limit thresholds applicable to the current key."""
 
-    getPerMin: int  # Allowed GET requests per minute
-    postPerMin: int  # Allowed POST/PATCH/DELETE requests per minute
+    perMinute: int  # Allowed requests per minute (typically 200)
+    window: str  # Window size as a human-readable string, e.g. "60s"
 
 
-class _AccountStatusIntegrator(TypedDict, total=False):
+class _AccountStatusIntegrator(TypedDict):
     """Integrator info present only when the authenticated key is an integrator key."""
 
-    id: str  # type: ignore[misc]  # Integrator UUID
-    name: str  # type: ignore[misc]  # Integrator display name
+    id: str  # Integrator UUID
 
 
-class AccountStatus(TypedDict, total=False):
-    """Authentication introspection for the current API key."""
+class AccountStatus(TypedDict):
+    """Authentication introspection for the current API key.
 
-    key: _AccountStatusKey  # type: ignore[misc]  # Current API key metadata
-    firm: _AccountStatusFirm  # type: ignore[misc]  # Resolved firm for this request
-    plan: str  # type: ignore[misc]  # Plan slug, e.g. "enterprise"
-    rateLimit: _AccountStatusRateLimit  # type: ignore[misc]  # Per-minute request limits
-    integrator: Optional[_AccountStatusIntegrator]  # Integrator info or None for direct keys
+    Mirrors ``POST /auth/status``.  Integrators see ``integrator`` populated;
+    direct (single-firm) keys have ``integrator: None``.
+    """
+
+    key: _AccountStatusKey  # Current API key metadata
+    firm: _AccountStatusFirm  # Resolved firm for this request
+    plan: _AccountStatusPlan  # Current subscription plan
+    rateLimit: _AccountStatusRateLimit  # Rate-limit configuration
+    integrator: Optional[_AccountStatusIntegrator]  # Integrator info, None for direct keys
 
 
 # ---------------------------------------------------------------------------
@@ -760,13 +826,13 @@ class RotateSecretResponse(TypedDict):
     """Response returned after rotating an API key secret.
 
     The new plaintext ``key`` is shown exactly once -- store it securely.
-    Rejected with HTTP 409 for integrator keys (``sk_int_*``).
+    The old key is deactivated atomically before the new one is created.
+    Rejected with HTTP 403 for integrator keys (``sk_int_*``).
     """
 
-    keyId: str  # API key UUID (unchanged after rotation)
     key: str  # New plaintext API key -- shown ONCE, store securely
-    prefix: str  # Visible prefix of the new key
-    rotatedAt: str  # ISO 8601 timestamp of the rotation
+    prefix: str  # Visible prefix of the new key, safe to store/log
+    message: str  # Human-readable confirmation message
 
 
 # ---------------------------------------------------------------------------
@@ -778,8 +844,8 @@ class BatchSendResultItem(TypedDict, total=False):
     """Result for a single item in a batch send request."""
 
     index: int  # type: ignore[misc]  # Zero-based position of the item in the request
-    status: str  # type: ignore[misc]  # "success" or "error"
-    result: Dict[str, Any]  # type: ignore[misc]  # Per-item response body (send response on success, error on failure)
+    status: int  # type: ignore[misc]  # HTTP status code (201 on success, 4xx/5xx on failure)
+    result: Dict[str, Any]  # type: ignore[misc]  # Per-item response body (send response on success, error object on failure)
 
 
 class BatchSendResponse(TypedDict):

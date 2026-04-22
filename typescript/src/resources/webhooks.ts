@@ -216,7 +216,7 @@ export class WebhooksResource extends BaseResource {
    * @example
    * ```typescript
    * const webhook = await client.webhooks.get('webhook-uuid');
-   * const failedDeliveries = webhook.deliveries.filter(d => d.status === 'failed');
+   * const failedDeliveries = webhook.deliveries.filter(d => d.status === 'FAILED');
    * ```
    */
   get(id: string): Promise<WebhookWithDeliveries> {

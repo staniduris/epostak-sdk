@@ -139,17 +139,16 @@ public final class FirmsResource {
     private record FirmsListWrapper(List<FirmSummary> firms) {}
 
     /**
-     * Response from registering a Peppol ID for a firm.
+     * Response from registering a Peppol ID for a firm. Returned as HTTP 201.
      *
-     * @param peppolId     the full Peppol participant ID, e.g. {@code "0245:1234567890"}
-     * @param scheme       the identifier scheme, e.g. {@code "0245"}
-     * @param identifier   the identifier value, e.g. {@code "12345678"}
-     * @param registeredAt ISO 8601 timestamp of when the identifier was registered
+     * @param peppolId           the full Peppol participant ID, e.g. {@code "0245:1234567890"}
+     * @param registrationStatus registration status, typically {@code "pending"} — SMP
+     *                           publication completes asynchronously within 24 hours
+     * @param message            human-readable confirmation message
      */
     public record PeppolIdentifierResponse(
-            @com.google.gson.annotations.SerializedName("peppol_id") String peppolId,
-            String scheme,
-            String identifier,
-            @com.google.gson.annotations.SerializedName("registered_at") String registeredAt
+            String peppolId,
+            String registrationStatus,
+            String message
     ) {}
 }

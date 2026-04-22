@@ -1,25 +1,27 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
  * Webhook detail with HMAC signing secret and recent delivery history.
  *
- * @param id         the webhook UUID
- * @param url        the endpoint URL receiving webhook payloads
- * @param events     list of subscribed event types
- * @param isActive   {@code true} if the webhook is actively delivering events
- * @param createdAt  ISO 8601 timestamp of webhook creation
- * @param secret     HMAC-SHA256 signing secret -- only returned on creation, {@code null} on subsequent reads
- * @param deliveries recent delivery attempts (most recent first)
+ * @param id             the webhook UUID
+ * @param url            the endpoint URL receiving webhook payloads
+ * @param events         list of subscribed event types
+ * @param isActive       {@code true} if the webhook is actively delivering events
+ * @param failedAttempts count of consecutive failed delivery attempts, or {@code null}
+ *                       when returned from {@code POST /webhooks} at creation time
+ * @param createdAt      ISO 8601 timestamp of webhook creation
+ * @param secret         HMAC-SHA256 signing secret -- only returned on creation, {@code null} on subsequent reads
+ * @param deliveries     recent delivery attempts (most recent first), or {@code null} on creation
  */
 public record WebhookDetail(
         String id,
         String url,
         List<String> events,
-        @SerializedName("is_active") boolean isActive,
-        @SerializedName("created_at") String createdAt,
+        boolean isActive,
+        Integer failedAttempts,
+        String createdAt,
         String secret,
         List<WebhookDelivery> deliveries
 ) {
@@ -29,18 +31,19 @@ public record WebhookDetail(
      * @param id             the delivery UUID
      * @param webhookId      the parent webhook UUID
      * @param event          the event type, e.g. {@code "document.received"}
-     * @param status         delivery status: {@code "success"}, {@code "failed"}, {@code "pending"}
+     * @param status         delivery status: {@code "PENDING"}, {@code "SUCCESS"},
+     *                       {@code "FAILED"}, or {@code "RETRYING"} (UPPERCASE)
      * @param attempts       number of delivery attempts so far
      * @param responseStatus the HTTP response status from the endpoint, or {@code null} if no response
      * @param createdAt      ISO 8601 timestamp of the delivery attempt
      */
     public record WebhookDelivery(
             String id,
-            @SerializedName("webhook_id") String webhookId,
+            String webhookId,
             String event,
             String status,
             int attempts,
-            @SerializedName("response_status") Integer responseStatus,
-            @SerializedName("created_at") String createdAt
+            Integer responseStatus,
+            String createdAt
     ) {}
 }

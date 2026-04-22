@@ -116,7 +116,7 @@ public final class WebhooksResource {
         Map<String, Object> body = new LinkedHashMap<>();
         if (url != null) body.put("url", url);
         if (events != null) body.put("events", events);
-        if (isActive != null) body.put("is_active", isActive);
+        if (isActive != null) body.put("isActive", isActive);
         return http.patch("/webhooks/" + HttpClient.encode(id), body, Webhook.class);
     }
 
@@ -161,7 +161,8 @@ public final class WebhooksResource {
      *
      * @param id     the webhook UUID
      * @param params optional query parameters: {@code limit} (1-100), {@code offset},
-     *               {@code status} (SUCCESS/FAILED/PENDING/RETRYING), {@code event}
+     *               {@code status} (UPPERCASE: {@code PENDING}, {@code SUCCESS},
+     *               {@code FAILED}, {@code RETRYING}), {@code event}
      * @return paginated delivery records with total count
      * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
      */

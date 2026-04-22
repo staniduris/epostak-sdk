@@ -1,78 +1,87 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
+import java.util.List;
 
 /**
- * Response from {@code POST /auth/status} describing the authenticated key,
- * the firm it resolves to, the current subscription plan, applicable rate limit,
- * and optional integrator information.
+ * Response from {@code GET /auth/status} describing the authenticated API key,
+ * the firm it resolves to, the current subscription plan, the applicable rate
+ * limit, and (for integrator keys) the parent integrator.
  *
  * @param key        information about the authenticated API key
- * @param firm       the firm the key resolves to
- * @param plan       the current plan identifier, e.g. {@code "starter"}, {@code "business"}
- * @param rateLimit  the rate limit window and remaining budget for this key
- * @param integrator integrator metadata when {@code key.type == "integrator"}, otherwise {@code null}
+ * @param firm       minimal identification of the firm the key resolves to
+ * @param plan       the firm's current plan, expiry, and active flag
+ * @param rateLimit  rate-limit configuration enforced for this key
+ * @param integrator parent integrator when the key is an integrator subkey, otherwise {@code null}
  */
 public record AuthStatusResponse(
         KeyInfo key,
         FirmInfo firm,
-        String plan,
-        @SerializedName("rate_limit") RateLimit rateLimit,
+        PlanInfo plan,
+        RateLimit rateLimit,
         IntegratorInfo integrator
 ) {
     /**
      * Information about the authenticated API key.
      *
-     * @param id        the key UUID
-     * @param prefix    the human-visible prefix, e.g. {@code "sk_live_abc"}
-     * @param type      the key type: {@code "direct"} or {@code "integrator"}
-     * @param createdAt ISO 8601 creation timestamp
-     * @param lastUsedAt ISO 8601 timestamp of last successful authentication, or {@code null}
+     * @param id          the key UUID
+     * @param name        the human-assigned name of the key, or {@code null}
+     * @param prefix      the key prefix shown in the dashboard, e.g. {@code "sk_live_abc"}
+     * @param permissions list of permission scopes granted to the key
+     * @param active      {@code true} if the key is currently active
+     * @param createdAt   ISO 8601 creation timestamp
+     * @param lastUsedAt  ISO 8601 timestamp of last successful authentication, or {@code null}
      */
     public record KeyInfo(
             String id,
+            String name,
             String prefix,
-            String type,
-            @SerializedName("created_at") String createdAt,
-            @SerializedName("last_used_at") String lastUsedAt
+            List<String> permissions,
+            boolean active,
+            String createdAt,
+            String lastUsedAt
     ) {}
 
     /**
-     * The firm the API key resolves to.
+     * Minimal firm identification returned by {@code /auth/status}.
      *
      * @param id           the firm UUID
-     * @param name         the legal firm name
-     * @param ico          the Slovak ICO (company registration number), or {@code null}
-     * @param peppolId     the primary Peppol participant ID, or {@code null}
      * @param peppolStatus Peppol registration status, e.g. {@code "ACTIVE"}
      */
     public record FirmInfo(
             String id,
-            String name,
-            String ico,
-            @SerializedName("peppol_id") String peppolId,
-            @SerializedName("peppol_status") String peppolStatus
+            String peppolStatus
     ) {}
 
     /**
-     * Rate limit window and remaining budget for the current key.
+     * Current plan for the firm.
      *
-     * @param limit     the request ceiling per window
-     * @param remaining requests remaining in the current window
-     * @param resetAt   ISO 8601 timestamp when the window resets
+     * @param name      plan identifier, e.g. {@code "free"}, {@code "api-enterprise"}
+     * @param expiresAt ISO 8601 expiry timestamp, or {@code null} if the plan does not expire
+     * @param active    {@code true} when the plan is currently valid (not expired and not free)
+     */
+    public record PlanInfo(
+            String name,
+            String expiresAt,
+            boolean active
+    ) {}
+
+    /**
+     * Rate-limit configuration for the authenticated key.
+     *
+     * @param perMinute max requests per {@code window}
+     * @param window    human-readable window, e.g. {@code "60s"}
      */
     public record RateLimit(
-            int limit,
-            int remaining,
-            @SerializedName("reset_at") String resetAt
+            int perMinute,
+            String window
     ) {}
 
     /**
-     * Integrator metadata, present only when {@code key.type == "integrator"}.
+     * Parent integrator information, present only when the key is an integrator subkey.
      *
-     * @param firmsManaged number of client firms managed under this integrator key
+     * @param id the integrator UUID
      */
     public record IntegratorInfo(
-            @SerializedName("firms_managed") int firmsManaged
+            String id
     ) {}
 }

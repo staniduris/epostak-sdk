@@ -1,7 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 /**
  * Request body for {@code POST /peppol/capabilities}, asking whether a participant
  * can receive a given document type.
@@ -15,5 +13,5 @@ import com.google.gson.annotations.SerializedName;
 public record CapabilitiesRequest(
         String scheme,
         String identifier,
-        @SerializedName("document_type") String documentType
+        String documentType
 ) {}

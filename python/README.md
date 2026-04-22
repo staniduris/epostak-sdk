@@ -148,13 +148,29 @@ with open("invoice.pdf", "wb") as f:
 ubl = client.documents.ubl("doc-uuid")
 ```
 
+#### `documents.envelope(id)` -- Download signed AS4 envelope from WORM archive
+
+Streams the signed AS4 envelope straight from the 10-year WORM archive
+(S3 Object Lock COMPLIANCE). Tamper-evident; usable as dispute evidence.
+`api-enterprise` plan only.
+
+```python
+envelope = client.documents.envelope("doc-uuid")
+with open("doc-uuid.as4", "wb") as f:
+    f.write(envelope)
+```
+
 #### `documents.respond(id, status, note=None)` -- Send invoice response
 
-Send an invoice response (accept, reject, or query) for a received document.
+Dispatches an Invoice Response (UBL Application Response) to the supplier
+via Peppol AS4. `status` is one of the seven BIS 3.0 codes: `AB` (accepted
+billing), `IP` (in process), `UQ` (under query), `CA` (conditionally
+accepted), `RE` (rejected), `AP` (accepted), `PD` (paid).
 
 ```python
 result = client.documents.respond("doc-uuid", status="AP", note="Invoice accepted")
-# -> {"documentId", "responseStatus", "respondedAt"}
+# -> {"documentId", "responseStatus", "respondedAt",
+#     "peppolMessageId", "dispatchStatus", "dispatchError"?}
 ```
 
 #### `documents.validate(body)` -- Validate without sending
@@ -533,6 +549,7 @@ except EPostakError as err:
 | `documents.evidence(id)`                                   | GET    | `/documents/{id}/evidence`           |
 | `documents.pdf(id)`                                        | GET    | `/documents/{id}/pdf`                |
 | `documents.ubl(id)`                                        | GET    | `/documents/{id}/ubl`                |
+| `documents.envelope(id)`                                   | GET    | `/documents/{id}/envelope`           |
 | `documents.respond(id, status, note)`                      | POST   | `/documents/{id}/respond`            |
 | `documents.validate(body)`                                 | POST   | `/documents/validate`                |
 | `documents.preflight(receiver_peppol_id)`                  | POST   | `/documents/preflight`               |

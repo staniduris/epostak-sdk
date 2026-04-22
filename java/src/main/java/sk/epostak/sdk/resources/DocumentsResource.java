@@ -155,7 +155,37 @@ public final class DocumentsResource {
     }
 
     /**
-     * Send an invoice response (accept, reject, or query) for a received document.
+     * Download the signed AS4 envelope for this document from the 10-year WORM
+     * archive (S3 Object Lock COMPLIANCE). Returns the raw multipart AS4 payload
+     * exactly as it was transmitted on the Peppol network — signed, timestamped,
+     * and tamper-evident. Usable as dispute evidence or for regulatory retention.
+     * <p>
+     * Availability: {@code api-enterprise} plan only; other plans get
+     * {@link sk.epostak.sdk.EPostakException} with HTTP 403.
+     * <p>
+     * Very recently sent documents may briefly return 404 until the archival
+     * cron picks them up — retry after a short delay rather than treating the
+     * first 404 as permanent.
+     *
+     * <pre>{@code
+     * byte[] as4 = client.documents().envelope("doc_abc123");
+     * Files.write(Path.of("doc_abc123.as4"), as4);
+     * }</pre>
+     *
+     * @param id the document UUID
+     * @return raw AS4 envelope bytes (multipart payload)
+     * @throws sk.epostak.sdk.EPostakException if the document is not found, the envelope
+     *         is not yet archived, the plan is not {@code api-enterprise}, or the request fails
+     */
+    public byte[] envelope(String id) {
+        return http.getBytes("/documents/" + HttpClient.encode(id) + "/envelope");
+    }
+
+    /**
+     * Send an invoice response for a received document. Status must be one of
+     * the seven UBL response codes: {@code AB}, {@code IP}, {@code UQ},
+     * {@code CA}, {@code RE}, {@code AP}, {@code PD}. See
+     * {@link InvoiceRespondRequest} for the full legend.
      *
      * <pre>{@code
      * InvoiceRespondResponse resp = client.documents().respond("doc_abc123",
@@ -163,8 +193,8 @@ public final class DocumentsResource {
      * }</pre>
      *
      * @param id      the document UUID of the received invoice
-     * @param request the response containing status code and optional note
-     * @return the respond confirmation with timestamp
+     * @param request the response containing status code and optional note (max 500 chars)
+     * @return the respond confirmation with timestamp and dispatch status
      * @throws sk.epostak.sdk.EPostakException if the document is not found or the request fails
      */
     public InvoiceRespondResponse respond(String id, InvoiceRespondRequest request) {
@@ -172,15 +202,39 @@ public final class DocumentsResource {
     }
 
     /**
-     * Validate a document without sending it. Returns validation warnings
-     * and, for JSON mode requests, the generated UBL XML.
+     * Validate a UBL XML document against Peppol BIS 3.0 rules without sending it.
      *
-     * @param request the document to validate (same shape as send)
-     * @return the validation result with warnings and optional UBL
-     * @throws sk.epostak.sdk.EPostakException if the request fails
+     * <pre>{@code
+     * ValidationResult result = client.documents().validate(ublXml);
+     * if (!result.valid()) {
+     *     result.errors().forEach(e -> System.err.println(e.rule() + ": " + e.message()));
+     * }
+     * }</pre>
+     *
+     * @param ublXml the UBL 2.1 XML document to validate
+     * @return the validation result with per-rule errors and warnings
+     * @throws sk.epostak.sdk.EPostakException if the request fails or the validator is unavailable
      */
-    public ValidationResult validate(SendDocumentRequest request) {
-        return http.post("/documents/validate", request, ValidationResult.class);
+    public ValidationResult validate(String ublXml) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("format", "ubl");
+        body.put("document", ublXml);
+        return http.post("/documents/validate", body, ValidationResult.class);
+    }
+
+    /**
+     * Validate a JSON-mode invoice body by generating UBL server-side and running
+     * full Peppol BIS 3.0 validation against it.
+     *
+     * @param jsonDocument the invoice document (same shape as {@link SendDocumentRequest}, as a map/POJO)
+     * @return the validation result with per-rule errors and warnings
+     * @throws sk.epostak.sdk.EPostakException if the request fails or the validator is unavailable
+     */
+    public ValidationResult validateJson(Object jsonDocument) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("format", "json");
+        body.put("document", jsonDocument);
+        return http.post("/documents/validate", body, ValidationResult.class);
     }
 
     /**
@@ -188,21 +242,21 @@ public final class DocumentsResource {
      *
      * <pre>{@code
      * PreflightResult result = client.documents().preflight("0245:1234567890");
-     * if (result.registered()) {
+     * if (result.canSend()) {
      *     // Safe to send
      * }
      * }</pre>
      *
      * @param receiverPeppolId receiver Peppol ID, e.g. {@code "0245:1234567890"}
-     * @param documentTypeId   optional UBL document type identifier to check specific capability
+     * @param documentType     optional UBL document type identifier to check specific capability
      * @return the preflight result indicating registration and capability support
      * @throws sk.epostak.sdk.EPostakException if the request fails
      */
-    public PreflightResult preflight(String receiverPeppolId, String documentTypeId) {
+    public PreflightResult preflight(String receiverPeppolId, String documentType) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("receiver_peppol_id", receiverPeppolId);
-        if (documentTypeId != null) {
-            body.put("document_type_id", documentTypeId);
+        body.put("receiverPeppolId", receiverPeppolId);
+        if (documentType != null) {
+            body.put("documentType", documentType);
         }
         return http.post("/documents/preflight", body, PreflightResult.class);
     }
@@ -261,7 +315,7 @@ public final class DocumentsResource {
      * System.out.println(resp.succeeded() + "/" + resp.total() + " sent");
      * }</pre>
      *
-     * @param items the batch items to send; max 100 per call
+     * @param items the batch items to send; max 50 per call, 20 MB total body size
      * @return the batch send response with per-item results
      * @throws sk.epostak.sdk.EPostakException if the request fails
      */

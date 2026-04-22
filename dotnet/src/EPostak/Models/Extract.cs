@@ -8,7 +8,8 @@ namespace EPostak.Models;
 
 /// <summary>
 /// Result of AI-powered OCR extraction from a single document.
-/// Contains the structured extracted data, generated UBL XML, and a confidence score.
+/// Contains the structured extracted data, generated UBL XML, per-field
+/// confidence scores, and a coarse overall confidence level.
 /// </summary>
 public sealed class ExtractResult
 {
@@ -20,9 +21,17 @@ public sealed class ExtractResult
     [JsonPropertyName("ubl_xml")]
     public string UblXml { get; set; } = "";
 
-    /// <summary>AI confidence score for the extraction (0.0 to 1.0). Higher values indicate more reliable extraction.</summary>
+    /// <summary>Overall confidence level: <c>high</c>, <c>medium</c>, or <c>low</c>.</summary>
     [JsonPropertyName("confidence")]
-    public double Confidence { get; set; }
+    public string Confidence { get; set; } = "";
+
+    /// <summary>Per-field numeric confidence scores (0.0 – 1.0) keyed by field name (e.g. <c>vendor_ico</c>, <c>total</c>).</summary>
+    [JsonPropertyName("confidence_scores")]
+    public Dictionary<string, double> ConfidenceScores { get; set; } = [];
+
+    /// <summary>True when the extraction should be manually reviewed (overall confidence is <c>medium</c> or <c>low</c>).</summary>
+    [JsonPropertyName("needs_review")]
+    public bool NeedsReview { get; set; }
 
     /// <summary>Name of the file that was processed.</summary>
     [JsonPropertyName("file_name")]

@@ -1,7 +1,5 @@
 package sk.epostak.sdk.models;
 
-import com.google.gson.annotations.SerializedName;
-
 /**
  * Response from marking a document's processing state.
  *
@@ -16,7 +14,7 @@ public record MarkResponse(
         String id,
         String state,
         String status,
-        @SerializedName("delivered_at") String deliveredAt,
-        @SerializedName("acknowledged_at") String acknowledgedAt,
-        @SerializedName("read_at") String readAt
+        String deliveredAt,
+        String acknowledgedAt,
+        String readAt
 ) {}

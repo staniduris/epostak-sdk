@@ -19,6 +19,28 @@ public static class WebhookEvents
     public const string DocumentReceived = "document.received";
     /// <summary>Fired when a document passes or fails Peppol BIS 3.0 validation.</summary>
     public const string DocumentValidated = "document.validated";
+    /// <summary>Fired when the receiver's access point confirms AS4 delivery.</summary>
+    public const string DocumentDelivered = "document.delivered";
+    /// <summary>Fired when a sent document is rejected by the receiver or validation.</summary>
+    public const string DocumentRejected = "document.rejected";
+    /// <summary>Fired when a Peppol Invoice Response is received for a previously sent document.</summary>
+    public const string DocumentResponseReceived = "document.response_received";
+}
+
+/// <summary>
+/// Webhook delivery status values as reported by <c>GET /webhooks/{id}/deliveries</c>.
+/// Values are UPPERCASE strings returned verbatim by the API.
+/// </summary>
+public static class WebhookDeliveryStatus
+{
+    /// <summary>Delivery is queued and has not been attempted yet.</summary>
+    public const string Pending = "PENDING";
+    /// <summary>Delivery succeeded (2xx response from the webhook URL).</summary>
+    public const string Success = "SUCCESS";
+    /// <summary>Delivery failed permanently after all retries were exhausted.</summary>
+    public const string Failed = "FAILED";
+    /// <summary>Delivery failed and is scheduled for another retry.</summary>
+    public const string Retrying = "RETRYING";
 }
 
 // ---------------------------------------------------------------------------
@@ -131,7 +153,7 @@ public sealed class WebhookDelivery
     [JsonPropertyName("event")]
     public string Event { get; set; } = "";
 
-    /// <summary>Delivery status (e.g. "delivered", "failed", "pending").</summary>
+    /// <summary>Delivery status (UPPERCASE): one of <c>PENDING</c>, <c>SUCCESS</c>, <c>FAILED</c>, <c>RETRYING</c>. See <see cref="WebhookDeliveryStatus"/>.</summary>
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 
@@ -229,7 +251,7 @@ public sealed class WebhookDeliveryDetail
     [JsonPropertyName("event")]
     public string Event { get; set; } = "";
 
-    /// <summary>Delivery status (SUCCESS, FAILED, PENDING, RETRYING).</summary>
+    /// <summary>Delivery status (UPPERCASE): <c>PENDING</c>, <c>SUCCESS</c>, <c>FAILED</c>, or <c>RETRYING</c>. See <see cref="WebhookDeliveryStatus"/>.</summary>
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 
@@ -267,7 +289,7 @@ public sealed class WebhookDeliveriesParams
     public int? Limit { get; set; }
     /// <summary>Number of deliveries to skip (default 0).</summary>
     public int? Offset { get; set; }
-    /// <summary>Filter by status: SUCCESS, FAILED, PENDING, RETRYING.</summary>
+    /// <summary>Filter by status (UPPERCASE): <c>PENDING</c>, <c>SUCCESS</c>, <c>FAILED</c>, or <c>RETRYING</c>. See <see cref="WebhookDeliveryStatus"/>.</summary>
     public string? Status { get; set; }
     /// <summary>Filter by event type.</summary>
     public string? Event { get; set; }

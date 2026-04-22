@@ -1,16 +1,27 @@
 package sk.epostak.sdk.models;
 
+import com.google.gson.annotations.SerializedName;
+
+import java.util.List;
+import java.util.Map;
+
 /**
  * Aggregated document statistics for a time period.
  *
- * @param period   the date range these statistics cover
- * @param outbound outbound (sent) document statistics
- * @param inbound  inbound (received) document statistics
+ * @param period        the date range these statistics cover
+ * @param sent          sent document counts (total + per-type breakdown)
+ * @param received      received document counts (total + per-type breakdown)
+ * @param deliveryRate  fraction of sent documents that were confirmed delivered, in {@code [0.0, 1.0]}
+ * @param topRecipients top-N recipients the firm sends to (most recent window)
+ * @param topSenders    top-N senders the firm receives from
  */
 public record Statistics(
         Period period,
-        OutboundStats outbound,
-        InboundStats inbound
+        @SerializedName("sent") DirectionStats sent,
+        @SerializedName("received") DirectionStats received,
+        @SerializedName("delivery_rate") double deliveryRate,
+        @SerializedName("top_recipients") List<PartyCount> topRecipients,
+        @SerializedName("top_senders") List<PartyCount> topSenders
 ) {
     /**
      * The date range for the statistics.
@@ -21,20 +32,26 @@ public record Statistics(
     public record Period(String from, String to) {}
 
     /**
-     * Outbound (sent) document statistics.
+     * Aggregate document counts in one direction.
      *
-     * @param total     total number of outbound documents
-     * @param delivered number of successfully delivered documents
-     * @param failed    number of failed delivery attempts
+     * @param total  total number of documents in this direction
+     * @param byType per-doctype breakdown (e.g. {@code invoice -> 42})
      */
-    public record OutboundStats(int total, int delivered, int failed) {}
+    public record DirectionStats(
+            int total,
+            @SerializedName("by_type") Map<String, Integer> byType
+    ) {}
 
     /**
-     * Inbound (received) document statistics.
+     * One row of a top-N counterparty ranking.
      *
-     * @param total        total number of inbound documents
-     * @param acknowledged number of acknowledged (processed) documents
-     * @param pending      number of documents pending acknowledgement
+     * @param name     counterparty legal name, or {@code null}
+     * @param peppolId counterparty Peppol participant ID, or {@code null}
+     * @param count    number of documents exchanged with this counterparty
      */
-    public record InboundStats(int total, int acknowledged, int pending) {}
+    public record PartyCount(
+            String name,
+            @SerializedName("peppol_id") String peppolId,
+            int count
+    ) {}
 }

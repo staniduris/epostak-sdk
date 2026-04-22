@@ -18,29 +18,30 @@ import type {
 export class PeppolDirectoryResource extends BaseResource {
   /**
    * Search the Peppol Business Card directory for registered participants.
-   * Supports free-text search and country filtering with pagination.
+   * `q` is required (min 2 chars). Matches business name (starts-with) or
+   * an exact participant ID.
    *
-   * @param params - Optional search query, country filter, and pagination
-   * @returns Paginated search results from the directory
+   * @param params - Search query, optional country filter, and pagination
+   * @returns Paginated search results (`items`, `page`, `page_size`, `has_next`)
    *
    * @example
    * ```typescript
    * // Search for Slovak companies
-   * const { results, total } = await client.peppol.directory.search({
-   *   q: 'consulting',
+   * const { items, has_next } = await client.peppol.directory.search({
+   *   q: 'Telekom',
    *   country: 'SK',
    *   page_size: 50,
    * });
    * ```
    */
-  search(params?: DirectorySearchParams): Promise<DirectorySearchResult> {
+  search(params: DirectorySearchParams): Promise<DirectorySearchResult> {
     return this.request(
       "GET",
       `/peppol/directory/search${buildQuery({
-        q: params?.q,
-        country: params?.country,
-        page: params?.page,
-        page_size: params?.page_size,
+        q: params.q,
+        country: params.country,
+        page: params.page,
+        page_size: params.page_size,
       })}`,
     );
   }
@@ -54,7 +55,7 @@ export class PeppolDirectoryResource extends BaseResource {
  * ```typescript
  * // Look up a Peppol participant
  * const participant = await client.peppol.lookup('0245', '1234567890');
- * console.log(participant.capabilities);
+ * console.log(participant.accessPoint);
  *
  * // Look up a Slovak company by ICO
  * const company = await client.peppol.companyLookup('12345678');
@@ -71,26 +72,44 @@ export class PeppolResource extends BaseResource {
 
   /**
    * Look up a Peppol participant by their identifier scheme and value.
-   * Queries the SMP (Service Metadata Publisher) to retrieve the participant's
-   * name, country, and supported document types.
+   * Queries the SMP (Service Metadata Publisher) to retrieve access point
+   * metadata and supported document types.
+   *
+   * Returns `null` when the participant is not registered on Peppol
+   * (HTTP 404 is swallowed for this convenience). Any other HTTP error
+   * is thrown as usual.
    *
    * @param scheme - Peppol identifier scheme (e.g. `"0245"` for Slovak DIČ)
    * @param identifier - Identifier value within the scheme (e.g. `"1234567890"`)
-   * @returns Participant details including capabilities (supported document types)
+   * @returns Participant details, or `null` if not registered
    *
    * @example
    * ```typescript
    * const participant = await client.peppol.lookup('0245', '1234567890');
-   * if (participant.capabilities.length > 0) {
-   *   console.log('Supports:', participant.capabilities.map(c => c.documentTypeId));
+   * if (participant?.accessPoint?.url) {
+   *   console.log('AP endpoint:', participant.accessPoint.url);
    * }
    * ```
    */
-  lookup(scheme: string, identifier: string): Promise<PeppolParticipant> {
-    return this.request(
-      "GET",
-      `/peppol/participants/${encodeURIComponent(scheme)}/${encodeURIComponent(identifier)}`,
-    );
+  async lookup(
+    scheme: string,
+    identifier: string,
+  ): Promise<PeppolParticipant | null> {
+    try {
+      return await this.request<PeppolParticipant>(
+        "GET",
+        `/peppol/participants/${encodeURIComponent(scheme)}/${encodeURIComponent(identifier)}`,
+      );
+    } catch (err) {
+      // 404 → not registered. Re-throw anything else.
+      if (
+        err instanceof Error &&
+        (err as { status?: number }).status === 404
+      ) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   /**
@@ -114,21 +133,23 @@ export class PeppolResource extends BaseResource {
 
   /**
    * Storecove-style capability probe — describes what a Peppol participant
-   * is able to receive over the network. Use when you want a higher-level
-   * summary than the raw SMP capabilities returned by {@link lookup}.
+   * is able to receive over the network. Provide `documentType` to check
+   * for a specific BIS 3.0 doctype; omit it to list every supported doctype.
    *
-   * @param body - Participant scheme, identifier, and optional document type
-   * @returns Capability summary including accepted families and supported document types
+   * Backend returns 404 when the participant isn't registered; the SDK
+   * surfaces that as a thrown `EPostakError(404)`.
+   *
+   * @param body - Participant (scheme + identifier) and optional documentType / processId
+   * @returns Capability summary — `matchedDocumentType` is populated when a specific `documentType` was provided
    *
    * @example
    * ```typescript
    * const caps = await client.peppol.capabilities({
-   *   scheme: '0245',
-   *   identifier: '1234567890',
+   *   participant: { scheme: '0245', identifier: '1234567890' },
    *   documentType: 'Invoice',
    * });
-   * if (caps.found && caps.accepts.includes('invoice')) {
-   *   console.log('Ready to receive invoices');
+   * if (caps.found && caps.accepts) {
+   *   console.log('Ready to receive the requested doctype');
    * }
    * ```
    */
@@ -154,7 +175,7 @@ export class PeppolResource extends BaseResource {
    * console.log(`${batch.found}/${batch.total} registered on Peppol`);
    * for (const r of batch.results) {
    *   if (!r.found) {
-   *     console.warn(`Not on Peppol: ${r.scheme}:${r.identifier}`);
+   *     console.warn(`Not on Peppol: ${r.participant.id}`);
    *   }
    * }
    * ```

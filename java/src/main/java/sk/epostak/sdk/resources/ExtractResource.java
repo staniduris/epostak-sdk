@@ -18,7 +18,10 @@ import java.util.List;
  * <pre>{@code
  * byte[] pdfBytes = Files.readAllBytes(Path.of("invoice.pdf"));
  * ExtractResult result = client.extract().single(pdfBytes, "invoice.pdf", "application/pdf");
- * System.out.println("Confidence: " + result.confidence());
+ * if (result.needsReview()) {
+ *     // "low" or "medium" confidence — ask a human before auto-processing
+ * }
+ * System.out.println("Confidence: " + result.confidence()); // "high" | "medium" | "low"
  * System.out.println("UBL: " + result.ublXml());
  * }</pre>
  */

@@ -147,6 +147,28 @@ module EPostak
         @http.request_raw(:get, "/documents/#{encode(id)}/ubl")
       end
 
+      # Download the signed AS4 envelope for a document from the 10-year WORM
+      # archive. Returns the raw multipart AS4 payload exactly as it was
+      # transmitted on the Peppol network -- signed, timestamped, and
+      # tamper-evident. Use this for regulatory retention, dispute evidence,
+      # or forensic review.
+      #
+      # Available on the +api-enterprise+ plan only. The archive cron runs
+      # on a short interval, so very recently-sent documents may briefly
+      # return 404 until archival completes.
+      #
+      # @param id [String] Document UUID
+      # @return [String] Raw AS4 envelope bytes as a binary string
+      # @raise [EPostak::Error] 403 on non-enterprise plans, 404 if the
+      #   document is unknown or its envelope has not yet been archived.
+      #
+      # @example
+      #   bytes = client.documents.envelope("doc-uuid")
+      #   File.binwrite("doc-uuid.as4", bytes)
+      def envelope(id)
+        @http.request_raw(:get, "/documents/#{encode(id)}/envelope")
+      end
+
       # Send an Invoice Response (accept, reject, or query) for a received document.
       # This sends a Peppol Invoice Response message back to the supplier.
       #

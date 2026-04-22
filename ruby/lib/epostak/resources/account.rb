@@ -34,16 +34,17 @@ module EPostak
       # Useful for debugging credentials, verifying which firm an integrator
       # key is scoped to, and discovering per-minute rate limits.
       #
-      # @return [Hash] Status hash with "key" (keyId/prefix/createdAt/lastUsedAt),
-      #   "firm" (id/name/ico), "plan", "rateLimit" (getPerMin/postPerMin), and
-      #   "integrator" (present only for sk_int_* keys, otherwise nil).
+      # @return [Hash] Status hash with "key" (id/name/prefix/permissions/active/
+      #   createdAt/lastUsedAt), "firm" (id/peppolStatus), "plan"
+      #   (name/expiresAt/active), "rateLimit" (perMinute/window), and
+      #   "integrator" ({id} for sk_int_* keys, otherwise nil).
       #
       # @example
       #   info = client.account.status
-      #   puts "#{info['firm']['name']} on plan #{info['plan']}"
-      #   puts "Limits: #{info['rateLimit']['postPerMin']} POST/min"
+      #   puts "#{info['firm']['id']} on plan #{info['plan']['name']}"
+      #   puts "Rate limit: #{info['rateLimit']['perMinute']}/min"
       def status
-        @http.request(:post, "/auth/status")
+        @http.request(:get, "/auth/status")
       end
 
       # Rotate the plaintext secret for the current API key.
@@ -52,15 +53,15 @@ module EPostak
       # The previous secret is invalidated on success.
       #
       # Integrator keys (+sk_int_*+) cannot be rotated through this endpoint;
-      # the server returns HTTP 409, which raises +EPostak::Error+.
+      # the server returns HTTP 403, which raises +EPostak::Error+.
       #
-      # @return [Hash] {"keyId" => ..., "key" => ..., "prefix" => ..., "rotatedAt" => ...}
+      # @return [Hash] {"key" => ..., "prefix" => ..., "message" => ...}
       #
       # @example
       #   new_key = client.account.rotate_secret
       #   store_secret(new_key["key"]) # shown only once
       def rotate_secret
-        @http.request(:post, "/auth/rotate-secret", body: {})
+        @http.request(:post, "/auth/rotate-secret")
       end
     end
   end

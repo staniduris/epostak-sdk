@@ -34,6 +34,7 @@ export class ReportingResource extends BaseResource {
     return this.request(
       "GET",
       `/reporting/statistics${buildQuery({
+        period: params?.period,
         from: params?.from,
         to: params?.to,
       })}`,

@@ -15,6 +15,7 @@ import type {
   DocumentEvidenceResponse,
   InvoiceRespondRequest,
   InvoiceRespondResponse,
+  ValidateDocumentRequest,
   ValidationResult,
   PreflightRequest,
   PreflightResult,
@@ -42,7 +43,7 @@ export class InboxResource extends BaseResource {
    * ```typescript
    * // Get unprocessed documents
    * const { documents, total } = await client.documents.inbox.list({
-   *   status: 'RECEIVED',
+   *   status: 'received',
    *   limit: 50,
    * });
    * ```
@@ -77,7 +78,8 @@ export class InboxResource extends BaseResource {
 
   /**
    * Acknowledge (mark as processed) a received inbox document.
-   * Once acknowledged, the document moves from `RECEIVED` to `ACKNOWLEDGED` status.
+   * Requires the document to be in `"received"` state — already-acknowledged
+   * documents return 422.
    *
    * @param id - Document UUID to acknowledge
    * @returns Acknowledgment confirmation with timestamp
@@ -107,7 +109,7 @@ export class InboxResource extends BaseResource {
    * // Poll for new documents across all clients
    * const { documents } = await client.documents.inbox.listAll({
    *   since: '2026-04-01T00:00:00Z',
-   *   status: 'RECEIVED',
+   *   status: 'received',
    * });
    * ```
    */
@@ -170,7 +172,7 @@ export class DocumentsResource extends BaseResource {
   }
 
   /**
-   * Update a draft document. Only documents that have not been sent yet can be updated.
+   * Update a draft document. Only documents in `"draft"` status can be updated.
    * Pass `null` to clear optional fields, or omit them to leave unchanged.
    *
    * @param id - Document UUID of the draft to update
@@ -191,7 +193,8 @@ export class DocumentsResource extends BaseResource {
 
   /**
    * Send an invoice via the Peppol network. Accepts either structured JSON
-   * (the API generates UBL XML) or pre-built UBL XML.
+   * (the API generates UBL XML) or pre-built UBL XML. Body cap 25 MB
+   * (attachments are base64-embedded).
    *
    * @param body - Invoice data as JSON fields or raw UBL XML
    * @returns Document ID, Peppol message ID, and status confirmation
@@ -218,8 +221,15 @@ export class DocumentsResource extends BaseResource {
    * });
    * ```
    */
-  send(body: SendDocumentRequest): Promise<SendDocumentResponse> {
-    return this.request("POST", "/documents/send", body);
+  send(
+    body: SendDocumentRequest,
+    options?: { idempotencyKey?: string },
+  ): Promise<SendDocumentResponse> {
+    const headers: Record<string, string> = {};
+    if (options?.idempotencyKey) {
+      headers["X-Idempotency-Key"] = options.idempotencyKey;
+    }
+    return this.request("POST", "/documents/send", body, { headers });
   }
 
   /**
@@ -232,7 +242,7 @@ export class DocumentsResource extends BaseResource {
    * @example
    * ```typescript
    * const status = await client.documents.status('doc-uuid');
-   * console.log(status.status); // "DELIVERED"
+   * console.log(status.status); // "delivered"
    * console.log(status.deliveredAt); // "2026-04-11T12:30:00Z"
    * ```
    */
@@ -242,10 +252,11 @@ export class DocumentsResource extends BaseResource {
 
   /**
    * Retrieve delivery evidence for a sent document, including AS4 receipts,
-   * Message Level Response (MLR), and Invoice Response from the buyer.
+   * Message Level Response (MLR), Invoice Response from the buyer, and
+   * SK TDD reporting state when applicable.
    *
    * @param id - Document UUID
-   * @returns Evidence records (AS4 receipt, MLR, Invoice Response)
+   * @returns Evidence records (AS4 receipt, MLR, Invoice Response, TDD)
    *
    * @example
    * ```typescript
@@ -306,12 +317,58 @@ export class DocumentsResource extends BaseResource {
   }
 
   /**
-   * Send an Invoice Response (accept, reject, or query) for a received document.
-   * This sends a Peppol Invoice Response message back to the supplier.
+   * Download the signed AS4 envelope of a document from the 10-year WORM
+   * archive (S3 Object Lock COMPLIANCE mode). Returns the raw multipart AS4
+   * bytes exactly as they were transmitted on the Peppol network — signed,
+   * timestamped, and tamper-evident.
+   *
+   * Available on the `api-enterprise` plan. Every document that ever flowed
+   * through our AP is retrievable for 10 years. Freshly-sent documents may
+   * briefly return 404 while the archive cron catches up — retry after a few
+   * seconds.
+   *
+   * @param id - Document UUID
+   * @returns Raw AS4 envelope bytes as a Buffer
+   * @throws {EPostakError} 403 — when the firm's plan does not include envelope access
+   * @throws {EPostakError} 404 — when the document was not found or the envelope has not yet been archived
+   *
+   * @example
+   * ```typescript
+   * import { writeFileSync } from 'fs';
+   *
+   * const envelope = await client.documents.envelope('doc-uuid');
+   * // Persist for long-term legal archival (signed AS4 bytes, XML-DSIG).
+   * writeFileSync('doc-uuid.as4', envelope);
+   * ```
+   */
+  async envelope(id: string): Promise<Buffer> {
+    const res = await this.request<Response>(
+      "GET",
+      `/documents/${encodeURIComponent(id)}/envelope`,
+      undefined,
+      { rawResponse: true },
+    );
+    return Buffer.from(await res.arrayBuffer());
+  }
+
+  /**
+   * Send an Invoice Response (Peppol Application Response) for a received
+   * document. Routes a signed UBL Invoice Response back to the original
+   * supplier over AS4.
+   *
+   * Valid status codes: `"AB"` (accepted billing), `"IP"` (in process),
+   * `"UQ"` (under query), `"CA"` (conditionally accepted), `"RE"` (rejected),
+   * `"AP"` (accepted), `"PD"` (paid). State rule: once a final status
+   * (AP/RE/PD) has been recorded the endpoint refuses further changes; after
+   * `UQ` one more update is permitted.
+   *
+   * HTTP 200 when the response was dispatched to Peppol, 202 when the
+   * dispatch failed and the response is queued for retry (check
+   * `dispatchStatus` and `dispatchError` to tell the two apart).
    *
    * @param id - Document UUID of the received invoice
-   * @param body - Response status and optional note
-   * @returns Confirmation with the response status and timestamp
+   * @param body - Response status and optional note (max 500 chars)
+   * @returns Confirmation with the response status, timestamp, Peppol message ID and dispatch status
    *
    * @example
    * ```typescript
@@ -337,41 +394,52 @@ export class DocumentsResource extends BaseResource {
   }
 
   /**
-   * Validate a document without sending it. Checks Peppol BIS 3.0 compliance
-   * and returns warnings. For JSON input, also returns the generated UBL XML preview.
+   * Validate a document without sending it. Runs UBL XSD + EN 16931 + Peppol
+   * BIS 3.0 schematron against the payload and returns the findings list.
    *
-   * @param body - Document data to validate (same format as `send()`)
-   * @returns Validation result with warnings and optional UBL preview
+   * The endpoint responds 200 when `valid === true` and 422 when `valid ===
+   * false`; the SDK converts the 422 into an `EPostakError` by default, so
+   * catch it when you want to read the failing findings.
+   *
+   * @param body - `{format: "json" | "ubl", document}` — `document` is a
+   *   structured invoice object for `"json"`, a UBL XML string for `"ubl"`
+   * @returns Validation result with per-layer errors and warnings
    *
    * @example
    * ```typescript
    * const result = await client.documents.validate({
-   *   receiverPeppolId: '0245:1234567890',
-   *   items: [{ description: 'Test', quantity: 1, unitPrice: 100, vatRate: 23 }],
+   *   format: 'ubl',
+   *   document: ublXml,
    * });
    * if (!result.valid) {
-   *   console.error('Validation failed:', result.warnings);
+   *   console.error('Peppol errors:', result.errors);
    * }
    * ```
    */
-  validate(body: SendDocumentRequest): Promise<ValidationResult> {
+  validate(body: ValidateDocumentRequest): Promise<ValidationResult> {
     return this.request("POST", "/documents/validate", body);
   }
 
   /**
-   * Check if a Peppol receiver is registered and supports the target document type
-   * before sending. Use this to avoid sending to non-existent participants.
+   * Pre-flight check before sending — combines a Peppol participant lookup
+   * with optional document validation and returns a tri-state go/no-go.
    *
-   * @param body - Receiver Peppol ID and optional document type to check
-   * @returns Preflight result with registration and capability info
+   * The tri-state booleans (`recipientAcceptsDocumentType`,
+   * `validationPassed`) may be `null` when the corresponding layer couldn't
+   * be evaluated (e.g. SMP couldn't confirm support for a specific doctype,
+   * or the validator was temporarily unreachable).
+   *
+   * @param body - Receiver Peppol ID, optional document type, optional document
+   * @returns Preflight result with `canSend`, recipient and validation flags
    *
    * @example
    * ```typescript
    * const check = await client.documents.preflight({
    *   receiverPeppolId: '0245:1234567890',
+   *   invoice: { ... },
    * });
-   * if (!check.registered) {
-   *   console.error('Receiver is not on the Peppol network');
+   * if (!check.canSend) {
+   *   console.error('Blocked:', check.validationErrors, check.warnings);
    * }
    * ```
    */
@@ -409,9 +477,9 @@ export class DocumentsResource extends BaseResource {
 
   /**
    * Send up to 50 invoices in a single call. The endpoint always returns
-   * HTTP 200 — per-item errors surface in `results[].status === "error"`
-   * rather than as thrown exceptions, so a partial failure does not abort
-   * the remaining items.
+   * HTTP 200 — each item carries its own HTTP status on `results[i].status`
+   * (e.g. `201` when sent, `422` on validation failure, `502` on transport
+   * failure). A partial failure does not abort the remaining items.
    *
    * Each item accepts the same fields as {@link DocumentsResource.send},
    * plus an optional `idempotencyKey` for per-item replay safety.
@@ -427,17 +495,12 @@ export class DocumentsResource extends BaseResource {
    *     items: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 23 }],
    *     idempotencyKey: 'order-001',
    *   },
-   *   {
-   *     receiverPeppolId: '0245:9876543210',
-   *     items: [{ description: 'B', quantity: 2, unitPrice: 50, vatRate: 23 }],
-   *     idempotencyKey: 'order-002',
-   *   },
    * ]);
    *
    * console.log(`${batch.succeeded}/${batch.total} sent`);
    * for (const r of batch.results) {
-   *   if (r.status === 'error') {
-   *     console.error(`Item ${r.index} failed:`, r.result);
+   *   if (r.status >= 400) {
+   *     console.error(`Item ${r.index} failed (${r.status}):`, r.result);
    *   }
    * }
    * ```
@@ -453,21 +516,18 @@ export class DocumentsResource extends BaseResource {
 
   /**
    * Parse a UBL 2.1 XML invoice into the normalized JSON shape used by
-   * the ePošťák send pipeline. Useful when an integrator receives foreign
-   * UBL and wants to read, edit, or re-send it through our JSON API.
+   * the ePošťák send pipeline plus `extras` and `allowances` for fields
+   * that don't fit the normalized shape (e.g. Peppol extensions, custom
+   * allowance/charge lines).
    *
    * Max 10 MB per request.
    *
    * @param xml - The UBL XML string
-   * @returns The normalized JSON document plus non-fatal warnings
+   * @returns `{invoice, extras, allowances}`
    *
    * @example
    * ```typescript
-   * const { document, warnings } = await client.documents.parse(ublXml);
-   * if (warnings.length) {
-   *   console.warn('Parser warnings:', warnings);
-   * }
-   * // `document` now matches the SendDocumentJsonRequest shape.
+   * const { invoice, extras, allowances } = await client.documents.parse(ublXml);
    * ```
    */
   parse(xml: string): Promise<ParsedUblDocument> {
@@ -481,11 +541,12 @@ export class DocumentsResource extends BaseResource {
    * opens it.
    *
    * Allowed states: `"delivered"`, `"processed"`, `"failed"`, `"read"`.
+   * Invalid states return 422 (not 400).
    *
    * @param id - Document UUID
    * @param state - Target state to transition into
    * @param note - Optional human-readable note recorded with the transition
-   * @returns The updated state and associated timestamps
+   * @returns The updated state, status, and associated timestamps
    *
    * @example
    * ```typescript
