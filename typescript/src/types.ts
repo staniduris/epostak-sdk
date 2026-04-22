@@ -156,6 +156,34 @@ export interface SendDocumentJsonRequest {
   receiverCountry?: string;
   /** Invoice line items — at least one is required */
   items: LineItem[];
+  /**
+   * Invoice attachments (BG-24). Embedded into the generated UBL XML as
+   * base64 via `AdditionalDocumentReference` / `EmbeddedDocumentBinaryObject`,
+   * so the receiver sees them inline in the invoice.
+   *
+   * Limits: max 20 files per invoice, 10 MB per file, 15 MB total.
+   */
+  attachments?: DocumentAttachment[];
+}
+
+/**
+ * An invoice attachment embedded as base64 into the UBL XML (BG-24).
+ * MIME type is verified by magic-byte sniffing server-side.
+ */
+export interface DocumentAttachment {
+  /** Original file name (max 255 chars) */
+  fileName: string;
+  /**
+   * MIME type — must be one of the BR-CL-22 allowed types:
+   * `application/pdf`, `image/png`, `image/jpeg`, `text/csv`,
+   * `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (.xlsx),
+   * `application/vnd.oasis.opendocument.spreadsheet` (.ods)
+   */
+  mimeType: string;
+  /** Base64-encoded file content (no `data:` prefix). Max 10 MB after decoding. */
+  content: string;
+  /** Optional short description of the attachment (max 100 chars) */
+  description?: string;
 }
 
 /**

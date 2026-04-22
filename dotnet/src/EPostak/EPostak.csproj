@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>EPostak</RootNamespace>
     <PackageId>EPostak</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>ePostak</Authors>
     <Description>Official .NET SDK for the ePostak Enterprise API — send and receive Peppol e-invoices in Slovakia.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

@@ -4,4 +4,4 @@ from epostak.client import EPostak
 from epostak.errors import EPostakError
 
 __all__ = ["EPostak", "EPostakError"]
-__version__ = "0.1.1"
+__version__ = "0.2.0"

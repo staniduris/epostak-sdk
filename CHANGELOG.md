@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.4.0 — 2026-04-22
+
+### New feature: invoice attachments (BG-24)
+
+- **`documents.send()` JSON mode now accepts an `attachments[]` array.** Files are embedded into the generated UBL XML as base64 via `AdditionalDocumentReference` / `EmbeddedDocumentBinaryObject` (BG-24 / BT-125), so the receiving accounting system sees them inline with the invoice — no extra API call, no separate download.
+
+  ```typescript
+  import fs from "node:fs/promises";
+
+  const pdf = await fs.readFile("./invoice-detail.pdf");
+
+  await client.documents.send({
+    receiverPeppolId: "0245:12345678",
+    items: [
+      { description: "Consulting", quantity: 10, unitPrice: 50, vatRate: 23 },
+    ],
+    attachments: [
+      {
+        fileName: "invoice-detail.pdf",
+        mimeType: "application/pdf",
+        content: pdf.toString("base64"),
+        description: "Timesheet breakdown",
+      },
+    ],
+  });
+  ```
+
+- **Allowed MIME types (BR-CL-22):** `application/pdf`, `image/png`, `image/jpeg`, `text/csv`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (.xlsx), `application/vnd.oasis.opendocument.spreadsheet` (.ods). Server-side magic-byte sniffing — the client-sent `mimeType` must match the actual file content, or the request rejects with `VALIDATION_ERROR`.
+- **Limits:** max 20 attachments per invoice, 10 MB per file, 15 MB aggregated per invoice. The JSON body size cap on `/documents/send` was raised from 6 MB to 25 MB to accommodate attachment payloads.
+- **Archive:** attachments are also persisted to the firm's object storage and appear in the dashboard detail view (`/d` and `/d2`) with direct download / inline preview links. No new SDK method — the inbox endpoints already include attachment metadata in `attachments[]` of `ReceivedDocumentDetail`.
+
+### Type additions
+
+- **TypeScript:** new `DocumentAttachment` interface, new optional `attachments?: DocumentAttachment[]` on `SendDocumentJsonRequest`.
+- **Python:** new `DocumentAttachment` TypedDict, `attachments` key available in the `documents.send()` JSON-mode body dict.
+- **Java:** new `SendDocumentRequest.Attachment` record and `.attachments(List<Attachment>)` builder method.
+- **.NET:** new `DocumentAttachment` class and `Attachments` property on `SendDocumentRequest`.
+- **Ruby / PHP:** no signature change (both SDKs accept raw `Hash` / `array` bodies); `attachments` can be passed directly. YARD / PHPDoc examples added.
+
+### SDK versions
+
+| Language                              | Version |
+| ------------------------------------- | ------- |
+| TypeScript (`@epostak/sdk`)           | 1.4.0   |
+| Python (`epostak`)                    | 0.2.0   |
+| Ruby (`epostak` gem)                  | 1.1.0   |
+| Java (Maven `sk.epostak:epostak-sdk`) | 1.1.0   |
+| PHP (`epostak/sdk`)                   | 1.1.0   |
+| .NET (`EPostak.Sdk`)                  | 1.1.0   |
+
+### OpenAPI
+
+- `public/api-docs/enterprise/openapi.json` bumped `1.0.1 → 1.1.0`. New `DocumentAttachment` schema, new `attachments` property on `SendDocumentJsonRequest`, new `json_mode_with_attachments` example on `/documents/send`.
+
+---
+
 ## 1.3.1 — 2026-04-19
 
 ### Breaking API changes (all SDKs updated)

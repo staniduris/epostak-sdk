@@ -72,6 +72,20 @@ class Documents
      *       ],
      *   ]);
      *   echo $result['documentId'];
+     *
+     * @example JSON mode with attachments (BG-24). Embedded into the generated
+     *          UBL XML as base64. Allowed MIME: application/pdf, image/png,
+     *          image/jpeg, text/csv, xlsx, ods. Max 20 files, 10 MB each, 15 MB total.
+     *   $result = $client->documents->send([
+     *       'receiverPeppolId' => '0245:12345678',
+     *       'items' => [['description' => 'Consulting', 'quantity' => 10, 'unitPrice' => 50, 'vatRate' => 23]],
+     *       'attachments' => [[
+     *           'fileName'    => 'invoice-detail.pdf',
+     *           'mimeType'    => 'application/pdf',
+     *           'content'     => base64_encode(file_get_contents('invoice-detail.pdf')),
+     *           'description' => 'Timesheet breakdown',
+     *       ]],
+     *   ]);
      */
     public function send(array $body): array
     {

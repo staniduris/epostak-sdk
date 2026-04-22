@@ -107,6 +107,22 @@ class Party(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
+class DocumentAttachment(TypedDict, total=False):
+    """Invoice attachment (BG-24) embedded as base64 into the UBL XML.
+
+    Embedded via ``AdditionalDocumentReference`` / ``EmbeddedDocumentBinaryObject``
+    so the receiver sees the file inline with the invoice. MIME type is
+    verified by magic-byte sniffing server-side.
+
+    Limits: max 20 files per invoice, 10 MB per file, 15 MB total.
+    """
+
+    fileName: str  # Original file name (max 255 chars)
+    mimeType: str  # One of: application/pdf, image/png, image/jpeg, text/csv, xlsx, ods
+    content: str  # Base64-encoded file content (no data: prefix), max 10 MB decoded
+    description: str  # Optional short description (max 100 chars)
+
+
 class _SendDocumentBase(TypedDict, total=False):
     """Base fields shared by JSON-mode and XML-mode send requests."""
 
@@ -127,6 +143,7 @@ class _SendDocumentBase(TypedDict, total=False):
     receiverAddress: str  # Receiver street address
     receiverCountry: str  # Receiver ISO country code, e.g. "SK"
     items: List[LineItem]  # Line items (JSON mode) -- mutually exclusive with ``xml``
+    attachments: List[DocumentAttachment]  # JSON mode only -- embedded as BG-24 in UBL
     xml: str  # Pre-built UBL XML string (XML mode) -- mutually exclusive with ``items``
 
 

@@ -73,6 +73,24 @@ module EPostak
       #     receiverPeppolId: "0245:1234567890",
       #     xml: '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">...</Invoice>'
       #   )
+      #
+      # @example Send with attachments (BG-24, JSON mode only)
+      #   Embedded into the generated UBL as base64. Allowed MIME: application/pdf,
+      #   image/png, image/jpeg, text/csv, xlsx, ods. Limits: max 20 files,
+      #   10 MB per file, 15 MB total.
+      #
+      #   result = client.documents.send_document(
+      #     receiverPeppolId: "0245:1234567890",
+      #     items: [{ description: "Consulting", quantity: 10, unitPrice: 100, vatRate: 23 }],
+      #     attachments: [
+      #       {
+      #         fileName: "invoice-detail.pdf",
+      #         mimeType: "application/pdf",
+      #         content: Base64.strict_encode64(File.binread("invoice-detail.pdf")),
+      #         description: "Timesheet breakdown"
+      #       }
+      #     ]
+      #   )
       def send_document(body)
         @http.request(:post, "/documents/send", body: body)
       end

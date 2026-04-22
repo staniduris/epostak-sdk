@@ -74,6 +74,8 @@ public final class SendDocumentRequest {
     private final String receiverCountry;
     /** Line items for JSON mode. Mutually exclusive with {@code xml}. */
     private final List<LineItem> items;
+    /** Invoice attachments (BG-24). JSON mode only; embedded as base64 into the generated UBL XML. */
+    private final List<Attachment> attachments;
     /** Pre-built UBL XML for XML mode. Mutually exclusive with {@code items}. */
     private final String xml;
 
@@ -95,6 +97,7 @@ public final class SendDocumentRequest {
         this.receiverAddress = builder.receiverAddress;
         this.receiverCountry = builder.receiverCountry;
         this.items = builder.items;
+        this.attachments = builder.attachments;
         this.xml = builder.xml;
     }
 
@@ -142,8 +145,47 @@ public final class SendDocumentRequest {
     public String getReceiverCountry() { return receiverCountry; }
     /** @return the line items (JSON mode) */
     public List<LineItem> getItems() { return items; }
+    /** @return the attachments (JSON mode, BG-24) */
+    public List<Attachment> getAttachments() { return attachments; }
     /** @return the pre-built UBL XML (XML mode) */
     public String getXml() { return xml; }
+
+    // -- attachment record ----------------------------------------------------
+
+    /**
+     * An invoice attachment (BG-24) embedded as base64 into the generated UBL XML.
+     * <p>
+     * MIME type is verified by magic-byte sniffing server-side; the declared
+     * {@code mimeType} must match the actual file content, or the request is
+     * rejected with {@code VALIDATION_ERROR}.
+     * <p>
+     * Limits: max 20 attachments per invoice, 10 MB per file, 15 MB aggregated.
+     *
+     * @param fileName    original file name (max 255 chars)
+     * @param mimeType    one of {@code application/pdf}, {@code image/png},
+     *                    {@code image/jpeg}, {@code text/csv},
+     *                    {@code application/vnd.openxmlformats-officedocument.spreadsheetml.sheet},
+     *                    {@code application/vnd.oasis.opendocument.spreadsheet}
+     * @param content     base64-encoded file content (no {@code data:} prefix), max 10 MB decoded
+     * @param description optional short description (max 100 chars), or {@code null}
+     */
+    public record Attachment(
+            @SerializedName("file_name") String fileName,
+            @SerializedName("mime_type") String mimeType,
+            String content,
+            String description
+    ) {
+        /**
+         * Convenience constructor without description.
+         *
+         * @param fileName original file name
+         * @param mimeType allowed MIME type (see {@link Attachment})
+         * @param content  base64-encoded file content
+         */
+        public Attachment(String fileName, String mimeType, String content) {
+            this(fileName, mimeType, content, null);
+        }
+    }
 
     // -- line item record -----------------------------------------------------
 
@@ -222,6 +264,8 @@ public final class SendDocumentRequest {
         private String receiverCountry;
         /** Line items for JSON mode. */
         private List<LineItem> items;
+        /** Invoice attachments (BG-24), JSON mode only. */
+        private List<Attachment> attachments;
         /** Pre-built UBL XML for XML mode. */
         private String xml;
 
@@ -261,6 +305,16 @@ public final class SendDocumentRequest {
         public Builder receiverCountry(String receiverCountry) { this.receiverCountry = receiverCountry; return this; }
         /** @param items the line items (JSON mode, mutually exclusive with XML) @return this builder */
         public Builder items(List<LineItem> items) { this.items = items; return this; }
+        /**
+         * Invoice attachments (BG-24), JSON mode only. Embedded into the generated
+         * UBL XML as base64 via {@code AdditionalDocumentReference} /
+         * {@code EmbeddedDocumentBinaryObject}, so the receiver sees them inline.
+         * Limits: max 20 files, 10 MB each, 15 MB total.
+         *
+         * @param attachments list of attachments to embed
+         * @return this builder
+         */
+        public Builder attachments(List<Attachment> attachments) { this.attachments = attachments; return this; }
         /** @param xml the pre-built UBL XML (XML mode, mutually exclusive with items) @return this builder */
         public Builder xml(String xml) { this.xml = xml; return this; }
 

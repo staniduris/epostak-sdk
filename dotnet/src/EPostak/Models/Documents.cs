@@ -425,9 +425,46 @@ public sealed class SendDocumentRequest
     [JsonPropertyName("items")]
     public List<LineItem>? Items { get; set; }
 
+    /// <summary>
+    /// Invoice attachments (BG-24). JSON mode only; embedded into the generated UBL XML as base64
+    /// via <c>AdditionalDocumentReference</c> / <c>EmbeddedDocumentBinaryObject</c>, so the receiver
+    /// sees them inline with the invoice. Limits: max 20 files, 10 MB each, 15 MB total.
+    /// </summary>
+    [JsonPropertyName("attachments")]
+    public List<DocumentAttachment>? Attachments { get; set; }
+
     /// <summary>Raw UBL 2.1 XML to send instead of structured JSON. Mutually exclusive with <see cref="Items"/>.</summary>
     [JsonPropertyName("xml")]
     public string? Xml { get; set; }
+}
+
+/// <summary>
+/// An invoice attachment (BG-24) embedded as base64 into the UBL XML. MIME type is verified
+/// by magic-byte sniffing server-side; the declared <see cref="MimeType"/> must match the
+/// actual file content or the request is rejected with <c>VALIDATION_ERROR</c>.
+/// </summary>
+public sealed class DocumentAttachment
+{
+    /// <summary>Original file name (max 255 chars). Required.</summary>
+    [JsonPropertyName("fileName")]
+    public required string FileName { get; set; }
+
+    /// <summary>
+    /// MIME type. Allowed values (BR-CL-22): <c>application/pdf</c>, <c>image/png</c>,
+    /// <c>image/jpeg</c>, <c>text/csv</c>,
+    /// <c>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</c> (.xlsx),
+    /// <c>application/vnd.oasis.opendocument.spreadsheet</c> (.ods).
+    /// </summary>
+    [JsonPropertyName("mimeType")]
+    public required string MimeType { get; set; }
+
+    /// <summary>Base64-encoded file content (no <c>data:</c> prefix). Max 10 MB after decoding. Required.</summary>
+    [JsonPropertyName("content")]
+    public required string Content { get; set; }
+
+    /// <summary>Optional short description (max 100 chars).</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }
 
 /// <summary>
