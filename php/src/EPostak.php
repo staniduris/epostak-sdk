@@ -11,6 +11,8 @@ use EPostak\Resources\Webhooks;
 use EPostak\Resources\Reporting;
 use EPostak\Resources\Extract;
 use EPostak\Resources\Account;
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Exception\GuzzleException;
 
 /**
  * ePošťák Enterprise API client.
@@ -26,6 +28,7 @@ use EPostak\Resources\Account;
 class EPostak
 {
     private const DEFAULT_BASE_URL = 'https://epostak.sk/api/enterprise';
+    private const DEFAULT_PUBLIC_BASE_URL = 'https://epostak.sk/api';
 
     private string $apiKey;
     private string $baseUrl;
@@ -102,4 +105,59 @@ class EPostak
             'maxRetries' => $this->maxRetries ?? 3,
         ]);
     }
+
+    /**
+     * Validate a UBL XML document against the Peppol BIS 3.0 3-layer rules.
+     *
+     * This endpoint is PUBLIC -- no API key is required. Rate-limited to
+     * 20 requests per minute per IP. Can be called statically without
+     * constructing an EPostak client, which makes it suitable for CLI
+     * tools or test harnesses.
+     *
+     * @param string      $xml     UBL 2.1 XML invoice or credit note.
+     * @param string|null $baseUrl Optional override for the public API base URL
+     *                             (defaults to https://epostak.sk/api).
+     * @return array Full 3-layer Peppol BIS 3.0 validation report.
+     * @throws EPostakError On non-2xx responses or network errors.
+     *
+     * @example
+     *   $report = \EPostak\EPostak::validate(file_get_contents('invoice.xml'));
+     *   var_dump($report['valid']);
+     */
+    public static function validate(string $xml, ?string $baseUrl = null): array
+    {
+        $base = rtrim($baseUrl ?? self::DEFAULT_PUBLIC_BASE_URL, '/');
+        $client = new GuzzleClient([
+            'base_uri' => $base . '/',
+            'http_errors' => false,
+        ]);
+
+        try {
+            $response = $client->request('POST', 'validate', [
+                'headers' => [
+                    'Content-Type' => 'application/xml',
+                    'Accept' => 'application/json',
+                ],
+                'body' => $xml,
+            ]);
+        } catch (GuzzleException $e) {
+            throw new EPostakError(0, ['error' => $e->getMessage()]);
+        }
+
+        $statusCode = $response->getStatusCode();
+        $body = $response->getBody()->getContents();
+
+        if ($statusCode >= 400) {
+            $decoded = [];
+            try {
+                $decoded = json_decode($body, true) ?? [];
+            } catch (\Throwable) {
+                $decoded = ['error' => $response->getReasonPhrase()];
+            }
+            throw new EPostakError($statusCode, $decoded);
+        }
+
+        return $body === '' ? [] : (json_decode($body, true) ?? []);
+    }
+
 }

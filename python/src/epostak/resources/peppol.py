@@ -8,14 +8,17 @@ company lookup by ICO.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
 if TYPE_CHECKING:
     from epostak.types import (
         CompanyLookup,
         DirectorySearchResult,
+        PeppolCapabilitiesResult,
+        PeppolLookupBatchResponse,
         PeppolParticipant,
+        PeppolParticipantRef,
     )
 
 from epostak.resources.documents import _BaseResource, _build_query
@@ -111,3 +114,71 @@ class PeppolResource(_BaseResource):
             print(company["name"], company.get("peppolId"))
         """
         return self._request("GET", f"/company/lookup/{quote(ico, safe='')}")
+
+    def capabilities(
+        self,
+        scheme: str,
+        identifier: str,
+        document_type: Optional[str] = None,
+    ) -> PeppolCapabilitiesResult:
+        """Check a participant's advertised Peppol capabilities.
+
+        Verifies that a participant exists on SMP and (optionally) that it
+        accepts a specific document type.  Prefer this over :meth:`lookup`
+        when you only need a yes/no answer for a given doc type.
+
+        Args:
+            scheme: Peppol scheme (e.g. ``"0245"``).
+            identifier: Identifier value.
+            document_type: Optional UBL document type ID to check for acceptance.
+
+        Returns:
+            Dict with ``found`` (bool), ``accepts`` (bool),
+            ``supportedDocumentTypes`` (list of IDs), and
+            ``matchedDocumentType`` (the matched ID, if any).
+
+        Example::
+
+            caps = client.peppol.capabilities(
+                scheme="0245",
+                identifier="12345678",
+                document_type="urn:peppol:pint:billing-1@aunz-1",
+            )
+            if caps["found"] and caps["accepts"]:
+                print("Receiver supports that document type")
+        """
+        body: Dict[str, Any] = {"scheme": scheme, "identifier": identifier}
+        if document_type is not None:
+            body["documentType"] = document_type
+        return self._request("POST", "/peppol/capabilities", json=body)
+
+    def lookup_batch(
+        self,
+        participants: List[PeppolParticipantRef],
+    ) -> PeppolLookupBatchResponse:
+        """Look up many Peppol participants in a single request (max 100).
+
+        Each result matches the order of the input list and indicates whether
+        the participant was found on SMP.
+
+        Args:
+            participants: List of ``{"scheme": str, "identifier": str}`` dicts.
+
+        Returns:
+            Dict with ``total``, ``found``, ``notFound``, and ``results``
+            (per-participant ``{scheme, identifier, found, participant?, error?}``).
+
+        Example::
+
+            batch = client.peppol.lookup_batch([
+                {"scheme": "0245", "identifier": "12345678"},
+                {"scheme": "0245", "identifier": "87654321"},
+            ])
+            for r in batch["results"]:
+                print(r["identifier"], "->", r["found"])
+        """
+        return self._request(
+            "POST",
+            "/peppol/participants/batch",
+            json={"participants": participants},
+        )

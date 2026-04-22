@@ -1,8 +1,14 @@
 package sk.epostak.sdk.resources;
 
 import sk.epostak.sdk.HttpClient;
+import sk.epostak.sdk.models.BatchLookupRequest;
+import sk.epostak.sdk.models.BatchLookupResponse;
+import sk.epostak.sdk.models.CapabilitiesRequest;
+import sk.epostak.sdk.models.CapabilitiesResponse;
 import sk.epostak.sdk.models.CompanyLookup;
 import sk.epostak.sdk.models.PeppolParticipant;
+
+import java.util.List;
 
 /**
  * SMP participant lookup and Slovak company lookup.
@@ -78,5 +84,50 @@ public final class PeppolResource {
      */
     public CompanyLookup companyLookup(String ico) {
         return http.get("/company/lookup/" + HttpClient.encode(ico), CompanyLookup.class);
+    }
+
+    /**
+     * Probe whether a participant can receive a specific document type. The response
+     * reports the full set of supported document types and business processes, plus
+     * the matched document type ID when a specific {@code documentType} is requested.
+     *
+     * <pre>{@code
+     * CapabilitiesResponse caps = client.peppol().capabilities(new CapabilitiesRequest(
+     *     "0245", "12345678",
+     *     "urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0"));
+     * if (caps.found() && caps.matchedDocumentType() != null) {
+     *     // safe to send this document type
+     * }
+     * }</pre>
+     *
+     * @param request the participant and document type to probe
+     * @return the capabilities response
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public CapabilitiesResponse capabilities(CapabilitiesRequest request) {
+        return http.post("/peppol/capabilities", request, CapabilitiesResponse.class);
+    }
+
+    /**
+     * Look up multiple Peppol participants in a single SMP round-trip. Results are
+     * returned in the same order as the request.
+     *
+     * <pre>{@code
+     * BatchLookupResponse resp = client.peppol().lookupBatch(List.of(
+     *     new BatchLookupRequest.ParticipantId("0245", "12345678"),
+     *     new BatchLookupRequest.ParticipantId("0245", "87654321")));
+     * System.out.println(resp.found() + "/" + resp.total() + " registered");
+     * }</pre>
+     *
+     * @param participants the participants to look up; max 100 entries
+     * @return the batch lookup response with per-participant results
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public BatchLookupResponse lookupBatch(List<BatchLookupRequest.ParticipantId> participants) {
+        return http.post(
+                "/peppol/participants/batch",
+                new BatchLookupRequest(participants),
+                BatchLookupResponse.class
+        );
     }
 }

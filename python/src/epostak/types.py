@@ -706,6 +706,151 @@ class Account(TypedDict):
 
 
 # ---------------------------------------------------------------------------
+# Account status (auth introspection)
+# ---------------------------------------------------------------------------
+
+
+class _AccountStatusKey(TypedDict, total=False):
+    """API key metadata returned by the status endpoint."""
+
+    keyId: str  # type: ignore[misc]  # API key UUID
+    prefix: str  # type: ignore[misc]  # Visible key prefix (e.g. "sk_live_abcd")
+    createdAt: str  # type: ignore[misc]  # ISO 8601 creation timestamp
+    lastUsedAt: Optional[str]  # ISO 8601 timestamp of last use, or None
+
+
+class _AccountStatusFirm(TypedDict, total=False):
+    """Firm info in the status response."""
+
+    id: str  # type: ignore[misc]  # Firm UUID
+    name: str  # type: ignore[misc]  # Legal company name
+    ico: Optional[str]  # Slovak company ID (ICO)
+
+
+class _AccountStatusRateLimit(TypedDict):
+    """Per-minute rate-limit thresholds for the current key."""
+
+    getPerMin: int  # Allowed GET requests per minute
+    postPerMin: int  # Allowed POST/PATCH/DELETE requests per minute
+
+
+class _AccountStatusIntegrator(TypedDict, total=False):
+    """Integrator info present only when the authenticated key is an integrator key."""
+
+    id: str  # type: ignore[misc]  # Integrator UUID
+    name: str  # type: ignore[misc]  # Integrator display name
+
+
+class AccountStatus(TypedDict, total=False):
+    """Authentication introspection for the current API key."""
+
+    key: _AccountStatusKey  # type: ignore[misc]  # Current API key metadata
+    firm: _AccountStatusFirm  # type: ignore[misc]  # Resolved firm for this request
+    plan: str  # type: ignore[misc]  # Plan slug, e.g. "enterprise"
+    rateLimit: _AccountStatusRateLimit  # type: ignore[misc]  # Per-minute request limits
+    integrator: Optional[_AccountStatusIntegrator]  # Integrator info or None for direct keys
+
+
+# ---------------------------------------------------------------------------
+# Rotate secret
+# ---------------------------------------------------------------------------
+
+
+class RotateSecretResponse(TypedDict):
+    """Response returned after rotating an API key secret.
+
+    The new plaintext ``key`` is shown exactly once -- store it securely.
+    Rejected with HTTP 409 for integrator keys (``sk_int_*``).
+    """
+
+    keyId: str  # API key UUID (unchanged after rotation)
+    key: str  # New plaintext API key -- shown ONCE, store securely
+    prefix: str  # Visible prefix of the new key
+    rotatedAt: str  # ISO 8601 timestamp of the rotation
+
+
+# ---------------------------------------------------------------------------
+# Batch send
+# ---------------------------------------------------------------------------
+
+
+class BatchSendResultItem(TypedDict, total=False):
+    """Result for a single item in a batch send request."""
+
+    index: int  # type: ignore[misc]  # Zero-based position of the item in the request
+    status: str  # type: ignore[misc]  # "success" or "error"
+    result: Dict[str, Any]  # type: ignore[misc]  # Per-item response body (send response on success, error on failure)
+
+
+class BatchSendResponse(TypedDict):
+    """Response from ``documents.send_batch()``."""
+
+    total: int  # Total items submitted
+    succeeded: int  # Items that were accepted and queued for send
+    failed: int  # Items rejected during validation
+    results: List[BatchSendResultItem]  # Per-item results in submission order
+
+
+# ---------------------------------------------------------------------------
+# Mark document state
+# ---------------------------------------------------------------------------
+
+DocumentMarkState = Literal["delivered", "processed", "failed", "read"]
+"""States a document may be manually marked as via ``documents.mark()``."""
+
+
+class DocumentMarkResponse(TypedDict, total=False):
+    """Response from ``documents.mark()``."""
+
+    id: str  # type: ignore[misc]  # Document UUID
+    state: str  # type: ignore[misc]  # Applied state (one of :data:`DocumentMarkState`)
+    status: str  # type: ignore[misc]  # Resulting document status
+    deliveredAt: Optional[str]  # ISO 8601 timestamp if marked delivered
+    acknowledgedAt: Optional[str]  # ISO 8601 timestamp of the mark action
+    readAt: Optional[str]  # ISO 8601 read timestamp, if applicable
+
+
+# ---------------------------------------------------------------------------
+# Peppol capabilities + batch lookup
+# ---------------------------------------------------------------------------
+
+
+class PeppolCapabilitiesResult(TypedDict, total=False):
+    """Response from ``peppol.capabilities()``."""
+
+    found: bool  # type: ignore[misc]  # True if the participant is registered on SMP
+    accepts: bool  # type: ignore[misc]  # True if the participant accepts the requested document type
+    supportedDocumentTypes: List[str]  # type: ignore[misc]  # All advertised UBL document type IDs
+    matchedDocumentType: Optional[str]  # The matched document type ID, if any
+
+
+class PeppolParticipantRef(TypedDict):
+    """Participant reference used in batch lookup requests."""
+
+    scheme: str  # Peppol scheme (e.g. "0245")
+    identifier: str  # Identifier value
+
+
+class PeppolLookupBatchItem(TypedDict, total=False):
+    """Per-participant result in a batch lookup response."""
+
+    scheme: str  # type: ignore[misc]  # Peppol scheme that was queried
+    identifier: str  # type: ignore[misc]  # Identifier that was queried
+    found: bool  # type: ignore[misc]  # True if the participant was found on SMP
+    participant: Optional[PeppolParticipant]  # Full participant data on hit, None otherwise
+    error: Optional[str]  # Error message if the lookup failed
+
+
+class PeppolLookupBatchResponse(TypedDict):
+    """Response from ``peppol.lookup_batch()``."""
+
+    total: int  # Number of participants queried
+    found: int  # Number of participants registered on SMP
+    notFound: int  # Number of participants not found or errored
+    results: List[PeppolLookupBatchItem]  # Per-participant results in request order
+
+
+# ---------------------------------------------------------------------------
 # Extract
 # ---------------------------------------------------------------------------
 

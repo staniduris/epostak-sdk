@@ -1,3 +1,7 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using EPostak.Models;
 using EPostak.Resources;
 
 namespace EPostak;
@@ -128,6 +132,113 @@ public sealed class EPostakClient : IDisposable
             },
             _http,
             ownsHttpClient: false);
+    }
+
+    /// <summary>
+    /// Default public validate endpoint. Used by <see cref="Validate(string)"/> and
+    /// derived from the client's base URL by the instance method <see cref="ValidateAsync"/>.
+    /// </summary>
+    private const string DefaultPublicValidateUrl = "https://epostak.sk/api/validate";
+
+    /// <summary>
+    /// Validate a UBL XML document against Peppol BIS 3.0 rules using this client's
+    /// configured base URL. No API key is sent -- the public <c>/api/validate</c>
+    /// endpoint is authentication-free and rate-limited to 20 requests/minute per IP.
+    /// </summary>
+    /// <param name="xml">UBL 2.1 XML document to validate.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Full 3-layer Peppol BIS 3.0 validation report (XSD / EN 16931 / Peppol BIS).</returns>
+    /// <example>
+    /// <code>
+    /// var report = await client.ValidateAsync(ublXml);
+    /// if (!report.Valid)
+    ///     foreach (var e in report.Errors)
+    ///         Console.Error.WriteLine($"{e.Rule}: {e.Message}");
+    /// </code>
+    /// </example>
+    public Task<ValidationReport> ValidateAsync(string xml, CancellationToken ct = default)
+        => Validate(xml, DeriveValidateUrl(_config.BaseUrl), _http, ct);
+
+    /// <summary>
+    /// Validate a UBL XML document against Peppol BIS 3.0 rules without constructing a client.
+    /// Uses the production public endpoint <c>https://epostak.sk/api/validate</c>.
+    /// </summary>
+    /// <remarks>Public endpoint -- no API key is sent. Rate-limited to 20 requests/minute per IP.</remarks>
+    /// <param name="xml">UBL 2.1 XML document to validate.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Full 3-layer Peppol BIS 3.0 validation report.</returns>
+    /// <example>
+    /// <code>
+    /// var report = await EPostakClient.Validate(ublXml);
+    /// Console.WriteLine($"Valid: {report.Valid} ({report.Summary.Errors} errors)");
+    /// </code>
+    /// </example>
+    public static Task<ValidationReport> Validate(string xml, CancellationToken ct = default)
+        => Validate(xml, DefaultPublicValidateUrl, ct);
+
+    /// <summary>
+    /// Validate a UBL XML document against a custom validate endpoint. Useful for staging
+    /// or on-premise deployments.
+    /// </summary>
+    /// <param name="xml">UBL 2.1 XML document to validate.</param>
+    /// <param name="url">Full URL of the validate endpoint (e.g. <c>https://staging.epostak.sk/api/validate</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Full 3-layer Peppol BIS 3.0 validation report.</returns>
+    public static async Task<ValidationReport> Validate(string xml, string url, CancellationToken ct = default)
+    {
+        using var http = new HttpClient();
+        return await Validate(xml, url, http, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<ValidationReport> Validate(string xml, string url, HttpClient http, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(xml, Encoding.UTF8)
+            {
+                Headers = { ContentType = new MediaTypeHeaderValue("application/xml") { CharSet = "utf-8" } }
+            }
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new EPostakException($"Network error: {ex.Message}", ex);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                throw new EPostakException((int)response.StatusCode, body);
+            }
+
+            var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            return (await JsonSerializer.DeserializeAsync<ValidationReport>(stream, HttpRequestor.JsonOptions, ct).ConfigureAwait(false))!;
+        }
+    }
+
+    /// <summary>
+    /// Derive the public validate URL from a configured enterprise base URL, preserving
+    /// scheme and host so staging and custom deployments keep working.
+    /// </summary>
+    private static string DeriveValidateUrl(string enterpriseBaseUrl)
+    {
+        if (string.IsNullOrEmpty(enterpriseBaseUrl))
+            return DefaultPublicValidateUrl;
+
+        var idx = enterpriseBaseUrl.IndexOf("/api/enterprise", StringComparison.Ordinal);
+        if (idx >= 0)
+            return enterpriseBaseUrl[..idx] + "/api/validate";
+
+        return enterpriseBaseUrl.EndsWith('/')
+            ? enterpriseBaseUrl + "validate"
+            : enterpriseBaseUrl + "/validate";
     }
 
     /// <summary>

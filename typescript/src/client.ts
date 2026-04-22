@@ -6,8 +6,11 @@ import { ReportingResource } from "./resources/reporting.js";
 import { ExtractResource } from "./resources/extract.js";
 import { AccountResource } from "./resources/account.js";
 import type { ClientConfig } from "./utils/request.js";
+import type { PublicValidationReport } from "./types.js";
+import { EPostakError } from "./utils/errors.js";
 
 const DEFAULT_BASE_URL = "https://epostak.sk/api/enterprise";
+const PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
 export interface EPostakConfig {
   /**
@@ -112,5 +115,70 @@ export class EPostak {
       firmId,
       maxRetries: this.clientConfig.maxRetries,
     });
+  }
+
+  /**
+   * Validate a UBL 2.1 XML invoice against UBL XSD + EN 16931 + Peppol BIS 3.0
+   * schematron. This hits the **public** validator-as-a-service endpoint —
+   * no API key is required and the call works even without a configured client.
+   *
+   * Rate-limited to 20 requests per minute per IP. Max 10 MB per XML payload.
+   *
+   * @param xml - Full UBL 2.1 Invoice or CreditNote XML
+   * @returns Full three-layer validation report
+   *
+   * @example
+   * ```typescript
+   * const report = await client.validate(ublXml);
+   * if (!report.valid) {
+   *   console.error('Peppol errors:', report.peppol.messages);
+   * }
+   * ```
+   */
+  validate(xml: string): Promise<PublicValidationReport> {
+    return EPostak.validate(xml);
+  }
+
+  /**
+   * Static variant of {@link EPostak.prototype.validate}. Call this without
+   * instantiating a client when you only need the public validator.
+   *
+   * @param xml - Full UBL 2.1 Invoice or CreditNote XML
+   * @param baseUrl - Override the validator URL (defaults to the production endpoint)
+   * @returns Full three-layer validation report
+   *
+   * @example
+   * ```typescript
+   * import { EPostak } from '@epostak/sdk';
+   *
+   * const report = await EPostak.validate(ublXml);
+   * ```
+   */
+  static async validate(
+    xml: string,
+    baseUrl: string = PUBLIC_VALIDATE_URL,
+  ): Promise<PublicValidationReport> {
+    let res: Response;
+    try {
+      res = await fetch(baseUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/xml" },
+        body: xml,
+      });
+    } catch (err) {
+      throw new EPostakError(0, {
+        error: err instanceof Error ? err.message : "Network error",
+      });
+    }
+    if (!res.ok) {
+      let errorBody: Record<string, unknown> = {};
+      try {
+        errorBody = (await res.json()) as Record<string, unknown>;
+      } catch {
+        errorBody = { error: res.statusText };
+      }
+      throw new EPostakError(res.status, errorBody);
+    }
+    return (await res.json()) as PublicValidationReport;
   }
 }

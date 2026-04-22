@@ -237,4 +237,71 @@ public sealed class DocumentsResource
     /// </example>
     public Task<ConvertResult> ConvertAsync(ConvertRequest request, CancellationToken ct = default)
         => _http.RequestAsync<ConvertResult>(HttpMethod.Post, "/documents/convert", request, ct);
+
+    /// <summary>
+    /// Send multiple documents in a single call. Items are processed independently --
+    /// a failure on one item does not abort the batch. The response contains a per-item
+    /// status in the same order as the request.
+    /// </summary>
+    /// <param name="items">Items to send. Max 100 per call.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Batch totals (total/succeeded/failed) and per-item results.</returns>
+    /// <example>
+    /// <code>
+    /// var response = await client.Documents.SendBatchAsync(new List&lt;BatchSendItem&gt;
+    /// {
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0192:12345678", ... } },
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0192:87654321", ... },
+    ///             IdempotencyKey = "batch-002" }
+    /// });
+    /// Console.WriteLine($"{response.Succeeded}/{response.Total} sent");
+    /// </code>
+    /// </example>
+    public Task<BatchSendResponse> SendBatchAsync(List<BatchSendItem> items, CancellationToken ct = default)
+        => _http.RequestAsync<BatchSendResponse>(
+            HttpMethod.Post,
+            "/documents/send/batch",
+            new BatchSendRequest { Items = items },
+            ct);
+
+    /// <summary>
+    /// Parse a UBL XML invoice into structured JSON without persisting or sending it.
+    /// The returned shape matches the JSON side of <see cref="ConvertAsync"/>
+    /// with <see cref="ConvertOutputFormat.Json"/>.
+    /// </summary>
+    /// <param name="xml">UBL 2.1 XML document.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parsed invoice and any non-fatal warnings.</returns>
+    /// <example>
+    /// <code>
+    /// var parsed = await client.Documents.ParseAsync(ublXmlString);
+    /// var json = (JsonElement)parsed.Document;
+    /// Console.WriteLine(json.GetProperty("invoiceNumber").GetString());
+    /// </code>
+    /// </example>
+    public Task<ParsedInvoice> ParseAsync(string xml, CancellationToken ct = default)
+        => _http.RequestRawAsync<ParsedInvoice>(HttpMethod.Post, "/documents/parse", xml, "application/xml", ct);
+
+    /// <summary>
+    /// Mark the processing state of an inbound document. <paramref name="state"/> must be
+    /// one of <c>delivered</c>, <c>processed</c>, <c>failed</c>, or <c>read</c>. The optional
+    /// <paramref name="note"/> is recorded alongside the transition (e.g. failure reason).
+    /// </summary>
+    /// <param name="id">Document UUID to mark.</param>
+    /// <param name="state">Target state: <c>delivered</c>, <c>processed</c>, <c>failed</c>, or <c>read</c>.</param>
+    /// <param name="note">Optional note (max 500 chars).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The mark response with updated timestamps and overall document status.</returns>
+    /// <example>
+    /// <code>
+    /// var marked = await client.Documents.MarkAsync("doc_abc123", "processed", "Booked to ledger");
+    /// Console.WriteLine($"Status now: {marked.Status}");
+    /// </code>
+    /// </example>
+    public Task<MarkResponse> MarkAsync(string id, string state, string? note = null, CancellationToken ct = default)
+        => _http.RequestAsync<MarkResponse>(
+            HttpMethod.Post,
+            $"/documents/{Uri.EscapeDataString(id)}/mark",
+            new MarkRequest { State = state, Note = note },
+            ct);
 }

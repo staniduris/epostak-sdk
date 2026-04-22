@@ -293,6 +293,31 @@ public final class HttpClient {
         return response.body();
     }
 
+    /**
+     * POST a raw string body with a custom {@code Content-Type} and deserialize the JSON response.
+     * Used for endpoints that accept raw XML (e.g. document parsing, validation).
+     *
+     * @param <T>         the response type
+     * @param path        the API path (appended to base URL)
+     * @param body        the raw body string
+     * @param contentType the {@code Content-Type} header value, e.g. {@code "application/xml"}
+     * @param type        the response class to deserialize to
+     * @return the deserialized response
+     * @throws EPostakException if the request fails
+     */
+    public <T> T postRaw(String path, String body, String contentType, Class<T> type) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + path))
+                .timeout(TIMEOUT)
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", contentType)
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
+        if (firmId != null) {
+            builder.header("X-Firm-Id", firmId);
+        }
+        return execute(builder.build(), type);
+    }
+
     // -- internal -------------------------------------------------------------
 
     private <T> T request(String method, String path, Object body, Class<T> type) {

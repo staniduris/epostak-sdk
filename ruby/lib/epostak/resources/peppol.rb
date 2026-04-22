@@ -55,6 +55,51 @@ module EPostak
         @http.request(:get, "/company/lookup/#{encode(ico)}")
       end
 
+      # Check a participant's advertised Peppol capabilities.
+      #
+      # Verifies that a participant exists on SMP and (optionally) that
+      # it accepts a specific document type. Prefer this over {#lookup}
+      # when you only need a yes/no answer for a given doc type.
+      #
+      # @param scheme [String] Peppol scheme (e.g. "0245")
+      # @param identifier [String] Identifier value
+      # @param document_type [String, nil] Optional UBL document type ID
+      # @return [Hash] {"found" => ..., "accepts" => ...,
+      #   "supportedDocumentTypes" => [...], "matchedDocumentType" => ...}
+      #
+      # @example
+      #   caps = client.peppol.capabilities(
+      #     scheme: "0245",
+      #     identifier: "12345678",
+      #     document_type: "urn:peppol:pint:billing-1@aunz-1"
+      #   )
+      #   puts "Supported" if caps["found"] && caps["accepts"]
+      def capabilities(scheme:, identifier:, document_type: nil)
+        body = { scheme: scheme, identifier: identifier }
+        body[:documentType] = document_type if document_type
+        @http.request(:post, "/peppol/capabilities", body: body)
+      end
+
+      # Look up many Peppol participants in a single request (max 100).
+      #
+      # Each result matches the order of the input list and indicates
+      # whether the participant was found on SMP.
+      #
+      # @param participants [Array<Hash>] Array of { scheme:, identifier: } hashes
+      # @return [Hash] {"total" => ..., "found" => ..., "notFound" => ...,
+      #   "results" => [{"scheme" => ..., "identifier" => ..., "found" => ...,
+      #   "participant" => ..., "error" => ...}]}
+      #
+      # @example
+      #   batch = client.peppol.lookup_batch([
+      #     { scheme: "0245", identifier: "12345678" },
+      #     { scheme: "0245", identifier: "87654321" }
+      #   ])
+      #   batch["results"].each { |r| puts "#{r['identifier']} -> #{r['found']}" }
+      def lookup_batch(participants)
+        @http.request(:post, "/peppol/participants/batch", body: { participants: participants })
+      end
+
       private
 
       def encode(value)

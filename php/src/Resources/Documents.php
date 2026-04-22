@@ -232,4 +232,100 @@ class Documents
             ],
         ]);
     }
+
+    /**
+     * Send up to 100 documents in a single request.
+     *
+     * Each item uses the same body format as {@see send()} and may carry
+     * an optional `idempotencyKey` for safe retries. Partial failures do
+     * not fail the whole request -- inspect `results` and `failed` per item.
+     *
+     * @param array $items Array of send request bodies (same shape as send()),
+     *                     each optionally containing an `idempotencyKey`.
+     * @return array{
+     *   total: int,
+     *   succeeded: int,
+     *   failed: int,
+     *   results: list<array{index: int, status: string, result: array}>
+     * } Batch result with per-item status.
+     * @throws EPostakError On API error.
+     *
+     * @example
+     *   $batch = $client->documents->sendBatch([
+     *       [
+     *           'receiverPeppolId' => '0245:1234567890',
+     *           'invoiceNumber' => 'FV-2026-010',
+     *           'items' => [['description' => 'Audit', 'quantity' => 1, 'unitPrice' => 500, 'vatRate' => 23]],
+     *           'idempotencyKey' => 'batch-2026-04-22-001',
+     *       ],
+     *       [
+     *           'receiverPeppolId' => '0245:0987654321',
+     *           'invoiceNumber' => 'FV-2026-011',
+     *           'items' => [['description' => 'Consulting', 'quantity' => 2, 'unitPrice' => 300, 'vatRate' => 23]],
+     *       ],
+     *   ]);
+     *   echo $batch['succeeded'], '/', $batch['total'];
+     */
+    public function sendBatch(array $items): array
+    {
+        return $this->http->request('POST', '/documents/send/batch', [
+            'json' => ['items' => $items],
+        ]);
+    }
+
+    /**
+     * Parse a UBL XML invoice into a structured JSON representation.
+     *
+     * Streams the XML as the raw request body with `Content-Type: application/xml`.
+     *
+     * @param string $xml UBL 2.1 XML invoice or credit note.
+     * @return array Parsed invoice with supplier, customer, lines, totals, etc.
+     * @throws EPostakError On API error.
+     *
+     * @example
+     *   $parsed = $client->documents->parse(file_get_contents('invoice.xml'));
+     *   echo $parsed['invoiceNumber'];
+     */
+    public function parse(string $xml): array
+    {
+        return $this->http->request('POST', '/documents/parse', [
+            'headers' => ['Content-Type' => 'application/xml'],
+            'body' => $xml,
+        ]);
+    }
+
+    /**
+     * Manually mark a document's lifecycle state.
+     *
+     * Use for documents delivered out-of-band (e.g. a receiver confirms
+     * over email) or to flag a failed/processed document in your own
+     * workflow.
+     *
+     * @param string      $id    Document UUID.
+     * @param string      $state One of 'delivered', 'processed', 'failed', 'read'.
+     * @param string|null $note  Optional free-text note attached to the state change.
+     * @return array{
+     *   id: string,
+     *   state: string,
+     *   status: string,
+     *   deliveredAt: ?string,
+     *   acknowledgedAt: ?string,
+     *   readAt: ?string
+     * } Mark result.
+     * @throws EPostakError On API error.
+     *
+     * @example
+     *   $r = $client->documents->mark('doc-uuid', 'delivered', 'Confirmed by email');
+     *   echo $r['deliveredAt'];
+     */
+    public function mark(string $id, string $state, ?string $note = null): array
+    {
+        $body = ['state' => $state];
+        if ($note !== null) {
+            $body['note'] = $note;
+        }
+        return $this->http->request('POST', '/documents/' . urlencode($id) . '/mark', [
+            'json' => $body,
+        ]);
+    }
 }

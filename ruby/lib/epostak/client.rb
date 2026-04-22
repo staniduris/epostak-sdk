@@ -87,5 +87,31 @@ module EPostak
     def with_firm(firm_id)
       self.class.new(api_key: @api_key, base_url: @base_url, firm_id: firm_id, max_retries: @max_retries)
     end
+
+    # Validate a UBL XML document via the public +/api/validate+ endpoint.
+    #
+    # This is the PUBLIC validation endpoint and does *not* require an
+    # API key; the SDK intentionally bypasses the +Authorization+ header
+    # for this call. Rate-limited to 20 requests per minute per IP.
+    #
+    # @param xml [String] UBL 2.1 XML invoice or credit note as a string
+    # @return [Hash] Full 3-layer Peppol BIS 3.0 validation report
+    # @raise [EPostak::Error] On non-2xx responses
+    #
+    # @example
+    #   client = EPostak::Client.new(api_key: "sk_live_xxx")
+    #   report = client.validate(File.read("invoice.xml"))
+    #   report["errors"].each { |e| puts e } unless report["valid"]
+    def validate(xml)
+      EPostak.validate(xml, base_url: derive_public_base_url(@base_url))
+    end
+
+    private
+
+    # Strip the trailing "/enterprise" segment (if any) to derive the public API base URL.
+    def derive_public_base_url(base_url)
+      stripped = base_url.to_s.sub(%r{/+\z}, "")
+      stripped.end_with?("/enterprise") ? stripped.sub(%r{/enterprise\z}, "") : stripped
+    end
   end
 end

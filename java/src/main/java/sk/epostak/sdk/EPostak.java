@@ -1,6 +1,15 @@
 package sk.epostak.sdk;
 
+import com.google.gson.Gson;
+import sk.epostak.sdk.models.ValidationReport;
 import sk.epostak.sdk.resources.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 /**
  * ePosťak Enterprise API client.
@@ -23,6 +32,7 @@ import sk.epostak.sdk.resources.*;
 public final class EPostak {
 
     private static final String DEFAULT_BASE_URL = "https://epostak.sk/api/enterprise";
+    private static final String DEFAULT_PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
     private final HttpClient httpClient;
     private final String apiKey;
@@ -119,6 +129,80 @@ public final class EPostak {
      * @return the account resource
      */
     public AccountResource account() { return account; }
+
+    /**
+     * Validate a UBL XML document against Peppol BIS 3.0 rules without creating a client.
+     * Uses the production public endpoint at {@code https://epostak.sk/api/validate}.
+     * <p>
+     * Public endpoint — no API key is sent. Rate-limited to 20 requests per minute
+     * per IP address.
+     *
+     * <pre>{@code
+     * ValidationReport report = EPostak.validate(ublXml);
+     * if (!report.valid()) {
+     *     report.errors().forEach(e -> System.err.println(e.rule() + ": " + e.message()));
+     * }
+     * }</pre>
+     *
+     * @param xml the UBL 2.1 XML document to validate
+     * @return the full 3-layer Peppol BIS 3.0 validation report
+     * @throws EPostakException if the request fails
+     */
+    public static ValidationReport validate(String xml) {
+        return validate(xml, DEFAULT_PUBLIC_VALIDATE_URL);
+    }
+
+    /**
+     * Validate a UBL XML document against Peppol BIS 3.0 rules using a custom endpoint.
+     * Useful for staging or on-premise deployments.
+     *
+     * @param xml the UBL 2.1 XML document to validate
+     * @param url full URL of the validate endpoint (e.g. {@code "https://staging.epostak.sk/api/validate"})
+     * @return the full 3-layer Peppol BIS 3.0 validation report
+     * @throws EPostakException if the request fails
+     */
+    public static ValidationReport validate(String xml, String url) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/xml")
+                .POST(HttpRequest.BodyPublishers.ofString(xml, StandardCharsets.UTF_8))
+                .build();
+
+        java.net.http.HttpClient jdkClient = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
+
+        HttpResponse<String> response;
+        try {
+            response = jdkClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            throw new EPostakException(0, e.getMessage());
+        }
+
+        if (response.statusCode() >= 400) {
+            throw new EPostakException(response.statusCode(), response.body());
+        }
+
+        return new Gson().fromJson(response.body(), ValidationReport.class);
+    }
+
+    /**
+     * Derive the public validate URL from an enterprise base URL, preserving host
+     * and scheme so staging and custom deployments keep working.
+     */
+    private static String deriveValidateUrl(String enterpriseBaseUrl) {
+        if (enterpriseBaseUrl == null) return DEFAULT_PUBLIC_VALIDATE_URL;
+        int idx = enterpriseBaseUrl.indexOf("/api/enterprise");
+        if (idx >= 0) {
+            return enterpriseBaseUrl.substring(0, idx) + "/api/validate";
+        }
+        // Fallback: append /validate to whatever base was supplied
+        return enterpriseBaseUrl.endsWith("/")
+                ? enterpriseBaseUrl + "validate"
+                : enterpriseBaseUrl + "/validate";
+    }
 
     /**
      * Create a new client instance scoped to a specific firm.

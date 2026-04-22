@@ -18,9 +18,12 @@ if TYPE_CHECKING:
 
     from epostak.types import (
         AcknowledgeResponse,
+        BatchSendResponse,
         ConvertResult,
         Document,
         DocumentEvidenceResponse,
+        DocumentMarkResponse,
+        DocumentMarkState,
         DocumentStatusResponse,
         InboxAllResponse,
         InboxDocumentDetailResponse,
@@ -98,11 +101,17 @@ class _BaseResource:
         files: Any = None,
         params: Optional[Dict[str, str]] = None,
         raw: bool = False,
+        content: Any = None,
+        extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
         from epostak.errors import EPostakError
 
         url = f"{self._base_url}{path}"
         last_exc: Optional[EPostakError] = None
+
+        merged_headers = self._headers()
+        if extra_headers:
+            merged_headers.update(extra_headers)
 
         for attempt in range(self._max_retries + 1):
             response = None
@@ -110,10 +119,11 @@ class _BaseResource:
                 response = self._client.request(
                     method,
                     url,
-                    headers=self._headers(),
+                    headers=merged_headers,
                     json=json,
                     data=data,
                     files=files,
+                    content=content,
                     params=params,
                     timeout=30.0,
                 )
@@ -520,3 +530,94 @@ class DocumentsResource(_BaseResource):
             "document": document,
         }
         return self._request("POST", "/documents/convert", json=body)
+
+    def send_batch(self, items: List[Dict[str, Any]]) -> BatchSendResponse:
+        """Send up to 100 documents in a single request.
+
+        Each item uses the same body format as :meth:`send` and may carry an
+        optional ``idempotencyKey`` field to make retries safe.  Partial
+        failures do not fail the whole request -- inspect ``results`` and
+        ``failed`` for per-item outcomes.
+
+        Args:
+            items: List of send request bodies.
+
+        Returns:
+            Dict with ``total``, ``succeeded``, ``failed``, and ``results``
+            (per-item ``{index, status, result}`` entries).
+
+        Example::
+
+            batch = client.documents.send_batch([
+                {
+                    "receiverPeppolId": "0245:1234567890",
+                    "invoiceNumber": "FV-2026-010",
+                    "items": [{"description": "Audit", "quantity": 1, "unitPrice": 500, "vatRate": 23}],
+                    "idempotencyKey": "batch-2026-04-22-001",
+                },
+                {
+                    "receiverPeppolId": "0245:0987654321",
+                    "invoiceNumber": "FV-2026-011",
+                    "items": [{"description": "Consulting", "quantity": 2, "unitPrice": 300, "vatRate": 23}],
+                },
+            ])
+            print(batch["succeeded"], "/", batch["total"])
+        """
+        return self._request("POST", "/documents/send/batch", json={"items": items})
+
+    def parse(self, xml: str) -> Dict[str, Any]:
+        """Parse a UBL XML invoice into a structured JSON representation.
+
+        Convenience wrapper around the ``/documents/parse`` endpoint that
+        streams the XML as the raw request body with
+        ``Content-Type: application/xml``.
+
+        Args:
+            xml: UBL 2.1 XML invoice or credit-note document as a string.
+
+        Returns:
+            Parsed invoice dict with supplier, customer, lines, totals, etc.
+
+        Example::
+
+            with open("invoice.xml", "r", encoding="utf-8") as f:
+                parsed = client.documents.parse(f.read())
+            print(parsed["invoiceNumber"], parsed["totals"]["withVat"])
+        """
+        return self._request(
+            "POST",
+            "/documents/parse",
+            content=xml.encode("utf-8") if isinstance(xml, str) else xml,
+            extra_headers={"Content-Type": "application/xml"},
+        )
+
+    def mark(
+        self,
+        id: str,
+        state: DocumentMarkState,
+        note: Optional[str] = None,
+    ) -> DocumentMarkResponse:
+        """Manually mark a document's lifecycle state.
+
+        Use for documents delivered out-of-band (e.g. a receiver confirms
+        over email) or to flag a failed/processed document in your own
+        workflow.
+
+        Args:
+            id: Document UUID.
+            state: One of ``"delivered"``, ``"processed"``, ``"failed"``, ``"read"``.
+            note: Optional free-text note attached to the state change.
+
+        Returns:
+            Dict with ``id``, ``state``, ``status``, ``deliveredAt``,
+            ``acknowledgedAt``, and ``readAt`` (any may be None).
+
+        Example::
+
+            result = client.documents.mark("doc-uuid", state="delivered", note="Confirmed by email")
+            print(result["deliveredAt"])
+        """
+        body: Dict[str, Any] = {"state": state}
+        if note is not None:
+            body["note"] = note
+        return self._request("POST", f"/documents/{quote(id, safe='')}/mark", json=body)

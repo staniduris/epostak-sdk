@@ -113,4 +113,31 @@ export type {
   ExtractResult,
   BatchExtractItem,
   BatchExtractResult,
+  // Auth introspection & rotation
+  AuthStatusKey,
+  AuthStatusRateLimit,
+  AuthStatusIntegrator,
+  AuthStatusResponse,
+  RotateSecretResponse,
+  // Batch send
+  BatchSendItem,
+  BatchSendResult,
+  BatchSendResponse,
+  // Parse UBL
+  ParsedUblDocument,
+  // Mark document state
+  DocumentMarkState,
+  MarkDocumentRequest,
+  MarkDocumentResponse,
+  // Peppol capabilities
+  PeppolCapabilitiesRequest,
+  PeppolCapabilitiesResponse,
+  // Batch participant lookup
+  BatchLookupParticipant,
+  BatchLookupRequest,
+  BatchLookupResult,
+  BatchLookupResponse,
+  // Public validator
+  PublicValidationMessage,
+  PublicValidationReport,
 } from "./types.js";

@@ -5,6 +5,10 @@ import type {
   DirectorySearchParams,
   DirectorySearchResult,
   CompanyLookup,
+  PeppolCapabilitiesRequest,
+  PeppolCapabilitiesResponse,
+  BatchLookupParticipant,
+  BatchLookupResponse,
 } from "../types.js";
 
 /**
@@ -106,5 +110,63 @@ export class PeppolResource extends BaseResource {
    */
   companyLookup(ico: string): Promise<CompanyLookup> {
     return this.request("GET", `/company/lookup/${encodeURIComponent(ico)}`);
+  }
+
+  /**
+   * Storecove-style capability probe — describes what a Peppol participant
+   * is able to receive over the network. Use when you want a higher-level
+   * summary than the raw SMP capabilities returned by {@link lookup}.
+   *
+   * @param body - Participant scheme, identifier, and optional document type
+   * @returns Capability summary including accepted families and supported document types
+   *
+   * @example
+   * ```typescript
+   * const caps = await client.peppol.capabilities({
+   *   scheme: '0245',
+   *   identifier: '1234567890',
+   *   documentType: 'Invoice',
+   * });
+   * if (caps.found && caps.accepts.includes('invoice')) {
+   *   console.log('Ready to receive invoices');
+   * }
+   * ```
+   */
+  capabilities(
+    body: PeppolCapabilitiesRequest,
+  ): Promise<PeppolCapabilitiesResponse> {
+    return this.request("POST", "/peppol/capabilities", body);
+  }
+
+  /**
+   * Look up up to 100 Peppol participants in a single request. Useful for
+   * pre-flighting an entire customer database before a bulk send campaign.
+   *
+   * @param participants - Array of 1–100 participants (scheme + identifier)
+   * @returns Aggregate counts plus per-participant results in request order
+   *
+   * @example
+   * ```typescript
+   * const batch = await client.peppol.lookupBatch([
+   *   { scheme: '0245', identifier: '1234567890' },
+   *   { scheme: '0245', identifier: '9876543210' },
+   * ]);
+   * console.log(`${batch.found}/${batch.total} registered on Peppol`);
+   * for (const r of batch.results) {
+   *   if (!r.found) {
+   *     console.warn(`Not on Peppol: ${r.scheme}:${r.identifier}`);
+   *   }
+   * }
+   * ```
+   */
+  lookupBatch(
+    participants: BatchLookupParticipant[],
+  ): Promise<BatchLookupResponse> {
+    return this.request(
+      "POST",
+      "/peppol/participants/batch",
+      { participants },
+      { retry: true },
+    );
   }
 }

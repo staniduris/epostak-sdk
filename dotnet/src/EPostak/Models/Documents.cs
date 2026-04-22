@@ -1055,3 +1055,263 @@ public sealed class ConvertResult
     [JsonPropertyName("warnings")]
     public List<string> Warnings { get; set; } = new();
 }
+
+// ---------------------------------------------------------------------------
+// Batch send
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A single item in a batch send request. Wraps a <see cref="SendDocumentRequest"/>
+/// and may include an optional idempotency key.
+/// </summary>
+public sealed class BatchSendItem
+{
+    /// <summary>The document to send (same format as single send). Required.</summary>
+    [JsonPropertyName("document")]
+    public required SendDocumentRequest Document { get; set; }
+
+    /// <summary>
+    /// Optional per-item idempotency key. If set, resubmissions with the same key
+    /// return the original result instead of re-sending.
+    /// </summary>
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+}
+
+/// <summary>
+/// Request body for sending multiple documents in a single call via
+/// <c>POST /documents/send/batch</c>.
+/// </summary>
+public sealed class BatchSendRequest
+{
+    /// <summary>Items to send, in order. Max 100 items per batch. Required.</summary>
+    [JsonPropertyName("items")]
+    public required List<BatchSendItem> Items { get; set; }
+}
+
+/// <summary>
+/// Result of a single item in a batch send operation.
+/// </summary>
+public sealed class BatchSendItemResult
+{
+    /// <summary>Zero-based index of the item in the request.</summary>
+    [JsonPropertyName("index")]
+    public int Index { get; set; }
+
+    /// <summary>HTTP status code for this item (e.g. 202, 400, 422).</summary>
+    [JsonPropertyName("status")]
+    public int Status { get; set; }
+
+    /// <summary>
+    /// Per-item result payload. On success, matches <see cref="SendDocumentResponse"/>.
+    /// On failure, is an error body shape with <c>error.message</c> and <c>error.code</c>.
+    /// Null if the batch item produced no body.
+    /// </summary>
+    [JsonPropertyName("result")]
+    public object? Result { get; set; }
+}
+
+/// <summary>
+/// Response from a batch send operation. Reports overall counts and a per-item
+/// result in the same order as the request.
+/// </summary>
+public sealed class BatchSendResponse
+{
+    /// <summary>Total number of items in the batch.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Number of items that returned a 2xx status.</summary>
+    [JsonPropertyName("succeeded")]
+    public int Succeeded { get; set; }
+
+    /// <summary>Number of items that returned a non-2xx status.</summary>
+    [JsonPropertyName("failed")]
+    public int Failed { get; set; }
+
+    /// <summary>Per-item results in request order.</summary>
+    [JsonPropertyName("results")]
+    public List<BatchSendItemResult> Results { get; set; } = [];
+}
+
+// ---------------------------------------------------------------------------
+// Parse (UBL XML -> structured JSON)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Result of parsing a UBL XML invoice into structured JSON via
+/// <c>POST /documents/parse</c>. The shape matches the JSON side of
+/// <see cref="ConvertResult"/> with <see cref="ConvertOutputFormat.Json"/>:
+/// <see cref="Document"/> is a free-form object with fields such as
+/// <c>invoiceNumber</c>, <c>issueDate</c>, <c>supplier</c>, <c>customer</c>,
+/// <c>items</c>, and <c>totals</c>.
+/// </summary>
+public sealed class ParsedInvoice
+{
+    /// <summary>Parsed invoice fields as a generic JSON object (<see cref="JsonElement"/>).</summary>
+    [JsonPropertyName("document")]
+    public object Document { get; set; } = new();
+
+    /// <summary>Non-fatal warnings emitted during parsing.</summary>
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = [];
+}
+
+// ---------------------------------------------------------------------------
+// Mark (inbound document state)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Request body for marking an inbound document's processing state via
+/// <c>POST /documents/{id}/mark</c>.
+/// </summary>
+public sealed class MarkRequest
+{
+    /// <summary>
+    /// Target state: one of <c>delivered</c>, <c>processed</c>, <c>failed</c>, <c>read</c>. Required.
+    /// </summary>
+    [JsonPropertyName("state")]
+    public required string State { get; set; }
+
+    /// <summary>Optional free-text note (max 500 chars), e.g. failure reason.</summary>
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+}
+
+/// <summary>
+/// Response from marking a document's processing state.
+/// </summary>
+public sealed class MarkResponse
+{
+    /// <summary>The document UUID that was marked.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    /// <summary>The state that was recorded.</summary>
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "";
+
+    /// <summary>The document's overall status after applying the mark.</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp of the <c>delivered</c> mark. Null if not yet delivered.</summary>
+    [JsonPropertyName("deliveredAt")]
+    public string? DeliveredAt { get; set; }
+
+    /// <summary>ISO 8601 timestamp of the <c>processed</c> mark. Null if not yet processed.</summary>
+    [JsonPropertyName("acknowledgedAt")]
+    public string? AcknowledgedAt { get; set; }
+
+    /// <summary>ISO 8601 timestamp of the <c>read</c> mark. Null if not yet read.</summary>
+    [JsonPropertyName("readAt")]
+    public string? ReadAt { get; set; }
+}
+
+// ---------------------------------------------------------------------------
+// Validation report (public /api/validate)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A single validation finding (error or warning) within a <see cref="ValidationReport"/>.
+/// </summary>
+public sealed class ValidationFinding
+{
+    /// <summary>The rule identifier (e.g. <c>BR-01</c>, <c>SK-R-002</c>).</summary>
+    [JsonPropertyName("rule")]
+    public string Rule { get; set; } = "";
+
+    /// <summary>Human-readable description of the finding.</summary>
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+
+    /// <summary>XPath or schema location where the finding was raised. Null if not provided.</summary>
+    [JsonPropertyName("location")]
+    public string? Location { get; set; }
+
+    /// <summary>Severity: <c>error</c> or <c>warning</c>.</summary>
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = "";
+}
+
+/// <summary>
+/// Result of a single validation layer (XSD / EN / Peppol).
+/// </summary>
+public sealed class ValidationLayerResult
+{
+    /// <summary>True if this layer produced no errors.</summary>
+    [JsonPropertyName("ok")]
+    public bool Ok { get; set; }
+
+    /// <summary>Layer-specific error findings.</summary>
+    [JsonPropertyName("errors")]
+    public List<ValidationFinding> Errors { get; set; } = [];
+
+    /// <summary>Layer-specific warning findings.</summary>
+    [JsonPropertyName("warnings")]
+    public List<ValidationFinding> Warnings { get; set; } = [];
+}
+
+/// <summary>
+/// Per-layer validation results returned by <c>POST /api/validate</c>.
+/// </summary>
+public sealed class ValidationLayers
+{
+    /// <summary>UBL 2.1 XSD schema validation layer.</summary>
+    [JsonPropertyName("xsd")]
+    public ValidationLayerResult Xsd { get; set; } = new();
+
+    /// <summary>EN 16931 core business rules layer.</summary>
+    [JsonPropertyName("en")]
+    public ValidationLayerResult En { get; set; } = new();
+
+    /// <summary>Peppol BIS 3.0 country-specific rules layer.</summary>
+    [JsonPropertyName("peppol")]
+    public ValidationLayerResult Peppol { get; set; } = new();
+}
+
+/// <summary>
+/// Aggregate error and warning counts for a <see cref="ValidationReport"/>.
+/// </summary>
+public sealed class ValidationSummary
+{
+    /// <summary>Total number of error-level findings.</summary>
+    [JsonPropertyName("errors")]
+    public int Errors { get; set; }
+
+    /// <summary>Total number of warning-level findings.</summary>
+    [JsonPropertyName("warnings")]
+    public int Warnings { get; set; }
+}
+
+/// <summary>
+/// Full 3-layer Peppol BIS 3.0 validation report returned by the public
+/// <c>POST /api/validate</c> endpoint. Reports findings from UBL XSD, EN 16931,
+/// and Peppol BIS 3.0 country-specific rules.
+/// </summary>
+public sealed class ValidationReport
+{
+    /// <summary>True if every layer passes (no errors).</summary>
+    [JsonPropertyName("valid")]
+    public bool Valid { get; set; }
+
+    /// <summary>True if all Schematron layers (EN + Peppol) pass.</summary>
+    [JsonPropertyName("schematronOk")]
+    public bool SchematronOk { get; set; }
+
+    /// <summary>Aggregate error and warning counts across all layers.</summary>
+    [JsonPropertyName("summary")]
+    public ValidationSummary Summary { get; set; } = new();
+
+    /// <summary>Per-layer findings.</summary>
+    [JsonPropertyName("layers")]
+    public ValidationLayers Layers { get; set; } = new();
+
+    /// <summary>Flat list of all error-level findings across layers.</summary>
+    [JsonPropertyName("errors")]
+    public List<ValidationFinding> Errors { get; set; } = [];
+
+    /// <summary>Flat list of all warning-level findings across layers.</summary>
+    [JsonPropertyName("warnings")]
+    public List<ValidationFinding> Warnings { get; set; } = [];
+}

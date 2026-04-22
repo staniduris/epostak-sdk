@@ -20,6 +20,11 @@ import type {
   PreflightResult,
   ConvertRequest,
   ConvertResult,
+  BatchSendItem,
+  BatchSendResponse,
+  ParsedUblDocument,
+  DocumentMarkState,
+  MarkDocumentResponse,
 } from "../types.js";
 
 /**
@@ -400,5 +405,104 @@ export class DocumentsResource extends BaseResource {
    */
   convert(body: ConvertRequest): Promise<ConvertResult> {
     return this.request("POST", "/documents/convert", body);
+  }
+
+  /**
+   * Send up to 50 invoices in a single call. The endpoint always returns
+   * HTTP 200 — per-item errors surface in `results[].status === "error"`
+   * rather than as thrown exceptions, so a partial failure does not abort
+   * the remaining items.
+   *
+   * Each item accepts the same fields as {@link DocumentsResource.send},
+   * plus an optional `idempotencyKey` for per-item replay safety.
+   *
+   * @param items - Array of 1–50 send requests
+   * @returns Aggregate counts plus per-item results in request order
+   *
+   * @example
+   * ```typescript
+   * const batch = await client.documents.sendBatch([
+   *   {
+   *     receiverPeppolId: '0245:1234567890',
+   *     items: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 23 }],
+   *     idempotencyKey: 'order-001',
+   *   },
+   *   {
+   *     receiverPeppolId: '0245:9876543210',
+   *     items: [{ description: 'B', quantity: 2, unitPrice: 50, vatRate: 23 }],
+   *     idempotencyKey: 'order-002',
+   *   },
+   * ]);
+   *
+   * console.log(`${batch.succeeded}/${batch.total} sent`);
+   * for (const r of batch.results) {
+   *   if (r.status === 'error') {
+   *     console.error(`Item ${r.index} failed:`, r.result);
+   *   }
+   * }
+   * ```
+   */
+  sendBatch(items: BatchSendItem[]): Promise<BatchSendResponse> {
+    return this.request(
+      "POST",
+      "/documents/send/batch",
+      { items },
+      { retry: true },
+    );
+  }
+
+  /**
+   * Parse a UBL 2.1 XML invoice into the normalized JSON shape used by
+   * the ePošťák send pipeline. Useful when an integrator receives foreign
+   * UBL and wants to read, edit, or re-send it through our JSON API.
+   *
+   * Max 10 MB per request.
+   *
+   * @param xml - The UBL XML string
+   * @returns The normalized JSON document plus non-fatal warnings
+   *
+   * @example
+   * ```typescript
+   * const { document, warnings } = await client.documents.parse(ublXml);
+   * if (warnings.length) {
+   *   console.warn('Parser warnings:', warnings);
+   * }
+   * // `document` now matches the SendDocumentJsonRequest shape.
+   * ```
+   */
+  parse(xml: string): Promise<ParsedUblDocument> {
+    return this.request("POST", "/documents/parse", { xml });
+  }
+
+  /**
+   * Apply a granular state transition to a document. Use this when the
+   * document's lifecycle extends beyond Peppol — e.g. an ERP marks it as
+   * `"processed"` after accounting review, or as `"read"` once a human
+   * opens it.
+   *
+   * Allowed states: `"delivered"`, `"processed"`, `"failed"`, `"read"`.
+   *
+   * @param id - Document UUID
+   * @param state - Target state to transition into
+   * @param note - Optional human-readable note recorded with the transition
+   * @returns The updated state and associated timestamps
+   *
+   * @example
+   * ```typescript
+   * await client.documents.mark('doc-uuid', 'processed', 'Approved by CFO');
+   * ```
+   */
+  mark(
+    id: string,
+    state: DocumentMarkState,
+    note?: string,
+  ): Promise<MarkDocumentResponse> {
+    const body: { state: DocumentMarkState; note?: string } = { state };
+    if (note !== undefined) body.note = note;
+    return this.request(
+      "POST",
+      `/documents/${encodeURIComponent(id)}/mark`,
+      body,
+    );
   }
 }

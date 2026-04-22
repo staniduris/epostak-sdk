@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from epostak.types import Account
+    from epostak.types import Account, AccountStatus, RotateSecretResponse
 
 from epostak.resources.documents import _BaseResource
 
@@ -31,3 +31,42 @@ class AccountResource(_BaseResource):
             print(f"Sent: {account['usage']['outbound']}")
         """
         return self._request("GET", "/account")
+
+    def status(self) -> AccountStatus:
+        """Inspect the authenticated API key, firm, plan, and rate limits.
+
+        Useful for debugging credentials, verifying which firm an integrator
+        key is currently scoped to, and discovering per-minute rate limits.
+
+        Returns:
+            Dict with ``key`` (keyId/prefix/createdAt/lastUsedAt), ``firm``
+            (id/name/ico), ``plan``, ``rateLimit`` (getPerMin/postPerMin), and
+            ``integrator`` (present only for ``sk_int_*`` keys, otherwise None).
+
+        Example::
+
+            info = client.account.status()
+            print(info["firm"]["name"], info["plan"])
+            print(f"Limits: {info['rateLimit']['postPerMin']} POST/min")
+        """
+        return self._request("POST", "/auth/status")
+
+    def rotate_secret(self) -> RotateSecretResponse:
+        """Rotate the plaintext secret for the current API key.
+
+        The returned ``key`` is shown exactly once -- store it immediately.
+        The previous secret is invalidated on success.
+
+        Integrator keys (``sk_int_*``) cannot be rotated through this
+        endpoint; the server returns HTTP 409, which raises
+        :class:`~epostak.errors.EPostakError`.
+
+        Returns:
+            Dict with ``keyId``, ``key`` (new plaintext), ``prefix``, and ``rotatedAt``.
+
+        Example::
+
+            new = client.account.rotate_secret()
+            save_somewhere_secure(new["key"])
+        """
+        return self._request("POST", "/auth/rotate-secret", json={})

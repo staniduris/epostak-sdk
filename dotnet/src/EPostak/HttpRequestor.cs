@@ -111,6 +111,25 @@ internal sealed class HttpRequestor
     }
 
     /// <summary>
+    /// Send a request with a raw string body and a custom Content-Type, then deserialize the JSON response.
+    /// Used for endpoints that accept raw XML (e.g. document parsing, validation).
+    /// </summary>
+    /// <typeparam name="T">The response model type to deserialize into.</typeparam>
+    /// <param name="method">HTTP method (typically POST).</param>
+    /// <param name="path">API path appended to the base URL.</param>
+    /// <param name="body">Raw body string to send.</param>
+    /// <param name="contentType">Content-Type header value (e.g. <c>application/xml</c>).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The deserialized API response.</returns>
+    internal async Task<T> RequestRawAsync<T>(HttpMethod method, string path, string body, string contentType, CancellationToken ct)
+    {
+        using var request = BuildRequest(method, path);
+        request.Content = new StringContent(body, Encoding.UTF8);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType) { CharSet = "utf-8" };
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Send a multipart/form-data request (for file uploads) and deserialize the JSON response.
     /// </summary>
     /// <typeparam name="T">The response model type to deserialize into.</typeparam>

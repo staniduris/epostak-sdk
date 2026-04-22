@@ -65,6 +65,26 @@ module EPostak
       raise Error.new(0, { "error" => e.message })
     end
 
+    # Send a raw body (non-JSON) and return the parsed JSON response.
+    # Used for endpoints that accept application/xml or another content type.
+    #
+    # @param method [Symbol] HTTP method (typically :post)
+    # @param path [String] API endpoint path
+    # @param xml [String] Raw body bytes to send
+    # @param content_type [String] Value for the Content-Type header
+    # @return [Hash, nil] Parsed JSON response, or nil for 204
+    # @raise [EPostak::Error] On non-2xx responses or network errors
+    def request_with_body(method, path, xml, content_type: "application/xml")
+      response = @conn.run_request(method, path, nil, nil) do |req|
+        req.headers["Content-Type"] = content_type
+        req.body = xml
+      end
+
+      handle_response(response)
+    rescue Faraday::Error => e
+      raise Error.new(0, { "error" => e.message })
+    end
+
     # Perform a raw request that returns the response body as a string.
     # Used for PDF and UBL downloads.
     #

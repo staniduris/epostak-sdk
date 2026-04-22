@@ -21,6 +21,59 @@ from epostak.resources.reporting import ReportingResource
 from epostak.resources.webhooks import WebhooksResource
 
 DEFAULT_BASE_URL = "https://epostak.sk/api/enterprise"
+DEFAULT_PUBLIC_BASE_URL = "https://epostak.sk/api"
+
+
+def _derive_public_base_url(base_url: str) -> str:
+    """Derive the public (non-enterprise) API base URL from an enterprise base URL."""
+    stripped = base_url.rstrip("/")
+    if stripped.endswith("/enterprise"):
+        return stripped[: -len("/enterprise")]
+    return stripped
+
+
+def validate(xml: str, base_url: Optional[str] = None) -> "dict":
+    """Validate a UBL XML document against the Peppol BIS 3.0 3-layer rules.
+
+    This endpoint is **public** -- no API key is required.  Rate-limited to
+    20 requests per minute per IP.
+
+    Args:
+        xml: UBL 2.1 XML invoice or credit note as a string.
+        base_url: Optional override for the public API base URL.  Useful when
+            pointing the SDK at a staging or self-hosted deployment.  The
+            default is ``https://epostak.sk/api``.
+
+    Returns:
+        Full 3-layer Peppol BIS 3.0 validation report as returned by the API.
+
+    Example::
+
+        from epostak import validate
+
+        with open("invoice.xml", "r", encoding="utf-8") as f:
+            report = validate(f.read())
+        print(report["valid"], len(report.get("errors", [])))
+    """
+    import httpx
+
+    url = f"{(base_url or DEFAULT_PUBLIC_BASE_URL).rstrip('/')}/validate"
+    with httpx.Client() as client:
+        response = client.post(
+            url,
+            content=xml.encode("utf-8") if isinstance(xml, str) else xml,
+            headers={"Content-Type": "application/xml"},
+            timeout=30.0,
+        )
+    if not response.is_success:
+        from epostak.errors import EPostakError
+
+        try:
+            body = response.json()
+        except Exception:
+            body = {"error": response.reason_phrase or "validate request failed"}
+        raise EPostakError(response.status_code, body)
+    return response.json()
 
 
 class EPostak:
@@ -119,6 +172,29 @@ class EPostak:
             firm_id=firm_id,
             max_retries=self._max_retries,
         )
+
+    def validate(self, xml: str) -> "dict":
+        """Validate a UBL XML document via the public ``/api/validate`` endpoint.
+
+        This is the PUBLIC validation endpoint and does **not** require an
+        API key; the SDK intentionally bypasses the ``Authorization`` header
+        for this call.  Rate-limited to 20 requests per minute per IP.
+
+        Args:
+            xml: UBL 2.1 XML invoice or credit note as a string.
+
+        Returns:
+            Full 3-layer Peppol BIS 3.0 validation report.
+
+        Example::
+
+            client = EPostak(api_key="sk_live_xxx")
+            report = client.validate(open("invoice.xml").read())
+            if not report["valid"]:
+                for err in report["errors"]:
+                    print(err)
+        """
+        return validate(xml, base_url=_derive_public_base_url(self._base_url))
 
     def close(self) -> None:
         """Close the underlying HTTP client and release resources.

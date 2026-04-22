@@ -230,6 +230,71 @@ module EPostak
         @http.request(:post, "/documents/convert", body: body)
       end
 
+      # Send up to 100 documents in a single request.
+      #
+      # Each item uses the same body format as {#send_document} and may carry
+      # an optional +idempotencyKey+ for safe retries. Partial failures do not
+      # fail the whole request -- inspect +results+ and +failed+ per item.
+      #
+      # @param items [Array<Hash>] Array of send request bodies
+      # @return [Hash] {"total" => ..., "succeeded" => ..., "failed" => ...,
+      #   "results" => [{"index" => ..., "status" => ..., "result" => ...}]}
+      #
+      # @example
+      #   batch = client.documents.send_batch([
+      #     {
+      #       receiverPeppolId: "0245:1234567890",
+      #       invoiceNumber: "FV-2026-010",
+      #       items: [{ description: "Audit", quantity: 1, unitPrice: 500, vatRate: 23 }],
+      #       idempotencyKey: "batch-2026-04-22-001"
+      #     },
+      #     {
+      #       receiverPeppolId: "0245:0987654321",
+      #       invoiceNumber: "FV-2026-011",
+      #       items: [{ description: "Consulting", quantity: 2, unitPrice: 300, vatRate: 23 }]
+      #     }
+      #   ])
+      #   puts "#{batch['succeeded']} / #{batch['total']}"
+      def send_batch(items)
+        @http.request(:post, "/documents/send/batch", body: { items: items })
+      end
+
+      # Parse a UBL XML invoice into a structured JSON representation.
+      #
+      # Streams the XML as the raw request body with
+      # +Content-Type: application/xml+.
+      #
+      # @param xml [String] UBL 2.1 XML invoice or credit note as a string
+      # @return [Hash] Parsed invoice hash with supplier, customer, lines, totals, etc.
+      #
+      # @example
+      #   parsed = client.documents.parse(File.read("invoice.xml"))
+      #   puts parsed["invoiceNumber"]
+      def parse(xml)
+        @http.request_with_body(:post, "/documents/parse", xml, content_type: "application/xml")
+      end
+
+      # Manually mark a document's lifecycle state.
+      #
+      # Use for documents delivered out-of-band (e.g. a receiver confirms
+      # over email) or to flag a failed/processed document in your own
+      # workflow.
+      #
+      # @param id [String] Document UUID
+      # @param state [String] One of "delivered", "processed", "failed", "read"
+      # @param note [String, nil] Optional note attached to the state change
+      # @return [Hash] {"id" => ..., "state" => ..., "status" => ...,
+      #   "deliveredAt" => ..., "acknowledgedAt" => ..., "readAt" => ...}
+      #
+      # @example
+      #   result = client.documents.mark("doc-uuid", state: "delivered", note: "Confirmed by email")
+      #   puts result["deliveredAt"]
+      def mark(id, state:, note: nil)
+        body = { state: state }
+        body[:note] = note if note
+        @http.request(:post, "/documents/#{encode(id)}/mark", body: body)
+      end
+
       private
 
       # URI-encode a path segment.

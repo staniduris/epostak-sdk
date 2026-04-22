@@ -1120,6 +1120,295 @@ export interface Account {
 }
 
 // ---------------------------------------------------------------------------
+// Auth introspection & rotation
+// ---------------------------------------------------------------------------
+
+/** Key metadata returned by the auth status introspection endpoint. */
+export interface AuthStatusKey {
+  /** Opaque key ID (not the plaintext secret) */
+  keyId: string;
+  /** Short prefix identifying the key (e.g. `"sk_live_abc"`) — safe to log */
+  prefix: string;
+  /** ISO 8601 timestamp when the key was created */
+  createdAt: string;
+  /** ISO 8601 timestamp of the last successful request, or `null` if never used */
+  lastUsedAt: string | null;
+}
+
+/** Rate-limit info returned by the auth status introspection endpoint. */
+export interface AuthStatusRateLimit {
+  /** Maximum requests allowed in the current window */
+  limit: number;
+  /** Requests remaining in the current window */
+  remaining: number;
+  /** Window duration in seconds */
+  windowSeconds: number;
+}
+
+/** Integrator summary returned when the key belongs to an integrator account. */
+export interface AuthStatusIntegrator {
+  /** Integrator UUID */
+  id: string;
+  /** Integrator display name */
+  name: string;
+}
+
+/**
+ * Response from `POST /auth/status` — introspects the calling API key
+ * without revealing the plaintext secret.
+ */
+export interface AuthStatusResponse {
+  /** Metadata about the API key being used */
+  key: AuthStatusKey;
+  /** The firm this key is authenticated against */
+  firm: {
+    /** Firm UUID */
+    id: string;
+    /** Legal name of the firm */
+    name: string;
+    /** Slovak business registration number (ICO), or `null` */
+    ico: string | null;
+  };
+  /** Current subscription plan (e.g. `"api-enterprise"`, `"business"`) */
+  plan: string;
+  /** Applicable rate-limit configuration */
+  rateLimit: AuthStatusRateLimit;
+  /** Integrator details — only present when the key is `sk_int_*` */
+  integrator?: AuthStatusIntegrator;
+}
+
+/**
+ * Response from `POST /auth/rotate-secret` — the new plaintext key is
+ * returned ONCE. Store it immediately; the previous key is deactivated.
+ * Integrator keys (`sk_int_*`) are rejected with 409.
+ */
+export interface RotateSecretResponse {
+  /** Opaque key ID of the newly created key */
+  keyId: string;
+  /** The new plaintext API key (`sk_live_...`) — returned only once */
+  key: string;
+  /** Short prefix of the new key — safe to store for reference */
+  prefix: string;
+  /** ISO 8601 timestamp when the rotation completed */
+  rotatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Batch send
+// ---------------------------------------------------------------------------
+
+/** A single item in a batch send request — same shape as `send()` plus an optional idempotency key. */
+export type BatchSendItem = SendDocumentRequest & {
+  /**
+   * Optional idempotency key for this item. When the same key is replayed
+   * within the idempotency window, the original result is returned instead
+   * of sending the invoice twice.
+   */
+  idempotencyKey?: string;
+};
+
+/** Per-item result in a batch send response. */
+export interface BatchSendResult {
+  /** Zero-based index of the item in the original request */
+  index: number;
+  /** `"success"` if the item was sent, `"error"` if it failed */
+  status: "success" | "error";
+  /**
+   * On success: the normal send response (document ID, message ID, status).
+   * On error: an error object with `code` and `message`.
+   */
+  result: SendDocumentResponse | { code: string; message: string };
+}
+
+/**
+ * Response from `POST /documents/send/batch` — always returns 200.
+ * Per-item errors live in `results[].status === "error"`.
+ */
+export interface BatchSendResponse {
+  /** Total number of items in the request */
+  total: number;
+  /** Number of items that were sent successfully */
+  succeeded: number;
+  /** Number of items that failed */
+  failed: number;
+  /** Individual per-item results, in request order */
+  results: BatchSendResult[];
+}
+
+// ---------------------------------------------------------------------------
+// Parse UBL XML
+// ---------------------------------------------------------------------------
+
+/**
+ * Response from `POST /documents/parse` — the normalized JSON invoice shape
+ * derived from a UBL XML input. Matches the structured fields accepted by
+ * `send()` so the output can be edited and sent back through the pipeline.
+ */
+export interface ParsedUblDocument {
+  /** Normalized invoice JSON extracted from the UBL XML */
+  document: Record<string, unknown>;
+  /** Non-fatal warnings raised during parsing (empty array when none) */
+  warnings: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Mark document state
+// ---------------------------------------------------------------------------
+
+/**
+ * Granular state that can be set via `POST /documents/{id}/mark`.
+ * - `"delivered"` — Peppol delivery confirmed (manual override)
+ * - `"processed"` — document was processed by the recipient's system
+ * - `"failed"` — terminal failure; no further retries
+ * - `"read"` — recipient opened / viewed the document
+ */
+export type DocumentMarkState = "delivered" | "processed" | "failed" | "read";
+
+/** Request body for `POST /documents/{id}/mark`. */
+export interface MarkDocumentRequest {
+  /** Target state to transition the document into */
+  state: DocumentMarkState;
+  /** Optional human-readable note recorded alongside the transition */
+  note?: string;
+}
+
+/** Response from `POST /documents/{id}/mark`. */
+export interface MarkDocumentResponse {
+  /** Document UUID */
+  id: string;
+  /** The granular state that was applied */
+  state: DocumentMarkState;
+  /** The resulting aggregate status (e.g. `"DELIVERED"`, `"FAILED"`) */
+  status: string;
+  /** ISO 8601 timestamp of delivery, or `null` */
+  deliveredAt: string | null;
+  /** ISO 8601 timestamp of acknowledgement, or `null` */
+  acknowledgedAt: string | null;
+  /** ISO 8601 timestamp when the document was marked as read, or `null` */
+  readAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Peppol capabilities probe
+// ---------------------------------------------------------------------------
+
+/** Request body for `POST /peppol/capabilities` — Storecove-style capability probe. */
+export interface PeppolCapabilitiesRequest {
+  /** Peppol identifier scheme (e.g. `"0245"` for Slovak DIČ) */
+  scheme: string;
+  /** Identifier value within the scheme */
+  identifier: string;
+  /** Optional specific document type ID to check for support */
+  documentType?: string;
+}
+
+/**
+ * Response from `POST /peppol/capabilities` — describes what a Peppol
+ * participant is able to receive over the network.
+ */
+export interface PeppolCapabilitiesResponse {
+  /** `true` if the participant was found in SMP */
+  found: boolean;
+  /** High-level document families accepted (e.g. `["invoice", "creditNote"]`) */
+  accepts: string[];
+  /** Full list of specific document type IDs advertised by the SMP */
+  supportedDocumentTypes: string[];
+  /** The matched document type ID when `documentType` was provided in the request */
+  matchedDocumentType?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Batch participant lookup
+// ---------------------------------------------------------------------------
+
+/** A single participant to look up in a batch request. */
+export interface BatchLookupParticipant {
+  /** Peppol identifier scheme (e.g. `"0245"`) */
+  scheme: string;
+  /** Identifier value within the scheme */
+  identifier: string;
+}
+
+/** Request body for `POST /peppol/participants/batch` — max 100 participants. */
+export interface BatchLookupRequest {
+  /** Participants to look up, max 100 per request */
+  participants: BatchLookupParticipant[];
+}
+
+/** Per-participant result in a batch lookup response. */
+export interface BatchLookupResult {
+  /** Peppol identifier scheme */
+  scheme: string;
+  /** Identifier value within the scheme */
+  identifier: string;
+  /** `true` if the participant was found in SMP */
+  found: boolean;
+  /** Participant details when `found === true`, otherwise omitted */
+  participant?: PeppolParticipant;
+}
+
+/** Response from `POST /peppol/participants/batch`. */
+export interface BatchLookupResponse {
+  /** Total number of participants in the request */
+  total: number;
+  /** Number of participants that were found */
+  found: number;
+  /** Number of participants that were not found */
+  notFound: number;
+  /** Individual per-participant results, in request order */
+  results: BatchLookupResult[];
+}
+
+// ---------------------------------------------------------------------------
+// Public validator-as-a-service
+// ---------------------------------------------------------------------------
+
+/**
+ * A single validation finding (error or warning) emitted by the public
+ * validator. Surfaced per validation layer (XSD / EN16931 / Peppol).
+ */
+export interface PublicValidationMessage {
+  /** Rule ID that was violated (e.g. `"BR-CO-10"`, `"PEPPOL-EN16931-R001"`) */
+  ruleId: string;
+  /** Human-readable message describing the violation */
+  message: string;
+  /** Severity (`"fatal"`, `"error"`, `"warning"`) */
+  severity: string;
+  /** XPath to the offending node in the UBL XML, or `null` */
+  location?: string | null;
+}
+
+/**
+ * Response from the public `POST /api/validate` endpoint (no auth required).
+ * Rate-limited to 20 requests per minute per IP.
+ */
+export interface PublicValidationReport {
+  /** `true` if the XML passes all three validation layers */
+  valid: boolean;
+  /** UBL 2.1 XSD schema validation layer */
+  xsd: {
+    /** `true` if the XML is schema-valid UBL */
+    valid: boolean;
+    /** Errors emitted by the XSD validator */
+    messages: PublicValidationMessage[];
+  };
+  /** EN 16931 core invoice model validation layer */
+  en16931: {
+    /** `true` if the invoice passes EN 16931 business rules */
+    valid: boolean;
+    /** Errors and warnings emitted by the EN 16931 schematron */
+    messages: PublicValidationMessage[];
+  };
+  /** Peppol BIS 3.0 + SK CIUS schematron layer */
+  peppol: {
+    /** `true` if the invoice passes Peppol BIS 3.0 + SK CIUS */
+    valid: boolean;
+    /** Errors and warnings emitted by the Peppol schematron */
+    messages: PublicValidationMessage[];
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Extract
 // ---------------------------------------------------------------------------
 

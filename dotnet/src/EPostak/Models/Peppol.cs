@@ -148,3 +148,131 @@ public sealed class CompanyLookup
     [JsonPropertyName("peppolId")]
     public string? PeppolId { get; set; }
 }
+
+// ---------------------------------------------------------------------------
+// Capabilities probe
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Request to probe whether a Peppol participant can receive a specific document type
+/// via <c>POST /peppol/capabilities</c>.
+/// </summary>
+public sealed class CapabilitiesRequest
+{
+    /// <summary>Peppol identifier scheme (e.g. <c>0245</c> for Slovak DIC). Required.</summary>
+    [JsonPropertyName("scheme")]
+    public required string Scheme { get; set; }
+
+    /// <summary>Identifier value within the scheme (e.g. <c>12345678</c>). Required.</summary>
+    [JsonPropertyName("identifier")]
+    public required string Identifier { get; set; }
+
+    /// <summary>
+    /// UBL document type identifier to probe for. When null, the response returns the
+    /// full set of supported document types without a specific match.
+    /// </summary>
+    [JsonPropertyName("documentType")]
+    public string? DocumentType { get; set; }
+}
+
+/// <summary>
+/// Response from <c>POST /peppol/capabilities</c>.
+/// </summary>
+public sealed class CapabilitiesResponse
+{
+    /// <summary>True if the participant was found in the SMP.</summary>
+    [JsonPropertyName("found")]
+    public bool Found { get; set; }
+
+    /// <summary>Business process IDs the participant advertises. Null when <see cref="Found"/> is false.</summary>
+    [JsonPropertyName("accepts")]
+    public List<string>? Accepts { get; set; }
+
+    /// <summary>UBL document type identifiers the participant can receive. Null when <see cref="Found"/> is false.</summary>
+    [JsonPropertyName("supportedDocumentTypes")]
+    public List<string>? SupportedDocumentTypes { get; set; }
+
+    /// <summary>
+    /// The document type ID that matched the requested <see cref="CapabilitiesRequest.DocumentType"/>.
+    /// Null if no specific type was requested or no match was found.
+    /// </summary>
+    [JsonPropertyName("matchedDocumentType")]
+    public string? MatchedDocumentType { get; set; }
+}
+
+// ---------------------------------------------------------------------------
+// Batch participant lookup
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A single participant identifier in a batch SMP lookup.
+/// </summary>
+public sealed class ParticipantId
+{
+    /// <summary>Peppol identifier scheme (e.g. <c>0245</c>). Required.</summary>
+    [JsonPropertyName("scheme")]
+    public required string Scheme { get; set; }
+
+    /// <summary>Identifier value within the scheme (e.g. <c>12345678</c>). Required.</summary>
+    [JsonPropertyName("identifier")]
+    public required string Identifier { get; set; }
+}
+
+/// <summary>
+/// Request body for <c>POST /peppol/participants/batch</c>, performing SMP lookups
+/// for multiple participants in a single call.
+/// </summary>
+public sealed class BatchLookupRequest
+{
+    /// <summary>Participants to look up. Max 100 entries per call.</summary>
+    [JsonPropertyName("participants")]
+    public required List<ParticipantId> Participants { get; set; }
+}
+
+/// <summary>
+/// Result of a single participant lookup in a batch.
+/// </summary>
+public sealed class BatchLookupResult
+{
+    /// <summary>The scheme that was queried.</summary>
+    [JsonPropertyName("scheme")]
+    public string Scheme { get; set; } = "";
+
+    /// <summary>The identifier that was queried.</summary>
+    [JsonPropertyName("identifier")]
+    public string Identifier { get; set; } = "";
+
+    /// <summary>True if the participant was found in the SMP.</summary>
+    [JsonPropertyName("found")]
+    public bool Found { get; set; }
+
+    /// <summary>The resolved participant details. Null when <see cref="Found"/> is false.</summary>
+    [JsonPropertyName("participant")]
+    public PeppolParticipant? Participant { get; set; }
+
+    /// <summary>Error message when lookup failed for reasons other than "not found". Null on success or plain not-found.</summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// Response from a batch SMP participant lookup.
+/// </summary>
+public sealed class BatchLookupResponse
+{
+    /// <summary>Total number of participants queried.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>Number of participants that were found in the SMP.</summary>
+    [JsonPropertyName("found")]
+    public int Found { get; set; }
+
+    /// <summary>Number of participants that were not found in the SMP.</summary>
+    [JsonPropertyName("notFound")]
+    public int NotFound { get; set; }
+
+    /// <summary>Per-participant results in request order.</summary>
+    [JsonPropertyName("results")]
+    public List<BatchLookupResult> Results { get; set; } = [];
+}
