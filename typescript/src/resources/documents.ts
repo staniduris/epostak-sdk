@@ -196,11 +196,27 @@ export class DocumentsResource extends BaseResource {
    * (the API generates UBL XML) or pre-built UBL XML. Body cap 25 MB
    * (attachments are base64-embedded).
    *
+   * **Document types (`docType`):** `invoice`, `credit_note`, `correction`,
+   * `self_billing`, `reverse_charge`, `self_billing_credit_note`. Defaults to
+   * `invoice` when omitted.
+   *
+   * **Supplier-party pinning (XML mode).** When submitting raw UBL via `xml`,
+   * the server pins the seller identity (Name, IČO, IČ DPH, Postal Address,
+   * Legal Entity name) to the authenticated firm. Caller-supplied values in
+   * `cac:AccountingSupplierParty/cac:Party` are silently overwritten before
+   * forwarding to Peppol. The Peppol `EndpointID` is the only supplier-party
+   * field still validated against the firm's registered Peppol ID; mismatched
+   * EndpointIDs are rejected with `422`. BG-24 attachments, line items,
+   * payment terms, and custom note fields are preserved as-is. For
+   * self-billing document types (UBL typecodes `261`/`389`), the customer
+   * party (which is the authenticated firm) is rewritten instead.
+   *
    * @param body - Invoice data as JSON fields or raw UBL XML
    * @returns Document ID, Peppol message ID, and status confirmation
    * @throws {EPostakError} 422 `VALIDATION_FAILED` — the document failed Peppol BIS 3.0
-   *   Schematron validation. `err.details` contains the list of validation errors.
-   *   Use `documents.validate()` to pre-check before sending.
+   *   Schematron validation, or the submitted UBL `EndpointID` does not match
+   *   the firm's registered Peppol ID. `err.details` contains the list of
+   *   validation errors. Use `documents.validate()` to pre-check before sending.
    * @throws {EPostakError} 502 `SEND_FAILED` — Peppol network temporarily unavailable. Retryable.
    *
    * @example
@@ -227,7 +243,7 @@ export class DocumentsResource extends BaseResource {
   ): Promise<SendDocumentResponse> {
     const headers: Record<string, string> = {};
     if (options?.idempotencyKey) {
-      headers["X-Idempotency-Key"] = options.idempotencyKey;
+      headers["x-idempotency-key"] = options.idempotencyKey;
     }
     return this.request("POST", "/documents/send", body, { headers });
   }

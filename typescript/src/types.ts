@@ -137,6 +137,25 @@ export interface Party {
 // ---------------------------------------------------------------------------
 
 /**
+ * Document type for the send pipeline. Determines the UBL typecode and which
+ * VAT/self-billing rules apply server-side. Defaults to `"invoice"` if omitted.
+ *
+ * - `"invoice"` — standard outbound invoice (UBL `380`)
+ * - `"credit_note"` — outbound credit note (UBL `381`)
+ * - `"correction"` — corrective invoice (UBL `384`)
+ * - `"self_billing"` — self-billing invoice issued by the buyer (UBL `389`)
+ * - `"reverse_charge"` — reverse-charge invoice
+ * - `"self_billing_credit_note"` — self-billing credit note (UBL `261`)
+ */
+export type DocType =
+  | "invoice"
+  | "credit_note"
+  | "correction"
+  | "self_billing"
+  | "reverse_charge"
+  | "self_billing_credit_note";
+
+/**
  * Request body for sending an invoice using structured JSON fields.
  * The API generates UBL XML automatically from these fields.
  * Up to 999 line items; body cap 25 MB (attachments are base64-embedded).
@@ -144,6 +163,11 @@ export interface Party {
 export interface SendDocumentJsonRequest {
   /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
   receiverPeppolId: string;
+  /**
+   * Document type. See {@link DocType} for accepted values. Defaults to
+   * `"invoice"` when omitted.
+   */
+  docType?: DocType;
   /** Invoice number — auto-generated if omitted */
   invoiceNumber?: string;
   /** Issue date in `YYYY-MM-DD` format — defaults to today */

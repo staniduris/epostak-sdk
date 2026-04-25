@@ -6,7 +6,9 @@ import java.util.List;
  * Request body for sending multiple documents in a single API call via
  * {@code POST /documents/send/batch}. Each item wraps a {@link SendDocumentRequest}
  * and may include an optional idempotency key; the batch endpoint forwards the
- * key as the {@code Idempotency-Key} header on each per-item sub-request.
+ * key as the {@code x-idempotency-key} header on each per-item sub-request
+ * (HTTP header names are case-insensitive on the wire per RFC 7230, but the
+ * canonical contract uses lowercase).
  *
  * <pre>{@code
  * BatchSendRequest req = new BatchSendRequest(List.of(

@@ -1,5 +1,133 @@
 # Changelog
 
+## All SDKs — 2026-04-25 — Backend security pass alignment
+
+Cross-language pass aligning every SDK with the backend security/contract changes shipped in the ePošťák `feat/backend-security-pass-2026-04` branch. **No breaking wire-protocol changes** for existing SDK users — the only on-the-wire delta is the lowercase canonical idempotency header (HTTP header names are case-insensitive per RFC 7230, so existing callers keep working). The bulk of the work is documentation/error-code expansion.
+
+The 6 deltas applied across all 6 SDKs (TypeScript, Python, Java, PHP, Ruby, .NET):
+
+1. **Lowercase `x-idempotency-key` header** — backend reads `req.headers.get("x-idempotency-key")`. SDKs that send the header (TypeScript) now use the lowercase canonical form; doc references in BatchSendRequest (Java) updated to match.
+2. **`firms.assign()` is now lookup-only** — previously could create a new Firm, now it requires the Firm to have completed FS SR PFS signup and granted consent. New error codes documented across every SDK's `assign()` method:
+   - `404 FIRM_NOT_REGISTERED` — Firm doesn't exist; needs FS SR PFS signup first.
+   - `403 CONSENT_REQUIRED` — Firm exists but hasn't granted consent.
+   - `409 ALREADY_LINKED` — integrator already linked to this Firm.
+   No SDK had typed-per-code exception classes (all use a single `EPostakError`/`EPostakException` with a string `code` field), so no new exception classes were added — the existing pattern already carries the new codes.
+3. **`POST /api/v1/integrator/firms`** — same lookup-only shift as `firms.assign()`. None of the 6 SDKs expose this endpoint, so no per-SDK code changes.
+4. **Supplier-party pinning (XML mode `documents.send()`)** — when raw UBL is submitted via `xml`, the server overwrites `cac:AccountingSupplierParty/cac:Party` (or `cac:AccountingCustomerParty` for self-billing typecodes 261/389) with values from the authenticated firm's record. `EndpointID` is the only supplier-party field still validated; mismatched IDs return 422. BG-24 attachments, line items, payment terms, and notes are preserved. Documented in every SDK's `send()` doc comment.
+5. **New `docType` value `self_billing_credit_note`** — full set is now `invoice`, `credit_note`, `correction`, `self_billing`, `reverse_charge`, `self_billing_credit_note`. TypeScript exports a new `DocType` string-literal union and adds `docType?: DocType` to `SendDocumentJsonRequest`; other SDKs document the values in `send()` doc comments. No SDK had a strongly-typed `DocType` enum previously, so no enum constants were added.
+6. **Deleted backend routes** — `/api/mobile/auth/register`, `/api/internal/oauth/register`, `/api/internal/auth/login`. None of the 6 SDKs ever exposed these, so no code changes.
+
+### Per-language version bumps
+
+| Language                              | Version          |
+|-|-|
+| TypeScript (`@epostak/sdk`)           | 1.5.0 → 1.6.0    |
+| Python (`epostak`)                    | 0.3.0 → 0.4.0    |
+| Java (`sk.epostak:epostak-sdk`)       | 1.2.0 → 1.6.0    |
+| PHP (`epostak/sdk`)                   | 1.2.0 → 1.6.0    |
+| Ruby (`epostak`)                      | 1.2.0 → 1.6.0    |
+| .NET (`EPostak`)                      | 1.5.0 → 1.6.0    |
+
+Java/PHP/Ruby jump from `1.2.x` → `1.6.0` to align the version family across all 1.x SDKs (matching prior cross-SDK sync precedent — see ".NET 1.1.0 → 1.5.0 catches up with the TypeScript 1.4.0 line"). Python stays on its independent pre-1.0 line.
+
+### Per-language notes
+
+- **TypeScript** — `documents.send()` now sends the lowercase `x-idempotency-key` header (previously `X-Idempotency-Key`); behavior unchanged on the wire. Added new `DocType` string-literal union export and optional `docType?: DocType` field on `SendDocumentJsonRequest`. JSDoc on `firms.assign()` and `documents.send()` rewritten with the new error codes and party-pinning note. No new exception classes — `EPostakError.code` already carries the new string codes.
+- **Python** — `client.firms.assign()` and `client.documents.send()` docstrings rewritten. `EPostakError.code` already carries the new string codes; no new exception classes.
+- **Java** — `FirmsResource.assign()` and `DocumentsResource.send()` Javadoc rewritten. `BatchSendRequest` Javadoc updated to reference the lowercase canonical header. No new exception subclasses — `EPostakException.getCode()` already carries the new string codes.
+- **PHP** — `Firms::assign()` and `Documents::send()` PHPDoc rewritten with new error codes and party-pinning note. No new exception subclasses.
+- **Ruby** — `Firms#assign` and `Documents#send_document` YARD docs rewritten. `EPostak::Error` already exposes a `code` reader; no new exception subclasses.
+- **.NET** — `FirmsResource.AssignAsync()` and `DocumentsResource.SendAsync()` XML docs rewritten with new error codes and party-pinning note. No new exception subclasses — `EPostakException.Code` already carries the new string codes.
+
+Total: 13 source files modified (6 doc-resource files × 2 per language for firms+documents in most cases, plus the TS types/header literal/version metadata files).
+
+---
+
+## TypeScript 1.6.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`documents.send()` JSDoc** — documents supplier-party pinning behavior in XML mode (server overwrites `cac:AccountingSupplierParty/cac:Party`; `EndpointID` is the only validated field; self-billing typecodes 261/389 rewrite the customer party instead). Lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`documents.send()` idempotency header** — now sent as the lowercase canonical `x-idempotency-key`. Wire-equivalent to the previous `X-Idempotency-Key` per RFC 7230 case-insensitivity.
+- **`firms.assign()` JSDoc** — rewritten as a lookup-only operation. Documents the three new error codes (`FIRM_NOT_REGISTERED` / `CONSENT_REQUIRED` / `ALREADY_LINKED`).
+- **New `DocType` string-literal union** exported from `types.ts`: `"invoice" | "credit_note" | "correction" | "self_billing" | "reverse_charge" | "self_billing_credit_note"`. `SendDocumentJsonRequest` gains an optional `docType?: DocType` field.
+
+### SDK versions
+
+| Language                              | Version |
+|-|-|
+| TypeScript (`@epostak/sdk`)           | 1.6.0   |
+
+---
+
+## Python 0.4.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`client.documents.send()` docstring** — documents supplier-party pinning behavior in XML mode and lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`client.firms.assign()` docstring** — rewritten as a lookup-only operation; documents `FIRM_NOT_REGISTERED` (404), `CONSENT_REQUIRED` (403), and `ALREADY_LINKED` (409) via `EPostakError.code`.
+
+### SDK versions
+
+| Language                              | Version |
+|-|-|
+| Python (`epostak`)                    | 0.4.0   |
+
+---
+
+## Java 1.6.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`DocumentsResource.send()` Javadoc** — documents supplier-party pinning behavior in XML mode and lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`FirmsResource.assign()` Javadoc** — rewritten as a lookup-only operation; documents `FIRM_NOT_REGISTERED` / `CONSENT_REQUIRED` / `ALREADY_LINKED` via `EPostakException.getCode()`.
+- **`BatchSendRequest` Javadoc** — header reference updated to the lowercase canonical `x-idempotency-key`.
+
+### Version
+
+- **Java (`sk.epostak:epostak-sdk`) 1.2.0 → 1.6.0.** Catches up with the TypeScript 1.6.0 / .NET 1.6.0 family.
+
+---
+
+## PHP 1.6.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`Documents::send()` PHPDoc** — documents supplier-party pinning behavior in XML mode and lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`Firms::assign()` PHPDoc** — rewritten as a lookup-only operation; documents `FIRM_NOT_REGISTERED` / `CONSENT_REQUIRED` / `ALREADY_LINKED` via `EPostakError->code`.
+
+### Version
+
+- **PHP (`epostak/sdk`) 1.2.0 → 1.6.0.** Catches up with the TypeScript 1.6.0 / .NET 1.6.0 family.
+
+---
+
+## Ruby 1.6.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`Documents#send_document` YARD doc** — documents supplier-party pinning behavior in XML mode and lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`Firms#assign` YARD doc** — rewritten as a lookup-only operation; documents `FIRM_NOT_REGISTERED` / `CONSENT_REQUIRED` / `ALREADY_LINKED` via `EPostak::Error#code`.
+
+### Version
+
+- **Ruby (`epostak`) 1.2.0 → 1.6.0.** Catches up with the TypeScript 1.6.0 / .NET 1.6.0 family.
+
+---
+
+## .NET 1.6.0 — 2026-04-25
+
+Backend security pass alignment. See **All SDKs — 2026-04-25** above for the cross-language summary.
+
+- **`DocumentsResource.SendAsync()` XML doc** — documents supplier-party pinning behavior in XML mode and lists the full `docType` enum including the new `self_billing_credit_note`.
+- **`FirmsResource.AssignAsync()` XML doc** — rewritten as a lookup-only operation; documents `FIRM_NOT_REGISTERED` / `CONSENT_REQUIRED` / `ALREADY_LINKED` via `EPostakException.Code`.
+
+### Version
+
+- **.NET (`EPostak`) 1.5.0 → 1.6.0.**
+
+---
+
 ## TypeScript 1.5.0 — 2026-04-22
 
 ### New method: `documents.envelope(id)`

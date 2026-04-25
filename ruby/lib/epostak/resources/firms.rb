@@ -81,15 +81,33 @@ module EPostak
         })
       end
 
-      # Assign a firm to the integrator account by its Slovak ICO.
-      # Once assigned, you can send/receive documents on behalf of this firm.
+      # Link this integrator to a Firm that has already completed FS SR
+      # signup and granted consent.
+      #
+      # **Lookup-only** -- this endpoint cannot create new Firms. The target
+      # Firm must have completed FS SR PFS signup and granted consent to
+      # this integrator before the link succeeds.
+      #
+      # On error, inspect +err.code+:
+      # * +FIRM_NOT_REGISTERED+ (HTTP 404) -- no Firm with that ICO exists
+      #   yet. Direct the firm to complete FS SR PFS signup before retrying.
+      # * +CONSENT_REQUIRED+ (HTTP 403) -- Firm exists but has not granted
+      #   consent for this integrator to act on its behalf.
+      # * +ALREADY_LINKED+ (HTTP 409) -- the integrator already has an
+      #   active link to this Firm.
       #
       # @param ico [String] Slovak ICO (8-digit business registration number)
-      # @return [Hash] The assigned firm details and status
+      # @return [Hash] The linked firm details and status
+      # @raise [EPostak::Error] When linking fails (see codes above)
       #
       # @example
-      #   result = client.firms.assign(ico: "12345678")
-      #   puts result["firm"]["id"] # => Use this UUID for subsequent operations
+      #   begin
+      #     result = client.firms.assign(ico: "12345678")
+      #     puts result["firm"]["id"]
+      #   rescue EPostak::Error => err
+      #     # ask the firm to complete FS SR PFS signup first
+      #     warn "firm not registered" if err.code == "FIRM_NOT_REGISTERED"
+      #   end
       def assign(ico:)
         @http.request(:post, "/firms/assign", body: { ico: ico })
       end

@@ -86,13 +86,24 @@ class Firms
     }
 
     /**
-     * Assign a firm to this integrator by ICO.
+     * Link this integrator to a Firm that has already completed FS SR signup
+     * and granted consent.
      *
-     * If the firm does not exist yet, it is created automatically.
+     * **Lookup-only** — this endpoint cannot create new Firms. The target
+     * Firm must have completed FS SR PFS signup and granted consent to this
+     * integrator before the link succeeds.
+     *
+     * On error, inspect `$err->code`:
+     *   - `FIRM_NOT_REGISTERED` (HTTP 404) — no Firm with that ICO exists yet.
+     *     Direct the firm to complete FS SR PFS signup before retrying.
+     *   - `CONSENT_REQUIRED` (HTTP 403) — Firm exists but has not granted
+     *     consent for this integrator to act on its behalf.
+     *   - `ALREADY_LINKED` (HTTP 409) — the integrator already has an active
+     *     link to this Firm.
      *
      * @param string $ico Slovak company identification number (ICO).
-     * @return array Assigned firm object.
-     * @throws EPostakError On API error.
+     * @return array Linked firm object.
+     * @throws EPostakError On API error (see the codes listed above).
      */
     public function assign(string $ico): array
     {
