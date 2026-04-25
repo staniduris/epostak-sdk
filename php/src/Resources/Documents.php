@@ -56,6 +56,22 @@ class Documents
     /**
      * Send a document via Peppol.
      *
+     * Document types (`docType`): `invoice`, `credit_note`, `correction`,
+     * `self_billing`, `reverse_charge`, `self_billing_credit_note`. Defaults
+     * to `invoice` when omitted.
+     *
+     * **Supplier-party pinning (XML mode).** When submitting raw UBL via
+     * the `xml` field, the server pins the seller identity (Name, IČO,
+     * IČ DPH, Postal Address, Legal Entity name) to the authenticated firm.
+     * Caller-supplied values in `cac:AccountingSupplierParty/cac:Party` are
+     * silently overwritten before forwarding to Peppol. The Peppol
+     * `EndpointID` is the only supplier-party field still validated against
+     * the firm's registered Peppol ID; mismatched EndpointIDs are rejected
+     * with HTTP 422. BG-24 attachments, line items, payment terms, and
+     * custom note fields are preserved as-is. For self-billing document
+     * types (UBL typecodes 261/389), the customer party (which is the
+     * authenticated firm) is rewritten instead.
+     *
      * @param array $body Document payload including supplier, customer, line items, and Peppol IDs.
      * @return array{documentId: string, messageId: string, status: string} Send confirmation.
      * @throws EPostakError On validation or delivery error.

@@ -61,6 +61,28 @@ public sealed class DocumentsResource
     /// You can either provide structured JSON data (with line items) or raw UBL XML.
     /// The document is validated, converted to UBL if needed, and transmitted via AS4.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Document types (<c>DocType</c>).</strong> Accepted values:
+    /// <c>"invoice"</c>, <c>"credit_note"</c>, <c>"correction"</c>,
+    /// <c>"self_billing"</c>, <c>"reverse_charge"</c>,
+    /// <c>"self_billing_credit_note"</c>. Defaults to <c>"invoice"</c> when omitted.
+    /// </para>
+    /// <para>
+    /// <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
+    /// UBL via <see cref="SendDocumentRequest.Xml"/>, the server pins the seller
+    /// identity (Name, IČO, IČ DPH, Postal Address, Legal Entity name) to the
+    /// authenticated firm. Caller-supplied values in
+    /// <c>cac:AccountingSupplierParty/cac:Party</c> are silently overwritten
+    /// before forwarding to Peppol. The Peppol <c>EndpointID</c> is the only
+    /// supplier-party field still validated against the firm's registered
+    /// Peppol ID; mismatched EndpointIDs are rejected with HTTP 422. BG-24
+    /// attachments, line items, payment terms, and custom note fields are
+    /// preserved as-is. For self-billing document types (UBL typecodes
+    /// <c>261</c>/<c>389</c>), the customer party (which is the authenticated
+    /// firm) is rewritten instead.
+    /// </para>
+    /// </remarks>
     /// <param name="request">The invoice data including receiver Peppol ID and line items or UBL XML.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The document ID, Peppol message ID, and initial delivery status.</returns>

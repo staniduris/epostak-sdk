@@ -6,7 +6,7 @@
 
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.2.0</version>
+    <version>1.6.0</version>
     <packaging>jar</packaging>
 
     <name>ePosťak SDK</name>

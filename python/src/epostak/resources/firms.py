@@ -108,18 +108,36 @@ class FirmsResource(_BaseResource):
         )
 
     def assign(self, ico: str) -> AssignFirmResponse:
-        """Assign an existing firm to this integrator by ICO.
+        """Link this integrator to a Firm that already completed FS SR signup.
+
+        **Lookup-only** -- this endpoint cannot create new Firms. The target
+        Firm must have completed FS SR PFS signup and granted consent to this
+        integrator before the link succeeds.
 
         Args:
             ico: Slovak ICO (8 digits).
 
         Returns:
-            Dict with ``firm`` (assigned firm details) and ``status`` (e.g. ``"active"``).
+            Dict with ``firm`` (linked firm details) and ``status`` (e.g. ``"active"``).
+
+        Raises:
+            EPostakError: 404 with ``code="FIRM_NOT_REGISTERED"`` -- no Firm with
+                that ICO exists yet. Direct the firm to complete FS SR PFS signup
+                before retrying.
+            EPostakError: 403 with ``code="CONSENT_REQUIRED"`` -- Firm exists
+                but has not granted consent for this integrator.
+            EPostakError: 409 with ``code="ALREADY_LINKED"`` -- the integrator
+                already has an active link to this Firm.
 
         Example::
 
-            result = client.firms.assign("12345678")
-            print(result["firm"]["id"], result["status"])
+            try:
+                result = client.firms.assign("12345678")
+                print(result["firm"]["id"], result["status"])
+            except EPostakError as err:
+                if err.code == "FIRM_NOT_REGISTERED":
+                    # ask the firm to complete FS SR PFS signup first
+                    ...
         """
         return self._request("POST", "/firms/assign", json={"ico": ico})
 

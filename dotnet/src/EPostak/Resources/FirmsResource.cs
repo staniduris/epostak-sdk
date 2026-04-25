@@ -106,17 +106,35 @@ public sealed class FirmsResource
             new { scheme, identifier }, ct);
 
     /// <summary>
-    /// Assign a firm to the integrator by Slovak ICO (business registration number).
-    /// If the firm already exists in ePosťak, it is linked to the integrator account.
-    /// If not, it is created from public registry data. Integrator keys only.
+    /// Link this integrator to a Firm that has already completed FS SR signup
+    /// and granted consent. <strong>Lookup-only</strong> — this endpoint cannot
+    /// create new Firms. The target Firm must have completed FS SR PFS signup
+    /// and granted consent to this integrator before the link succeeds.
+    /// Integrator keys only.
     /// </summary>
+    /// <remarks>
+    /// On error, inspect <see cref="EPostakException.Code"/>:
+    /// <list type="bullet">
+    ///   <item><description><c>FIRM_NOT_REGISTERED</c> (HTTP 404) — no Firm with that ICO exists yet. Direct the firm to complete FS SR PFS signup before retrying.</description></item>
+    ///   <item><description><c>CONSENT_REQUIRED</c> (HTTP 403) — Firm exists but has not granted consent for this integrator to act on its behalf.</description></item>
+    ///   <item><description><c>ALREADY_LINKED</c> (HTTP 409) — the integrator already has an active link to this Firm.</description></item>
+    /// </list>
+    /// </remarks>
     /// <param name="ico">Slovak business registration number (ICO), e.g. "12345678".</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>The assigned firm details and assignment status.</returns>
+    /// <returns>The linked firm details and link status.</returns>
+    /// <exception cref="EPostakException">When the firm is not registered, consent is missing, the link already exists, or the request fails.</exception>
     /// <example>
     /// <code>
-    /// var result = await client.Firms.AssignAsync("12345678");
-    /// Console.WriteLine($"Firm: {result.Firm.Name} ({result.Status})");
+    /// try
+    /// {
+    ///     var result = await client.Firms.AssignAsync("12345678");
+    ///     Console.WriteLine($"Firm: {result.Firm.Name} ({result.Status})");
+    /// }
+    /// catch (EPostakException ex) when (ex.Code == "FIRM_NOT_REGISTERED")
+    /// {
+    ///     // ask the firm to complete FS SR PFS signup first
+    /// }
     /// </code>
     /// </example>
     public Task<AssignFirmResponse> AssignAsync(string ico, CancellationToken ct = default)

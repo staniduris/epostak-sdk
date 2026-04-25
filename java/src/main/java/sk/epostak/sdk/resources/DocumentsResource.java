@@ -84,6 +84,24 @@ public final class DocumentsResource {
     /**
      * Send a document via Peppol. Supports both JSON mode (structured data) and
      * XML mode (pre-built UBL).
+     * <p>
+     * <strong>Document types ({@code docType}).</strong> Accepted values:
+     * {@code "invoice"}, {@code "credit_note"}, {@code "correction"},
+     * {@code "self_billing"}, {@code "reverse_charge"},
+     * {@code "self_billing_credit_note"}. Defaults to {@code "invoice"} when
+     * omitted.
+     * <p>
+     * <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
+     * UBL via {@code xml}, the server pins the seller identity (Name, IČO,
+     * IČ DPH, Postal Address, Legal Entity name) to the authenticated firm.
+     * Caller-supplied values in {@code cac:AccountingSupplierParty/cac:Party}
+     * are silently overwritten before forwarding to Peppol. The Peppol
+     * {@code EndpointID} is the only supplier-party field still validated
+     * against the firm's registered Peppol ID; mismatched EndpointIDs are
+     * rejected with HTTP 422. BG-24 attachments, line items, payment terms,
+     * and custom note fields are preserved as-is. For self-billing document
+     * types (UBL typecodes {@code 261}/{@code 389}), the customer party
+     * (which is the authenticated firm) is rewritten instead.
      *
      * <pre>{@code
      * SendDocumentResponse result = client.documents().send(

@@ -111,11 +111,25 @@ public final class FirmsResource {
     }
 
     /**
-     * Assign a firm to this integrator by ICO (company registration number).
+     * Link this integrator to a Firm that has already completed FS SR signup
+     * and granted consent. <strong>Lookup-only</strong> — this endpoint cannot
+     * create new Firms. The target Firm must have completed FS SR PFS signup
+     * and granted consent to this integrator before the link succeeds.
+     * <p>
+     * On error, inspect {@link sk.epostak.sdk.EPostakException#getCode()}:
+     * <ul>
+     *   <li>{@code FIRM_NOT_REGISTERED} (HTTP 404) — no Firm with that ICO
+     *       exists yet. Direct the firm to complete FS SR PFS signup first.</li>
+     *   <li>{@code CONSENT_REQUIRED} (HTTP 403) — Firm exists but has not
+     *       granted consent for this integrator to act on its behalf.</li>
+     *   <li>{@code ALREADY_LINKED} (HTTP 409) — the integrator already has an
+     *       active link to this Firm.</li>
+     * </ul>
      *
      * @param ico the Slovak company registration number (ICO)
-     * @return the assignment response with firm details and status
-     * @throws sk.epostak.sdk.EPostakException if the ICO is invalid or the request fails
+     * @return the link response with firm details and status
+     * @throws sk.epostak.sdk.EPostakException if the firm is not registered,
+     *         consent is missing, the link already exists, or the request fails
      */
     public AssignFirmResponse assign(String ico) {
         Map<String, Object> body = Map.of("ico", ico);

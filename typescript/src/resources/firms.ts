@@ -123,16 +123,30 @@ export class FirmsResource extends BaseResource {
   }
 
   /**
-   * Assign a firm to the integrator account by its Slovak ICO.
-   * Once assigned, you can send/receive documents on behalf of this firm.
+   * Link the integrator to a Firm that has already completed FS SR signup
+   * and granted consent. **Lookup-only** — this endpoint cannot create new
+   * Firms. The target firm must have completed FS SR PFS signup and granted
+   * consent to this integrator before the link succeeds.
    *
    * @param body - Request containing the firm's ICO (8-digit Slovak business registration number)
-   * @returns The assigned firm details and status
+   * @returns The linked firm details and status
+   * @throws {EPostakError} 404 `FIRM_NOT_REGISTERED` — no Firm with that ICO exists yet.
+   *   Direct the firm to complete FS SR PFS signup before retrying.
+   * @throws {EPostakError} 403 `CONSENT_REQUIRED` — Firm exists but has not granted
+   *   consent for this integrator to act on its behalf.
+   * @throws {EPostakError} 409 `ALREADY_LINKED` — the integrator already has an
+   *   active link to this Firm.
    *
    * @example
    * ```typescript
-   * const { firm } = await client.firms.assign({ ico: '12345678' });
-   * console.log(firm.id); // Use this UUID for subsequent operations
+   * try {
+   *   const { firm } = await client.firms.assign({ ico: '12345678' });
+   *   console.log(firm.id);
+   * } catch (err) {
+   *   if (err instanceof EPostakError && err.code === 'FIRM_NOT_REGISTERED') {
+   *     // ask the firm to complete FS SR PFS signup
+   *   }
+   * }
    * ```
    */
   assign(body: AssignFirmRequest): Promise<AssignFirmResponse> {
