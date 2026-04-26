@@ -1154,21 +1154,23 @@ export interface WebhookQueueParams {
 /** A single event item from the webhook pull queue. */
 export interface WebhookQueueItem {
   /** Event ID — use this to acknowledge the event after processing */
-  id: string;
+  event_id: string;
+  /** UUID of the firm this event belongs to */
+  firm_id: string;
   /** Event type (e.g. `"document.received"`, `"document.sent"`) */
-  type: string;
-  /** ISO 8601 timestamp when the event was created */
-  created_at: string;
+  event: string;
   /** Event payload containing the document data and metadata */
   payload: Record<string, unknown>;
+  /** ISO 8601 timestamp when the event was created */
+  created_at: string;
 }
 
 /** Response from pulling events from the webhook queue. */
 export interface WebhookQueueResponse {
   /** Array of unacknowledged events */
-  items: WebhookQueueItem[];
-  /** `true` if there are more events available beyond the current batch */
-  has_more: boolean;
+  events: WebhookQueueItem[];
+  /** Number of events returned in this response */
+  count: number;
 }
 
 // ---------------------------------------------------------------------------

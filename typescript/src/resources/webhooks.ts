@@ -26,10 +26,10 @@ import type {
  * @example
  * ```typescript
  * // Poll-based event consumption loop
- * const { items, has_more } = await client.webhooks.queue.pull({ limit: 50 });
- * for (const item of items) {
+ * const { events, count } = await client.webhooks.queue.pull({ limit: 50 });
+ * for (const item of events) {
  *   await processEvent(item);
- *   await client.webhooks.queue.ack(item.id);
+ *   await client.webhooks.queue.ack(item.event_id);
  * }
  * ```
  */
@@ -39,11 +39,11 @@ export class WebhookQueueResource extends BaseResource {
    * Events remain in the queue until explicitly acknowledged via `ack()` or `batchAck()`.
    *
    * @param params - Optional limit and event type filter
-   * @returns Array of queue items and whether more items are available
+   * @returns Array of queue events and count
    *
    * @example
    * ```typescript
-   * const { items, has_more } = await client.webhooks.queue.pull({
+   * const { events, count } = await client.webhooks.queue.pull({
    *   limit: 20,
    *   event_type: 'document.received',
    * });
@@ -63,14 +63,14 @@ export class WebhookQueueResource extends BaseResource {
    * Acknowledge (remove) a single event from the queue after processing.
    *
    * @param eventId - The event ID to acknowledge
-   * @returns void
+   * @returns Acknowledgement confirmation
    *
    * @example
    * ```typescript
    * await client.webhooks.queue.ack('event-uuid');
    * ```
    */
-  ack(eventId: string): Promise<void> {
+  ack(eventId: string): Promise<{ acknowledged: boolean }> {
     return this.request(
       "DELETE",
       `/webhook-queue/${encodeURIComponent(eventId)}`,
@@ -81,16 +81,16 @@ export class WebhookQueueResource extends BaseResource {
    * Acknowledge (remove) multiple events from the queue in a single request.
    *
    * @param eventIds - Array of event IDs to acknowledge
-   * @returns void
+   * @returns Object with the count of acknowledged events
    *
    * @example
    * ```typescript
-   * const { items } = await client.webhooks.queue.pull({ limit: 50 });
-   * // Process all items...
-   * await client.webhooks.queue.batchAck(items.map(i => i.id));
+   * const { events } = await client.webhooks.queue.pull({ limit: 50 });
+   * // Process all events...
+   * const { acknowledged } = await client.webhooks.queue.batchAck(events.map(e => e.event_id));
    * ```
    */
-  batchAck(eventIds: string[]): Promise<void> {
+  batchAck(eventIds: string[]): Promise<{ acknowledged: number }> {
     return this.request("POST", "/webhook-queue/batch-ack", {
       event_ids: eventIds,
     });
