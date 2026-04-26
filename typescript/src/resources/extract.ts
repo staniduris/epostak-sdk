@@ -33,7 +33,7 @@ export class ExtractResource extends BaseResource {
    *
    * const pdf = readFileSync('invoice.pdf');
    * const result = await client.extract.single(pdf, 'application/pdf', 'invoice.pdf');
-   * if (result.confidence > 0.8) {
+   * if (result.confidence === 'high') {
    *   // Use the generated UBL to send via Peppol
    *   await client.documents.send({
    *     receiverPeppolId: '0245:1234567890',

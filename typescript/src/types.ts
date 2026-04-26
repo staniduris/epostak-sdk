@@ -1649,6 +1649,103 @@ export interface PublicValidationReport {
 }
 
 // ---------------------------------------------------------------------------
+// Outbox
+// ---------------------------------------------------------------------------
+
+/** Query parameters for listing documents in the outbox. */
+export interface OutboxParams {
+  /** Number of documents to skip (for pagination). Defaults to `0`. */
+  offset?: number;
+  /** Maximum number of documents to return (1-100). Defaults to `20`. */
+  limit?: number;
+  /** Filter by processing status */
+  status?: string;
+  /** Filter by Peppol AS4 message ID */
+  peppolMessageId?: string;
+  /** ISO 8601 timestamp — only return documents created after this date */
+  since?: string;
+}
+
+/** Paginated list of outbox documents. */
+export interface OutboxListResponse {
+  /** Array of documents in the current page */
+  documents: OutboxDocument[];
+  /** Total number of documents matching the query */
+  total: number;
+  /** The offset that was applied */
+  offset: number;
+  /** The limit that was applied */
+  limit: number;
+}
+
+/** An outbound document — same shape as {@link InboxDocument}. */
+export type OutboxDocument = InboxDocument;
+
+// ---------------------------------------------------------------------------
+// Invoice responses list
+// ---------------------------------------------------------------------------
+
+/** A single Invoice Response record associated with a document. */
+export interface InvoiceResponseItem {
+  /** Response UUID */
+  id: string;
+  /** Response status code */
+  responseCode: InvoiceResponseCode;
+  /** Optional note accompanying the response, or `null` */
+  note: string | null;
+  /** Peppol participant ID of the sender of this response */
+  senderPeppolId: string;
+  /** ISO 8601 timestamp when the response was created */
+  createdAt: string;
+}
+
+/** Response from `GET /documents/{id}/responses`. */
+export interface InvoiceResponsesListResponse {
+  /** Document UUID the responses belong to */
+  documentId: string;
+  /** Array of Invoice Response records */
+  responses: InvoiceResponseItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Document events
+// ---------------------------------------------------------------------------
+
+/** Query parameters for `GET /documents/{id}/events`. */
+export interface DocumentEventsParams {
+  /** Maximum number of events to return. Defaults to `20`. */
+  limit?: number;
+  /** Cursor from the previous page for cursor-based pagination */
+  cursor?: string;
+}
+
+/** A single event in a document's audit trail. */
+export interface DocumentEvent {
+  /** Event UUID */
+  id: string;
+  /** Event type identifier (e.g. `"status_changed"`, `"respond_sent"`) */
+  eventType: string;
+  /** Actor that triggered the event (e.g. `"system"`, `"api_key"`, `"user"`) */
+  actor: string;
+  /** Human-readable detail about the event, or `null` */
+  detail: string | null;
+  /** Arbitrary structured metadata attached to the event */
+  meta: Record<string, unknown>;
+  /** ISO 8601 timestamp when the event occurred */
+  occurredAt: string;
+}
+
+/** Response from `GET /documents/{id}/events`. */
+export interface DocumentEventsResponse {
+  /** Document UUID the events belong to */
+  documentId: string;
+  /** Ordered array of events for this document */
+  events: DocumentEvent[];
+  /** Cursor to pass as `cursor` in the next request, or `null` when no more pages */
+  nextCursor: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Extract
 // ---------------------------------------------------------------------------
 

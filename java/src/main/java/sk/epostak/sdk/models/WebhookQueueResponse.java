@@ -7,24 +7,26 @@ import java.util.Map;
 /**
  * Response from pulling the webhook event queue.
  *
- * @param items   the list of pending events
- * @param hasMore {@code true} if more events are available beyond this page
+ * @param events the list of pending events
+ * @param count  total number of events returned
  */
 public record WebhookQueueResponse(
-        List<WebhookQueueItem> items,
-        @SerializedName("has_more") boolean hasMore
+        List<WebhookQueueItem> events,
+        int count
 ) {
     /**
      * A single event in the webhook queue.
      *
-     * @param id        the event UUID (use this to acknowledge the event)
-     * @param type      the event type, e.g. {@code "document.received"}
+     * @param eventId   the event UUID (use this to acknowledge the event)
+     * @param firmId    the firm UUID this event belongs to
+     * @param event     the event type, e.g. {@code "document.received"}
      * @param createdAt ISO 8601 timestamp of when the event was created
      * @param payload   event payload data as a map
      */
     public record WebhookQueueItem(
-            String id,
-            String type,
+            @SerializedName("event_id") String eventId,
+            @SerializedName("firm_id") String firmId,
+            String event,
             @SerializedName("created_at") String createdAt,
             Map<String, Object> payload
     ) {}

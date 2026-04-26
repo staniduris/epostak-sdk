@@ -334,6 +334,48 @@ module EPostak
         @http.request(:post, "/documents/#{encode(id)}/mark", body: body)
       end
 
+      # List outbound (sent) documents with optional filtering and pagination.
+      #
+      # @param limit [Integer, nil] Maximum number of documents to return (1-100, default 20)
+      # @param status [String, nil] Filter by processing status
+      # @param since [String, nil] ISO 8601 timestamp lower bound
+      # @return [Hash] { "documents" => [...], "total" => N, "offset" => N, "limit" => N }
+      #
+      # @example
+      #   outbox = client.documents.outbox(limit: 50)
+      #   outbox["documents"].each { |d| puts "#{d['number']}: #{d['status']}" }
+      def outbox(limit: nil, status: nil, since: nil)
+        query = { limit: limit, status: status, since: since }.compact
+        @http.request(:get, "/documents/outbox", query: query)
+      end
+
+      # Get all Invoice Responses received for a document (accept/reject/query from the buyer).
+      #
+      # @param id [String] Document UUID
+      # @return [Hash] { "documentId" => ..., "responses" => [...] }
+      #
+      # @example
+      #   result = client.documents.responses("doc-uuid")
+      #   result["responses"].each { |r| puts "#{r['responseCode']}: #{r['createdAt']}" }
+      def responses(id)
+        @http.request(:get, "/documents/#{encode(id)}/responses")
+      end
+
+      # Get the audit trail events for a document. Uses cursor-based pagination.
+      #
+      # @param id [String] Document UUID
+      # @param limit [Integer, nil] Maximum number of events to return (default 20)
+      # @param cursor [String, nil] Cursor from the previous page
+      # @return [Hash] { "documentId" => ..., "events" => [...], "nextCursor" => ... }
+      #
+      # @example
+      #   result = client.documents.events("doc-uuid")
+      #   result["events"].each { |e| puts "#{e['occurredAt']}: #{e['eventType']} (#{e['actor']})" }
+      def events(id, limit: nil, cursor: nil)
+        query = { limit: limit, cursor: cursor }.compact
+        @http.request(:get, "/documents/#{encode(id)}/events", query: query)
+      end
+
       private
 
       # URI-encode a path segment.

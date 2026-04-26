@@ -31,14 +31,14 @@ class WebhookQueue
      * @param array{limit?: int, event_type?: string} $params Optional filters:
      *   - `limit`      Max events to return (default 20).
      *   - `event_type` Filter to a specific event type (e.g. 'document.received').
-     * @return array{items: array, has_more: bool} Pending events and pagination flag.
+     * @return array{events: array, count: int, firm_id: string} Pending events and count.
      * @throws EPostakError On API error.
      *
      * @example
      *   $result = $client->webhooks->queue->pull(['limit' => 50]);
-     *   foreach ($result['items'] as $event) {
+     *   foreach ($result['events'] as $event) {
      *       processEvent($event);
-     *       $client->webhooks->queue->ack($event['id']);
+     *       $client->webhooks->queue->ack($event['event_id']);
      *   }
      */
     public function pull(array $params = []): array
@@ -54,10 +54,10 @@ class WebhookQueue
      * Acknowledge a single event, removing it from the queue.
      *
      * @param string $eventId Event UUID to acknowledge.
-     * @return array|null Always null (HTTP 204 No Content).
+     * @return array{acknowledged: true} Acknowledgement confirmation.
      * @throws EPostakError On API error.
      */
-    public function ack(string $eventId): ?array
+    public function ack(string $eventId): array
     {
         return $this->http->request('DELETE', '/webhook-queue/' . urlencode($eventId));
     }
@@ -68,10 +68,10 @@ class WebhookQueue
      * Max 1000 event IDs per call.
      *
      * @param string[] $eventIds Array of event UUIDs to acknowledge (max 1000).
-     * @return array|null Always null (HTTP 204 No Content).
+     * @return array{acknowledged: int} Count of acknowledged events.
      * @throws EPostakError On API error.
      */
-    public function batchAck(array $eventIds): ?array
+    public function batchAck(array $eventIds): array
     {
         return $this->http->request('POST', '/webhook-queue/batch-ack', [
             'json' => ['event_ids' => $eventIds],

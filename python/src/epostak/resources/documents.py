@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         ConvertResult,
         Document,
         DocumentEvidenceResponse,
+        DocumentEventsResponse,
         DocumentMarkResponse,
         DocumentMarkState,
         DocumentStatusResponse,
@@ -29,6 +30,8 @@ if TYPE_CHECKING:
         InboxDocumentDetailResponse,
         InboxListResponse,
         InvoiceRespondResponse,
+        InvoiceResponsesListResponse,
+        OutboxListResponse,
         PreflightResult,
         SendDocumentResponse,
         ValidationResult,
@@ -671,6 +674,85 @@ class DocumentsResource(_BaseResource):
             content=xml.encode("utf-8") if isinstance(xml, str) else xml,
             extra_headers={"Content-Type": "application/xml"},
         )
+
+    def outbox(
+        self,
+        offset: int = 0,
+        limit: int = 20,
+        status: Optional[str] = None,
+        peppol_message_id: Optional[str] = None,
+        since: Optional[str] = None,
+    ) -> OutboxListResponse:
+        """List sent (outbound) documents in the outbox.
+
+        Args:
+            offset: Pagination offset (default 0).
+            limit: Page size, 1-100 (default 20).
+            status: Filter by document status.
+            peppol_message_id: Filter by Peppol AS4 message ID.
+            since: ISO 8601 timestamp -- only return documents created after this date.
+
+        Returns:
+            Paginated response with ``documents``, ``total``, ``offset``, and ``limit``.
+
+        Example::
+
+            outbox = client.documents.outbox(limit=50, status="delivered")
+            for doc in outbox["documents"]:
+                print(doc["id"], doc["status"])
+        """
+        params = _build_query({
+            "offset": offset,
+            "limit": limit,
+            "status": status,
+            "peppolMessageId": peppol_message_id,
+            "since": since,
+        })
+        return self._request("GET", "/documents/outbox", params=params)
+
+    def responses(self, id: str) -> InvoiceResponsesListResponse:
+        """List Invoice Responses associated with a document.
+
+        Args:
+            id: Document UUID.
+
+        Returns:
+            Dict with ``documentId`` and ``responses`` list.
+
+        Example::
+
+            resp = client.documents.responses("doc-uuid")
+            for r in resp["responses"]:
+                print(r["responseCode"], r["createdAt"])
+        """
+        return self._request("GET", f"/documents/{quote(id, safe='')}/responses")
+
+    def events(
+        self,
+        id: str,
+        limit: Optional[int] = None,
+        cursor: Optional[str] = None,
+    ) -> DocumentEventsResponse:
+        """List audit trail events for a document.
+
+        Args:
+            id: Document UUID.
+            limit: Maximum number of events to return (default 20).
+            cursor: Cursor from previous page for cursor-based pagination.
+
+        Returns:
+            Dict with ``documentId``, ``events`` list, and ``nextCursor`` (str or None).
+
+        Example::
+
+            result = client.documents.events("doc-uuid", limit=50)
+            for event in result["events"]:
+                print(event["eventType"], event["occurredAt"])
+            if result["nextCursor"]:
+                next_page = client.documents.events("doc-uuid", cursor=result["nextCursor"])
+        """
+        params = _build_query({"limit": limit, "cursor": cursor})
+        return self._request("GET", f"/documents/{quote(id, safe='')}/events", params=params)
 
     def mark(
         self,

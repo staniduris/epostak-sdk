@@ -369,12 +369,16 @@ public sealed class WebhookQueueParams
 public sealed class WebhookQueueItem
 {
     /// <summary>Unique queue event UUID. Use this to acknowledge the event after processing.</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
+    [JsonPropertyName("event_id")]
+    public string EventId { get; set; } = "";
+
+    /// <summary>UUID of the firm this event belongs to.</summary>
+    [JsonPropertyName("firm_id")]
+    public string FirmId { get; set; } = "";
 
     /// <summary>Event type (e.g. "document.received", "document.sent").</summary>
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = "";
 
     /// <summary>Timestamp when the event was created (ISO 8601).</summary>
     [JsonPropertyName("created_at")]
@@ -391,12 +395,32 @@ public sealed class WebhookQueueItem
 public sealed class WebhookQueueResponse
 {
     /// <summary>List of pending queue events.</summary>
-    [JsonPropertyName("items")]
-    public List<WebhookQueueItem> Items { get; set; } = [];
+    [JsonPropertyName("events")]
+    public List<WebhookQueueItem> Events { get; set; } = [];
 
-    /// <summary>True if there are more events available beyond this batch. Pull again to get more.</summary>
-    [JsonPropertyName("has_more")]
-    public bool HasMore { get; set; }
+    /// <summary>Number of events returned in this response.</summary>
+    [JsonPropertyName("count")]
+    public int Count { get; set; }
+}
+
+/// <summary>
+/// Response from acknowledging a single event from the webhook queue.
+/// </summary>
+public sealed class AckResponse
+{
+    /// <summary>Always true on success.</summary>
+    [JsonPropertyName("acknowledged")]
+    public bool Acknowledged { get; set; }
+}
+
+/// <summary>
+/// Response from batch-acknowledging events from the webhook queue.
+/// </summary>
+public sealed class BatchAckResponse
+{
+    /// <summary>Number of events successfully acknowledged.</summary>
+    [JsonPropertyName("acknowledged")]
+    public int Acknowledged { get; set; }
 }
 
 // ---------------------------------------------------------------------------

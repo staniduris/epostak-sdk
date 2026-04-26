@@ -12,6 +12,7 @@ export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
 export {
   WebhooksResource,
   WebhookQueueResource,
+  verifyWebhookSignature,
 } from "./resources/webhooks.js";
 export { ReportingResource } from "./resources/reporting.js";
 export { ExtractResource } from "./resources/extract.js";
@@ -150,4 +151,15 @@ export type {
   // Public validator
   PublicValidationMessage,
   PublicValidationReport,
+  // Outbox
+  OutboxParams,
+  OutboxListResponse,
+  OutboxDocument,
+  // Invoice responses list
+  InvoiceResponseItem,
+  InvoiceResponsesListResponse,
+  // Document events
+  DocumentEventsParams,
+  DocumentEvent,
+  DocumentEventsResponse,
 } from "./types.js";

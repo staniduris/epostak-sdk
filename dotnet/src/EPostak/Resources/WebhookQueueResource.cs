@@ -28,11 +28,11 @@ public sealed class WebhookQueueResource
     ///     Limit = 10,
     ///     EventType = WebhookEvents.DocumentReceived
     /// });
-    /// foreach (var item in response.Items)
+    /// foreach (var item in response.Events)
     /// {
-    ///     Console.WriteLine($"Event {item.Id}: {item.Type}");
+    ///     Console.WriteLine($"Event {item.EventId}: {item.Event}");
     ///     // Process the event...
-    ///     await client.Webhooks.Queue.AckAsync(item.Id);
+    ///     await client.Webhooks.Queue.AckAsync(item.EventId);
     /// }
     /// </code>
     /// </example>
@@ -50,14 +50,15 @@ public sealed class WebhookQueueResource
     /// </summary>
     /// <param name="eventId">The queue event UUID to acknowledge.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>A completed task on success.</returns>
+    /// <returns>Acknowledgement confirmation with <c>Acknowledged = true</c>.</returns>
     /// <example>
     /// <code>
-    /// await client.Webhooks.Queue.AckAsync("evt_abc123");
+    /// var result = await client.Webhooks.Queue.AckAsync("evt_abc123");
+    /// Console.WriteLine(result.Acknowledged); // true
     /// </code>
     /// </example>
-    public Task AckAsync(string eventId, CancellationToken ct = default)
-        => _http.RequestVoidAsync(HttpMethod.Delete, $"/webhook-queue/{Uri.EscapeDataString(eventId)}", ct);
+    public Task<AckResponse> AckAsync(string eventId, CancellationToken ct = default)
+        => _http.RequestAsync<AckResponse>(HttpMethod.Delete, $"/webhook-queue/{Uri.EscapeDataString(eventId)}", ct);
 
     /// <summary>
     /// Acknowledge and remove multiple events from the queue in a single request.
@@ -65,17 +66,18 @@ public sealed class WebhookQueueResource
     /// </summary>
     /// <param name="eventIds">Collection of queue event UUIDs to acknowledge.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>A completed task on success.</returns>
+    /// <returns>Object with the count of acknowledged events.</returns>
     /// <example>
     /// <code>
     /// var response = await client.Webhooks.Queue.PullAsync();
     /// // Process all events...
-    /// var ids = response.Items.Select(i => i.Id);
-    /// await client.Webhooks.Queue.BatchAckAsync(ids);
+    /// var ids = response.Events.Select(i => i.EventId);
+    /// var result = await client.Webhooks.Queue.BatchAckAsync(ids);
+    /// Console.WriteLine($"Acknowledged {result.Acknowledged} events");
     /// </code>
     /// </example>
-    public Task BatchAckAsync(IEnumerable<string> eventIds, CancellationToken ct = default)
-        => _http.RequestVoidAsync(HttpMethod.Post, "/webhook-queue/batch-ack", new { event_ids = eventIds }, ct);
+    public Task<BatchAckResponse> BatchAckAsync(IEnumerable<string> eventIds, CancellationToken ct = default)
+        => _http.RequestAsync<BatchAckResponse>(HttpMethod.Post, "/webhook-queue/batch-ack", new { event_ids = eventIds }, ct);
 
     /// <summary>
     /// Pull pending events across all firms managed by the integrator.

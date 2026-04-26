@@ -26,6 +26,11 @@ import type {
   ParsedUblDocument,
   DocumentMarkState,
   MarkDocumentResponse,
+  OutboxParams,
+  OutboxListResponse,
+  InvoiceResponsesListResponse,
+  DocumentEventsParams,
+  DocumentEventsResponse,
 } from "../types.js";
 
 /**
@@ -569,6 +574,33 @@ export class DocumentsResource extends BaseResource {
    * await client.documents.mark('doc-uuid', 'processed', 'Approved by CFO');
    * ```
    */
+  outbox(params?: OutboxParams): Promise<OutboxListResponse> {
+    return this.request(
+      "GET",
+      `/documents/outbox${buildQuery({
+        offset: params?.offset,
+        limit: params?.limit,
+        status: params?.status,
+        peppolMessageId: params?.peppolMessageId,
+        since: params?.since,
+      })}`,
+    );
+  }
+
+  responses(id: string): Promise<InvoiceResponsesListResponse> {
+    return this.request("GET", `/documents/${encodeURIComponent(id)}/responses`);
+  }
+
+  events(id: string, params?: DocumentEventsParams): Promise<DocumentEventsResponse> {
+    return this.request(
+      "GET",
+      `/documents/${encodeURIComponent(id)}/events${buildQuery({
+        limit: params?.limit,
+        cursor: params?.cursor,
+      })}`,
+    );
+  }
+
   mark(
     id: string,
     state: DocumentMarkState,

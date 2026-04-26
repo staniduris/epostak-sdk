@@ -6,6 +6,8 @@ import sk.epostak.sdk.models.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Send and receive documents via Peppol.
@@ -395,5 +397,85 @@ public final class DocumentsResource {
      */
     public MarkResponse mark(String id, String state) {
         return mark(id, state, null);
+    }
+
+    /**
+     * List outbound (sent) documents with optional filtering and pagination.
+     *
+     * <pre>{@code
+     * OutboxListResponse outbox = client.documents().outbox(50, null, null);
+     * outbox.documents().forEach(d -> System.out.println(d.getNumber() + ": " + d.getStatus()));
+     * }</pre>
+     *
+     * @param limit  max documents to return (1-100, default 20), or {@code null}
+     * @param status filter by processing status, or {@code null}
+     * @param since  ISO 8601 timestamp lower bound, or {@code null}
+     * @return paginated list of outbound documents
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public OutboxListResponse outbox(Integer limit, String status, String since) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("limit", limit);
+        params.put("status", status);
+        params.put("since", since);
+        return http.get("/documents/outbox" + HttpClient.buildQuery(params), OutboxListResponse.class);
+    }
+
+    /**
+     * List outbound documents with default parameters.
+     *
+     * @return paginated list of outbound documents (limit 20)
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public OutboxListResponse outbox() {
+        return outbox(null, null, null);
+    }
+
+    /**
+     * Get all Invoice Responses received for a document (accept/reject/query from the buyer).
+     *
+     * <pre>{@code
+     * InvoiceResponsesListResponse result = client.documents().responses("doc_abc123");
+     * result.responses().forEach(r -> System.out.println(r.responseCode() + ": " + r.createdAt()));
+     * }</pre>
+     *
+     * @param id the document UUID
+     * @return list of invoice response records with status codes and timestamps
+     * @throws sk.epostak.sdk.EPostakException if the document is not found or the request fails
+     */
+    public InvoiceResponsesListResponse responses(String id) {
+        return http.get("/documents/" + HttpClient.encode(id) + "/responses", InvoiceResponsesListResponse.class);
+    }
+
+    /**
+     * Get the audit trail events for a document. Uses cursor-based pagination.
+     *
+     * <pre>{@code
+     * DocumentEventsResponse result = client.documents().events("doc_abc123", null, null);
+     * result.events().forEach(e -> System.out.println(e.occurredAt() + ": " + e.eventType()));
+     * }</pre>
+     *
+     * @param id     the document UUID
+     * @param limit  max events to return (default 20), or {@code null}
+     * @param cursor cursor from the previous page, or {@code null}
+     * @return ordered list of audit events with next cursor
+     * @throws sk.epostak.sdk.EPostakException if the document is not found or the request fails
+     */
+    public DocumentEventsResponse events(String id, Integer limit, String cursor) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("limit", limit);
+        params.put("cursor", cursor);
+        return http.get("/documents/" + HttpClient.encode(id) + "/events" + HttpClient.buildQuery(params), DocumentEventsResponse.class);
+    }
+
+    /**
+     * Get audit trail events for a document with default parameters.
+     *
+     * @param id the document UUID
+     * @return ordered list of audit events
+     * @throws sk.epostak.sdk.EPostakException if the document is not found or the request fails
+     */
+    public DocumentEventsResponse events(String id) {
+        return events(id, null, null);
     }
 }

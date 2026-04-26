@@ -150,6 +150,64 @@ class Webhooks
     }
 
     /**
+     * Verify a webhook signature. Uses timing-safe comparison and a 5-minute replay window.
+     *
+     * Signature format: `t=<unix_ms>,v1=<hex_hmac_sha512>`
+     *
+     * @param string $payload   Raw request body string.
+     * @param string $signature Value of the `X-EPostak-Signature` header.
+     * @param string $secret    Webhook signing secret from webhook creation.
+     * @param int    $maxAgeMs  Maximum allowed age in milliseconds (default 300000 = 5 minutes).
+     * @return bool True if the signature is valid and within the replay window.
+     *
+     * @example
+     *   $isValid = $client->webhooks->verifyWebhookSignature(
+     *       file_get_contents('php://input'),
+     *       $_SERVER['HTTP_X_EPOSTAK_SIGNATURE'],
+     *       'whsec_...'
+     *   );
+     *   if (!$isValid) { http_response_code(401); exit; }
+     */
+    public function verifyWebhookSignature(
+        string $payload,
+        string $signature,
+        string $secret,
+        int $maxAgeMs = 300_000,
+    ): bool {
+        // Parse t=<unix_ms>,v1=<hex>
+        $parts = explode(',', $signature);
+        $tPart = null;
+        $vPart = null;
+        foreach ($parts as $part) {
+            if (str_starts_with($part, 't=')) {
+                $tPart = substr($part, 2);
+            } elseif (str_starts_with($part, 'v1=')) {
+                $vPart = substr($part, 3);
+            }
+        }
+
+        if ($tPart === null || $vPart === null) {
+            return false;
+        }
+
+        if (!ctype_digit($tPart)) {
+            return false;
+        }
+
+        $timestamp = (int) $tPart;
+        $nowMs = (int) (microtime(true) * 1000);
+        $age = $nowMs - $timestamp;
+
+        if ($age < 0 || $age > $maxAgeMs) {
+            return false;
+        }
+
+        $computed = hash_hmac('sha512', $timestamp . '.' . $payload, $secret);
+
+        return hash_equals($computed, strtolower($vPart));
+    }
+
+    /**
      * Rotate a webhook's HMAC-SHA256 signing secret. The new secret is
      * returned ONCE — store it immediately. The previous secret is
      * invalidated on the server side; any in-flight deliveries signed

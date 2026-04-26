@@ -13,11 +13,11 @@ module EPostak
     # @example Poll-based event consumption loop
     #   loop do
     #     response = client.webhooks.queue.pull(limit: 50)
-    #     break if response["items"].empty?
+    #     break if response["events"].empty?
     #
-    #     ids = response["items"].map { |item| process(item); item["id"] }
+    #     ids = response["events"].map { |item| process(item); item["event_id"] }
     #     client.webhooks.queue.batch_ack(ids)
-    #     break unless response["has_more"]
+    #     break if response["count"] == 0
     #   end
     class WebhookQueue
       # @param http [EPostak::HttpClient] Internal HTTP client
@@ -30,11 +30,11 @@ module EPostak
       #
       # @param limit [Integer, nil] Maximum number of events to return
       # @param event_type [String, nil] Filter by event type (e.g. "document.received")
-      # @return [Hash] Response with "items" array (each has id, type, created_at, payload) and "has_more" boolean
+      # @return [Hash] Response with "events" array (each has event_id, firm_id, event, created_at, payload) and "count"
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 20, event_type: "document.received")
-      #   response["items"].each { |item| puts item["type"] }
+      #   response["events"].each { |item| puts item["event"] }
       def pull(limit: nil, event_type: nil)
         query = { limit: limit, event_type: event_type }
         @http.request(:get, "/webhook-queue", query: query)
@@ -43,10 +43,11 @@ module EPostak
       # Acknowledge (remove) a single event from the queue after processing.
       #
       # @param event_id [String] The event ID to acknowledge
-      # @return [nil] Returns nil (HTTP 204 No Content)
+      # @return [Hash] { "acknowledged" => true }
       #
       # @example
-      #   client.webhooks.queue.ack("event-uuid")
+      #   result = client.webhooks.queue.ack("event-uuid")
+      #   puts result["acknowledged"] # => true
       def ack(event_id)
         @http.request(:delete, "/webhook-queue/#{encode(event_id)}")
       end
@@ -54,12 +55,13 @@ module EPostak
       # Acknowledge (remove) multiple events from the queue in a single request.
       #
       # @param event_ids [Array<String>] Array of event IDs to acknowledge
-      # @return [nil] Returns nil (HTTP 204 No Content)
+      # @return [Hash] { "acknowledged" => N } with count of acknowledged events
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 50)
-      #   ids = response["items"].map { |i| i["id"] }
-      #   client.webhooks.queue.batch_ack(ids)
+      #   ids = response["events"].map { |i| i["event_id"] }
+      #   result = client.webhooks.queue.batch_ack(ids)
+      #   puts "Acknowledged: #{result['acknowledged']}"
       def batch_ack(event_ids)
         @http.request(:post, "/webhook-queue/batch-ack", body: { event_ids: event_ids })
       end

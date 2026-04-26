@@ -165,6 +165,11 @@ export async function request<T>(
         body: fetchBody,
       });
     } catch (err) {
+      if (canRetry && attempt < maxRetries) {
+        await sleep(retryDelay(attempt));
+        attempt++;
+        continue;
+      }
       throw new EPostakError(0, {
         error: err instanceof Error ? err.message : "Network error",
       });

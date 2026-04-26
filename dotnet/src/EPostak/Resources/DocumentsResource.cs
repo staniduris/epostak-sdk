@@ -354,4 +354,66 @@ public sealed class DocumentsResource
             $"/documents/{Uri.EscapeDataString(id)}/mark",
             new MarkRequest { State = state, Note = note },
             ct);
+
+    /// <summary>
+    /// List outbound (sent) documents with optional filtering and pagination.
+    /// </summary>
+    /// <param name="params">Optional query parameters for filtering and pagination.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Paginated list of outbound documents.</returns>
+    /// <example>
+    /// <code>
+    /// var outbox = await client.Documents.OutboxAsync(new OutboxParams { Limit = 50 });
+    /// foreach (var doc in outbox.Documents)
+    ///     Console.WriteLine($"{doc.Number}: {doc.Status}");
+    /// </code>
+    /// </example>
+    public Task<OutboxListResponse> OutboxAsync(OutboxParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("offset", @params?.Offset?.ToString()),
+            ("limit", @params?.Limit?.ToString()),
+            ("status", @params?.Status),
+            ("peppolMessageId", @params?.PeppolMessageId),
+            ("since", @params?.Since));
+        return _http.RequestAsync<OutboxListResponse>(HttpMethod.Get, $"/documents/outbox{qs}", ct);
+    }
+
+    /// <summary>
+    /// Get all Invoice Responses received for a document (accept/reject/query from the buyer).
+    /// </summary>
+    /// <param name="id">Document UUID.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>List of invoice response records with status codes and timestamps.</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.Documents.ResponsesAsync("doc_abc123");
+    /// foreach (var r in result.Responses)
+    ///     Console.WriteLine($"{r.ResponseCode}: {r.CreatedAt}");
+    /// </code>
+    /// </example>
+    public Task<InvoiceResponsesListResponse> ResponsesAsync(string id, CancellationToken ct = default)
+        => _http.RequestAsync<InvoiceResponsesListResponse>(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/responses", ct);
+
+    /// <summary>
+    /// Get the audit trail events for a document. Uses cursor-based pagination.
+    /// </summary>
+    /// <param name="id">Document UUID.</param>
+    /// <param name="params">Optional pagination parameters (limit, cursor).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Ordered list of audit events with next cursor.</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.Documents.EventsAsync("doc_abc123");
+    /// foreach (var evt in result.Events)
+    ///     Console.WriteLine($"{evt.OccurredAt}: {evt.EventType} ({evt.Actor})");
+    /// </code>
+    /// </example>
+    public Task<DocumentEventsResponse> EventsAsync(string id, DocumentEventsParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("limit", @params?.Limit?.ToString()),
+            ("cursor", @params?.Cursor));
+        return _http.RequestAsync<DocumentEventsResponse>(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/events{qs}", ct);
+    }
 }

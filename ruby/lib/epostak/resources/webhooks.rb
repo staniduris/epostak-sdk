@@ -1,8 +1,56 @@
 # frozen_string_literal: true
 
 require "erb"
+require "openssl"
 
 module EPostak
+  # Verify an inbound webhook signature. Uses constant-time comparison to prevent
+  # timing attacks. Rejects payloads older than +max_age_ms+ milliseconds to
+  # prevent replay attacks.
+  #
+  # Signature format: +t=<unix_ms>,v1=<hex_hmac_sha512>+
+  #
+  # @param payload [String] The raw webhook request body
+  # @param signature [String] The value of the +X-Epostak-Signature+ header
+  # @param secret [String] The webhook signing secret from webhook creation
+  # @param max_age_ms [Integer] Maximum acceptable age in milliseconds (default 300_000 = 5 min)
+  # @return [Boolean] +true+ if the signature is valid and within the replay window
+  #
+  # @example
+  #   valid = EPostak::Webhook.verify_signature(
+  #     payload: request.body.read,
+  #     signature: request.headers["X-Epostak-Signature"],
+  #     secret: ENV["WEBHOOK_SECRET"]
+  #   )
+  #   return head :unauthorized unless valid
+  module Webhook
+    MAX_AGE_MS = 300_000
+
+    # @see EPostak::Webhook
+    def self.verify_signature(payload:, signature:, secret:, max_age_ms: MAX_AGE_MS)
+      t_part = nil
+      v_part = nil
+      signature.split(",").each do |segment|
+        t_part = segment[2..] if segment.start_with?("t=")
+        v_part = segment[3..] if segment.start_with?("v1=")
+      end
+      return false if t_part.nil? || v_part.nil?
+
+      timestamp = Integer(t_part, 10, exception: false)
+      return false if timestamp.nil?
+
+      age = (Time.now.to_f * 1000).to_i - timestamp
+      return false if age < 0 || age > max_age_ms
+
+      message = "#{timestamp}.#{payload}"
+      computed = OpenSSL::HMAC.hexdigest("SHA512", secret, message)
+
+      OpenSSL.secure_compare(computed, v_part.downcase)
+    rescue StandardError
+      false
+    end
+  end
+
   module Resources
     # Resource for managing webhook subscriptions and the pull queue.
     #

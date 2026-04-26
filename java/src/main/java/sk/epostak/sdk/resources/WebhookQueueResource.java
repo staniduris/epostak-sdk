@@ -1,6 +1,8 @@
 package sk.epostak.sdk.resources;
 
 import sk.epostak.sdk.HttpClient;
+import sk.epostak.sdk.models.AckResponse;
+import sk.epostak.sdk.models.BatchAckResponse;
 import sk.epostak.sdk.models.WebhookQueueAllResponse;
 import sk.epostak.sdk.models.WebhookQueueResponse;
 
@@ -64,24 +66,26 @@ public final class WebhookQueueResource {
     }
 
     /**
-     * Acknowledge (remove) a single event from the queue. Returns HTTP 204 on success.
+     * Acknowledge (remove) a single event from the queue.
      *
      * @param eventId the event UUID to acknowledge
+     * @return acknowledgement confirmation with {@code acknowledged = true}
      * @throws sk.epostak.sdk.EPostakException if the event is not found or the request fails
      */
-    public void ack(String eventId) {
-        http.deleteVoid("/webhook-queue/" + HttpClient.encode(eventId));
+    public AckResponse ack(String eventId) {
+        return http.delete("/webhook-queue/" + HttpClient.encode(eventId), AckResponse.class);
     }
 
     /**
-     * Batch acknowledge (remove) multiple events from the queue. Returns HTTP 204 on success.
+     * Batch acknowledge (remove) multiple events from the queue.
      *
      * @param eventIds list of event UUIDs to acknowledge
+     * @return response containing the count of acknowledged events
      * @throws sk.epostak.sdk.EPostakException if the request fails
      */
-    public void batchAck(List<String> eventIds) {
+    public BatchAckResponse batchAck(List<String> eventIds) {
         Map<String, Object> body = Map.of("event_ids", eventIds);
-        http.postVoid("/webhook-queue/batch-ack", body);
+        return http.post("/webhook-queue/batch-ack", body, BatchAckResponse.class);
     }
 
     /**

@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = "epostak"
-  spec.version       = "1.6.0"
+  spec.version       = "1.8.0"
   spec.authors       = ["ePosťák"]
   spec.email         = ["info@epostak.sk"]
 

@@ -7,6 +7,9 @@ webhook subscriptions, and :class:`WebhookQueueResource` (accessible via
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
@@ -24,6 +27,75 @@ from epostak.resources.documents import _BaseResource, _build_query
 import httpx
 
 
+def verify_webhook_signature(
+    payload: str,
+    signature: str,
+    secret: str,
+    max_age_ms: int = 300_000,
+) -> bool:
+    """Verify an ePostak webhook signature.
+
+    Uses HMAC-SHA512 with constant-time comparison to prevent timing attacks.
+    Rejects payloads older than ``max_age_ms`` milliseconds (default 5 minutes)
+    to prevent replay attacks.
+
+    Signature format: ``t=<unix_ms>,v1=<hex_hmac>``
+
+    Args:
+        payload: Raw request body string exactly as received.
+        signature: Value of the ``X-Epostak-Signature`` header.
+        secret: Webhook signing secret set when the webhook was created.
+        max_age_ms: Maximum allowed age of the payload in milliseconds (default 300000).
+
+    Returns:
+        ``True`` if the signature is valid and within the replay window.
+
+    Example::
+
+        from flask import request
+        from epostak.resources.webhooks import verify_webhook_signature
+
+        @app.post("/webhooks")
+        def handle_webhook():
+            if not verify_webhook_signature(
+                payload=request.get_data(as_text=True),
+                signature=request.headers["X-Epostak-Signature"],
+                secret=WEBHOOK_SECRET,
+            ):
+                return "Invalid signature", 401
+            # process event...
+    """
+    try:
+        parts = dict(part.split("=", 1) for part in signature.split(",") if "=" in part)
+    except Exception:
+        return False
+
+    if "t" not in parts or "v1" not in parts:
+        return False
+
+    try:
+        timestamp_ms = int(parts["t"])
+    except (ValueError, TypeError):
+        return False
+
+    age_ms = int(time.time() * 1000) - timestamp_ms
+    if age_ms < 0 or age_ms > max_age_ms:
+        return False
+
+    signed_payload = f"{timestamp_ms}.{payload}"
+    expected_sig = parts["v1"]
+    computed_sig = hmac.new(
+        secret.encode("utf-8"),
+        signed_payload.encode("utf-8"),
+        hashlib.sha512,
+    ).hexdigest()
+
+    try:
+        return hmac.compare_digest(expected_sig, computed_sig)
+    except Exception:
+        return False
+
+
 class WebhookQueueResource(_BaseResource):
     """Webhook pull queue for polling-based event consumption."""
 
@@ -39,47 +111,49 @@ class WebhookQueueResource(_BaseResource):
             event_type: Filter by event type, e.g. ``"document.received"``.
 
         Returns:
-            Dict with ``items`` (list of queue events) and ``has_more`` (bool).
+            Dict with ``events`` (list of queue events) and ``count`` (int).
 
         Example::
 
             queue = client.webhooks.queue.pull(limit=50)
-            for item in queue["items"]:
-                print(item["type"], item["payload"])
+            for item in queue["events"]:
+                print(item["event"], item["payload"])
         """
         params = _build_query({"limit": limit, "event_type": event_type})
         return self._request("GET", "/webhook-queue", params=params)
 
-    def ack(self, event_id: str) -> None:
+    def ack(self, event_id: str) -> Dict[str, Any]:
         """Acknowledge a single webhook event (removes it from the queue).
 
         Args:
             event_id: The event UUID to acknowledge.
 
         Returns:
-            None (HTTP 204).
+            Dict with ``acknowledged`` (bool).
 
         Example::
 
-            client.webhooks.queue.ack("event-uuid")
+            result = client.webhooks.queue.ack("event-uuid")
+            assert result["acknowledged"] is True
         """
-        self._request("DELETE", f"/webhook-queue/{quote(event_id, safe='')}")
+        return self._request("DELETE", f"/webhook-queue/{quote(event_id, safe='')}")
 
-    def batch_ack(self, event_ids: List[str]) -> None:
+    def batch_ack(self, event_ids: List[str]) -> Dict[str, Any]:
         """Batch acknowledge webhook events (removes them from the queue).
 
         Args:
             event_ids: List of event UUIDs to acknowledge.
 
         Returns:
-            None (HTTP 204).
+            Dict with ``acknowledged`` (int count of acknowledged events).
 
         Example::
 
-            ids = [item["id"] for item in queue["items"]]
-            client.webhooks.queue.batch_ack(ids)
+            ids = [item["event_id"] for item in queue["events"]]
+            result = client.webhooks.queue.batch_ack(ids)
+            print(result["acknowledged"])
         """
-        self._request("POST", "/webhook-queue/batch-ack", json={"event_ids": event_ids})
+        return self._request("POST", "/webhook-queue/batch-ack", json={"event_ids": event_ids})
 
     def pull_all(
         self,

@@ -1339,3 +1339,153 @@ public sealed class ValidationReport
     [JsonPropertyName("warnings")]
     public List<ValidationFinding> Warnings { get; set; } = [];
 }
+
+// ---------------------------------------------------------------------------
+// Outbox
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Query parameters for listing outbound documents.
+/// </summary>
+public sealed class OutboxParams
+{
+    /// <summary>Number of documents to skip (default 0).</summary>
+    public int? Offset { get; set; }
+    /// <summary>Maximum number of documents to return (1-100, default 20).</summary>
+    public int? Limit { get; set; }
+    /// <summary>Filter by processing status.</summary>
+    public string? Status { get; set; }
+    /// <summary>Filter by Peppol AS4 message ID.</summary>
+    public string? PeppolMessageId { get; set; }
+    /// <summary>ISO 8601 timestamp -- only return documents created after this date.</summary>
+    public string? Since { get; set; }
+}
+
+/// <summary>
+/// Paginated list of outbound documents.
+/// </summary>
+public sealed class OutboxListResponse
+{
+    /// <summary>Array of outbound documents in the current page.</summary>
+    [JsonPropertyName("documents")]
+    public List<Document> Documents { get; set; } = [];
+
+    /// <summary>Total number of documents matching the query.</summary>
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    /// <summary>The offset that was applied.</summary>
+    [JsonPropertyName("offset")]
+    public int Offset { get; set; }
+
+    /// <summary>The limit that was applied.</summary>
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+}
+
+// ---------------------------------------------------------------------------
+// Invoice responses list
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A single Invoice Response record associated with a document.
+/// </summary>
+public sealed class InvoiceResponseItem
+{
+    /// <summary>Response UUID.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    /// <summary>Response status code (one of AB, IP, UQ, CA, RE, AP, PD).</summary>
+    [JsonPropertyName("responseCode")]
+    public InvoiceResponseCode ResponseCode { get; set; }
+
+    /// <summary>Optional note accompanying the response.</summary>
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+
+    /// <summary>Peppol participant ID of the sender of this response.</summary>
+    [JsonPropertyName("senderPeppolId")]
+    public string SenderPeppolId { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp when the response was created.</summary>
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = "";
+}
+
+/// <summary>
+/// Response from <c>GET /documents/{id}/responses</c>.
+/// </summary>
+public sealed class InvoiceResponsesListResponse
+{
+    /// <summary>Document UUID the responses belong to.</summary>
+    [JsonPropertyName("documentId")]
+    public string DocumentId { get; set; } = "";
+
+    /// <summary>Array of Invoice Response records.</summary>
+    [JsonPropertyName("responses")]
+    public List<InvoiceResponseItem> Responses { get; set; } = [];
+}
+
+// ---------------------------------------------------------------------------
+// Document events
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Query parameters for <c>GET /documents/{id}/events</c>.
+/// </summary>
+public sealed class DocumentEventsParams
+{
+    /// <summary>Maximum number of events to return (default 20).</summary>
+    public int? Limit { get; set; }
+    /// <summary>Cursor from the previous page for cursor-based pagination.</summary>
+    public string? Cursor { get; set; }
+}
+
+/// <summary>
+/// A single event in a document's audit trail.
+/// </summary>
+public sealed class DocumentEvent
+{
+    /// <summary>Event UUID.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    /// <summary>Event type identifier (e.g. "status_changed", "respond_sent").</summary>
+    [JsonPropertyName("eventType")]
+    public string EventType { get; set; } = "";
+
+    /// <summary>Actor that triggered the event (e.g. "system", "api_key", "user").</summary>
+    [JsonPropertyName("actor")]
+    public string Actor { get; set; } = "";
+
+    /// <summary>Human-readable detail about the event, or null.</summary>
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
+
+    /// <summary>Arbitrary structured metadata attached to the event.</summary>
+    [JsonPropertyName("meta")]
+    public Dictionary<string, object> Meta { get; set; } = [];
+
+    /// <summary>ISO 8601 timestamp when the event occurred.</summary>
+    [JsonPropertyName("occurredAt")]
+    public string OccurredAt { get; set; } = "";
+}
+
+/// <summary>
+/// Response from <c>GET /documents/{id}/events</c>.
+/// </summary>
+public sealed class DocumentEventsResponse
+{
+    /// <summary>Document UUID the events belong to.</summary>
+    [JsonPropertyName("documentId")]
+    public string DocumentId { get; set; } = "";
+
+    /// <summary>Ordered array of events for this document.</summary>
+    [JsonPropertyName("events")]
+    public List<DocumentEvent> Events { get; set; } = [];
+
+    /// <summary>Cursor to pass as <c>cursor</c> in the next request, or null when no more pages.</summary>
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
+}

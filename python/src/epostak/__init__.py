@@ -2,6 +2,7 @@
 
 from epostak.client import EPostak, validate
 from epostak.errors import EPostakError
+from epostak.resources.webhooks import verify_webhook_signature
 
-__all__ = ["EPostak", "EPostakError", "validate"]
-__version__ = "0.2.0"
+__all__ = ["EPostak", "EPostakError", "validate", "verify_webhook_signature"]
+__version__ = "0.5.0"

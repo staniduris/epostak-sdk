@@ -146,6 +146,66 @@ export class WebhookQueueResource extends BaseResource {
 }
 
 /**
+ * Verify a webhook signature. Uses constant-time comparison to prevent timing attacks.
+ * Rejects payloads older than 5 minutes to prevent replay attacks.
+ *
+ * @param params - The payload body (string), signature header, and webhook secret
+ * @returns true if signature is valid and within replay window
+ *
+ * @example
+ * ```typescript
+ * app.post('/webhooks', (req, res) => {
+ *   const isValid = verifyWebhookSignature({
+ *     payload: req.body,
+ *     signature: req.headers['x-epostak-signature'] as string,
+ *     secret: process.env.WEBHOOK_SECRET!,
+ *   });
+ *   if (!isValid) return res.status(401).send('Invalid signature');
+ *   // process event...
+ * });
+ * ```
+ */
+export function verifyWebhookSignature(params: {
+  payload: string;
+  signature: string;
+  secret: string;
+  maxAgeMs?: number;
+}): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const crypto = require('node:crypto') as typeof import('node:crypto');
+  const { payload, signature, secret, maxAgeMs = 300_000 } = params;
+
+  // Signature format: t=<unix_ms>,v1=<hex_hmac>
+  const parts = signature.split(',');
+  const tPart = parts.find(p => p.startsWith('t='));
+  const vPart = parts.find(p => p.startsWith('v1='));
+  if (!tPart || !vPart) return false;
+
+  const timestamp = parseInt(tPart.slice(2), 10);
+  if (Number.isNaN(timestamp)) return false;
+
+  // Replay protection
+  const age = Date.now() - timestamp;
+  if (age < 0 || age > maxAgeMs) return false;
+
+  const expectedSig = vPart.slice(3);
+  const computedSig = crypto
+    .createHmac('sha512', secret)
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
+
+  // Constant-time comparison
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSig, 'hex'),
+      Buffer.from(computedSig, 'hex'),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resource for managing webhook subscriptions and the pull queue.
  * Webhooks notify your server about document events (sent, received, validated).
  * Choose between push webhooks (server receives HTTPS POST) or the pull queue
@@ -164,6 +224,9 @@ export class WebhookQueueResource extends BaseResource {
 export class WebhooksResource extends BaseResource {
   /** Sub-resource for the pull queue (polling-based event consumption) */
   queue: WebhookQueueResource;
+
+  /** Verify a webhook signature. Delegates to {@link verifyWebhookSignature}. */
+  verifySignature = verifyWebhookSignature;
 
   constructor(config: ClientConfig) {
     super(config);

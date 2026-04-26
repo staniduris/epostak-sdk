@@ -1,4 +1,6 @@
 using EPostak.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace EPostak.Resources;
 
@@ -187,5 +189,64 @@ public sealed class WebhooksResource
             HttpMethod.Post,
             $"/webhooks/{Uri.EscapeDataString(id)}/rotate-secret",
             ct);
+    }
+
+    /// <summary>
+    /// Verify an inbound webhook payload signature. Uses constant-time comparison to prevent
+    /// timing attacks. Rejects payloads older than <paramref name="maxAgeMs"/> milliseconds
+    /// to prevent replay attacks.
+    /// <para>
+    /// Signature format: <c>t=&lt;unix_ms&gt;,v1=&lt;hex_hmac_sha512&gt;</c>
+    /// </para>
+    /// </summary>
+    /// <param name="payload">The raw webhook request body as a string.</param>
+    /// <param name="signature">The value of the <c>X-Epostak-Signature</c> header.</param>
+    /// <param name="secret">The webhook signing secret obtained when the webhook was created.</param>
+    /// <param name="maxAgeMs">Maximum acceptable age of the payload in milliseconds (default 300,000 = 5 minutes).</param>
+    /// <returns><c>true</c> if the signature is valid and within the replay window.</returns>
+    /// <example>
+    /// <code>
+    /// bool valid = client.Webhooks.VerifyWebhookSignature(
+    ///     payload: requestBody,
+    ///     signature: request.Headers["X-Epostak-Signature"],
+    ///     secret: Environment.GetEnvironmentVariable("WEBHOOK_SECRET")!);
+    /// if (!valid) return Results.Unauthorized();
+    /// </code>
+    /// </example>
+    public static bool VerifyWebhookSignature(string payload, string signature, string secret, long maxAgeMs = 300_000)
+    {
+        try
+        {
+            // Signature format: t=<unix_ms>,v1=<hex_hmac>
+            string? tPart = null;
+            string? vPart = null;
+            foreach (var segment in signature.Split(','))
+            {
+                if (segment.StartsWith("t=", StringComparison.Ordinal)) tPart = segment[2..];
+                else if (segment.StartsWith("v1=", StringComparison.Ordinal)) vPart = segment[3..];
+            }
+
+            if (tPart is null || vPart is null) return false;
+            if (!long.TryParse(tPart, out var timestamp)) return false;
+
+            // Replay protection
+            var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - timestamp;
+            if (age < 0 || age > maxAgeMs) return false;
+
+            var keyBytes = Encoding.UTF8.GetBytes(secret);
+            var msgBytes = Encoding.UTF8.GetBytes($"{timestamp}.{payload}");
+            var computedBytes = HMACSHA512.HashData(keyBytes, msgBytes);
+            var computedHex = Convert.ToHexString(computedBytes).ToLowerInvariant();
+
+            var expectedBytes = Convert.FromHexString(vPart);
+            var computedHexBytes = Encoding.ASCII.GetBytes(computedHex);
+            var expectedHexBytes = Encoding.ASCII.GetBytes(vPart.ToLowerInvariant());
+
+            return CryptographicOperations.FixedTimeEquals(computedHexBytes, expectedHexBytes);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

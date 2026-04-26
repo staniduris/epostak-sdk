@@ -347,6 +347,54 @@ class Documents
     }
 
     /**
+     * List sent documents in the outbox with optional filtering and pagination.
+     *
+     * @param array{offset?: int, limit?: int, status?: string, peppolMessageId?: string, since?: string} $params Optional filters.
+     * @return array Paginated list of outbox documents.
+     * @throws EPostakError On API error.
+     */
+    public function outbox(array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'offset' => $params['offset'] ?? null,
+            'limit' => $params['limit'] ?? null,
+            'status' => $params['status'] ?? null,
+            'peppolMessageId' => $params['peppolMessageId'] ?? null,
+            'since' => $params['since'] ?? null,
+        ]);
+        return $this->http->request('GET', '/documents/outbox' . $qs);
+    }
+
+    /**
+     * List all Invoice Response documents received for a sent document.
+     *
+     * @param string $id Document UUID.
+     * @return array List of invoice responses.
+     * @throws EPostakError On API error.
+     */
+    public function responses(string $id): array
+    {
+        return $this->http->request('GET', '/documents/' . urlencode($id) . '/responses');
+    }
+
+    /**
+     * List lifecycle events for a document with cursor-based pagination.
+     *
+     * @param string $id     Document UUID.
+     * @param array{limit?: int, cursor?: string} $params Optional pagination params.
+     * @return array Event list with optional next cursor.
+     * @throws EPostakError On API error.
+     */
+    public function events(string $id, array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'limit' => $params['limit'] ?? null,
+            'cursor' => $params['cursor'] ?? null,
+        ]);
+        return $this->http->request('GET', '/documents/' . urlencode($id) . '/events' . $qs);
+    }
+
+    /**
      * Manually mark a document's lifecycle state.
      *
      * Use for documents delivered out-of-band (e.g. a receiver confirms

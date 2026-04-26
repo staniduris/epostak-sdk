@@ -635,8 +635,9 @@ class WebhookWithDeliveries(TypedDict, total=False):
 class WebhookQueueItem(TypedDict):
     """A single event from the webhook pull queue."""
 
-    id: str  # Event UUID (use this to acknowledge)
-    type: str  # Event type, e.g. "document.received"
+    event_id: str  # Event UUID (use this to acknowledge)
+    firm_id: str  # UUID of the firm the event belongs to
+    event: str  # Event type, e.g. "document.received"
     created_at: str  # ISO 8601 timestamp when the event was created
     payload: Dict[str, Any]  # Event-specific payload data
 
@@ -644,8 +645,8 @@ class WebhookQueueItem(TypedDict):
 class WebhookQueueResponse(TypedDict):
     """Response from pulling the webhook event queue."""
 
-    items: List[WebhookQueueItem]  # Events on this page
-    has_more: bool  # True if more events are available to pull
+    events: List[WebhookQueueItem]  # Events on this page
+    count: int  # Number of events returned in this response
 
 
 # ---------------------------------------------------------------------------
@@ -914,6 +915,66 @@ class PeppolLookupBatchResponse(TypedDict):
     found: int  # Number of participants registered on SMP
     notFound: int  # Number of participants not found or errored
     results: List[PeppolLookupBatchItem]  # Per-participant results in request order
+
+
+# ---------------------------------------------------------------------------
+# Outbox
+# ---------------------------------------------------------------------------
+
+
+class OutboxListResponse(TypedDict):
+    """Paginated list of outbox (sent) documents."""
+
+    documents: List[Document]  # Outbound documents on the current page
+    total: int  # Total number of matching documents
+    offset: int  # Current pagination offset
+    limit: int  # Requested page size
+
+
+# ---------------------------------------------------------------------------
+# Invoice responses list
+# ---------------------------------------------------------------------------
+
+
+class InvoiceResponseItem(TypedDict, total=False):
+    """A single Invoice Response record for a document."""
+
+    id: str  # type: ignore[misc]  # Response UUID
+    responseCode: str  # type: ignore[misc]  # Response status code (one of InvoiceResponseCode)
+    note: Optional[str]  # Optional note accompanying the response
+    senderPeppolId: str  # type: ignore[misc]  # Peppol participant ID of the sender
+    createdAt: str  # type: ignore[misc]  # ISO 8601 timestamp when the response was created
+
+
+class InvoiceResponsesListResponse(TypedDict):
+    """Response from GET /documents/{id}/responses."""
+
+    documentId: str  # Document UUID the responses belong to
+    responses: List[InvoiceResponseItem]  # Array of Invoice Response records
+
+
+# ---------------------------------------------------------------------------
+# Document events
+# ---------------------------------------------------------------------------
+
+
+class DocumentEvent(TypedDict, total=False):
+    """A single event in a document's audit trail."""
+
+    id: str  # type: ignore[misc]  # Event UUID
+    eventType: str  # type: ignore[misc]  # Event type identifier, e.g. "status_changed"
+    actor: str  # type: ignore[misc]  # Actor that triggered the event
+    detail: Optional[str]  # Human-readable detail about the event
+    meta: Dict[str, Any]  # type: ignore[misc]  # Structured metadata attached to the event
+    occurredAt: str  # type: ignore[misc]  # ISO 8601 timestamp when the event occurred
+
+
+class DocumentEventsResponse(TypedDict):
+    """Response from GET /documents/{id}/events."""
+
+    documentId: str  # Document UUID the events belong to
+    events: List[DocumentEvent]  # Ordered array of events
+    nextCursor: Optional[str]  # Cursor for next page, or None when no more pages
 
 
 # ---------------------------------------------------------------------------
