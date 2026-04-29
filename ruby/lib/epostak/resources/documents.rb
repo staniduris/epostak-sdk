@@ -74,7 +74,12 @@ module EPostak
       # Note: named +send_document+ because +send+ is a reserved method in Ruby.
       #
       # @param body [Hash] Invoice data as JSON fields or raw UBL XML
-      # @return [Hash] Document ID, Peppol message ID, and status confirmation
+      # @param idempotency_key [String, nil] Optional client-chosen
+      #   `Idempotency-Key` header. Replays of the same key surface as
+      #   `EPostak::Error` with `code == "idempotency_conflict"`.
+      # @return [Hash] Document ID, Peppol message ID, status confirmation,
+      #   and `payload_sha256` (hex SHA-256 over the canonical UBL XML wire
+      #   payload)
       #
       # @example Send with JSON (API generates UBL)
       #   result = client.documents.send_document(
@@ -108,8 +113,8 @@ module EPostak
       #       }
       #     ]
       #   )
-      def send_document(body)
-        @http.request(:post, "/documents/send", body: body)
+      def send_document(body, idempotency_key: nil)
+        @http.request(:post, "/documents/send", body: body, idempotency_key: idempotency_key)
       end
 
       # Get the current delivery status and full status history of a document.
@@ -294,8 +299,14 @@ module EPostak
       #     }
       #   ])
       #   puts "#{batch['succeeded']} / #{batch['total']}"
-      def send_batch(items)
-        @http.request(:post, "/documents/send/batch", body: { items: items })
+      def send_batch(items, idempotency_key: nil)
+        @http.request(
+          :post,
+          "/documents/send/batch",
+          body: { items: items },
+          idempotency_key: idempotency_key,
+          retry_on_failure: true
+        )
       end
 
       # Parse a UBL XML invoice into a structured JSON representation.

@@ -491,6 +491,15 @@ public sealed class SendDocumentResponse
     /// <summary>Initial delivery status (typically "sent" or "queued").</summary>
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
+
+    /// <summary>
+    /// Hex-lowercase SHA-256 digest over the canonical UBL XML wire payload —
+    /// lets the receiver verify the bytes off Peppol AS4 match what ePošťák
+    /// logged at send time. Always present on 201 responses; absent only on
+    /// <c>202 SENT_DB_PENDING</c> recoveries.
+    /// </summary>
+    [JsonPropertyName("payloadSha256")]
+    public string? PayloadSha256 { get; set; }
 }
 
 // ---------------------------------------------------------------------------

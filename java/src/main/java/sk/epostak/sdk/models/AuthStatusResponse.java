@@ -1,7 +1,5 @@
 package sk.epostak.sdk.models;
 
-import java.util.List;
-
 /**
  * Response from {@code GET /auth/status} describing the authenticated API key,
  * the firm it resolves to, the current subscription plan, the applicable rate
@@ -26,7 +24,7 @@ public record AuthStatusResponse(
      * @param id          the key UUID
      * @param name        the human-assigned name of the key, or {@code null}
      * @param prefix      the key prefix shown in the dashboard, e.g. {@code "sk_live_abc"}
-     * @param permissions list of permission scopes granted to the key
+     * @param permissions space-separated permission/scope string (legacy keys may use bare permission names)
      * @param active      {@code true} if the key is currently active
      * @param createdAt   ISO 8601 creation timestamp
      * @param lastUsedAt  ISO 8601 timestamp of last successful authentication, or {@code null}
@@ -35,7 +33,7 @@ public record AuthStatusResponse(
             String id,
             String name,
             String prefix,
-            List<String> permissions,
+            String permissions,
             boolean active,
             String createdAt,
             String lastUsedAt

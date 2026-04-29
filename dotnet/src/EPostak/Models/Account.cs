@@ -117,9 +117,9 @@ public sealed class AuthStatusKey
     [JsonPropertyName("prefix")]
     public string Prefix { get; set; } = "";
 
-    /// <summary>Scoped permissions granted to this key (free-form strings).</summary>
+    /// <summary>Space-separated permission string (legacy keys) or scope list.</summary>
     [JsonPropertyName("permissions")]
-    public List<string> Permissions { get; set; } = [];
+    public string Permissions { get; set; } = "";
 
     /// <summary>Whether the key is currently active (not revoked).</summary>
     [JsonPropertyName("active")]

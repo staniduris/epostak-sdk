@@ -29,9 +29,11 @@ class Webhooks
     /**
      * Register a webhook endpoint.
      *
-     * @param string        $url    HTTPS URL that will receive POST webhook payloads.
-     * @param string[]|null $events Event types to subscribe to (e.g. ['document.received', 'document.sent']).
-     *                              Pass null to subscribe to all event types.
+     * @param string        $url            HTTPS URL that will receive POST webhook payloads.
+     * @param string[]|null $events         Event types to subscribe to (e.g. ['document.received', 'document.sent']).
+     *                                      Pass null to subscribe to all event types.
+     * @param string|null   $idempotencyKey Optional `Idempotency-Key` header value
+     *                                      for safe retries.
      * @return array Created webhook object with id, url, events, and secret.
      * @throws EPostakError On API error.
      *
@@ -42,15 +44,17 @@ class Webhooks
      *   );
      *   echo 'Webhook secret: ' . $webhook['secret'];
      */
-    public function create(string $url, ?array $events = null): array
+    public function create(string $url, ?array $events = null, ?string $idempotencyKey = null): array
     {
         $body = ['url' => $url];
         if ($events !== null) {
             $body['events'] = $events;
         }
-        return $this->http->request('POST', '/webhooks', [
-            'json' => $body,
-        ]);
+        $options = ['json' => $body];
+        if ($idempotencyKey !== null) {
+            $options['headers'] = ['Idempotency-Key' => $idempotencyKey];
+        }
+        return $this->http->request('POST', '/webhooks', $options);
     }
 
     /**

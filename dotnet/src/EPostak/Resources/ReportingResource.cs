@@ -13,28 +13,38 @@ public sealed class ReportingResource
     internal ReportingResource(HttpRequestor http) => _http = http;
 
     /// <summary>
-    /// Get document statistics (sent, delivered, failed, received, acknowledged, pending)
-    /// for a specified time period. If no period is provided, returns stats for the current month.
+    /// Get document statistics for a specified time period. If no period is provided,
+    /// returns stats for the current month. Use <see cref="StatisticsParams.Period"/>
+    /// for a convenience selector (<c>Month</c>/<c>Quarter</c>/<c>Year</c>) or
+    /// <c>From</c>/<c>To</c> for an explicit date range.
     /// </summary>
-    /// <param name="params">Optional date range: <c>From</c> and <c>To</c> in ISO 8601 format (e.g. "2026-01-01").</param>
+    /// <param name="params">Optional period selector or explicit date range.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Outbound and inbound document counts for the specified period.</returns>
+    /// <returns>Counts split by direction (sent/received) plus delivery rate and top parties.</returns>
     /// <example>
     /// <code>
     /// var stats = await client.Reporting.StatisticsAsync(new StatisticsParams
     /// {
-    ///     From = "2026-01-01",
-    ///     To = "2026-03-31"
+    ///     Period = ReportingPeriod.Month
     /// });
-    /// Console.WriteLine($"Q1 2026: {stats.Outbound.Total} sent, {stats.Inbound.Total} received");
-    /// Console.WriteLine($"  Delivered: {stats.Outbound.Delivered}, Failed: {stats.Outbound.Failed}");
+    /// Console.WriteLine($"{stats.Sent.Total} sent, {stats.Received.Total} received");
+    /// Console.WriteLine($"Delivery rate: {stats.DeliveryRate:P1}");
     /// </code>
     /// </example>
     public Task<Statistics> StatisticsAsync(StatisticsParams? @params = null, CancellationToken ct = default)
     {
         var qs = HttpRequestor.BuildQuery(
+            ("period", PeriodToString(@params?.Period)),
             ("from", @params?.From),
             ("to", @params?.To));
         return _http.RequestAsync<Statistics>(HttpMethod.Get, $"/reporting/statistics{qs}", ct);
     }
+
+    private static string? PeriodToString(ReportingPeriod? p) => p switch
+    {
+        ReportingPeriod.Month => "month",
+        ReportingPeriod.Quarter => "quarter",
+        ReportingPeriod.Year => "year",
+        _ => null,
+    };
 }

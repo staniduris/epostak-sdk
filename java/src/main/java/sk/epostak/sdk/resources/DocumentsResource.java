@@ -6,8 +6,6 @@ import sk.epostak.sdk.models.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Send and receive documents via Peppol.
@@ -122,6 +120,20 @@ public final class DocumentsResource {
      */
     public SendDocumentResponse send(SendDocumentRequest request) {
         return http.post("/documents/send", request, SendDocumentResponse.class);
+    }
+
+    /**
+     * Same as {@link #send(SendDocumentRequest)} but with an explicit
+     * {@code Idempotency-Key} header. Replaying the same key while the original
+     * request is still in flight returns HTTP 409 ({@code idempotency_conflict}).
+     *
+     * @param request        the send document request
+     * @param idempotencyKey opaque idempotency key (1-255 chars), or {@code null} to skip
+     * @return the response containing document ID, message ID, and initial status
+     * @throws sk.epostak.sdk.EPostakException if validation fails or the request fails
+     */
+    public SendDocumentResponse send(SendDocumentRequest request, String idempotencyKey) {
+        return http.postIdempotent("/documents/send", request, SendDocumentResponse.class, idempotencyKey);
     }
 
     /**
@@ -341,6 +353,24 @@ public final class DocumentsResource {
      */
     public BatchSendResponse sendBatch(List<BatchSendRequest.BatchItem> items) {
         return http.post("/documents/send/batch", new BatchSendRequest(items), BatchSendResponse.class);
+    }
+
+    /**
+     * Same as {@link #sendBatch(List)} but with an explicit
+     * {@code Idempotency-Key} header for the whole batch.
+     *
+     * @param items          the batch items to send
+     * @param idempotencyKey opaque idempotency key, or {@code null} to skip
+     * @return the batch send response with per-item results
+     * @throws sk.epostak.sdk.EPostakException if the request fails
+     */
+    public BatchSendResponse sendBatch(List<BatchSendRequest.BatchItem> items, String idempotencyKey) {
+        return http.postIdempotent(
+                "/documents/send/batch",
+                new BatchSendRequest(items),
+                BatchSendResponse.class,
+                idempotencyKey
+        );
     }
 
     /**

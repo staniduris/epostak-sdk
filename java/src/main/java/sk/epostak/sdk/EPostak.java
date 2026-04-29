@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
- * ePosťak Enterprise API client.
+ * ePošťák API client.
  *
  * <pre>{@code
  * EPostak client = EPostak.builder()
@@ -31,7 +31,7 @@ import java.time.Duration;
  */
 public final class EPostak {
 
-    private static final String DEFAULT_BASE_URL = "https://epostak.sk/api/enterprise";
+    private static final String DEFAULT_BASE_URL = "https://epostak.sk/api/v1";
     private static final String DEFAULT_PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
     private final HttpClient httpClient;
@@ -46,6 +46,8 @@ public final class EPostak {
     private final ReportingResource reporting;
     private final ExtractResource extract;
     private final AccountResource account;
+    private final AuthResource auth;
+    private final AuditResource audit;
 
     /** Maximum number of retries on 429/5xx. */
     private final int maxRetries;
@@ -68,6 +70,8 @@ public final class EPostak {
         this.reporting = new ReportingResource(httpClient);
         this.extract = new ExtractResource(httpClient);
         this.account = new AccountResource(httpClient);
+        this.auth = new AuthResource(httpClient);
+        this.audit = new AuditResource(httpClient);
     }
 
     /**
@@ -131,6 +135,20 @@ public final class EPostak {
     public AccountResource account() { return account; }
 
     /**
+     * OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist.
+     *
+     * @return the auth resource
+     */
+    public AuthResource auth() { return auth; }
+
+    /**
+     * Per-firm audit feed (cursor-paginated).
+     *
+     * @return the audit resource
+     */
+    public AuditResource audit() { return audit; }
+
+    /**
      * Validate a UBL XML document against Peppol BIS 3.0 rules without creating a client.
      * Uses the production public endpoint at {@code https://epostak.sk/api/validate}.
      * <p>
@@ -189,22 +207,6 @@ public final class EPostak {
     }
 
     /**
-     * Derive the public validate URL from an enterprise base URL, preserving host
-     * and scheme so staging and custom deployments keep working.
-     */
-    private static String deriveValidateUrl(String enterpriseBaseUrl) {
-        if (enterpriseBaseUrl == null) return DEFAULT_PUBLIC_VALIDATE_URL;
-        int idx = enterpriseBaseUrl.indexOf("/api/enterprise");
-        if (idx >= 0) {
-            return enterpriseBaseUrl.substring(0, idx) + "/api/validate";
-        }
-        // Fallback: append /validate to whatever base was supplied
-        return enterpriseBaseUrl.endsWith("/")
-                ? enterpriseBaseUrl + "validate"
-                : enterpriseBaseUrl + "/validate";
-    }
-
-    /**
      * Create a new client instance scoped to a specific firm.
      * Useful when an integrator key needs to switch between clients.
      *
@@ -240,7 +242,7 @@ public final class EPostak {
     public static final class Builder {
         /** API key for authentication. Required. */
         private String apiKey;
-        /** Base URL for the API. Defaults to {@code https://epostak.sk/api/enterprise}. */
+        /** Base URL for the API. Defaults to {@code https://epostak.sk/api/v1}. */
         private String baseUrl;
         /** Firm UUID for integrator key scoping. Optional. */
         private String firmId;
@@ -262,7 +264,7 @@ public final class EPostak {
         }
 
         /**
-         * Override the base URL. Defaults to {@code https://epostak.sk/api/enterprise}.
+         * Override the base URL. Defaults to {@code https://epostak.sk/api/v1}.
          *
          * @param baseUrl the base URL for API requests
          * @return this builder

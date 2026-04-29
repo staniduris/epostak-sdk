@@ -104,7 +104,21 @@ public sealed class DocumentsResource
     /// </code>
     /// </example>
     public Task<SendDocumentResponse> SendAsync(SendDocumentRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<SendDocumentResponse>(HttpMethod.Post, "/documents/send", request, ct);
+        => SendAsync(request, idempotencyKey: null, ct);
+
+    /// <summary>
+    /// Send an e-invoice via the Peppol network with an optional <c>Idempotency-Key</c>
+    /// header. Replays of the same key within the server-side window return the original
+    /// response instead of sending a second time. The server returns
+    /// <c>409 idempotency_conflict</c> (surfaced as <see cref="EPostakException"/> with
+    /// <see cref="EPostakException.Code"/> = <c>"idempotency_conflict"</c>) when the same
+    /// key is replayed before the original request finishes.
+    /// </summary>
+    /// <param name="request">The invoice data including receiver Peppol ID and line items or UBL XML.</param>
+    /// <param name="idempotencyKey">Optional idempotency key for safe retries. Null disables the header.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<SendDocumentResponse> SendAsync(SendDocumentRequest request, string? idempotencyKey, CancellationToken ct = default)
+        => _http.RequestAsync<SendDocumentResponse>(HttpMethod.Post, "/documents/send", request, idempotencyKey, ct);
 
     /// <summary>
     /// Get the current delivery status and full status history of a document.
@@ -308,10 +322,21 @@ public sealed class DocumentsResource
     /// </code>
     /// </example>
     public Task<BatchSendResponse> SendBatchAsync(List<BatchSendItem> items, CancellationToken ct = default)
+        => SendBatchAsync(items, idempotencyKey: null, ct);
+
+    /// <summary>
+    /// Send a batch of documents with an optional <c>Idempotency-Key</c> header for the
+    /// whole batch. Per-item idempotency keys go on each <see cref="BatchSendItem"/>.
+    /// </summary>
+    /// <param name="items">Items to send. Max 50 per call.</param>
+    /// <param name="idempotencyKey">Optional batch-level idempotency key.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<BatchSendResponse> SendBatchAsync(List<BatchSendItem> items, string? idempotencyKey, CancellationToken ct = default)
         => _http.RequestAsync<BatchSendResponse>(
             HttpMethod.Post,
             "/documents/send/batch",
             new BatchSendRequest { Items = items },
+            idempotencyKey,
             ct);
 
     /// <summary>

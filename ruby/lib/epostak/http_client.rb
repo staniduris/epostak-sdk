@@ -30,19 +30,28 @@ module EPostak
 
     # Perform a JSON API request.
     #
-    # @param method [Symbol] HTTP method (:get, :post, :patch, :delete)
+    # @param method [Symbol] HTTP method (:get, :post, :patch, :delete, :put)
     # @param path [String] API endpoint path (appended to base_url)
     # @param body [Hash, nil] Request body (serialized as JSON)
     # @param query [Hash, nil] Query parameters
+    # @param idempotency_key [String, nil] Optional `Idempotency-Key` header value
+    # @param retry_on_failure [Boolean, nil] Override default retry policy. When +true+,
+    #   non-idempotent methods (POST/PATCH/PUT) become retryable.
     # @return [Hash, nil] Parsed JSON response, or nil for 204 responses
     # @raise [EPostak::Error] On non-2xx responses or network errors
-    def request(method, path, body: nil, query: nil)
-      retryable = RETRYABLE_METHODS.include?(method)
+    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil)
+      retryable =
+        if retry_on_failure.nil?
+          RETRYABLE_METHODS.include?(method)
+        else
+          retry_on_failure
+        end
       attempt = 0
 
       loop do
         response = @conn.run_request(method, path, nil, nil) do |req|
           req.params.update(compact_params(query)) if query
+          req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
           if body
             req.headers["Content-Type"] = "application/json"
             req.body = JSON.generate(body)
@@ -51,7 +60,7 @@ module EPostak
 
         status = response.status
 
-        # Retry on 429 or 5xx for safe methods
+        # Retry on 429 or 5xx for retryable requests
         if retryable && attempt < @max_retries && (status == 429 || status >= 500)
           delay = calculate_delay(attempt, response)
           sleep(delay)
@@ -97,7 +106,7 @@ module EPostak
 
       unless response.success?
         error_body = parse_error_body(response)
-        raise Error.new(response.status, error_body)
+        raise Error.new(response.status, error_body, response.headers)
       end
 
       response.body
@@ -112,7 +121,6 @@ module EPostak
     # @return [Hash, nil] Parsed JSON response
     # @raise [EPostak::Error] On non-2xx responses
     def request_multipart(path, file_parts)
-      # Build a multipart connection for this request
       multipart_conn = Faraday.new(url: @base_url) do |f|
         f.request :multipart
         f.request :url_encoded
@@ -122,14 +130,13 @@ module EPostak
       end
 
       payload = {}
-      file_parts.each_with_index do |part, idx|
+      file_parts.each_with_index do |part, _idx|
         key = part[:field]
         upload = Faraday::Multipart::FilePart.new(
           part[:io],
           part[:mime_type],
           part[:filename] || "document"
         )
-        # If multiple files share the same field name, use array notation
         if file_parts.count { |p| p[:field] == key } > 1
           payload["#{key}[]"] ||= []
           payload["#{key}[]"] << upload
@@ -146,13 +153,6 @@ module EPostak
 
     private
 
-    # Calculate the backoff delay for a retry attempt.
-    # Uses exponential backoff with jitter: min(base_delay * 2^attempt + jitter, 30s).
-    # Respects Retry-After header on 429 responses.
-    #
-    # @param attempt [Integer] Current attempt number (0-based)
-    # @param response [Faraday::Response] The HTTP response
-    # @return [Float] Delay in seconds
     def calculate_delay(attempt, response)
       base_delay = 0.5
       max_delay = 30.0
@@ -160,11 +160,9 @@ module EPostak
       if response.status == 429
         retry_after = response.headers["Retry-After"] || response.headers["retry-after"]
         if retry_after
-          # Try parsing as numeric seconds
           seconds = Float(retry_after, exception: false)
           return [seconds, max_delay].min if seconds
 
-          # Try parsing as HTTP date
           begin
             date = Time.httpdate(retry_after)
             return [[date - Time.now, 0].max, max_delay].min
@@ -174,11 +172,10 @@ module EPostak
         end
       end
 
-      jitter = rand # 0–1s of jitter
+      jitter = rand
       [base_delay * (2**attempt) + jitter, max_delay].min
     end
 
-    # Build the base Faraday connection with auth headers.
     def build_connection
       Faraday.new(url: @base_url) do |f|
         f.adapter Faraday.default_adapter
@@ -187,40 +184,25 @@ module EPostak
       end
     end
 
-    # Process the Faraday response — parse JSON or return nil for 204.
-    #
-    # @param response [Faraday::Response]
-    # @return [Hash, nil]
-    # @raise [EPostak::Error] On non-2xx status
     def handle_response(response)
       unless response.success?
         error_body = parse_error_body(response)
-        raise Error.new(response.status, error_body)
+        raise Error.new(response.status, error_body, response.headers)
       end
 
-      # 204 No Content or empty body
       return nil if response.status == 204 || response.body.nil? || response.body.empty?
 
       JSON.parse(response.body)
     rescue JSON::ParserError
-      # If the body isn't JSON but status is 2xx, return raw string
       response.body
     end
 
-    # Attempt to parse an error response body as JSON.
-    #
-    # @param response [Faraday::Response]
-    # @return [Hash]
     def parse_error_body(response)
       JSON.parse(response.body)
     rescue StandardError
       { "error" => response.reason_phrase || "Request failed" }
     end
 
-    # Remove nil values from a params hash.
-    #
-    # @param params [Hash, nil]
-    # @return [Hash]
     def compact_params(params)
       return {} unless params
 

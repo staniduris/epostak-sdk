@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EPostak;
 
+use EPostak\Resources\Auth;
+use EPostak\Resources\Audit;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Firms;
 use EPostak\Resources\Peppol;
@@ -15,8 +17,10 @@ use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
- * ePošťák Enterprise API client.
+ * ePošťák API client.
  *
+ * @property-read Auth $auth OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist
+ * @property-read Audit $audit Per-firm audit feed (cursor-paginated)
  * @property-read Documents $documents Send and receive documents via Peppol
  * @property-read Firms $firms Manage client firms (integrator keys)
  * @property-read Peppol $peppol SMP lookup and Peppol directory search
@@ -27,7 +31,7 @@ use GuzzleHttp\Exception\GuzzleException;
  */
 class EPostak
 {
-    private const DEFAULT_BASE_URL = 'https://epostak.sk/api/enterprise';
+    private const DEFAULT_BASE_URL = 'https://epostak.sk/api/v1';
     private const DEFAULT_PUBLIC_BASE_URL = 'https://epostak.sk/api';
 
     private string $apiKey;
@@ -35,6 +39,8 @@ class EPostak
     private ?string $firmId;
     private int $maxRetries;
 
+    public Auth $auth;
+    public Audit $audit;
     public Documents $documents;
     public Firms $firms;
     public Peppol $peppol;
@@ -47,19 +53,19 @@ class EPostak
      * Create a new ePošťák API client.
      *
      * @param array{apiKey: string, baseUrl?: string, firmId?: string, maxRetries?: int} $config Configuration array.
-     *   - `apiKey`     (required) Your Enterprise API key.
-     *   - `baseUrl`    (optional) Override the API base URL (default: https://epostak.sk/api/enterprise).
-     *   - `firmId`     (optional) Scope all requests to this firm ID.
+     *   - `apiKey`     (required) Your API key (`sk_live_*` or `sk_int_*`).
+     *   - `baseUrl`    (optional) Override the API base URL (default: https://epostak.sk/api/v1).
+     *   - `firmId`     (optional) Scope all requests to this firm ID (required for `sk_int_*`).
      *   - `maxRetries` (optional) Maximum retries on 429/5xx responses (default: 3).
      *
      * @throws \InvalidArgumentException If apiKey is missing or not a string.
      *
      * @example
-     *   $client = new EPostak(['apiKey' => 'ek_live_...']);
+     *   $client = new EPostak(['apiKey' => 'sk_live_...']);
      *   $client->documents->send([...]);
      *
      * @example Scoped to a specific firm:
-     *   $client = new EPostak(['apiKey' => 'ek_live_...', 'firmId' => 'firm_abc']);
+     *   $client = new EPostak(['apiKey' => 'sk_int_...', 'firmId' => 'firm_abc']);
      */
     public function __construct(array $config)
     {
@@ -74,6 +80,8 @@ class EPostak
 
         $http = new HttpClient($this->baseUrl, $this->apiKey, $this->firmId, $this->maxRetries);
 
+        $this->auth = new Auth($http);
+        $this->audit = new Audit($http);
         $this->documents = new Documents($http);
         $this->firms = new Firms($http);
         $this->peppol = new Peppol($http);
@@ -102,7 +110,7 @@ class EPostak
             'apiKey' => $this->apiKey,
             'baseUrl' => $this->baseUrl,
             'firmId' => $firmId,
-            'maxRetries' => $this->maxRetries ?? 3,
+            'maxRetries' => $this->maxRetries,
         ]);
     }
 
@@ -154,7 +162,7 @@ class EPostak
             } catch (\Throwable) {
                 $decoded = ['error' => $response->getReasonPhrase()];
             }
-            throw new EPostakError($statusCode, $decoded);
+            throw new EPostakError($statusCode, $decoded, $response->getHeaders());
         }
 
         return $body === '' ? [] : (json_decode($body, true) ?? []);

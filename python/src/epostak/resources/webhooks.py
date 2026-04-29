@@ -7,9 +7,6 @@ webhook subscriptions, and :class:`WebhookQueueResource` (accessible via
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
@@ -22,78 +19,16 @@ if TYPE_CHECKING:
         WebhookWithDeliveries,
     )
 
-from epostak.resources.documents import _BaseResource, _build_query
+from epostak.resources.documents import _BaseResource, _build_query, _idempotency_headers
+
+# Re-export the top-level helper for back-compat with `from
+# epostak.resources.webhooks import verify_webhook_signature`.
+from epostak.webhook_signature import (  # noqa: F401
+    VerifyWebhookSignatureResult,
+    verify_webhook_signature,
+)
 
 import httpx
-
-
-def verify_webhook_signature(
-    payload: str,
-    signature: str,
-    secret: str,
-    max_age_ms: int = 300_000,
-) -> bool:
-    """Verify an ePostak webhook signature.
-
-    Uses HMAC-SHA512 with constant-time comparison to prevent timing attacks.
-    Rejects payloads older than ``max_age_ms`` milliseconds (default 5 minutes)
-    to prevent replay attacks.
-
-    Signature format: ``t=<unix_ms>,v1=<hex_hmac>``
-
-    Args:
-        payload: Raw request body string exactly as received.
-        signature: Value of the ``X-Epostak-Signature`` header.
-        secret: Webhook signing secret set when the webhook was created.
-        max_age_ms: Maximum allowed age of the payload in milliseconds (default 300000).
-
-    Returns:
-        ``True`` if the signature is valid and within the replay window.
-
-    Example::
-
-        from flask import request
-        from epostak.resources.webhooks import verify_webhook_signature
-
-        @app.post("/webhooks")
-        def handle_webhook():
-            if not verify_webhook_signature(
-                payload=request.get_data(as_text=True),
-                signature=request.headers["X-Epostak-Signature"],
-                secret=WEBHOOK_SECRET,
-            ):
-                return "Invalid signature", 401
-            # process event...
-    """
-    try:
-        parts = dict(part.split("=", 1) for part in signature.split(",") if "=" in part)
-    except Exception:
-        return False
-
-    if "t" not in parts or "v1" not in parts:
-        return False
-
-    try:
-        timestamp_ms = int(parts["t"])
-    except (ValueError, TypeError):
-        return False
-
-    age_ms = int(time.time() * 1000) - timestamp_ms
-    if age_ms < 0 or age_ms > max_age_ms:
-        return False
-
-    signed_payload = f"{timestamp_ms}.{payload}"
-    expected_sig = parts["v1"]
-    computed_sig = hmac.new(
-        secret.encode("utf-8"),
-        signed_payload.encode("utf-8"),
-        hashlib.sha512,
-    ).hexdigest()
-
-    try:
-        return hmac.compare_digest(expected_sig, computed_sig)
-    except Exception:
-        return False
 
 
 class WebhookQueueResource(_BaseResource):
@@ -218,6 +153,8 @@ class WebhooksResource(_BaseResource):
         self,
         url: str,
         events: Optional[List[str]] = None,
+        *,
+        idempotency_key: Optional[str] = None,
     ) -> WebhookDetail:
         """Register a webhook endpoint.
 
@@ -242,7 +179,12 @@ class WebhooksResource(_BaseResource):
         body: Dict[str, Any] = {"url": url}
         if events is not None:
             body["events"] = events
-        return self._request("POST", "/webhooks", json=body)
+        return self._request(
+            "POST",
+            "/webhooks",
+            json=body,
+            extra_headers=_idempotency_headers(idempotency_key),
+        )
 
     def list(self) -> List[Webhook]:
         """List all webhook subscriptions.

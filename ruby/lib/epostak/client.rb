@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
 module EPostak
-  # Main entry point for the ePosťák Enterprise API.
+  # Main entry point for the ePošťák API.
   #
   # Provides access to all API resources through attribute readers:
-  # +documents+, +firms+, +peppol+, +webhooks+, +reporting+, +account+, +extract+.
+  # +auth+, +audit+, +documents+, +firms+, +peppol+, +webhooks+, +reporting+,
+  # +account+, +extract+.
   #
   # @example Direct API key (single firm)
   #   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
@@ -15,6 +16,13 @@ module EPostak
   #   firm_a = integrator.with_firm("firm-a-uuid")
   #   firm_a.documents.inbox.list
   class Client
+    # @return [Resources::Auth] OAuth token mint/renew/revoke + key
+    #   introspection, rotation, IP allowlist
+    attr_reader :auth
+
+    # @return [Resources::Audit] Per-firm audit feed (cursor-paginated)
+    attr_reader :audit
+
     # @return [Resources::Documents] Send and receive documents via Peppol
     attr_reader :documents
 
@@ -36,14 +44,17 @@ module EPostak
     # @return [Resources::Extract] AI-powered OCR extraction from PDFs and images
     attr_reader :extract
 
-    # Create a new ePosťák API client.
+    # Create a new ePošťák API client.
     #
-    # @param api_key [String] Your Enterprise API key. Use +sk_live_*+ for direct
+    # @param api_key [String] Your API key. Use +sk_live_*+ for direct firm
     #   access or +sk_int_*+ for integrator (multi-tenant) access.
-    # @param base_url [String] Base URL for the API. Override for staging or local testing.
-    # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when using
-    #   integrator keys (+sk_int_*+). Sets the +X-Firm-Id+ header on each request.
-    # @param max_retries [Integer] Maximum retries on 429/5xx responses (default: 3).
+    # @param base_url [String] Base URL for the API. Defaults to
+    #   +https://epostak.sk/api/v1+. Override for staging or local testing.
+    # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when
+    #   using integrator keys (+sk_int_*+). Sets the +X-Firm-Id+ header on
+    #   each request.
+    # @param max_retries [Integer] Maximum retries on 429/5xx responses
+    #   (default: 3).
     #
     # @raise [ArgumentError] If api_key is nil or empty
     #
@@ -59,6 +70,8 @@ module EPostak
 
       http = HttpClient.new(api_key: @api_key, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
+      @auth      = Resources::Auth.new(http, base_url: @base_url)
+      @audit     = Resources::Audit.new(http)
       @documents = Resources::Documents.new(http)
       @firms     = Resources::Firms.new(http)
       @peppol    = Resources::Peppol.new(http)
@@ -90,9 +103,9 @@ module EPostak
 
     # Validate a UBL XML document via the public +/api/validate+ endpoint.
     #
-    # This is the PUBLIC validation endpoint and does *not* require an
-    # API key; the SDK intentionally bypasses the +Authorization+ header
-    # for this call. Rate-limited to 20 requests per minute per IP.
+    # This is the PUBLIC validation endpoint and does *not* require an API
+    # key; the SDK intentionally bypasses the +Authorization+ header for
+    # this call. Rate-limited to 20 requests per minute per IP.
     #
     # @param xml [String] UBL 2.1 XML invoice or credit note as a string
     # @return [Hash] Full 3-layer Peppol BIS 3.0 validation report
@@ -108,10 +121,15 @@ module EPostak
 
     private
 
-    # Strip the trailing "/enterprise" segment (if any) to derive the public API base URL.
+    # Strip a trailing `/v1` (or legacy `/enterprise`) segment to derive the
+    # public API base URL. The public validator lives directly under
+    # `https://epostak.sk/api`.
     def derive_public_base_url(base_url)
       stripped = base_url.to_s.sub(%r{/+\z}, "")
-      stripped.end_with?("/enterprise") ? stripped.sub(%r{/enterprise\z}, "") : stripped
+      %w[/v1 /enterprise].each do |suffix|
+        return stripped.sub(%r{#{suffix}\z}, "") if stripped.end_with?(suffix)
+      end
+      stripped
     end
   end
 end

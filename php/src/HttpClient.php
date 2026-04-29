@@ -6,7 +6,6 @@ namespace EPostak;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Exception\RequestException;
 
 /**
  * Internal HTTP transport layer for the ePošťák SDK.
@@ -20,6 +19,7 @@ class HttpClient
 {
     private Client $client;
     private string $apiKey;
+    private string $baseUrl;
     private ?string $firmId;
     private int $maxRetries;
 
@@ -27,7 +27,7 @@ class HttpClient
     private const RETRYABLE_METHODS = ['GET', 'DELETE'];
 
     /**
-     * @param string      $baseUrl    API base URL (e.g. 'https://epostak.sk/api/enterprise').
+     * @param string      $baseUrl    API base URL (e.g. 'https://epostak.sk/api/v1').
      * @param string      $apiKey     Bearer token for authentication.
      * @param string|null $firmId     Optional firm ID sent via X-Firm-Id header.
      * @param int         $maxRetries Maximum number of retries on 429/5xx (default 3).
@@ -35,6 +35,7 @@ class HttpClient
     public function __construct(string $baseUrl, string $apiKey, ?string $firmId = null, int $maxRetries = 3)
     {
         $this->apiKey = $apiKey;
+        $this->baseUrl = $baseUrl;
         $this->firmId = $firmId;
         $this->maxRetries = $maxRetries;
 
@@ -42,6 +43,26 @@ class HttpClient
             'base_uri' => rtrim($baseUrl, '/') . '/',
             'http_errors' => false,
         ]);
+    }
+
+    public function getApiKey(): string
+    {
+        return $this->apiKey;
+    }
+
+    public function getBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
+    public function getFirmId(): ?string
+    {
+        return $this->firmId;
+    }
+
+    public function getMaxRetries(): int
+    {
+        return $this->maxRetries;
     }
 
     /**
@@ -75,7 +96,6 @@ class HttpClient
         $path = ltrim($path, '/');
 
         $retryable = in_array(strtoupper($method), self::RETRYABLE_METHODS, true);
-        $lastException = null;
 
         for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             try {
@@ -106,7 +126,7 @@ class HttpClient
                 } catch (\Throwable) {
                     $decoded = ['error' => $response->getReasonPhrase()];
                 }
-                throw new EPostakError($statusCode, $decoded);
+                throw new EPostakError($statusCode, $decoded, $response->getHeaders());
             }
 
             if ($body === '' || $body === '{}') {
@@ -192,7 +212,7 @@ class HttpClient
             } catch (\Throwable) {
                 $decoded = ['error' => $response->getReasonPhrase()];
             }
-            throw new EPostakError($statusCode, $decoded);
+            throw new EPostakError($statusCode, $decoded, $response->getHeaders());
         }
 
         return $response->getBody()->getContents();

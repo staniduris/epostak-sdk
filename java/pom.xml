@@ -6,11 +6,11 @@
 
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.8.0</version>
+    <version>2.0.0</version>
     <packaging>jar</packaging>
 
     <name>ePosťak SDK</name>
-    <description>Official Java SDK for the ePosťak Enterprise API - Peppol e-invoicing for Slovakia and the EU</description>
+    <description>Official Java SDK for the ePošťák API - Peppol e-invoicing for Slovakia and the EU</description>
     <url>https://epostak.sk</url>
 
     <licenses>

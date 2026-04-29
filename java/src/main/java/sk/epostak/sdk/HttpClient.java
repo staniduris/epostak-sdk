@@ -4,10 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +35,7 @@ public final class HttpClient {
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
     private static final Set<String> RETRYABLE_METHODS = Set.of("GET", "DELETE");
 
-    /** Base URL for API requests, e.g. {@code "https://epostak.sk/api/enterprise"}. */
+    /** Base URL for API requests, e.g. {@code "https://epostak.sk/api/v1"}. */
     private final String baseUrl;
     /** Bearer token for authentication. */
     private final String apiKey;
@@ -71,6 +75,33 @@ public final class HttpClient {
         this(baseUrl, apiKey, firmId, 3);
     }
 
+    /**
+     * Returns the configured base URL (e.g. {@code "https://epostak.sk/api/v1"}).
+     *
+     * @return the base URL string
+     */
+    public String getBaseUrl() {
+        return baseUrl;
+    }
+
+    /**
+     * Returns the API key used for {@code Authorization: Bearer} headers.
+     *
+     * @return the API key
+     */
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    /**
+     * Returns the optional firm UUID forwarded as {@code X-Firm-Id}, or {@code null}.
+     *
+     * @return the firm UUID or {@code null}
+     */
+    public String getFirmId() {
+        return firmId;
+    }
+
     // -- convenience request methods ------------------------------------------
 
     /**
@@ -84,6 +115,23 @@ public final class HttpClient {
      */
     public <T> T get(String path, Class<T> type) {
         return request("GET", path, null, type);
+    }
+
+    /**
+     * Perform a GET request and deserialize the response using a Gson
+     * {@link TypeToken}. Use this when the response type is generic
+     * (e.g. {@link sk.epostak.sdk.models.CursorPage} of
+     * {@link sk.epostak.sdk.models.AuditEvent}) and a raw {@link Class} is
+     * insufficient.
+     *
+     * @param <T>       the response type
+     * @param path      the API path (appended to base URL)
+     * @param typeToken the response type token to deserialize into
+     * @return the deserialized response
+     * @throws EPostakException if the request fails
+     */
+    public <T> T getTyped(String path, TypeToken<T> typeToken) {
+        return requestTyped("GET", path, null, typeToken, Map.of());
     }
 
     /**
@@ -101,6 +149,25 @@ public final class HttpClient {
     }
 
     /**
+     * Perform a POST request with a JSON body and an explicit {@code Idempotency-Key}
+     * header for safe replay of mutating endpoints.
+     *
+     * @param <T>            the response type
+     * @param path           the API path (appended to base URL)
+     * @param body           the request body to serialize as JSON, or {@code null}
+     * @param type           the response class to deserialize to
+     * @param idempotencyKey opaque idempotency key (1-255 chars), or {@code null}
+     * @return the deserialized response
+     * @throws EPostakException if the request fails
+     */
+    public <T> T postIdempotent(String path, Object body, Class<T> type, String idempotencyKey) {
+        Map<String, String> headers = idempotencyKey != null
+                ? Map.of("Idempotency-Key", idempotencyKey)
+                : Map.of();
+        return request("POST", path, body, type, headers);
+    }
+
+    /**
      * Perform a PATCH request with a JSON body and deserialize the response.
      *
      * @param <T>  the response type
@@ -112,6 +179,20 @@ public final class HttpClient {
      */
     public <T> T patch(String path, Object body, Class<T> type) {
         return request("PATCH", path, body, type);
+    }
+
+    /**
+     * Perform a PUT request with a JSON body and deserialize the response.
+     *
+     * @param <T>  the response type
+     * @param path the API path (appended to base URL)
+     * @param body the request body to serialize as JSON
+     * @param type the response class to deserialize to
+     * @return the deserialized response, or {@code null} for 204 responses
+     * @throws EPostakException if the request fails
+     */
+    public <T> T put(String path, Object body, Class<T> type) {
+        return request("PUT", path, body, type);
     }
 
     /**
@@ -257,7 +338,7 @@ public final class HttpClient {
         }
 
         if (response.statusCode() >= 400) {
-            handleError(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8));
+            handleError(response.statusCode(), new String(response.body(), StandardCharsets.UTF_8), response.headers());
         }
         return response.body();
     }
@@ -288,7 +369,7 @@ public final class HttpClient {
         }
 
         if (response.statusCode() >= 400) {
-            handleError(response.statusCode(), response.body());
+            handleError(response.statusCode(), response.body(), response.headers());
         }
         return response.body();
     }
@@ -321,6 +402,21 @@ public final class HttpClient {
     // -- internal -------------------------------------------------------------
 
     private <T> T request(String method, String path, Object body, Class<T> type) {
+        return request(method, path, body, type, Map.of());
+    }
+
+    private <T> T request(String method, String path, Object body, Class<T> type, Map<String, String> extraHeaders) {
+        return requestTyped(method, path, body, TypeToken.get(type), extraHeaders);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T requestTyped(
+            String method,
+            String path,
+            Object body,
+            TypeToken<T> typeToken,
+            Map<String, String> extraHeaders
+    ) {
         HttpRequest.BodyPublisher publisher = (body != null)
                 ? HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8)
                 : HttpRequest.BodyPublishers.noBody();
@@ -337,11 +433,20 @@ public final class HttpClient {
         if (firmId != null) {
             builder.header("X-Firm-Id", firmId);
         }
+        for (Map.Entry<String, String> e : extraHeaders.entrySet()) {
+            builder.header(e.getKey(), e.getValue());
+        }
 
-        return execute(builder.build(), type);
+        return (T) executeTyped(builder.build(), typeToken.getType());
     }
 
     private <T> T execute(HttpRequest request, Class<T> type) {
+        @SuppressWarnings("unchecked")
+        T result = (T) executeTyped(request, type);
+        return result;
+    }
+
+    private Object executeTyped(HttpRequest request, Type responseType) {
         boolean retryable = RETRYABLE_METHODS.contains(request.method());
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -368,7 +473,7 @@ public final class HttpClient {
             }
 
             if (status >= 400) {
-                handleError(status, response.body());
+                handleError(status, response.body(), response.headers());
             }
 
             // 204 No Content or empty body
@@ -376,7 +481,7 @@ public final class HttpClient {
                 return null;
             }
 
-            return GSON.fromJson(response.body(), type);
+            return GSON.fromJson(response.body(), responseType);
         }
 
         throw new EPostakException(0, "Max retries exceeded");
@@ -408,17 +513,40 @@ public final class HttpClient {
         return (long) (delay * 1000);
     }
 
-    private void handleError(int status, String body) {
+    private void handleError(int status, String body, HttpHeaders headers) {
         String message = "API request failed";
         String code = null;
         Object details = null;
+        String type = null;
+        String title = null;
+        String detail = null;
+        String instance = null;
+        String requestId = null;
+        String requiredScope = null;
 
         try {
             JsonElement parsed = JsonParser.parseString(body);
             if (parsed.isJsonObject()) {
                 JsonObject obj = parsed.getAsJsonObject();
                 JsonElement errorEl = obj.get("error");
-                if (errorEl != null) {
+
+                // RFC 7807: { type, title, status, detail, instance, ... } — no `error`.
+                boolean isProblem = errorEl == null && (obj.has("title") || obj.has("detail"));
+
+                if (isProblem) {
+                    if (obj.has("type") && obj.get("type").isJsonPrimitive()) type = obj.get("type").getAsString();
+                    if (obj.has("title") && obj.get("title").isJsonPrimitive()) {
+                        title = obj.get("title").getAsString();
+                        message = title;
+                    }
+                    if (obj.has("detail") && obj.get("detail").isJsonPrimitive()) {
+                        detail = obj.get("detail").getAsString();
+                        if (title == null) message = detail;
+                    }
+                    if (obj.has("instance") && obj.get("instance").isJsonPrimitive()) instance = obj.get("instance").getAsString();
+                    if (obj.has("code") && obj.get("code").isJsonPrimitive()) code = obj.get("code").getAsString();
+                    if (obj.has("errors")) details = GSON.fromJson(obj.get("errors"), Object.class);
+                } else if (errorEl != null) {
                     if (errorEl.isJsonPrimitive()) {
                         message = errorEl.getAsString();
                     } else if (errorEl.isJsonObject()) {
@@ -432,14 +560,67 @@ public final class HttpClient {
                         if (errorObj.has("details")) {
                             details = GSON.fromJson(errorObj.get("details"), Object.class);
                         }
+                        if (errorObj.has("requestId") && errorObj.get("requestId").isJsonPrimitive()) {
+                            requestId = errorObj.get("requestId").getAsString();
+                        }
+                        if (errorObj.has("required_scope") && errorObj.get("required_scope").isJsonPrimitive()) {
+                            requiredScope = errorObj.get("required_scope").getAsString();
+                        }
                     }
+                } else if (obj.has("message") && obj.get("message").isJsonPrimitive()) {
+                    message = obj.get("message").getAsString();
+                }
+
+                // Body-level requestId / required_scope.
+                if (requestId == null && obj.has("requestId") && obj.get("requestId").isJsonPrimitive()) {
+                    requestId = obj.get("requestId").getAsString();
+                }
+                if (requiredScope == null && obj.has("required_scope") && obj.get("required_scope").isJsonPrimitive()) {
+                    requiredScope = obj.get("required_scope").getAsString();
                 }
             }
         } catch (Exception ignored) {
             // Keep defaults
         }
 
-        throw new EPostakException(status, message, code, details);
+        // Header fallbacks for requestId + WWW-Authenticate-derived requiredScope.
+        if (headers != null) {
+            if (requestId == null) {
+                requestId = headers.firstValue("x-request-id").orElse(null);
+            }
+            if (requiredScope == null) {
+                String www = headers.firstValue("www-authenticate").orElse(null);
+                requiredScope = parseRequiredScopeFromHeader(www);
+            }
+        }
+
+        throw new EPostakException(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
+    }
+
+    /**
+     * Extract the {@code scope="..."} value from a
+     * {@code WWW-Authenticate: Bearer error="insufficient_scope" scope="..."}
+     * header. Returns {@code null} if the header is absent or refers to a
+     * different OAuth error.
+     */
+    private static String parseRequiredScopeFromHeader(String www) {
+        if (www == null || www.isEmpty()) return null;
+        if (!www.toLowerCase().contains("insufficient_scope")) return null;
+        int idx = www.toLowerCase().indexOf("scope");
+        while (idx >= 0) {
+            int eq = www.indexOf('=', idx);
+            if (eq < 0) return null;
+            int q1 = www.indexOf('"', eq);
+            if (q1 < 0) return null;
+            int q2 = www.indexOf('"', q1 + 1);
+            if (q2 < 0) return null;
+            String key = www.substring(idx, eq).trim().toLowerCase();
+            if (key.equals("scope")) {
+                return www.substring(q1 + 1, q2);
+            }
+            idx = www.toLowerCase().indexOf("scope", q2 + 1);
+        }
+        return null;
     }
 
     // -- utility methods ------------------------------------------------------

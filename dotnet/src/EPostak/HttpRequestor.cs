@@ -76,8 +76,17 @@ internal sealed class HttpRequestor
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The deserialized API response.</returns>
     internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, CancellationToken ct)
+        => await RequestAsync<T>(method, path, body, idempotencyKey: null, ct).ConfigureAwait(false);
+
+    /// <summary>
+    /// Send a request with a JSON body and an optional <c>Idempotency-Key</c> header,
+    /// then deserialize the JSON response.
+    /// </summary>
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, CancellationToken ct)
     {
         using var request = BuildRequest(method, path);
+        if (!string.IsNullOrEmpty(idempotencyKey))
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
         var json = JsonSerializer.Serialize(body, JsonOptions);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
@@ -372,34 +381,81 @@ internal sealed class HttpRequestor
 
     /// <summary>
     /// Parse an API error response and throw a structured <see cref="EPostakException"/>.
-    /// Handles both <c>{"error": "message"}</c> and <c>{"error": {"message": "...", "code": "...", "details": ...}}</c> formats.
+    /// Handles both the legacy <c>{"error": {"message", "code", "details"}}</c> envelope
+    /// and the RFC 7807 <c>application/problem+json</c> envelope (<c>{type, title, detail,
+    /// instance, status, ...}</c>). Forwards <c>X-Request-Id</c> and parses
+    /// <c>WWW-Authenticate</c> for <c>insufficient_scope</c> rejections.
     /// </summary>
     private static async Task ThrowApiError(HttpResponseMessage response, CancellationToken ct)
     {
         string? message = null;
         string? code = null;
         object? details = null;
+        string? type = null;
+        string? title = null;
+        string? detail = null;
+        string? instance = null;
+        string? requestId = null;
+        string? requiredScope = null;
 
         try
         {
             var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            using var doc = JsonDocument.Parse(body);
-            var root = doc.RootElement;
-
-            if (root.TryGetProperty("error", out var errorProp))
+            if (!string.IsNullOrWhiteSpace(body))
             {
-                if (errorProp.ValueKind == JsonValueKind.String)
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Object)
                 {
-                    message = errorProp.GetString();
-                }
-                else if (errorProp.ValueKind == JsonValueKind.Object)
-                {
-                    if (errorProp.TryGetProperty("message", out var msgProp))
-                        message = msgProp.GetString();
-                    if (errorProp.TryGetProperty("code", out var codeProp))
-                        code = codeProp.GetString();
-                    if (errorProp.TryGetProperty("details", out var detailsProp))
-                        details = detailsProp.ToString();
+                    // RFC 7807 envelope: { type, title, status, detail, instance, ... }
+                    var hasError = root.TryGetProperty("error", out var errorProp);
+                    var looksLikeProblem =
+                        !hasError &&
+                        (root.TryGetProperty("title", out _) || root.TryGetProperty("detail", out _));
+
+                    if (looksLikeProblem)
+                    {
+                        if (root.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String)
+                            type = t.GetString();
+                        if (root.TryGetProperty("title", out var ti) && ti.ValueKind == JsonValueKind.String)
+                            title = ti.GetString();
+                        if (root.TryGetProperty("detail", out var dt) && dt.ValueKind == JsonValueKind.String)
+                            detail = dt.GetString();
+                        if (root.TryGetProperty("instance", out var ins) && ins.ValueKind == JsonValueKind.String)
+                            instance = ins.GetString();
+                        if (root.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String)
+                            code = c.GetString();
+                        if (root.TryGetProperty("errors", out var errs))
+                            details = errs.ToString();
+                        message = title ?? detail;
+                    }
+                    else if (hasError)
+                    {
+                        if (errorProp.ValueKind == JsonValueKind.String)
+                        {
+                            message = errorProp.GetString();
+                        }
+                        else if (errorProp.ValueKind == JsonValueKind.Object)
+                        {
+                            if (errorProp.TryGetProperty("message", out var msgProp))
+                                message = msgProp.GetString();
+                            if (errorProp.TryGetProperty("code", out var codeProp))
+                                code = codeProp.GetString();
+                            if (errorProp.TryGetProperty("details", out var detailsProp))
+                                details = detailsProp.ToString();
+                            if (errorProp.TryGetProperty("required_scope", out var scopeProp) && scopeProp.ValueKind == JsonValueKind.String)
+                                requiredScope = scopeProp.GetString();
+                            if (errorProp.TryGetProperty("requestId", out var ridProp) && ridProp.ValueKind == JsonValueKind.String)
+                                requestId = ridProp.GetString();
+                        }
+                    }
+
+                    // Both envelope variants may carry these top-level fields.
+                    if (requestId is null && root.TryGetProperty("requestId", out var ridTop) && ridTop.ValueKind == JsonValueKind.String)
+                        requestId = ridTop.GetString();
+                    if (requiredScope is null && root.TryGetProperty("required_scope", out var rsTop) && rsTop.ValueKind == JsonValueKind.String)
+                        requiredScope = rsTop.GetString();
                 }
             }
         }
@@ -408,11 +464,39 @@ internal sealed class HttpRequestor
             // Ignore parse errors — use fallback message
         }
 
+        // Header-derived: X-Request-Id wins as fallback if not in body.
+        if (requestId is null && response.Headers.TryGetValues("X-Request-Id", out var ridValues))
+        {
+            foreach (var v in ridValues) { requestId = v; break; }
+        }
+
+        // Parse WWW-Authenticate: Bearer error="insufficient_scope" scope="documents:send"
+        if (requiredScope is null && response.Headers.WwwAuthenticate.Count > 0)
+        {
+            foreach (var auth in response.Headers.WwwAuthenticate)
+            {
+                var raw = auth.Parameter ?? "";
+                if (raw.IndexOf("insufficient_scope", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                var match = System.Text.RegularExpressions.Regex.Match(raw, "scope\\s*=\\s*\"([^\"]+)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    requiredScope = match.Groups[1].Value;
+                    break;
+                }
+            }
+        }
+
         throw new EPostakException(
             (int)response.StatusCode,
             message ?? $"API request failed with status {(int)response.StatusCode}",
             code,
-            details);
+            details,
+            type,
+            title,
+            detail,
+            instance,
+            requestId,
+            requiredScope);
     }
 
     /// <summary>

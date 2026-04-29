@@ -48,6 +48,13 @@ def _build_query(params: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in params.items() if v is not None}
 
 
+def _idempotency_headers(idempotency_key: Optional[str]) -> Optional[Dict[str, str]]:
+    """Build the ``Idempotency-Key`` header dict, or ``None`` when no key was passed."""
+    if not idempotency_key:
+        return None
+    return {"Idempotency-Key": idempotency_key}
+
+
 class _BaseResource:
     """Shared base for all resource classes."""
 
@@ -144,7 +151,7 @@ class _BaseResource:
                     body = response.json()
                 except Exception:
                     body = {"error": response.reason_phrase or "API request failed"}
-                last_exc = EPostakError(response.status_code, body)
+                last_exc = EPostakError(response.status_code, body, response.headers)
 
                 if attempt < self._max_retries and self._should_retry(method, response.status_code):
                     self._sleep_for_retry(attempt, response)
@@ -322,7 +329,12 @@ class DocumentsResource(_BaseResource):
         """
         return self._request("PATCH", f"/documents/{quote(id, safe='')}", json=kwargs)
 
-    def send(self, body: Dict[str, Any]) -> SendDocumentResponse:
+    def send(
+        self,
+        body: Dict[str, Any],
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> SendDocumentResponse:
         """Send a document via Peppol.
 
         Supports two modes:
@@ -366,8 +378,21 @@ class DocumentsResource(_BaseResource):
                 ],
             })
             print(result["documentId"])
+
+            # Replay-safe send. The server returns 409 (idempotency_conflict)
+            # if the same key is replayed before the original finishes.
+            result = client.documents.send(
+                {...},
+                idempotency_key="fv-2026-001-send",
+            )
+            print(result["payload_sha256"])  # hex SHA-256 of UBL wire bytes
         """
-        return self._request("POST", "/documents/send", json=body)
+        return self._request(
+            "POST",
+            "/documents/send",
+            json=body,
+            extra_headers=_idempotency_headers(idempotency_key),
+        )
 
     def status(self, id: str) -> DocumentStatusResponse:
         """Get full document status with lifecycle history.
@@ -615,7 +640,12 @@ class DocumentsResource(_BaseResource):
         }
         return self._request("POST", "/documents/convert", json=body)
 
-    def send_batch(self, items: List[Dict[str, Any]]) -> BatchSendResponse:
+    def send_batch(
+        self,
+        items: List[Dict[str, Any]],
+        *,
+        idempotency_key: Optional[str] = None,
+    ) -> BatchSendResponse:
         """Send up to 50 documents in a single request.
 
         Each item uses the same body format as :meth:`send` and may carry an
@@ -647,7 +677,12 @@ class DocumentsResource(_BaseResource):
             ])
             print(batch["succeeded"], "/", batch["total"])
         """
-        return self._request("POST", "/documents/send/batch", json={"items": items})
+        return self._request(
+            "POST",
+            "/documents/send/batch",
+            json={"items": items},
+            extra_headers=_idempotency_headers(idempotency_key),
+        )
 
     def parse(self, xml: str) -> Dict[str, Any]:
         """Parse a UBL XML invoice into a structured JSON representation.

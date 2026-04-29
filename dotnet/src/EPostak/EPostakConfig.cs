@@ -24,10 +24,10 @@ public sealed class EPostakConfig
     public required string ApiKey { get; init; }
 
     /// <summary>
-    /// Base URL for the API. Defaults to the production endpoint <c>https://epostak.sk/api/enterprise</c>.
+    /// Base URL for the API. Defaults to the production endpoint <c>https://epostak.sk/api/v1</c>.
     /// Override this for staging environments or local development.
     /// </summary>
-    public string BaseUrl { get; init; } = "https://epostak.sk/api/enterprise";
+    public string BaseUrl { get; init; } = "https://epostak.sk/api/v1";
 
     /// <summary>
     /// Firm UUID to act on behalf of. When set, every API request includes an <c>X-Firm-Id</c> header

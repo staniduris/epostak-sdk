@@ -1,7 +1,7 @@
 {
     "name": "epostak/sdk",
-    "description": "Official PHP SDK for the ePošťák Enterprise API — Peppol e-invoicing for Slovakia and the EU.",
-    "version": "1.8.0",
+    "description": "Official PHP SDK for the ePošťák API — Peppol e-invoicing for Slovakia and the EU.",
+    "version": "2.0.0",
     "type": "library",
     "license": "MIT",
     "require": {

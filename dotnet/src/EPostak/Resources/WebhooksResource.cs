@@ -1,6 +1,4 @@
 using EPostak.Models;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace EPostak.Resources;
 
@@ -45,7 +43,18 @@ public sealed class WebhooksResource
     /// </code>
     /// </example>
     public Task<WebhookDetail> CreateAsync(CreateWebhookRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<WebhookDetail>(HttpMethod.Post, "/webhooks", request, ct);
+        => CreateAsync(request, idempotencyKey: null, ct);
+
+    /// <summary>
+    /// Create a new webhook subscription with an optional <c>Idempotency-Key</c>
+    /// header so retried calls return the original webhook (and signing secret)
+    /// instead of provisioning a duplicate subscription.
+    /// </summary>
+    /// <param name="request">The webhook URL and list of event types to subscribe to.</param>
+    /// <param name="idempotencyKey">Optional idempotency key for safe retries. Null disables the header.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<WebhookDetail> CreateAsync(CreateWebhookRequest request, string? idempotencyKey, CancellationToken ct = default)
+        => _http.RequestAsync<WebhookDetail>(HttpMethod.Post, "/webhooks", request, idempotencyKey, ct);
 
     /// <summary>
     /// List all webhook subscriptions for the current API key.
@@ -191,62 +200,4 @@ public sealed class WebhooksResource
             ct);
     }
 
-    /// <summary>
-    /// Verify an inbound webhook payload signature. Uses constant-time comparison to prevent
-    /// timing attacks. Rejects payloads older than <paramref name="maxAgeMs"/> milliseconds
-    /// to prevent replay attacks.
-    /// <para>
-    /// Signature format: <c>t=&lt;unix_ms&gt;,v1=&lt;hex_hmac_sha512&gt;</c>
-    /// </para>
-    /// </summary>
-    /// <param name="payload">The raw webhook request body as a string.</param>
-    /// <param name="signature">The value of the <c>X-Epostak-Signature</c> header.</param>
-    /// <param name="secret">The webhook signing secret obtained when the webhook was created.</param>
-    /// <param name="maxAgeMs">Maximum acceptable age of the payload in milliseconds (default 300,000 = 5 minutes).</param>
-    /// <returns><c>true</c> if the signature is valid and within the replay window.</returns>
-    /// <example>
-    /// <code>
-    /// bool valid = client.Webhooks.VerifyWebhookSignature(
-    ///     payload: requestBody,
-    ///     signature: request.Headers["X-Epostak-Signature"],
-    ///     secret: Environment.GetEnvironmentVariable("WEBHOOK_SECRET")!);
-    /// if (!valid) return Results.Unauthorized();
-    /// </code>
-    /// </example>
-    public static bool VerifyWebhookSignature(string payload, string signature, string secret, long maxAgeMs = 300_000)
-    {
-        try
-        {
-            // Signature format: t=<unix_ms>,v1=<hex_hmac>
-            string? tPart = null;
-            string? vPart = null;
-            foreach (var segment in signature.Split(','))
-            {
-                if (segment.StartsWith("t=", StringComparison.Ordinal)) tPart = segment[2..];
-                else if (segment.StartsWith("v1=", StringComparison.Ordinal)) vPart = segment[3..];
-            }
-
-            if (tPart is null || vPart is null) return false;
-            if (!long.TryParse(tPart, out var timestamp)) return false;
-
-            // Replay protection
-            var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - timestamp;
-            if (age < 0 || age > maxAgeMs) return false;
-
-            var keyBytes = Encoding.UTF8.GetBytes(secret);
-            var msgBytes = Encoding.UTF8.GetBytes($"{timestamp}.{payload}");
-            var computedBytes = HMACSHA512.HashData(keyBytes, msgBytes);
-            var computedHex = Convert.ToHexString(computedBytes).ToLowerInvariant();
-
-            var expectedBytes = Convert.FromHexString(vPart);
-            var computedHexBytes = Encoding.ASCII.GetBytes(computedHex);
-            var expectedHexBytes = Encoding.ASCII.GetBytes(vPart.ToLowerInvariant());
-
-            return CryptographicOperations.FixedTimeEquals(computedHexBytes, expectedHexBytes);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }

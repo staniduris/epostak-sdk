@@ -63,9 +63,27 @@ public final class WebhooksResource {
      * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
      */
     public WebhookDetail create(String url, List<String> events) {
+        return create(url, events, null);
+    }
+
+    /**
+     * Register a new webhook endpoint with an explicit {@code Idempotency-Key}
+     * header. Replaying the same key while the original request is still in
+     * flight returns HTTP 409 ({@code idempotency_conflict}).
+     *
+     * @param url            the webhook endpoint URL (must be HTTPS)
+     * @param events         list of event types to subscribe to, or {@code null}
+     * @param idempotencyKey opaque idempotency key (1-255 chars), or {@code null} to skip
+     * @return the created webhook detail including the signing secret
+     * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
+     */
+    public WebhookDetail create(String url, List<String> events, String idempotencyKey) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("url", url);
         if (events != null) body.put("events", events);
+        if (idempotencyKey != null) {
+            return http.postIdempotent("/webhooks", body, WebhookDetail.class, idempotencyKey);
+        }
         return http.post("/webhooks", body, WebhookDetail.class);
     }
 

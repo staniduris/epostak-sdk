@@ -72,8 +72,15 @@ class Documents
      * types (UBL typecodes 261/389), the customer party (which is the
      * authenticated firm) is rewritten instead.
      *
-     * @param array $body Document payload including supplier, customer, line items, and Peppol IDs.
-     * @return array{documentId: string, messageId: string, status: string} Send confirmation.
+     * @param array       $body           Document payload including supplier, customer, line items, and Peppol IDs.
+     * @param string|null $idempotencyKey Optional `Idempotency-Key` header value.
+     *                                    Replaying the same key while the original
+     *                                    request is still in flight returns 409
+     *                                    `idempotency_conflict` (surfaced as
+     *                                    EPostakError).
+     * @return array{documentId: string, messageId: string, status: string, payloadSha256?: string} Send confirmation.
+     *         Includes `payloadSha256` (hex SHA-256 over the canonical UBL XML wire
+     *         payload) on `201` send responses.
      * @throws EPostakError On validation or delivery error.
      *
      * @example
@@ -103,11 +110,13 @@ class Documents
      *       ]],
      *   ]);
      */
-    public function send(array $body): array
+    public function send(array $body, ?string $idempotencyKey = null): array
     {
-        return $this->http->request('POST', '/documents/send', [
-            'json' => $body,
-        ]);
+        $options = ['json' => $body];
+        if ($idempotencyKey !== null) {
+            $options['headers'] = ['Idempotency-Key' => $idempotencyKey];
+        }
+        return $this->http->request('POST', '/documents/send', $options);
     }
 
     /**
@@ -318,11 +327,13 @@ class Documents
      *   ]);
      *   echo $batch['succeeded'], '/', $batch['total'];
      */
-    public function sendBatch(array $items): array
+    public function sendBatch(array $items, ?string $idempotencyKey = null): array
     {
-        return $this->http->request('POST', '/documents/send/batch', [
-            'json' => ['items' => $items],
-        ]);
+        $options = ['json' => ['items' => $items]];
+        if ($idempotencyKey !== null) {
+            $options['headers'] = ['Idempotency-Key' => $idempotencyKey];
+        }
+        return $this->http->request('POST', '/documents/send/batch', $options);
     }
 
     /**

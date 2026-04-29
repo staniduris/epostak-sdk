@@ -7,8 +7,9 @@ using EPostak.Resources;
 namespace EPostak;
 
 /// <summary>
-/// Main entry point for the ePosťak Enterprise API. Provides access to all API
-/// resources: documents, firms, Peppol lookups, webhooks, reporting, OCR extraction, and account info.
+/// Main entry point for the ePošťák API. Provides access to all API resources:
+/// auth, audit, documents, firms, Peppol lookups, webhooks, reporting, OCR
+/// extraction, and account info.
 /// </summary>
 /// <example>
 /// Basic usage with a direct API key:
@@ -32,6 +33,12 @@ public sealed class EPostakClient : IDisposable
     private readonly HttpClient _http;
     private readonly bool _ownsHttpClient;
     private readonly EPostakConfig _config;
+
+    /// <summary>OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist.</summary>
+    public AuthResource Auth { get; }
+
+    /// <summary>Per-firm audit feed (cursor-paginated).</summary>
+    public AuditResource Audit { get; }
 
     /// <summary>Send, receive, and manage e-invoicing documents via the Peppol network.</summary>
     public DocumentsResource Documents { get; }
@@ -95,6 +102,8 @@ public sealed class EPostakClient : IDisposable
 
         var requestor = new HttpRequestor(_http, config.ApiKey, config.BaseUrl, config.FirmId, config.MaxRetries);
 
+        Auth = new AuthResource(requestor, _http, config.BaseUrl);
+        Audit = new AuditResource(requestor);
         Documents = new DocumentsResource(requestor);
         Firms = new FirmsResource(requestor);
         Peppol = new PeppolResource(requestor);
@@ -227,18 +236,22 @@ public sealed class EPostakClient : IDisposable
     /// Derive the public validate URL from a configured enterprise base URL, preserving
     /// scheme and host so staging and custom deployments keep working.
     /// </summary>
-    private static string DeriveValidateUrl(string enterpriseBaseUrl)
+    private static string DeriveValidateUrl(string baseUrl)
     {
-        if (string.IsNullOrEmpty(enterpriseBaseUrl))
+        if (string.IsNullOrEmpty(baseUrl))
             return DefaultPublicValidateUrl;
 
-        var idx = enterpriseBaseUrl.IndexOf("/api/enterprise", StringComparison.Ordinal);
-        if (idx >= 0)
-            return enterpriseBaseUrl[..idx] + "/api/validate";
+        var v1 = baseUrl.IndexOf("/api/v1", StringComparison.Ordinal);
+        if (v1 >= 0)
+            return baseUrl[..v1] + "/api/validate";
 
-        return enterpriseBaseUrl.EndsWith('/')
-            ? enterpriseBaseUrl + "validate"
-            : enterpriseBaseUrl + "/validate";
+        var legacy = baseUrl.IndexOf("/api/enterprise", StringComparison.Ordinal);
+        if (legacy >= 0)
+            return baseUrl[..legacy] + "/api/validate";
+
+        return baseUrl.EndsWith('/')
+            ? baseUrl + "validate"
+            : baseUrl + "/validate";
     }
 
     /// <summary>

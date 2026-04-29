@@ -58,7 +58,7 @@ var client = new EPostakClient(new EPostakConfig
     ApiKey = "sk_live_xxxxx",
 
     // Optional: override base URL for staging/local testing
-    BaseUrl = "https://epostak.sk/api/enterprise",
+    BaseUrl = "https://epostak.sk/api/v1",
 
     // Optional: firm ID for integrator keys (sk_int_*)
     FirmId = "firm-uuid-here"
@@ -294,12 +294,14 @@ Console.WriteLine($"Acknowledged: {result.Acknowledged}");
 ```csharp
 var stats = await client.Reporting.StatisticsAsync(new StatisticsParams
 {
-    From = "2026-01-01",
-    To = "2026-04-11"
+    Period = ReportingPeriod.Month
 });
 
-Console.WriteLine($"Outbound: {stats.Outbound.Total} total, {stats.Outbound.Delivered} delivered");
-Console.WriteLine($"Inbound: {stats.Inbound.Total} total, {stats.Inbound.Acknowledged} acknowledged");
+Console.WriteLine($"Sent: {stats.Sent.Total} total");
+Console.WriteLine($"Received: {stats.Received.Total} total");
+Console.WriteLine($"Delivery rate: {stats.DeliveryRate:P1}");
+foreach (var top in stats.TopRecipients)
+    Console.WriteLine($"  {top.Name} ({top.PeppolId}): {top.Count}");
 ```
 
 ### Account

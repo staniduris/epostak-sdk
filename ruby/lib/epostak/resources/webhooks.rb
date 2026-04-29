@@ -85,16 +85,20 @@ module EPostak
       # @return [Hash] Webhook details { "id", "url", "events", "secret", "isActive", "createdAt" }
       #   — +secret+ is shown only once; store it securely.
       #
+      # @param idempotency_key [String, nil] Optional client-chosen
+      #   `Idempotency-Key` header. Replays of the same key surface as
+      #   `EPostak::Error` with `code == "idempotency_conflict"`.
+      #
       # @example
       #   webhook = client.webhooks.create(
       #     url: "https://example.com/webhooks",
       #     events: ["document.received"]
       #   )
       #   puts webhook["secret"] # => Store this securely!
-      def create(url:, events: nil)
+      def create(url:, events: nil, idempotency_key: nil)
         body = { url: url }
         body[:events] = events if events
-        @http.request(:post, "/webhooks", body: body)
+        @http.request(:post, "/webhooks", body: body, idempotency_key: idempotency_key)
       end
 
       # List all webhook subscriptions for the current account.

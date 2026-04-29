@@ -13,7 +13,7 @@ also exported for use in type annotations.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict
@@ -164,12 +164,13 @@ SendDocumentRequest = Dict[str, Any]
 """Request body for ``documents.send()``.  Use ``items`` for JSON mode or ``xml`` for XML mode."""
 
 
-class SendDocumentResponse(TypedDict):
+class SendDocumentResponse(TypedDict, total=False):
     """Successful response from sending a document (HTTP 201)."""
 
-    documentId: str  # UUID of the created document
-    messageId: str  # Peppol AS4 message ID
-    status: str  # Initial status, typically "SENT"
+    documentId: str  # type: ignore[misc]  # UUID of the created document
+    messageId: str  # type: ignore[misc]  # Peppol AS4 message ID
+    status: str  # type: ignore[misc]  # Initial status, typically "SENT"
+    payload_sha256: str  # Hex SHA-256 over the canonical UBL XML wire payload
 
 
 # ---------------------------------------------------------------------------
@@ -676,35 +677,62 @@ class WebhookQueueAllResponse(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-class _StatsPeriod(TypedDict):
-    """Date range for a statistics query."""
-
-    from_: str  # Start date (ISO 8601 / YYYY-MM-DD)
-    to: str  # End date (ISO 8601 / YYYY-MM-DD)
+ReportingPeriod = Literal["month", "quarter", "year"]
+"""Convenience period selector for ``client.reporting.statistics``."""
 
 
-class _StatsOutbound(TypedDict):
-    """Outbound (sent) document statistics."""
+class StatisticsParams(TypedDict, total=False):
+    """Optional parameters for ``client.reporting.statistics``."""
 
-    total: int  # Total outbound documents in the period
-    delivered: int  # Successfully delivered documents
-    failed: int  # Failed delivery attempts
+    from_: str  # Start date (ISO 8601 / YYYY-MM-DD), inclusive
+    to: str  # End date (ISO 8601 / YYYY-MM-DD), inclusive
+    period: ReportingPeriod  # Convenience window selector
 
 
-class _StatsInbound(TypedDict):
-    """Inbound (received) document statistics."""
+class _StatsByType(TypedDict, total=False):
+    """Per-document-type counts. Keys are document type slugs (e.g.
+    ``"invoice"``, ``"credit_note"``)."""
 
-    total: int  # Total inbound documents in the period
-    acknowledged: int  # Documents marked as acknowledged
-    pending: int  # Documents still awaiting acknowledgement
+    invoice: int
+    credit_note: int
+    correction: int
+    self_billing: int
+    reverse_charge: int
+    self_billing_credit_note: int
+
+
+class _StatsSent(TypedDict):
+    """Sent (outbound) document statistics."""
+
+    total: int  # Total sent documents in the period
+    by_type: Dict[str, int]  # Per-document-type counts
+
+
+class _StatsReceived(TypedDict):
+    """Received (inbound) document statistics."""
+
+    total: int  # Total received documents in the period
+    by_type: Dict[str, int]  # Per-document-type counts
+
+
+class StatisticsTopParty(TypedDict):
+    """Top counterparty entry returned by ``stats.top_recipients`` /
+    ``stats.top_senders``."""
+
+    peppol_id: str  # Peppol participant identifier
+    name: Optional[str]  # Resolved party name (None if unknown)
+    count: int  # Documents exchanged in the period
 
 
 class Statistics(TypedDict):
     """Aggregated document statistics for a date range."""
 
-    period: Dict[str, str]  # {"from": "...", "to": "..."} date range
-    outbound: _StatsOutbound  # Outbound document counts
-    inbound: _StatsInbound  # Inbound document counts
+    period: Dict[str, str]  # Resolved {"from", "to"} date range
+    sent: _StatsSent  # Sent (outbound) totals + per-type breakdown
+    received: _StatsReceived  # Received (inbound) totals + per-type breakdown
+    delivery_rate: float  # 0.0–1.0 fraction delivered for sent docs
+    top_recipients: List[StatisticsTopParty]  # Up to 5 top recipients (sent)
+    top_senders: List[StatisticsTopParty]  # Up to 5 top senders (received)
 
 
 # ---------------------------------------------------------------------------
@@ -756,12 +784,12 @@ class Account(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Account status (auth introspection)
+# Auth status (key introspection)
 # ---------------------------------------------------------------------------
 
 
-class _AccountStatusKey(TypedDict, total=False):
-    """API key metadata returned by the status endpoint."""
+class AuthStatusKey(TypedDict, total=False):
+    """API key metadata returned by ``GET /auth/status``."""
 
     id: str  # type: ignore[misc]  # API key UUID
     name: Optional[str]  # Human-readable label for the key
@@ -772,18 +800,19 @@ class _AccountStatusKey(TypedDict, total=False):
     lastUsedAt: Optional[str]  # ISO 8601 timestamp of last use, or None
 
 
-class _AccountStatusFirm(TypedDict):
+class AuthStatusFirm(TypedDict):
     """Firm info in the status response.
 
-    Only ``id`` and ``peppolStatus`` are returned here — call :meth:`AccountResource.get`
-    for the full firm profile.
+    Only ``id`` and ``peppolStatus`` are returned here — call
+    :meth:`~epostak.resources.account.AccountResource.get` for the full
+    firm profile.
     """
 
     id: str  # Firm UUID
     peppolStatus: str  # Peppol registration status, e.g. "ACTIVE"
 
 
-class _AccountStatusPlan(TypedDict):
+class AuthStatusPlan(TypedDict):
     """Subscription plan info embedded in the status response."""
 
     name: str  # Plan slug, e.g. "api-enterprise", "free"
@@ -791,31 +820,41 @@ class _AccountStatusPlan(TypedDict):
     active: bool  # True if the plan is currently active (non-free and not expired)
 
 
-class _AccountStatusRateLimit(TypedDict):
+class AuthStatusRateLimit(TypedDict):
     """Rate-limit thresholds applicable to the current key."""
 
     perMinute: int  # Allowed requests per minute (typically 200)
     window: str  # Window size as a human-readable string, e.g. "60s"
 
 
-class _AccountStatusIntegrator(TypedDict):
+class AuthStatusIntegrator(TypedDict):
     """Integrator info present only when the authenticated key is an integrator key."""
 
     id: str  # Integrator UUID
 
 
-class AccountStatus(TypedDict):
+class AuthStatusResponse(TypedDict):
     """Authentication introspection for the current API key.
 
-    Mirrors ``POST /auth/status``.  Integrators see ``integrator`` populated;
+    Mirrors ``GET /auth/status``. Integrators see ``integrator`` populated;
     direct (single-firm) keys have ``integrator: None``.
     """
 
-    key: _AccountStatusKey  # Current API key metadata
-    firm: _AccountStatusFirm  # Resolved firm for this request
-    plan: _AccountStatusPlan  # Current subscription plan
-    rateLimit: _AccountStatusRateLimit  # Rate-limit configuration
-    integrator: Optional[_AccountStatusIntegrator]  # Integrator info, None for direct keys
+    key: AuthStatusKey  # Current API key metadata
+    firm: AuthStatusFirm  # Resolved firm for this request
+    plan: AuthStatusPlan  # Current subscription plan
+    rateLimit: AuthStatusRateLimit  # Rate-limit configuration
+    integrator: Optional[AuthStatusIntegrator]  # Integrator info, None for direct keys
+
+
+# Back-compat aliases (v1 names) — keep code that still types against the
+# old names compiling. These alias to the v2 shapes verbatim.
+AccountStatus = AuthStatusResponse
+_AccountStatusKey = AuthStatusKey
+_AccountStatusFirm = AuthStatusFirm
+_AccountStatusPlan = AuthStatusPlan
+_AccountStatusRateLimit = AuthStatusRateLimit
+_AccountStatusIntegrator = AuthStatusIntegrator
 
 
 # ---------------------------------------------------------------------------
@@ -1009,3 +1048,94 @@ class BatchExtractResult(TypedDict):
     successful: int  # Number of successfully extracted files
     failed: int  # Number of files that failed extraction
     results: List[BatchExtractItem]  # Per-file results
+
+
+# ---------------------------------------------------------------------------
+# Auth (OAuth client_credentials flow + IP allowlist) — v2.0
+# ---------------------------------------------------------------------------
+
+
+class TokenResponse(TypedDict, total=False):
+    """OAuth access + refresh token pair returned by ``client.auth.token`` /
+    ``client.auth.renew``.
+
+    Mirrors RFC 6749 ``client_credentials`` / ``refresh_token`` grant
+    responses. The access token is a JWT valid for ``expires_in`` seconds
+    (typically 900). The refresh token is a 30-day rotating string —
+    every successful renew invalidates the previous refresh token, so
+    always overwrite stored state with the new value.
+    """
+
+    access_token: str  # JWT access token
+    refresh_token: str  # 30-day rotating refresh token
+    token_type: str  # "Bearer"
+    expires_in: int  # Access-token lifetime in seconds (typically 900)
+    scope: str  # Granted scopes (space-separated)
+
+
+class RevokeResponse(TypedDict, total=False):
+    """Response from ``client.auth.revoke``. Idempotent — returned even
+    when the token was unknown or already revoked."""
+
+    revoked: bool  # Always True
+
+
+class IpAllowlistResponse(TypedDict):
+    """Response from ``client.auth.ip_allowlist.get`` /
+    ``client.auth.ip_allowlist.update``."""
+
+    ip_allowlist: List[str]  # Active CIDR / IP entries (empty = no restriction)
+
+
+# ---------------------------------------------------------------------------
+# Audit feed (Wave 3.4) — v2.0
+# ---------------------------------------------------------------------------
+
+
+AuditActorType = Literal["user", "apiKey", "integratorKey", "system"]
+"""Type of principal that triggered an audit event."""
+
+
+class AuditEvent(TypedDict, total=False):
+    """A single audit-feed row."""
+
+    id: str  # type: ignore[misc]  # Audit row UUID
+    occurred_at: str  # type: ignore[misc]  # ISO-8601 timestamp
+    event: str  # type: ignore[misc]  # Event slug, e.g. "jwt.issued", "key.rotated"
+    actor_type: AuditActorType  # type: ignore[misc]  # Principal class
+    actor_id: Optional[str]  # Principal UUID (None for system events)
+    firm_id: Optional[str]  # Tenant UUID
+    ip: Optional[str]  # Source IP address
+    user_agent: Optional[str]  # Source user-agent
+    metadata: Dict[str, Any]  # Free-form event metadata
+
+
+class AuditListParams(TypedDict, total=False):
+    """Optional parameters for ``client.audit.list``."""
+
+    event: str  # Exact-match event slug
+    actor_type: AuditActorType  # Restrict to a principal class
+    since: str  # ISO-8601 lower bound (inclusive)
+    until: str  # ISO-8601 upper bound (exclusive)
+    cursor: str  # Opaque cursor from a previous page's next_cursor
+    limit: int  # 1–100, default 20
+
+
+# ---------------------------------------------------------------------------
+# Cursor pagination — v2.0
+# ---------------------------------------------------------------------------
+
+
+_CursorItemT = TypeVar("_CursorItemT")
+
+
+class CursorPage(TypedDict, Generic[_CursorItemT]):
+    """One page of a cursor-paginated response.
+
+    ``next_cursor`` is ``None`` when the feed is exhausted; otherwise
+    pass it back as the ``cursor`` parameter of the next call to fetch
+    the following page.
+    """
+
+    items: List[_CursorItemT]  # Rows in this page
+    next_cursor: Optional[str]  # Opaque cursor or None when finished
