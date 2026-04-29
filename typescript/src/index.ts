@@ -12,6 +12,9 @@ export type {
   VerifyWebhookSignatureResult,
 } from "./utils/webhook-signature.js";
 
+// Token manager (advanced — most users don't need this)
+export { TokenManager } from "./utils/token-manager.js";
+
 // OAuth authorization_code + PKCE helpers (integrator-initiated onboarding)
 export { OAuth } from "./resources/oauth.js";
 
@@ -28,6 +31,10 @@ export {
 export { ReportingResource } from "./resources/reporting.js";
 export { ExtractResource } from "./resources/extract.js";
 export { AccountResource } from "./resources/account.js";
+export {
+  IntegratorResource,
+  IntegratorLicensesResource,
+} from "./resources/integrator.js";
 
 // All types
 export type {
@@ -129,6 +136,13 @@ export type {
   Statistics,
   // Account
   Account,
+  // Integrator billing aggregate
+  IntegratorLicenseInfo,
+  IntegratorLicenseInfoParams,
+  IntegratorPricingTier,
+  IntegratorBillableUsage,
+  IntegratorNonManagedUsage,
+  IntegratorFirmUsage,
   // Extract
   ExtractResult,
   BatchExtractItem,

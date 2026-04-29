@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "epostak"
-version = "2.1.0"
+version = "2.2.0"
 description = "Official Python SDK for the ePostak API - Peppol e-invoicing for Slovakia and the EU"
 readme = "README.md"
 license = "MIT"

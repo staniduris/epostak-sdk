@@ -1,27 +1,33 @@
 namespace EPostak;
 
 /// <summary>
-/// Configuration for the ePosťak Enterprise API client. At minimum, provide an <see cref="ApiKey"/>.
-/// For integrator (multi-tenant) usage, also set <see cref="FirmId"/> or use
-/// <see cref="EPostakClient.WithFirm"/> to scope requests to a specific client firm.
+/// Configuration for the ePosťak Enterprise API client. Provide <see cref="ClientId"/>
+/// and <see cref="ClientSecret"/> for OAuth JWT authentication. The SDK automatically
+/// mints and refreshes JWT tokens via the SAPI token endpoint.
 /// </summary>
 /// <example>
 /// Direct API key (single firm):
 /// <code>
-/// var config = new EPostakConfig { ApiKey = "sk_live_xxxxx" };
+/// var config = new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" };
 /// </code>
 /// Integrator key (multi-tenant) scoped to a specific firm:
 /// <code>
-/// var config = new EPostakConfig { ApiKey = "sk_int_xxxxx", FirmId = "firm-uuid-here" };
+/// var config = new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx", FirmId = "firm-uuid-here" };
 /// </code>
 /// </example>
 public sealed class EPostakConfig
 {
     /// <summary>
-    /// Your Enterprise API key. Use <c>sk_live_*</c> for direct access (single firm)
-    /// or <c>sk_int_*</c> for integrator access (multi-tenant, managing multiple client firms).
+    /// OAuth client ID for the <c>client_credentials</c> grant. Typically your
+    /// Enterprise API key (<c>sk_live_*</c> or <c>sk_int_*</c>).
     /// </summary>
-    public required string ApiKey { get; init; }
+    public required string ClientId { get; init; }
+
+    /// <summary>
+    /// OAuth client secret for the <c>client_credentials</c> grant. Typically the
+    /// same value as <see cref="ClientId"/> for API-key-based authentication.
+    /// </summary>
+    public required string ClientSecret { get; init; }
 
     /// <summary>
     /// Base URL for the API. Defaults to the production endpoint <c>https://epostak.sk/api/v1</c>.

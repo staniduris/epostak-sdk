@@ -3,6 +3,54 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.0.0 — 2026-04-29
+
+### Breaking
+
+- **Constructor API changed**: `new EPostak({ apiKey })` →
+  `new EPostak({ clientId, clientSecret })`. The SDK now auto-mints a
+  JWT via OAuth `client_credentials` on the first API call and refreshes
+  it before expiry. Raw `sk_live_*` / `sk_int_*` bearer is no longer
+  accepted by the server.
+
+- **`auth.token()` signature changed**: `token({ apiKey })` →
+  `token({ clientId, clientSecret })`. Sends proper `client_id` and
+  `client_secret` fields to `POST /api/v1/auth/token`.
+
+- **`withFirm()` shares JWT**: No longer creates a fresh auth context;
+  reuses the parent's token manager and only adds `X-Firm-Id`.
+
+### Added
+
+- `TokenManager` class — handles JWT lifecycle (mint, cache, refresh).
+  Exported from the package for advanced use cases.
+
+## 2.2.0 — 2026-04-29
+
+### Added
+
+- **`client.integrator.licenses.info({ offset?, limit? })`** — wraps
+  `GET /api/v1/integrator/licenses/info`. Returns aggregate plan + current
+  -period usage across every firm an integrator manages. Tier rates are
+  applied to the AGGREGATE counts (not per-firm summed), so a 100-firm ×
+  50-doc integrator lands in tier 2–3 instead of tier 1.
+
+  Response surfaces `billable` (firms on the `integrator-managed` plan
+  that the integrator pays for), `nonManaged` (linked firms paying their
+  own plan), `exceedsAutoTier` (true above 5 000 / month — auto-billing
+  pauses, sales handles manually), `contactThreshold`, `pricing.outboundTiers`
+  / `pricing.inboundApiTiers`, and a paginated per-firm breakdown.
+
+  Requires `account:read` scope on a `sk_int_*` integrator key. No
+  `X-Firm-Id` header — the endpoint is integrator-scoped, not firm-scoped.
+
+- New types: `IntegratorLicenseInfo`, `IntegratorLicenseInfoParams`,
+  `IntegratorPricingTier`, `IntegratorBillableUsage`,
+  `IntegratorNonManagedUsage`, `IntegratorFirmUsage`.
+
+- New resources exported from the package root:
+  `IntegratorResource`, `IntegratorLicensesResource`.
+
 ## 2.1.0 — 2026-04-29
 
 ### Added

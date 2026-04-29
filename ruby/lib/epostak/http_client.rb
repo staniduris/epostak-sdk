@@ -15,15 +15,15 @@ module EPostak
     # HTTP methods that are safe to retry by default.
     RETRYABLE_METHODS = %i[get delete].freeze
 
-    # @param api_key [String] Bearer token for authentication
+    # @param token_manager [EPostak::TokenManager] Manages OAuth JWT tokens
     # @param base_url [String] API base URL
     # @param firm_id [String, nil] Optional firm UUID sent as X-Firm-Id header
     # @param max_retries [Integer] Maximum retries on 429/5xx (default: 3)
-    def initialize(api_key:, base_url:, firm_id: nil, max_retries: 3)
-      @api_key     = api_key
-      @base_url    = base_url
-      @firm_id     = firm_id
-      @max_retries = max_retries
+    def initialize(token_manager:, base_url:, firm_id: nil, max_retries: 3)
+      @token_manager = token_manager
+      @base_url      = base_url
+      @firm_id       = firm_id
+      @max_retries   = max_retries
 
       @conn = build_connection
     end
@@ -50,6 +50,7 @@ module EPostak
 
       loop do
         response = @conn.run_request(method, path, nil, nil) do |req|
+          req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
           req.params.update(compact_params(query)) if query
           req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
           if body
@@ -85,6 +86,7 @@ module EPostak
     # @raise [EPostak::Error] On non-2xx responses or network errors
     def request_with_body(method, path, xml, content_type: "application/xml")
       response = @conn.run_request(method, path, nil, nil) do |req|
+        req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
         req.headers["Content-Type"] = content_type
         req.body = xml
       end
@@ -102,7 +104,9 @@ module EPostak
     # @return [String] Raw response body bytes
     # @raise [EPostak::Error] On non-2xx responses
     def request_raw(method, path)
-      response = @conn.run_request(method, path, nil, nil)
+      response = @conn.run_request(method, path, nil, nil) do |req|
+        req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
+      end
 
       unless response.success?
         error_body = parse_error_body(response)
@@ -125,7 +129,7 @@ module EPostak
         f.request :multipart
         f.request :url_encoded
         f.adapter Faraday.default_adapter
-        f.headers["Authorization"] = "Bearer #{@api_key}"
+        f.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
         f.headers["X-Firm-Id"] = @firm_id if @firm_id
       end
 
@@ -179,7 +183,6 @@ module EPostak
     def build_connection
       Faraday.new(url: @base_url) do |f|
         f.adapter Faraday.default_adapter
-        f.headers["Authorization"] = "Bearer #{@api_key}"
         f.headers["X-Firm-Id"] = @firm_id if @firm_id
       end
     end

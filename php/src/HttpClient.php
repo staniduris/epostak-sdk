@@ -18,7 +18,7 @@ use GuzzleHttp\Exception\GuzzleException;
 class HttpClient
 {
     private Client $client;
-    private string $apiKey;
+    private TokenManager $tokenManager;
     private string $baseUrl;
     private ?string $firmId;
     private int $maxRetries;
@@ -27,14 +27,14 @@ class HttpClient
     private const RETRYABLE_METHODS = ['GET', 'DELETE'];
 
     /**
-     * @param string      $baseUrl    API base URL (e.g. 'https://epostak.sk/api/v1').
-     * @param string      $apiKey     Bearer token for authentication.
-     * @param string|null $firmId     Optional firm ID sent via X-Firm-Id header.
-     * @param int         $maxRetries Maximum number of retries on 429/5xx (default 3).
+     * @param string       $baseUrl      API base URL (e.g. 'https://epostak.sk/api/v1').
+     * @param TokenManager $tokenManager Token manager for JWT authentication.
+     * @param string|null  $firmId       Optional firm ID sent via X-Firm-Id header.
+     * @param int          $maxRetries   Maximum number of retries on 429/5xx (default 3).
      */
-    public function __construct(string $baseUrl, string $apiKey, ?string $firmId = null, int $maxRetries = 3)
+    public function __construct(string $baseUrl, TokenManager $tokenManager, ?string $firmId = null, int $maxRetries = 3)
     {
-        $this->apiKey = $apiKey;
+        $this->tokenManager = $tokenManager;
         $this->baseUrl = $baseUrl;
         $this->firmId = $firmId;
         $this->maxRetries = $maxRetries;
@@ -45,9 +45,9 @@ class HttpClient
         ]);
     }
 
-    public function getApiKey(): string
+    public function getTokenManager(): TokenManager
     {
-        return $this->apiKey;
+        return $this->tokenManager;
     }
 
     public function getBaseUrl(): string
@@ -77,7 +77,7 @@ class HttpClient
     public function request(string $method, string $path, array $options = []): ?array
     {
         $headers = [
-            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Authorization' => 'Bearer ' . $this->tokenManager->getAccessToken(),
             'Accept' => 'application/json',
         ];
 
@@ -185,7 +185,7 @@ class HttpClient
     public function requestRaw(string $method, string $path): string
     {
         $headers = [
-            'Authorization' => 'Bearer ' . $this->apiKey,
+            'Authorization' => 'Bearer ' . $this->tokenManager->getAccessToken(),
         ];
 
         if ($this->firmId !== null) {

@@ -3,6 +3,30 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.2.0 — 2026-04-29
+
+### Added
+
+- **`client.Integrator.Licenses.InfoAsync(offset?, limit?)`** — wraps
+  `GET /api/v1/integrator/licenses/info`. Returns aggregate plan +
+  current-period usage across every firm an integrator manages. Tier rates
+  are applied to the AGGREGATE counts (not per-firm summed), so a 100-firm ×
+  50-doc integrator lands in tier 2–3 instead of tier 1.
+- Response surfaces `Billable` (firms on the `integrator-managed` plan that
+  the integrator pays for), `NonManaged` (linked firms paying their own
+  plan), `ExceedsAutoTier` (`true` above 5 000 / month — auto-billing pauses,
+  sales handles manually), `ContactThreshold`, `Pricing.OutboundTiers` /
+  `Pricing.InboundApiTiers`, and a paginated per-firm breakdown.
+- Requires the `account:read` scope on a `sk_int_*` integrator key. No
+  `X-Firm-Id` header — the endpoint is integrator-scoped, not firm-scoped.
+- New types: `IntegratorLicenseInfo`, `IntegratorLicenseInfoIntegrator`,
+  `IntegratorBillableUsage`, `IntegratorNonManagedUsage`,
+  `IntegratorPricing`, `IntegratorPricingTier`, `IntegratorFirmUsage`,
+  `IntegratorLicensePagination`. New resources:
+  `EPostak.Resources.IntegratorResource`,
+  `EPostak.Resources.IntegratorLicensesResource`. New top-level accessor
+  `EPostakClient.Integrator`.
+
 ## 2.1.0 — 2026-04-29
 
 ### Added

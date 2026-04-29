@@ -28,9 +28,12 @@ import java.util.Map;
  * Access via {@code client.auth()}.
  *
  * <pre>{@code
- * EPostak client = EPostak.builder().apiKey("sk_live_xxxxx").build();
+ * EPostak client = EPostak.builder()
+ *     .clientId("sk_live_xxxxx")
+ *     .clientSecret("sk_live_xxxxx")
+ *     .build();
  *
- * TokenResponse tokens = client.auth().token("sk_live_xxxxx");
+ * TokenResponse tokens = client.auth().token("sk_live_xxxxx", "sk_live_xxxxx");
  * System.out.println(tokens.accessToken() + " (expires_in=" + tokens.expiresIn() + ")");
  *
  * // Later, before the access token expires:
@@ -70,30 +73,27 @@ public final class AuthResource {
     /**
      * Mint an OAuth access token via the {@code client_credentials} grant.
      * <p>
-     * The API key is sent as both the {@code Authorization: Bearer} header
-     * and the {@code client_secret} body field — the server accepts either,
-     * but doubling up keeps the SDK compatible across spec revisions. For
-     * integrator keys ({@code sk_int_*}) you must also pass {@code firmId},
+     * For integrator keys ({@code sk_int_*}) you must also pass {@code firmId},
      * which is forwarded as {@code X-Firm-Id} so the issued JWT is bound to
      * the right tenant.
      *
-     * @param apiKey the API key acting as both bearer credential and {@code client_secret}
-     * @param firmId the firm UUID for integrator keys (sent as {@code X-Firm-Id}), or {@code null}
-     * @param scope  optional space-separated scope subset, or {@code null} for the key's own scopes
+     * @param clientId     the OAuth client ID (API key)
+     * @param clientSecret the OAuth client secret
+     * @param firmId       the firm UUID for integrator keys (sent as {@code X-Firm-Id}), or {@code null}
+     * @param scope        optional space-separated scope subset, or {@code null} for the key's own scopes
      * @return the access + refresh token pair, scope, and {@code expires_in} (seconds)
      * @throws EPostakException if the request fails
      */
-    public TokenResponse token(String apiKey, String firmId, String scope) {
+    public TokenResponse token(String clientId, String clientSecret, String firmId, String scope) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("grant_type", "client_credentials");
-        body.put("client_id", apiKey);
-        body.put("client_secret", apiKey);
+        body.put("client_id", clientId);
+        body.put("client_secret", clientSecret);
         if (scope != null) body.put("scope", scope);
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(http.getBaseUrl() + "/auth/token"))
                 .timeout(TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8));
         if (firmId != null) {
@@ -104,14 +104,15 @@ public final class AuthResource {
     }
 
     /**
-     * Mint a token using just the API key (no integrator firm pinning, no scope subset).
+     * Mint a token using just clientId + clientSecret (no integrator firm pinning, no scope subset).
      *
-     * @param apiKey the API key acting as both bearer credential and {@code client_secret}
+     * @param clientId     the OAuth client ID (API key)
+     * @param clientSecret the OAuth client secret
      * @return the access + refresh token pair
      * @throws EPostakException if the request fails
      */
-    public TokenResponse token(String apiKey) {
-        return token(apiKey, null, null);
+    public TokenResponse token(String clientId, String clientSecret) {
+        return token(clientId, clientSecret, null, null);
     }
 
     /**

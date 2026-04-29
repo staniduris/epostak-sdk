@@ -1906,6 +1906,88 @@ export interface AuditEvent {
   metadata: Record<string, unknown> | null;
 }
 
+/** Query parameters for `GET /integrator/licenses/info`. */
+export interface IntegratorLicenseInfoParams {
+  /** Pagination offset for the per-firm list. Default 0. */
+  offset?: number;
+  /** Page size for the per-firm list. Max 100. Default 50. */
+  limit?: number;
+}
+
+/** A single tier in the integrator pricing table. */
+export interface IntegratorPricingTier {
+  /** Inclusive upper bound of the tier (in documents). `null` on the
+   *  open-ended top tier — `contactRequired: true` then. */
+  upTo: number | null;
+  /** Per-document rate in EUR. `null` on the open-ended top tier. */
+  rate: number | null;
+  /** Human-readable label for the open-ended tier (e.g. `"Individuálne"`). */
+  label?: string;
+  /** `true` when sales contract is required (above `contactThreshold`). */
+  contactRequired?: boolean;
+}
+
+/** Aggregate over firms on the `integrator-managed` plan (the integrator pays). */
+export interface IntegratorBillableUsage {
+  managedFirms: number;
+  outboundCount: number;
+  inboundApiCount: number;
+  /** Tier rates applied to the AGGREGATE outboundCount (not per-firm). */
+  outboundCharge: number;
+  /** Tier rates applied to the AGGREGATE inboundApiCount. */
+  inboundApiCharge: number;
+  /** Sum of outboundCharge + inboundApiCharge, rounded to cents. */
+  totalCharge: number;
+  currency: "EUR";
+}
+
+/** Linked firms that pay their own plan (not billed to the integrator). */
+export interface IntegratorNonManagedUsage {
+  firms: number;
+  outboundCount: number;
+  inboundApiCount: number;
+}
+
+/** Per-firm row in the `firms` page. */
+export interface IntegratorFirmUsage {
+  firmId: string;
+  name: string | null;
+  ico: string | null;
+  /** `true` → counts in `billable`; `false` → counts in `nonManaged`. */
+  managed: boolean;
+  outboundCount: number;
+  inboundApiCount: number;
+}
+
+/** Response of `GET /integrator/licenses/info`. */
+export interface IntegratorLicenseInfo {
+  integrator: {
+    id: string;
+    name: string;
+    plan: string;
+    monthlyDocumentLimit: number | null;
+  };
+  /** Current billing period in `YYYY-MM` (SK timezone). */
+  period: string;
+  /** ISO 8601 — when counters reset (1st of next month, SK midnight in UTC). */
+  nextResetAt: string;
+  billable: IntegratorBillableUsage;
+  nonManaged: IntegratorNonManagedUsage;
+  /** `true` when outbound or inbound exceeds `contactThreshold`. Auto-billing
+   *  pauses; sales handles invoicing manually. */
+  exceedsAutoTier: boolean;
+  /** Hard ceiling above which an individual contract is required (5000). */
+  contactThreshold: number;
+  pricing: {
+    model: "tiered";
+    currency: "EUR";
+    outboundTiers: IntegratorPricingTier[];
+    inboundApiTiers: IntegratorPricingTier[];
+  };
+  firms: IntegratorFirmUsage[];
+  pagination: { limit: number; offset: number; total: number };
+}
+
 /** Query parameters for `GET /audit`. */
 export interface AuditListParams {
   /** Exact match on the `event` field (e.g. `"jwt.issued"`). */

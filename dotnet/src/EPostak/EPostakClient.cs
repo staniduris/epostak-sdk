@@ -12,9 +12,9 @@ namespace EPostak;
 /// extraction, and account info.
 /// </summary>
 /// <example>
-/// Basic usage with a direct API key:
+/// Basic usage with OAuth JWT authentication:
 /// <code>
-/// var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_live_xxxxx" });
+/// var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" });
 /// var result = await client.Documents.SendAsync(new SendDocumentRequest
 /// {
 ///     ReceiverPeppolId = "0192:12345678",
@@ -23,7 +23,7 @@ namespace EPostak;
 /// </code>
 /// Integrator usage with firm switching:
 /// <code>
-/// var integrator = new EPostakClient(new EPostakConfig { ApiKey = "sk_int_xxxxx" });
+/// var integrator = new EPostakClient(new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx" });
 /// var firmClient = integrator.WithFirm("firm-uuid-here");
 /// var inbox = await firmClient.Documents.Inbox.ListAsync();
 /// </code>
@@ -33,6 +33,7 @@ public sealed class EPostakClient : IDisposable
     private readonly HttpClient _http;
     private readonly bool _ownsHttpClient;
     private readonly EPostakConfig _config;
+    private readonly TokenManager _tokenManager;
 
     /// <summary>OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist.</summary>
     public AuthResource Auth { get; }
@@ -62,13 +63,22 @@ public sealed class EPostakClient : IDisposable
     public AccountResource Account { get; }
 
     /// <summary>
+    /// Integrator-aggregate endpoints (<c>sk_int_*</c> keys only). Exposes the
+    /// <c>/integrator/licenses/*</c> billing surface, where tier rates apply
+    /// to the AGGREGATE document count across every firm the integrator
+    /// manages — not per-firm.
+    /// </summary>
+    public IntegratorResource Integrator { get; }
+
+    /// <summary>
     /// Create a new ePosťak client with the given configuration.
     /// Uses an internal <see cref="HttpClient"/> instance that is disposed when the client is disposed.
+    /// The SDK automatically mints and refreshes JWT tokens via the SAPI token endpoint.
     /// </summary>
-    /// <param name="config">API configuration including the API key and optional firm ID.</param>
+    /// <param name="config">API configuration including client credentials and optional firm ID.</param>
     /// <example>
     /// <code>
-    /// var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_live_xxxxx" });
+    /// var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" });
     /// </code>
     /// </example>
     public EPostakClient(EPostakConfig config) : this(config, new HttpClient(), ownsHttpClient: true) { }
@@ -78,29 +88,36 @@ public sealed class EPostakClient : IDisposable
     /// Use this overload when you manage the HttpClient lifetime yourself (e.g. via IHttpClientFactory).
     /// The client will NOT dispose the provided HttpClient.
     /// </summary>
-    /// <param name="config">API configuration including the API key and optional firm ID.</param>
+    /// <param name="config">API configuration including client credentials and optional firm ID.</param>
     /// <param name="httpClient">A shared HttpClient instance. The caller is responsible for its lifetime.</param>
     /// <example>
     /// <code>
     /// var httpClient = httpClientFactory.CreateClient();
-    /// var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_live_xxxxx" }, httpClient);
+    /// var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" }, httpClient);
     /// </code>
     /// </example>
     public EPostakClient(EPostakConfig config, HttpClient httpClient) : this(config, httpClient, ownsHttpClient: false) { }
 
     private EPostakClient(EPostakConfig config, HttpClient httpClient, bool ownsHttpClient)
+        : this(config, httpClient, ownsHttpClient,
+               new TokenManager(httpClient, config.ClientId, config.ClientSecret, config.BaseUrl, config.FirmId)) { }
+
+    private EPostakClient(EPostakConfig config, HttpClient httpClient, bool ownsHttpClient, TokenManager tokenManager)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(httpClient);
 
-        if (string.IsNullOrWhiteSpace(config.ApiKey))
-            throw new ArgumentException("ApiKey is required.", nameof(config));
+        if (string.IsNullOrWhiteSpace(config.ClientId))
+            throw new ArgumentException("ClientId is required.", nameof(config));
+        if (string.IsNullOrWhiteSpace(config.ClientSecret))
+            throw new ArgumentException("ClientSecret is required.", nameof(config));
 
         _config = config;
         _http = httpClient;
         _ownsHttpClient = ownsHttpClient;
+        _tokenManager = tokenManager;
 
-        var requestor = new HttpRequestor(_http, config.ApiKey, config.BaseUrl, config.FirmId, config.MaxRetries);
+        var requestor = new HttpRequestor(_http, _tokenManager, config.BaseUrl, config.FirmId, config.MaxRetries);
 
         Auth = new AuthResource(requestor, _http, config.BaseUrl);
         Audit = new AuditResource(requestor);
@@ -111,18 +128,19 @@ public sealed class EPostakClient : IDisposable
         Reporting = new ReportingResource(requestor);
         Extract = new ExtractResource(requestor);
         Account = new AccountResource(requestor);
+        Integrator = new IntegratorResource(requestor);
     }
 
     /// <summary>
     /// Create a new client instance scoped to a specific firm. The new client shares the same
-    /// underlying <see cref="HttpClient"/> and API key, but all requests include the firm's
-    /// <c>X-Firm-Id</c> header. Only meaningful with integrator keys (<c>sk_int_*</c>).
+    /// underlying <see cref="HttpClient"/> and <see cref="TokenManager"/>, but all requests
+    /// include the firm's <c>X-Firm-Id</c> header. Only meaningful with integrator keys (<c>sk_int_*</c>).
     /// </summary>
     /// <param name="firmId">The firm UUID to scope requests to.</param>
     /// <returns>A new <see cref="EPostakClient"/> instance scoped to the specified firm.</returns>
     /// <example>
     /// <code>
-    /// var integrator = new EPostakClient(new EPostakConfig { ApiKey = "sk_int_xxxxx" });
+    /// var integrator = new EPostakClient(new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx" });
     /// var firms = await integrator.Firms.ListAsync();
     /// var firmClient = integrator.WithFirm(firms[0].Id);
     /// var inbox = await firmClient.Documents.Inbox.ListAsync();
@@ -134,13 +152,15 @@ public sealed class EPostakClient : IDisposable
         return new EPostakClient(
             new EPostakConfig
             {
-                ApiKey = _config.ApiKey,
+                ClientId = _config.ClientId,
+                ClientSecret = _config.ClientSecret,
                 BaseUrl = _config.BaseUrl,
                 FirmId = firmId,
                 MaxRetries = _config.MaxRetries,
             },
             _http,
-            ownsHttpClient: false);
+            ownsHttpClient: false,
+            _tokenManager);
     }
 
     /// <summary>

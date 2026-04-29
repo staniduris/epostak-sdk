@@ -62,19 +62,20 @@ class _BaseResource:
         self,
         client: httpx.Client,
         base_url: str,
-        api_key: str,
+        token_manager: Any,
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
     ) -> None:
         self._client = client
         self._base_url = base_url
-        self._api_key = api_key
+        self._token_manager = token_manager
         self._firm_id = firm_id
         self._max_retries = max_retries
 
     def _headers(self) -> Dict[str, str]:
-        headers: Dict[str, str] = {"Authorization": f"Bearer {self._api_key}"}
+        token = self._token_manager.get_access_token()
+        headers: Dict[str, str] = {"Authorization": f"Bearer {token}"}
         if self._firm_id:
             headers["X-Firm-Id"] = self._firm_id
         return headers
@@ -281,13 +282,13 @@ class DocumentsResource(_BaseResource):
         self,
         client: httpx.Client,
         base_url: str,
-        api_key: str,
+        token_manager: Any,
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
     ) -> None:
-        super().__init__(client, base_url, api_key, firm_id, max_retries=max_retries)
-        self.inbox = InboxResource(client, base_url, api_key, firm_id, max_retries=max_retries)
+        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries)
+        self.inbox = InboxResource(client, base_url, token_manager, firm_id, max_retries=max_retries)
 
     def get(self, id: str) -> Document:
         """Get a document by ID.

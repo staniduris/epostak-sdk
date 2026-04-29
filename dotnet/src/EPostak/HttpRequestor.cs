@@ -14,7 +14,7 @@ namespace EPostak;
 internal sealed class HttpRequestor
 {
     private readonly HttpClient _http;
-    private readonly string _apiKey;
+    private readonly TokenManager _tokenManager;
     private readonly string? _firmId;
     private readonly string _baseUrl;
     private readonly int _maxRetries;
@@ -36,17 +36,17 @@ internal sealed class HttpRequestor
     private static readonly Random Rng = new();
 
     /// <summary>
-    /// Create a new requestor bound to an API key and optional firm scope.
+    /// Create a new requestor bound to a TokenManager and optional firm scope.
     /// </summary>
     /// <param name="http">The underlying HttpClient for sending requests.</param>
-    /// <param name="apiKey">Bearer token for API authentication.</param>
+    /// <param name="tokenManager">Token manager that provides JWT access tokens.</param>
     /// <param name="baseUrl">Base URL of the API (trailing slash is trimmed).</param>
     /// <param name="firmId">Optional firm UUID to include as <c>X-Firm-Id</c> header on every request.</param>
     /// <param name="maxRetries">Maximum number of retries on 429/5xx for GET/DELETE requests (default 3).</param>
-    internal HttpRequestor(HttpClient http, string apiKey, string baseUrl, string? firmId, int maxRetries = 3)
+    internal HttpRequestor(HttpClient http, TokenManager tokenManager, string baseUrl, string? firmId, int maxRetries = 3)
     {
         _http = http;
-        _apiKey = apiKey;
+        _tokenManager = tokenManager;
         _baseUrl = baseUrl.TrimEnd('/');
         _firmId = firmId;
         _maxRetries = maxRetries;
@@ -62,7 +62,7 @@ internal sealed class HttpRequestor
     /// <returns>The deserialized API response.</returns>
     internal async Task<T> RequestAsync<T>(HttpMethod method, string path, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
 
@@ -84,7 +84,7 @@ internal sealed class HttpRequestor
     /// </summary>
     internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(idempotencyKey))
             request.Headers.Add("Idempotency-Key", idempotencyKey);
         var json = JsonSerializer.Serialize(body, JsonOptions);
@@ -100,7 +100,7 @@ internal sealed class HttpRequestor
     /// <param name="ct">Cancellation token.</param>
     internal async Task RequestVoidAsync(HttpMethod method, string path, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         await SendVoidAsync(request, ct).ConfigureAwait(false);
     }
 
@@ -113,7 +113,7 @@ internal sealed class HttpRequestor
     /// <param name="ct">Cancellation token.</param>
     internal async Task RequestVoidAsync(HttpMethod method, string path, object body, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         var json = JsonSerializer.Serialize(body, JsonOptions);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         await SendVoidAsync(request, ct).ConfigureAwait(false);
@@ -132,7 +132,7 @@ internal sealed class HttpRequestor
     /// <returns>The deserialized API response.</returns>
     internal async Task<T> RequestRawAsync<T>(HttpMethod method, string path, string body, string contentType, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         request.Content = new StringContent(body, Encoding.UTF8);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType) { CharSet = "utf-8" };
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
@@ -149,7 +149,7 @@ internal sealed class HttpRequestor
     /// <returns>The deserialized API response.</returns>
     internal async Task<T> RequestMultipartAsync<T>(HttpMethod method, string path, MultipartFormDataContent content, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         request.Content = content;
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
@@ -164,7 +164,7 @@ internal sealed class HttpRequestor
     /// <returns>The raw response body bytes.</returns>
     internal async Task<byte[]> RequestBytesAsync(HttpMethod method, string path, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         using var response = await SendRawAsync(request, ct).ConfigureAwait(false);
         return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
     }
@@ -179,18 +179,19 @@ internal sealed class HttpRequestor
     /// <returns>The raw response body string.</returns>
     internal async Task<string> RequestStringAsync(HttpMethod method, string path, CancellationToken ct)
     {
-        using var request = BuildRequest(method, path);
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         using var response = await SendRawAsync(request, ct).ConfigureAwait(false);
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Build an authenticated HTTP request with Bearer token and optional X-Firm-Id header.
+    /// Build an authenticated HTTP request with a JWT Bearer token and optional X-Firm-Id header.
     /// </summary>
-    private HttpRequestMessage BuildRequest(HttpMethod method, string path)
+    private async Task<HttpRequestMessage> BuildRequestAsync(HttpMethod method, string path, CancellationToken ct = default)
     {
+        var token = await _tokenManager.GetAccessTokenAsync(ct).ConfigureAwait(false);
         var request = new HttpRequestMessage(method, $"{_baseUrl}{path}");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (_firmId is not null)
             request.Headers.Add("X-Firm-Id", _firmId);
         return request;

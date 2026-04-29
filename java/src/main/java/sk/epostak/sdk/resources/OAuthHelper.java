@@ -27,7 +27,7 @@ import java.util.Map;
  * on the ePošťák {@code /oauth/authorize} consent page, and ePošťák redirects
  * back to your {@code redirect_uri} with a {@code code}.
  * <p>
- * This is independent of the regular {@link AuthResource#token(String)} flow
+ * This is independent of the regular {@link AuthResource#token(String, String)} flow
  * (which uses {@code client_credentials}). Pick one or the other depending on
  * how the firm is linked to you.
  * <p>

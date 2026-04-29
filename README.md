@@ -8,12 +8,12 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 | Language                | Directory                      | Package                  | Version | Status                     |
 | ----------------------- | ------------------------------ | ------------------------ | ------- | -------------------------- |
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | 2.1.0   | `npm install @epostak/sdk` |
-| Python                  | [`python/`](./python/)         | `epostak`                | 2.1.0   | Source on GitHub           |
-| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | 2.1.0   | Source on GitHub           |
-| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | 2.1.0   | Source on GitHub           |
-| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | 2.1.0   | Source on GitHub           |
-| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | 2.1.0   | Source on GitHub           |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | 3.0.0   | `npm install @epostak/sdk` |
+| Python                  | [`python/`](./python/)         | `epostak`                | 3.0.0   | Source on GitHub           |
+| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | 3.0.0   | Source on GitHub           |
+| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | 3.0.0   | Source on GitHub           |
+| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | 3.0.0   | Source on GitHub           |
+| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | 3.0.0   | Source on GitHub           |
 
 TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
 
@@ -24,7 +24,10 @@ TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk)
 ```typescript
 import { EPostak } from "@epostak/sdk";
 
-const client = new EPostak({ apiKey: "sk_live_xxxxx" });
+const client = new EPostak({
+  clientId: "sk_live_xxxxx",
+  clientSecret: "sk_live_xxxxx",
+});
 
 const result = await client.documents.send({
   receiverPeppolId: "0245:1234567890",
@@ -86,7 +89,7 @@ const tokens = await OAuth.exchangeCode({
 });
 ```
 
-Use this when the firm has no API key with you yet. Once linked, switch to the regular `client.auth.token({ apiKey })` (`client_credentials`) flow.
+Use this when the firm has no API key with you yet. Once linked, switch to the regular `client.auth.token({ clientId, clientSecret })` (`client_credentials`) flow.
 
 ---
 

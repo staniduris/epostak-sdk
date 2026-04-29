@@ -3,6 +3,25 @@
 All notable changes to the `epostak` Ruby gem are documented in this file.
 The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.2.0 — 2026-04-29
+
+### Added
+
+- **`client.integrator.licenses.info(offset:, limit:)`** — wraps
+  `GET /api/v1/integrator/licenses/info`. Returns aggregate plan +
+  current-period usage across every firm an integrator manages. Tier rates
+  apply to the AGGREGATE counts (not per-firm summed), so a 100-firm ×
+  50-doc integrator lands in tier 2–3 instead of tier 1.
+- Response surfaces `billable` (firms on the `integrator-managed` plan that
+  the integrator pays for), `nonManaged` (linked firms paying their own
+  plan), `exceedsAutoTier` (`true` above 5 000 / month — auto-billing
+  pauses, sales handles manually), `contactThreshold`, `pricing`, and a
+  paginated per-firm breakdown.
+- Requires `account:read` scope on a `sk_int_*` integrator key. No
+  `X-Firm-Id` header — the endpoint is integrator-scoped, not firm-scoped.
+- New resources: `EPostak::Resources::Integrator`,
+  `EPostak::Resources::IntegratorLicenses`.
+
 ## 2.1.0 — 2026-04-29
 
 ### Added

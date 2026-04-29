@@ -37,8 +37,8 @@ public final class HttpClient {
 
     /** Base URL for API requests, e.g. {@code "https://epostak.sk/api/v1"}. */
     private final String baseUrl;
-    /** Bearer token for authentication. */
-    private final String apiKey;
+    /** Token manager that provides JWT access tokens. */
+    private final TokenManager tokenManager;
     /** Optional firm UUID sent as {@code X-Firm-Id} header. */
     private final String firmId;
     /** Maximum number of retries on 429/5xx for GET/DELETE requests. */
@@ -49,14 +49,14 @@ public final class HttpClient {
     /**
      * Creates a new HTTP client.
      *
-     * @param baseUrl    the API base URL
-     * @param apiKey     the API key for Bearer authentication
-     * @param firmId     optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
-     * @param maxRetries maximum number of retries on 429/5xx (default 3)
+     * @param baseUrl      the API base URL
+     * @param tokenManager the token manager that provides JWT bearer tokens
+     * @param firmId       optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
+     * @param maxRetries   maximum number of retries on 429/5xx (default 3)
      */
-    HttpClient(String baseUrl, String apiKey, String firmId, int maxRetries) {
+    HttpClient(String baseUrl, TokenManager tokenManager, String firmId, int maxRetries) {
         this.baseUrl = baseUrl;
-        this.apiKey = apiKey;
+        this.tokenManager = tokenManager;
         this.firmId = firmId;
         this.maxRetries = maxRetries;
         this.client = java.net.http.HttpClient.newBuilder()
@@ -67,12 +67,12 @@ public final class HttpClient {
     /**
      * Creates a new HTTP client with default retry count (3).
      *
-     * @param baseUrl the API base URL
-     * @param apiKey  the API key for Bearer authentication
-     * @param firmId  optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
+     * @param baseUrl      the API base URL
+     * @param tokenManager the token manager that provides JWT bearer tokens
+     * @param firmId       optional firm UUID for the {@code X-Firm-Id} header, or {@code null}
      */
-    HttpClient(String baseUrl, String apiKey, String firmId) {
-        this(baseUrl, apiKey, firmId, 3);
+    HttpClient(String baseUrl, TokenManager tokenManager, String firmId) {
+        this(baseUrl, tokenManager, firmId, 3);
     }
 
     /**
@@ -85,12 +85,12 @@ public final class HttpClient {
     }
 
     /**
-     * Returns the API key used for {@code Authorization: Bearer} headers.
+     * Returns the token manager used for {@code Authorization: Bearer} headers.
      *
-     * @return the API key
+     * @return the token manager
      */
-    public String getApiKey() {
-        return apiKey;
+    public TokenManager getTokenManager() {
+        return tokenManager;
     }
 
     /**
@@ -260,7 +260,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(Duration.ofSeconds(120))
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body));
         if (firmId != null) {
@@ -302,7 +302,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(Duration.ofSeconds(120))
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(baos.toByteArray()));
         if (firmId != null) {
@@ -323,7 +323,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .GET();
         if (firmId != null) {
             builder.header("X-Firm-Id", firmId);
@@ -354,7 +354,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .GET();
         if (firmId != null) {
             builder.header("X-Firm-Id", firmId);
@@ -390,7 +390,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .header("Content-Type", contentType)
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8));
         if (firmId != null) {
@@ -424,7 +424,7 @@ public final class HttpClient {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(TIMEOUT)
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .method(method, publisher);
 
         if (body != null) {

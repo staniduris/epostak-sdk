@@ -21,7 +21,7 @@ gem install epostak
 ```ruby
 require "epostak"
 
-client = EPostak::Client.new(api_key: "sk_live_xxxxx")
+client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_secret")
 
 # Send an invoice
 result = client.documents.send_document(
@@ -44,10 +44,10 @@ The SDK supports two types of API keys:
 
 ```ruby
 # Direct key
-client = EPostak::Client.new(api_key: "sk_live_xxxxx")
+client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_secret")
 
 # Integrator key — scope to a specific firm
-integrator = EPostak::Client.new(api_key: "sk_int_xxxxx")
+integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "your_secret")
 firm_a = integrator.with_firm("firm-a-uuid")
 firm_a.documents.inbox.list
 ```
@@ -56,7 +56,7 @@ firm_a.documents.inbox.list
 
 ```ruby
 client = EPostak::Client.new(
-  api_key: "sk_live_xxxxx",
+  client_id: "sk_live_xxxxx", client_secret: "your_secret",
   base_url: "https://staging.epostak.sk/api/enterprise",  # optional, override for staging
   firm_id: "firm-uuid"                                     # optional, for integrator keys
 )
@@ -457,7 +457,7 @@ puts "#{result['successful']}/#{result['total']} extracted successfully"
 Integrator keys (`sk_int_*`) can manage multiple client firms. Use `with_firm` to scope requests:
 
 ```ruby
-integrator = EPostak::Client.new(api_key: "sk_int_xxxxx")
+integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "your_secret")
 
 # List all managed firms
 firms = integrator.firms.list

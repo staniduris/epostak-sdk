@@ -2,6 +2,7 @@
 
 require_relative "epostak/version"
 require_relative "epostak/error"
+require_relative "epostak/token_manager"
 require_relative "epostak/http_client"
 require_relative "epostak/webhook_signature"
 require_relative "epostak/oauth"
@@ -11,6 +12,7 @@ require_relative "epostak/resources/audit"
 require_relative "epostak/resources/documents"
 require_relative "epostak/resources/inbox"
 require_relative "epostak/resources/firms"
+require_relative "epostak/resources/integrator"
 require_relative "epostak/resources/peppol"
 require_relative "epostak/resources/peppol_directory"
 require_relative "epostak/resources/webhooks"
@@ -22,7 +24,7 @@ require_relative "epostak/resources/extract"
 # Top-level namespace for the ePošťák Ruby SDK.
 #
 # @example Quick start
-#   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
+#   client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "secret")
 #   result = client.documents.send_document(
 #     receiverPeppolId: "0245:1234567890",
 #     items: [{ description: "Consulting", quantity: 10, unitPrice: 100, vatRate: 23 }]

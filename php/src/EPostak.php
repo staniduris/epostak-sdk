@@ -8,6 +8,7 @@ use EPostak\Resources\Auth;
 use EPostak\Resources\Audit;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Firms;
+use EPostak\Resources\Integrator;
 use EPostak\Resources\OAuth;
 use EPostak\Resources\Peppol;
 use EPostak\Resources\Webhooks;
@@ -29,13 +30,15 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Reporting $reporting Document statistics and reports
  * @property-read Extract $extract AI-powered OCR extraction from PDFs and images
  * @property-read Account $account Account and firm information
+ * @property-read Integrator $integrator Integrator-aggregate endpoints (sk_int_* keys)
  */
 class EPostak
 {
     private const DEFAULT_BASE_URL = 'https://epostak.sk/api/v1';
     private const DEFAULT_PUBLIC_BASE_URL = 'https://epostak.sk/api';
 
-    private string $apiKey;
+    private string $clientId;
+    private string $clientSecret;
     private string $baseUrl;
     private ?string $firmId;
     private int $maxRetries;
@@ -49,37 +52,50 @@ class EPostak
     public Reporting $reporting;
     public Extract $extract;
     public Account $account;
+    public Integrator $integrator;
 
     /**
      * Create a new ePošťák API client.
      *
-     * @param array{apiKey: string, baseUrl?: string, firmId?: string, maxRetries?: int} $config Configuration array.
-     *   - `apiKey`     (required) Your API key (`sk_live_*` or `sk_int_*`).
-     *   - `baseUrl`    (optional) Override the API base URL (default: https://epostak.sk/api/v1).
-     *   - `firmId`     (optional) Scope all requests to this firm ID (required for `sk_int_*`).
-     *   - `maxRetries` (optional) Maximum retries on 429/5xx responses (default: 3).
+     * @param array{clientId: string, clientSecret: string, baseUrl?: string, firmId?: string, maxRetries?: int} $config Configuration array.
+     *   - `clientId`     (required) OAuth client ID (`sk_live_*` or `sk_int_*`).
+     *   - `clientSecret` (required) OAuth client secret.
+     *   - `baseUrl`      (optional) Override the API base URL (default: https://epostak.sk/api/v1).
+     *   - `firmId`       (optional) Scope all requests to this firm ID (required for `sk_int_*`).
+     *   - `maxRetries`   (optional) Maximum retries on 429/5xx responses (default: 3).
      *
-     * @throws \InvalidArgumentException If apiKey is missing or not a string.
+     * @throws \InvalidArgumentException If clientId or clientSecret is missing.
      *
      * @example
-     *   $client = new EPostak(['apiKey' => 'sk_live_...']);
+     *   $client = new EPostak(['clientId' => 'sk_live_...', 'clientSecret' => '...']);
      *   $client->documents->send([...]);
      *
      * @example Scoped to a specific firm:
-     *   $client = new EPostak(['apiKey' => 'sk_int_...', 'firmId' => 'firm_abc']);
+     *   $client = new EPostak(['clientId' => 'sk_int_...', 'clientSecret' => '...', 'firmId' => 'firm_abc']);
      */
     public function __construct(array $config)
     {
-        if (empty($config['apiKey']) || !is_string($config['apiKey'])) {
-            throw new \InvalidArgumentException('EPostak: apiKey is required');
+        if (empty($config['clientId']) || !is_string($config['clientId'])) {
+            throw new \InvalidArgumentException('EPostak: clientId is required');
+        }
+        if (empty($config['clientSecret']) || !is_string($config['clientSecret'])) {
+            throw new \InvalidArgumentException('EPostak: clientSecret is required');
         }
 
-        $this->apiKey = $config['apiKey'];
+        $this->clientId = $config['clientId'];
+        $this->clientSecret = $config['clientSecret'];
         $this->baseUrl = $config['baseUrl'] ?? self::DEFAULT_BASE_URL;
         $this->firmId = $config['firmId'] ?? null;
         $this->maxRetries = $config['maxRetries'] ?? 3;
 
-        $http = new HttpClient($this->baseUrl, $this->apiKey, $this->firmId, $this->maxRetries);
+        $tokenManager = new TokenManager(
+            $this->clientId,
+            $this->clientSecret,
+            $this->baseUrl,
+            $this->firmId
+        );
+
+        $http = new HttpClient($this->baseUrl, $tokenManager, $this->firmId, $this->maxRetries);
 
         $this->auth = new Auth($http);
         $this->audit = new Audit($http);
@@ -90,6 +106,7 @@ class EPostak
         $this->reporting = new Reporting($http);
         $this->extract = new Extract($http);
         $this->account = new Account($http);
+        $this->integrator = new Integrator($http);
     }
 
     /**
@@ -108,7 +125,8 @@ class EPostak
     public function withFirm(string $firmId): self
     {
         return new self([
-            'apiKey' => $this->apiKey,
+            'clientId' => $this->clientId,
+            'clientSecret' => $this->clientSecret,
             'baseUrl' => $this->baseUrl,
             'firmId' => $firmId,
             'maxRetries' => $this->maxRetries,

@@ -1139,3 +1139,94 @@ class CursorPage(TypedDict, Generic[_CursorItemT]):
 
     items: List[_CursorItemT]  # Rows in this page
     next_cursor: Optional[str]  # Opaque cursor or None when finished
+
+
+# ---------------------------------------------------------------------------
+# Integrator billing aggregate -- v2.2
+# ---------------------------------------------------------------------------
+
+
+class IntegratorPricingTier(TypedDict, total=False):
+    """One tier in the integrator pricing table.
+
+    Last entry has ``upTo`` and ``rate`` set to ``None`` (open-ended) and
+    ``contactRequired`` set to ``True`` -- volumes above ``contactThreshold``
+    require a manual sales contract.
+    """
+
+    upTo: Optional[int]  # Inclusive upper bound, ``None`` for the open tier
+    rate: Optional[float]  # Per-doc rate in EUR, ``None`` for the open tier
+    label: str  # Human-readable label (e.g. "Individuálne")
+    contactRequired: bool  # ``True`` on the open tier
+
+
+class IntegratorBillableUsage(TypedDict):
+    """Aggregate over firms on the ``integrator-managed`` plan."""
+
+    managedFirms: int
+    outboundCount: int
+    inboundApiCount: int
+    outboundCharge: float  # Tier rates applied to AGGREGATE outboundCount
+    inboundApiCharge: float  # Tier rates applied to AGGREGATE inboundApiCount
+    totalCharge: float  # outboundCharge + inboundApiCharge, cents-rounded
+    currency: str  # "EUR"
+
+
+class IntegratorNonManagedUsage(TypedDict):
+    """Linked firms that pay their own plan (not billed to integrator)."""
+
+    firms: int
+    outboundCount: int
+    inboundApiCount: int
+
+
+class IntegratorFirmUsage(TypedDict):
+    """Per-firm row in the ``firms`` page."""
+
+    firmId: str
+    name: Optional[str]
+    ico: Optional[str]
+    managed: bool  # ``True`` -> counts in billable; ``False`` -> nonManaged
+    outboundCount: int
+    inboundApiCount: int
+
+
+class _IntegratorInfo(TypedDict):
+    id: str
+    name: str
+    plan: str
+    monthlyDocumentLimit: Optional[int]
+
+
+class _IntegratorPricing(TypedDict):
+    model: str  # "tiered"
+    currency: str  # "EUR"
+    outboundTiers: List[IntegratorPricingTier]
+    inboundApiTiers: List[IntegratorPricingTier]
+
+
+class _IntegratorPagination(TypedDict):
+    limit: int
+    offset: int
+    total: int
+
+
+class IntegratorLicenseInfo(TypedDict):
+    """Response shape of ``GET /api/v1/integrator/licenses/info``.
+
+    Tier rates are applied to the AGGREGATE count across all the integrator's
+    ``integrator-managed`` firms. Above ``contactThreshold`` (5 000)
+    ``exceedsAutoTier`` flips ``True`` -- auto-billing pauses, sales
+    handles invoicing manually.
+    """
+
+    integrator: _IntegratorInfo
+    period: str  # "YYYY-MM" (SK timezone)
+    nextResetAt: str  # ISO 8601 -- 1st of next month, SK midnight in UTC
+    billable: IntegratorBillableUsage
+    nonManaged: IntegratorNonManagedUsage
+    exceedsAutoTier: bool
+    contactThreshold: int  # 5000
+    pricing: _IntegratorPricing
+    firms: List[IntegratorFirmUsage]
+    pagination: _IntegratorPagination

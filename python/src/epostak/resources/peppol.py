@@ -68,13 +68,13 @@ class PeppolResource(_BaseResource):
         self,
         client: httpx.Client,
         base_url: str,
-        api_key: str,
+        token_manager: object,
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
     ) -> None:
-        super().__init__(client, base_url, api_key, firm_id, max_retries=max_retries)
-        self.directory = PeppolDirectoryResource(client, base_url, api_key, firm_id, max_retries=max_retries)
+        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries)
+        self.directory = PeppolDirectoryResource(client, base_url, token_manager, firm_id, max_retries=max_retries)
 
     def lookup(self, scheme: str, identifier: str) -> PeppolParticipant:
         """Look up a Peppol participant via SMP.

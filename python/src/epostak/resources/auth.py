@@ -9,7 +9,7 @@ Available as ``client.auth`` on the :class:`~epostak.client.EPostak` client.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING  # noqa: F401
 
 import httpx
 
@@ -80,8 +80,8 @@ class AuthResource(_BaseResource):
 
     Example::
 
-        client = EPostak(api_key="sk_live_xxxxx")
-        tokens = client.auth.token(api_key="sk_live_xxxxx")
+        client = EPostak(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
+        tokens = client.auth.token(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
         print(tokens["access_token"], tokens["expires_in"])
 
         # Later, before expiry:
@@ -98,33 +98,28 @@ class AuthResource(_BaseResource):
         self,
         client: httpx.Client,
         base_url: str,
-        api_key: str,
+        token_manager: Any,
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
     ) -> None:
-        super().__init__(client, base_url, api_key, firm_id, max_retries=max_retries)
+        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries)
         self.ip_allowlist = IpAllowlistResource(
-            client, base_url, api_key, firm_id, max_retries=max_retries
+            client, base_url, token_manager, firm_id, max_retries=max_retries
         )
 
     def token(
         self,
-        api_key: str,
+        client_id: str,
+        client_secret: str,
         firm_id: Optional[str] = None,
         scope: Optional[str] = None,
     ) -> TokenResponse:
         """Mint an OAuth access token via the ``client_credentials`` grant.
 
-        The API key is sent as both the ``Authorization: Bearer`` header and
-        the ``client_secret`` body field — the server accepts either, but
-        doubling up keeps the SDK compatible across spec revisions. For
-        integrator keys (``sk_int_*``) you must also pass ``firm_id``, which
-        is forwarded as ``X-Firm-Id`` so the issued JWT is bound to the
-        right tenant.
-
         Args:
-            api_key: The plaintext API key being exchanged.
+            client_id: The API key (e.g. ``sk_live_*`` or ``sk_int_*``).
+            client_secret: The API key secret.
             firm_id: Required for integrator keys (``sk_int_*``).
             scope: Optional space-separated scope subset (defaults to the
                 key's own scopes).
@@ -135,22 +130,27 @@ class AuthResource(_BaseResource):
 
         Example::
 
-            tokens = client.auth.token(api_key="sk_live_xxxxx")
+            tokens = client.auth.token(
+                client_id="sk_live_xxxxx",
+                client_secret="sk_live_xxxxx",
+            )
             print(tokens["access_token"])
         """
+        import re
+
+        from epostak.errors import EPostakError
+
         body: Dict[str, Any] = {
             "grant_type": "client_credentials",
-            "client_id": api_key,
-            "client_secret": api_key,
+            "client_id": client_id,
+            "client_secret": client_secret,
         }
         if scope:
             body["scope"] = scope
 
-        # Build a one-off request so we use the supplied api_key (not self._api_key).
-        from epostak.errors import EPostakError
-
-        url = f"{self._base_url}/auth/token"
-        headers: Dict[str, str] = {"Authorization": f"Bearer {api_key}"}
+        sapi_base = re.sub(r"/api/v1/?$", "", self._base_url)
+        url = f"{sapi_base}/sapi/v1/auth/token"
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
         if firm_id:
             headers["X-Firm-Id"] = firm_id
 

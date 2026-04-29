@@ -18,9 +18,11 @@ from epostak.resources.auth import AuthResource
 from epostak.resources.documents import DocumentsResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
+from epostak.resources.integrator import IntegratorResource
 from epostak.resources.peppol import PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.webhooks import WebhooksResource
+from epostak.token_manager import TokenManager
 
 DEFAULT_BASE_URL = "https://epostak.sk/api/v1"
 DEFAULT_PUBLIC_BASE_URL = "https://epostak.sk/api"
@@ -80,9 +82,12 @@ def validate(xml: str, base_url: Optional[str] = None) -> "dict":
 class EPostak:
     """ePošťák API client.
 
+    Authenticates via OAuth ``client_credentials`` -- the SDK auto-mints a
+    JWT on first request and refreshes it transparently.
+
     Args:
-        api_key: Your API key. Use ``sk_live_*`` for direct firm access
-            or ``sk_int_*`` for integrator (multi-tenant) access.
+        client_id: Your API key id (``sk_live_*`` or ``sk_int_*``).
+        client_secret: Your API key secret.
         base_url: Base URL for the API. Defaults to
             ``https://epostak.sk/api/v1``.
         firm_id: Firm UUID to act on behalf of. Required when using
@@ -97,7 +102,10 @@ class EPostak:
 
         from epostak import EPostak
 
-        client = EPostak(api_key="sk_live_xxxxx")
+        client = EPostak(
+            client_id="sk_live_xxxxx",
+            client_secret="sk_live_xxxxx",
+        )
         result = client.documents.send({
             "receiverPeppolId": "0245:1234567890",
             "items": [{"description": "Consulting", "quantity": 10, "unitPrice": 50, "vatRate": 23}],
@@ -131,38 +139,56 @@ class EPostak:
     account: AccountResource
     """Account and firm information."""
 
+    integrator: IntegratorResource
+    """Integrator-aggregate endpoints (sk_int_* keys)."""
+
     def __init__(
         self,
-        api_key: str,
+        client_id: str,
+        client_secret: str,
         *,
         base_url: str = DEFAULT_BASE_URL,
         firm_id: Optional[str] = None,
         max_retries: int = 3,
+        _token_manager: Optional[TokenManager] = None,
     ) -> None:
-        if not api_key or not isinstance(api_key, str):
-            raise ValueError("EPostak: api_key is required")
+        if not client_id or not isinstance(client_id, str):
+            raise ValueError("EPostak: client_id is required")
+        if not client_secret or not isinstance(client_secret, str):
+            raise ValueError("EPostak: client_secret is required")
 
-        self._api_key = api_key
+        self._client_id = client_id
+        self._client_secret = client_secret
         self._base_url = base_url.rstrip("/")
         self._firm_id = firm_id
         self._max_retries = max_retries
         self._client = httpx.Client()
 
+        self._token_manager = _token_manager or TokenManager(
+            client_id=client_id,
+            client_secret=client_secret,
+            base_url=self._base_url,
+            firm_id=firm_id,
+        )
+
         retry_kw = {"max_retries": max_retries}
-        self.auth = AuthResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.audit = AuditResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.documents = DocumentsResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.firms = FirmsResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.peppol = PeppolResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.webhooks = WebhooksResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.reporting = ReportingResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.extract = ExtractResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
-        self.account = AccountResource(self._client, self._base_url, self._api_key, self._firm_id, **retry_kw)
+        tm = self._token_manager
+        self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.firms = FirmsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.peppol = PeppolResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.webhooks = WebhooksResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.reporting = ReportingResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.extract = ExtractResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
 
     def with_firm(self, firm_id: str) -> EPostak:
         """Create a new client instance scoped to a specific firm.
 
-        Useful when an integrator key needs to switch between clients.
+        Shares the same :class:`~epostak.token_manager.TokenManager` so the
+        JWT is reused across firm-scoped clients.
 
         Args:
             firm_id: The firm UUID to scope subsequent requests to.
@@ -172,16 +198,18 @@ class EPostak:
 
         Example::
 
-            base = EPostak(api_key="sk_int_xxxxx")
+            base = EPostak(client_id="sk_int_xxxxx", client_secret="sk_int_xxxxx")
             client_a = base.with_firm("firm-uuid-a")
             client_b = base.with_firm("firm-uuid-b")
             client_a.documents.send({...})
         """
         return EPostak(
-            api_key=self._api_key,
+            client_id=self._client_id,
+            client_secret=self._client_secret,
             base_url=self._base_url,
             firm_id=firm_id,
             max_retries=self._max_retries,
+            _token_manager=self._token_manager,
         )
 
     def validate(self, xml: str) -> "dict":

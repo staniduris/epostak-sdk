@@ -7,12 +7,12 @@ module EPostak
   # +auth+, +audit+, +documents+, +firms+, +peppol+, +webhooks+, +reporting+,
   # +account+, +extract+.
   #
-  # @example Direct API key (single firm)
-  #   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
+  # @example Direct OAuth (single firm)
+  #   client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "secret")
   #   account = client.account.get
   #
-  # @example Integrator key (multi-tenant)
-  #   integrator = EPostak::Client.new(api_key: "sk_int_xxxxx")
+  # @example Integrator OAuth (multi-tenant)
+  #   integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "secret")
   #   firm_a = integrator.with_firm("firm-a-uuid")
   #   firm_a.documents.inbox.list
   class Client
@@ -44,10 +44,13 @@ module EPostak
     # @return [Resources::Extract] AI-powered OCR extraction from PDFs and images
     attr_reader :extract
 
+    # @return [Resources::Integrator] Integrator-aggregate endpoints (+sk_int_*+ keys)
+    attr_reader :integrator
+
     # Create a new ePošťák API client.
     #
-    # @param api_key [String] Your API key. Use +sk_live_*+ for direct firm
-    #   access or +sk_int_*+ for integrator (multi-tenant) access.
+    # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
+    # @param client_secret [String] OAuth client secret.
     # @param base_url [String] Base URL for the API. Defaults to
     #   +https://epostak.sk/api/v1+. Override for staging or local testing.
     # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when
@@ -55,20 +58,31 @@ module EPostak
     #   each request.
     # @param max_retries [Integer] Maximum retries on 429/5xx responses
     #   (default: 3).
+    # @param token_manager [EPostak::TokenManager, nil] Shared token manager
+    #   (used internally by {#with_firm}).
     #
-    # @raise [ArgumentError] If api_key is nil or empty
+    # @raise [ArgumentError] If client_id or client_secret is nil or empty
     #
     # @example
-    #   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
-    def initialize(api_key:, base_url: EPostak::DEFAULT_BASE_URL, firm_id: nil, max_retries: 3)
-      raise ArgumentError, "api_key is required" if api_key.nil? || api_key.empty?
+    #   client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "secret")
+    def initialize(client_id:, client_secret:, base_url: EPostak::DEFAULT_BASE_URL, firm_id: nil, max_retries: 3, token_manager: nil)
+      raise ArgumentError, "client_id is required" if client_id.nil? || client_id.empty?
+      raise ArgumentError, "client_secret is required" if client_secret.nil? || client_secret.empty?
 
-      @api_key     = api_key
-      @base_url    = base_url
-      @firm_id     = firm_id
-      @max_retries = max_retries
+      @client_id     = client_id
+      @client_secret = client_secret
+      @base_url      = base_url
+      @firm_id       = firm_id
+      @max_retries   = max_retries
 
-      http = HttpClient.new(api_key: @api_key, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
+      @token_manager = token_manager || TokenManager.new(
+        client_id: @client_id,
+        client_secret: @client_secret,
+        base_url: @base_url,
+        firm_id: @firm_id
+      )
+
+      http = HttpClient.new(token_manager: @token_manager, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
       @auth      = Resources::Auth.new(http, base_url: @base_url)
       @audit     = Resources::Audit.new(http)
@@ -79,6 +93,7 @@ module EPostak
       @reporting = Resources::Reporting.new(http)
       @account   = Resources::Account.new(http)
       @extract   = Resources::Extract.new(http)
+      @integrator = Resources::Integrator.new(http)
     end
 
     # Create a new client instance scoped to a specific firm.
@@ -90,7 +105,7 @@ module EPostak
     # @return [EPostak::Client] A new client with the +X-Firm-Id+ header set
     #
     # @example
-    #   integrator = EPostak::Client.new(api_key: "sk_int_xxxxx")
+    #   integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "secret")
     #
     #   firm_a = integrator.with_firm("firm-a-uuid")
     #   firm_a.documents.send_document(body)
@@ -98,7 +113,14 @@ module EPostak
     #   firm_b = integrator.with_firm("firm-b-uuid")
     #   firm_b.documents.inbox.list
     def with_firm(firm_id)
-      self.class.new(api_key: @api_key, base_url: @base_url, firm_id: firm_id, max_retries: @max_retries)
+      self.class.new(
+        client_id: @client_id,
+        client_secret: @client_secret,
+        base_url: @base_url,
+        firm_id: firm_id,
+        max_retries: @max_retries,
+        token_manager: @token_manager
+      )
     end
 
     # Validate a UBL XML document via the public +/api/validate+ endpoint.
@@ -112,7 +134,7 @@ module EPostak
     # @raise [EPostak::Error] On non-2xx responses
     #
     # @example
-    #   client = EPostak::Client.new(api_key: "sk_live_xxx")
+    #   client = EPostak::Client.new(client_id: "sk_live_xxx", client_secret: "secret")
     #   report = client.validate(File.read("invoice.xml"))
     #   report["errors"].each { |e| puts e } unless report["valid"]
     def validate(xml)

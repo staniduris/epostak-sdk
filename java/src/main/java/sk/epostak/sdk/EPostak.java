@@ -16,7 +16,8 @@ import java.time.Duration;
  *
  * <pre>{@code
  * EPostak client = EPostak.builder()
- *     .apiKey("sk_live_xxxxx")
+ *     .clientId("sk_live_xxxxx")
+ *     .clientSecret("sk_live_xxxxx")
  *     .build();
  *
  * SendDocumentResponse result = client.documents().send(
@@ -35,7 +36,9 @@ public final class EPostak {
     private static final String DEFAULT_PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
     private final HttpClient httpClient;
-    private final String apiKey;
+    private final TokenManager tokenManager;
+    private final String clientId;
+    private final String clientSecret;
     private final String baseUrl;
     private final String firmId;
 
@@ -48,20 +51,28 @@ public final class EPostak {
     private final AccountResource account;
     private final AuthResource auth;
     private final AuditResource audit;
+    private final IntegratorResource integrator;
 
     /** Maximum number of retries on 429/5xx. */
     private final int maxRetries;
 
     private EPostak(Builder builder) {
-        if (builder.apiKey == null || builder.apiKey.isBlank()) {
-            throw new IllegalArgumentException("EPostak: apiKey is required");
+        if (builder.clientId == null || builder.clientId.isBlank()) {
+            throw new IllegalArgumentException("EPostak: clientId is required");
+        }
+        if (builder.clientSecret == null || builder.clientSecret.isBlank()) {
+            throw new IllegalArgumentException("EPostak: clientSecret is required");
         }
 
-        this.apiKey = builder.apiKey;
+        this.clientId = builder.clientId;
+        this.clientSecret = builder.clientSecret;
         this.baseUrl = builder.baseUrl != null ? builder.baseUrl : DEFAULT_BASE_URL;
         this.firmId = builder.firmId;
         this.maxRetries = builder.maxRetries;
-        this.httpClient = new HttpClient(this.baseUrl, this.apiKey, this.firmId, this.maxRetries);
+        this.tokenManager = builder.tokenManager != null
+                ? builder.tokenManager
+                : new TokenManager(this.clientId, this.clientSecret, this.baseUrl, this.firmId);
+        this.httpClient = new HttpClient(this.baseUrl, this.tokenManager, this.firmId, this.maxRetries);
 
         this.documents = new DocumentsResource(httpClient);
         this.firms = new FirmsResource(httpClient);
@@ -72,6 +83,7 @@ public final class EPostak {
         this.account = new AccountResource(httpClient);
         this.auth = new AuthResource(httpClient);
         this.audit = new AuditResource(httpClient);
+        this.integrator = new IntegratorResource(httpClient);
     }
 
     /**
@@ -149,6 +161,13 @@ public final class EPostak {
     public AuditResource audit() { return audit; }
 
     /**
+     * Integrator-aggregate endpoints (requires an {@code sk_int_*} key).
+     *
+     * @return the integrator resource
+     */
+    public IntegratorResource integrator() { return integrator; }
+
+    /**
      * Validate a UBL XML document against Peppol BIS 3.0 rules without creating a client.
      * Uses the production public endpoint at {@code https://epostak.sk/api/validate}.
      * <p>
@@ -212,7 +231,8 @@ public final class EPostak {
      *
      * <pre>{@code
      * EPostak integrator = EPostak.builder()
-     *     .apiKey("sk_int_xxxxx")
+     *     .clientId("sk_int_xxxxx")
+     *     .clientSecret("sk_int_xxxxx")
      *     .build();
      *
      * // Scope to a specific firm
@@ -225,9 +245,11 @@ public final class EPostak {
      */
     public EPostak withFirm(String firmId) {
         return new Builder()
-                .apiKey(this.apiKey)
+                .clientId(this.clientId)
+                .clientSecret(this.clientSecret)
                 .baseUrl(this.baseUrl)
                 .firmId(firmId)
+                .tokenManager(this.tokenManager)
                 .maxRetries(this.maxRetries)
                 .build();
     }
@@ -237,29 +259,56 @@ public final class EPostak {
     /**
      * Builder for constructing an {@link EPostak} client instance.
      * <p>
-     * The only required field is {@link #apiKey(String)}. All other fields have sensible defaults.
+     * Required fields: {@link #clientId(String)} and {@link #clientSecret(String)}.
+     * All other fields have sensible defaults.
      */
     public static final class Builder {
-        /** API key for authentication. Required. */
-        private String apiKey;
+        /** OAuth client ID (the API key, e.g. {@code sk_live_*}). Required. */
+        private String clientId;
+        /** OAuth client secret. Required. */
+        private String clientSecret;
         /** Base URL for the API. Defaults to {@code https://epostak.sk/api/v1}. */
         private String baseUrl;
         /** Firm UUID for integrator key scoping. Optional. */
         private String firmId;
         /** Maximum retries on 429/5xx for GET/DELETE. Defaults to 3. */
         private int maxRetries = 3;
+        /** Shared token manager (set internally by withFirm). */
+        private TokenManager tokenManager;
 
         private Builder() {}
 
         /**
-         * Set the API key. Required.
+         * Set the OAuth client ID. Required.
          * Use {@code sk_live_*} for direct access or {@code sk_int_*} for integrator access.
          *
-         * @param apiKey the API key
+         * @param clientId the client ID (API key)
          * @return this builder
          */
-        public Builder apiKey(String apiKey) {
-            this.apiKey = apiKey;
+        public Builder clientId(String clientId) {
+            this.clientId = clientId;
+            return this;
+        }
+
+        /**
+         * Set the OAuth client secret. Required.
+         *
+         * @param clientSecret the client secret
+         * @return this builder
+         */
+        public Builder clientSecret(String clientSecret) {
+            this.clientSecret = clientSecret;
+            return this;
+        }
+
+        /**
+         * Set a shared token manager (used internally by {@link EPostak#withFirm(String)}).
+         *
+         * @param tokenManager the token manager to reuse
+         * @return this builder
+         */
+        Builder tokenManager(TokenManager tokenManager) {
+            this.tokenManager = tokenManager;
             return this;
         }
 
@@ -303,7 +352,7 @@ public final class EPostak {
          * Build the client instance.
          *
          * @return a new {@link EPostak} client
-         * @throws IllegalArgumentException if {@code apiKey} is null or blank
+         * @throws IllegalArgumentException if {@code clientId} or {@code clientSecret} is null or blank
          */
         public EPostak build() {
             return new EPostak(this);

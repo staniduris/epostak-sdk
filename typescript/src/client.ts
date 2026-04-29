@@ -7,19 +7,26 @@ import { ExtractResource } from "./resources/extract.js";
 import { AccountResource } from "./resources/account.js";
 import { AuthResource } from "./resources/auth.js";
 import { AuditResource } from "./resources/audit.js";
+import { IntegratorResource } from "./resources/integrator.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport } from "./types.js";
 import { EPostakError } from "./utils/errors.js";
+import { TokenManager } from "./utils/token-manager.js";
 
 const DEFAULT_BASE_URL = "https://epostak.sk/api/v1";
 const PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
 export interface EPostakConfig {
   /**
-   * Your API key. Use `sk_live_*` for direct firm access or `sk_int_*`
-   * for integrator (multi-tenant) access.
+   * Client ID for authentication. This is the API key ID (UUID) returned
+   * when the key was created, or the key prefix (e.g. `sk_live_abc...xyz`).
    */
-  apiKey: string;
+  clientId: string;
+  /**
+   * Client secret — the full API key string (`sk_live_*` or `sk_int_*`).
+   * Used to mint JWT access tokens via the OAuth client_credentials flow.
+   */
+  clientSecret: string;
   /**
    * Base URL for the API. Defaults to `https://epostak.sk/api/v1`.
    * Override for staging or local testing.
@@ -33,8 +40,6 @@ export interface EPostakConfig {
   /**
    * Maximum number of automatic retries on 429 (rate-limit) and 5xx errors.
    * Uses exponential backoff with jitter. Defaults to 3, set 0 to disable.
-   * Only GET and DELETE are retried by default; POST/PATCH/PUT require
-   * explicit opt-in via the `retry` option on individual requests.
    */
   maxRetries?: number;
 }
@@ -42,16 +47,24 @@ export interface EPostakConfig {
 /**
  * ePošťák API client.
  *
+ * Authenticates via OAuth client_credentials: the SDK automatically mints
+ * a short-lived JWT from your API key on the first request and refreshes
+ * it before expiry. You never handle JWTs directly.
+ *
  * @example
  * ```typescript
  * import { EPostak } from "@epostak/sdk";
  *
- * const client = new EPostak({ apiKey: "sk_live_xxxxx" });
+ * const client = new EPostak({
+ *   clientId: "sk_live_xxxxx",
+ *   clientSecret: "sk_live_xxxxx",
+ * });
  * const result = await client.documents.send({ ... });
  * ```
  */
 export class EPostak {
   private readonly clientConfig: ClientConfig;
+  private readonly tokenManager: TokenManager;
 
   /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
   auth: AuthResource;
@@ -71,15 +84,31 @@ export class EPostak {
   extract: ExtractResource;
   /** Account and firm information. */
   account: AccountResource;
+  /** Integrator-aggregate endpoints (sk_int_* keys). */
+  integrator: IntegratorResource;
 
-  constructor(config: EPostakConfig) {
-    if (!config.apiKey || typeof config.apiKey !== "string") {
-      throw new Error("EPostak: apiKey is required");
+  constructor(config: EPostakConfig);
+  /** @internal Used by withFirm to share the token manager. */
+  constructor(config: EPostakConfig, tokenManager: TokenManager);
+  constructor(config: EPostakConfig, tokenManager?: TokenManager) {
+    if (!config.clientSecret || typeof config.clientSecret !== "string") {
+      throw new Error("EPostak: clientSecret is required");
     }
 
+    const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
+
+    const tmConfig: import("./utils/token-manager.js").TokenManagerConfig = {
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      baseUrl,
+    };
+    if (config.firmId) tmConfig.firmId = config.firmId;
+
+    this.tokenManager = tokenManager ?? new TokenManager(tmConfig);
+
     this.clientConfig = {
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl ?? DEFAULT_BASE_URL,
+      tokenManager: this.tokenManager,
+      baseUrl,
       firmId: config.firmId,
       maxRetries: config.maxRetries ?? 3,
     };
@@ -93,54 +122,49 @@ export class EPostak {
     this.reporting = new ReportingResource(this.clientConfig);
     this.extract = new ExtractResource(this.clientConfig);
     this.account = new AccountResource(this.clientConfig);
+    this.integrator = new IntegratorResource(this.clientConfig);
   }
 
   /**
    * Create a new client instance scoped to a specific firm.
-   * Useful when an integrator key (`sk_int_*`) needs to switch between
-   * client firms without creating a new `EPostak` instance from scratch.
+   * Shares the same token manager (JWT is reused), only adds X-Firm-Id.
    *
    * @param firmId - The firm UUID to scope subsequent requests to
    * @returns A new `EPostak` client with the `X-Firm-Id` header set
    *
    * @example
    * ```typescript
-   * const integrator = new EPostak({ apiKey: "sk_int_xxxxx" });
+   * const integrator = new EPostak({
+   *   clientId: "sk_int_xxxxx",
+   *   clientSecret: "sk_int_xxxxx",
+   * });
    *
    * const firmA = integrator.withFirm("firm-a-uuid");
    * await firmA.documents.send({ ... });
-   *
-   * const firmB = integrator.withFirm("firm-b-uuid");
-   * await firmB.documents.inbox.list();
    * ```
    */
   withFirm(firmId: string): EPostak {
-    return new EPostak({
-      apiKey: this.clientConfig.apiKey,
-      baseUrl: this.clientConfig.baseUrl,
-      firmId,
-      maxRetries: this.clientConfig.maxRetries,
-    });
+    return new EPostak(
+      {
+        clientId: "",
+        clientSecret: this.clientConfig.tokenManager ? "shared" : "placeholder",
+        baseUrl: this.clientConfig.baseUrl,
+        firmId,
+        maxRetries: this.clientConfig.maxRetries,
+      },
+      this.tokenManager,
+    );
   }
 
   /**
    * Validate a UBL 2.1 XML invoice against UBL XSD + EN 16931 + Peppol BIS 3.0
    * schematron. This hits the **public** validator-as-a-service endpoint —
-   * no API key is required and the call works even without a configured client.
-   *
-   * Rate-limited to 20 requests per minute per IP. Max 10 MB per XML payload.
-   *
-   * @param xml - Full UBL 2.1 Invoice or CreditNote XML
-   * @returns Full three-layer validation report
+   * no API key is required.
    */
   validate(xml: string): Promise<PublicValidationReport> {
     return EPostak.validate(xml);
   }
 
-  /**
-   * Static variant of {@link EPostak.prototype.validate}. Call this without
-   * instantiating a client when you only need the public validator.
-   */
   static async validate(
     xml: string,
     baseUrl: string = PUBLIC_VALIDATE_URL,

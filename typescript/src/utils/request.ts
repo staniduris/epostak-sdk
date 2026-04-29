@@ -1,11 +1,12 @@
 import { EPostakError } from "./errors.js";
+import type { TokenManager } from "./token-manager.js";
 
 /** Internal configuration passed to all resource classes. */
 export interface ClientConfig {
   /** Base URL for the API (e.g. `"https://epostak.sk/api/v1"`) */
   baseUrl: string;
-  /** API key for authentication (`sk_live_*` or `sk_int_*`) */
-  apiKey: string;
+  /** Token manager that provides JWT access tokens. */
+  tokenManager: TokenManager;
   /** Optional firm UUID for integrator keys — sent as `X-Firm-Id` header */
   firmId: string | undefined;
   /** Maximum number of retries on 429/5xx errors. Default 3, set 0 to disable. */
@@ -62,7 +63,7 @@ export class BaseResource {
   ): Promise<T> {
     return request<T>(
       this.config.baseUrl,
-      this.config.apiKey,
+      this.config.tokenManager,
       this.config.firmId,
       method,
       path,
@@ -122,15 +123,19 @@ function isRetryableStatus(status: number): boolean {
  */
 export async function request<T>(
   baseUrl: string,
-  apiKey: string,
+  tokenManagerOrKey: TokenManager | string,
   firmId: string | undefined,
   method: string,
   path: string,
   body?: unknown,
   options?: RequestOptions & { maxRetries?: number },
 ): Promise<T> {
+  const bearer =
+    typeof tokenManagerOrKey === "string"
+      ? tokenManagerOrKey
+      : await tokenManagerOrKey.getAccessToken();
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${bearer}`,
     ...options?.headers,
   };
 

@@ -21,10 +21,10 @@ use GuzzleHttp\Exception\GuzzleException;
  * Access via `$client->auth`.
  *
  * @example
- *   $client = new \EPostak\EPostak(['apiKey' => 'sk_live_xxx']);
+ *   $client = new \EPostak\EPostak(['clientId' => 'sk_live_xxx', 'clientSecret' => '...']);
  *
- *   // Mint a JWT
- *   $tokens = $client->auth->token('sk_live_xxx');
+ *   // Mint a JWT manually
+ *   $tokens = $client->auth->token('sk_live_xxx', 'secret');
  *   echo $tokens['access_token'];
  *
  *   // Later, before the access token expires:
@@ -49,42 +49,37 @@ class Auth
     /**
      * Mint an OAuth access token via the `client_credentials` grant.
      *
-     * The API key is sent as both the `Authorization: Bearer` header and the
-     * `client_secret` body field — the server accepts either, but doubling
-     * up keeps the SDK compatible across spec revisions. For integrator keys
-     * (`sk_int_*`) you must also pass `firmId`, which is forwarded as
-     * `X-Firm-Id` so the issued JWT is bound to the right tenant.
+     * Posts to the SAPI token endpoint (`/sapi/v1/auth/token`) with the
+     * given client credentials. For integrator keys (`sk_int_*`) you must
+     * also pass `firmId`, which is forwarded as `X-Firm-Id` so the issued
+     * JWT is bound to the right tenant.
      *
-     * Note: the request is authenticated with the provided `$apiKey`, not the
-     * one the client was constructed with — useful for tools that mint tokens
-     * for many keys without re-instantiating the SDK.
-     *
-     * @param string      $apiKey API key to exchange (`sk_live_*` or `sk_int_*`).
-     * @param string|null $firmId Required when `$apiKey` is an integrator key.
-     * @param string|null $scope  Optional space-separated scope subset.
+     * @param string      $clientId     OAuth client ID (`sk_live_*` or `sk_int_*`).
+     * @param string      $clientSecret OAuth client secret.
+     * @param string|null $firmId       Required when using an integrator key.
+     * @param string|null $scope        Optional space-separated scope subset.
      * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int, scope?: string}
      * @throws EPostakError On API error.
      *
      * @example
      *   // sk_live_* — direct firm access
-     *   $tokens = $client->auth->token('sk_live_xxx');
+     *   $tokens = $client->auth->token('sk_live_xxx', 'secret');
      *
      *   // sk_int_* — integrator acting on behalf of a managed firm
-     *   $tokens = $client->auth->token('sk_int_xxx', 'client-firm-uuid');
+     *   $tokens = $client->auth->token('sk_int_xxx', 'secret', 'client-firm-uuid');
      */
-    public function token(string $apiKey, ?string $firmId = null, ?string $scope = null): array
+    public function token(string $clientId, string $clientSecret, ?string $firmId = null, ?string $scope = null): array
     {
         $body = [
             'grant_type' => 'client_credentials',
-            'client_id' => $apiKey,
-            'client_secret' => $apiKey,
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
         ];
         if ($scope !== null) {
             $body['scope'] = $scope;
         }
 
         $headers = [
-            'Authorization' => 'Bearer ' . $apiKey,
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ];
@@ -92,13 +87,14 @@ class Auth
             $headers['X-Firm-Id'] = $firmId;
         }
 
-        $client = new GuzzleClient([
-            'base_uri' => rtrim($this->http->getBaseUrl(), '/') . '/',
-            'http_errors' => false,
-        ]);
+        // Token endpoint is on the SAPI path, not the main API path
+        $sapiBase = preg_replace('#/api/v1/?$#', '', $this->http->getBaseUrl());
+        $url = $sapiBase . '/sapi/v1/auth/token';
+
+        $client = new GuzzleClient(['http_errors' => false]);
 
         try {
-            $response = $client->request('POST', 'auth/token', [
+            $response = $client->request('POST', $url, [
                 'headers' => $headers,
                 'json' => $body,
             ]);

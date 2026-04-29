@@ -51,8 +51,8 @@ public sealed class IpAllowlistResource
 /// </summary>
 /// <example>
 /// <code>
-/// var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_live_xxxxx" });
-/// var tokens = await client.Auth.TokenAsync("sk_live_xxxxx");
+/// var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" });
+/// var tokens = await client.Auth.TokenAsync("sk_live_xxxxx", "sk_live_xxxxx");
 /// // ... use tokens.AccessToken
 /// var renewed = await client.Auth.RenewAsync(tokens.RefreshToken);
 /// await client.Auth.RevokeAsync(renewed.RefreshToken, tokenTypeHint: "refresh_token");
@@ -78,36 +78,40 @@ public sealed class AuthResource
     /// <summary>
     /// Mint an OAuth access token via the <c>client_credentials</c> grant.
     /// <para>
-    /// The API key is sent as both the <c>Authorization: Bearer</c> header and
-    /// the <c>client_secret</c> body field — the server accepts either, but
-    /// doubling up keeps the SDK compatible across spec revisions. For
-    /// integrator keys (<c>sk_int_*</c>) you must also pass <paramref name="firmId"/>,
-    /// which is forwarded as <c>X-Firm-Id</c> so the issued JWT is bound to the
-    /// right tenant.
+    /// Posts to the SAPI token endpoint (<c>/sapi/v1/auth/token</c>) with the
+    /// provided <paramref name="clientId"/> and <paramref name="clientSecret"/>.
+    /// For integrator keys (<c>sk_int_*</c>) you must also pass
+    /// <paramref name="firmId"/>, which is forwarded as <c>X-Firm-Id</c> so the
+    /// issued JWT is bound to the right tenant.
     /// </para>
     /// </summary>
-    /// <param name="apiKey">The API key to mint a token for.</param>
+    /// <param name="clientId">OAuth client ID (typically the API key).</param>
+    /// <param name="clientSecret">OAuth client secret (typically the API key).</param>
     /// <param name="firmId">Optional firm UUID for integrator keys.</param>
     /// <param name="scope">Optional space-separated scope subset.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<TokenResponse> TokenAsync(
-        string apiKey,
+        string clientId,
+        string clientSecret,
         string? firmId = null,
         string? scope = null,
         CancellationToken ct = default)
     {
-        // The /auth/token call uses an arbitrary apiKey (which may differ from
-        // the client's configured key) so we go through the raw HttpClient.
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/auth/token");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        // Derive the SAPI base URL by stripping /api/v1 from the configured base URL
+        var sapiBase = _baseUrl;
+        var v1Idx = sapiBase.IndexOf("/api/v1", StringComparison.Ordinal);
+        if (v1Idx >= 0)
+            sapiBase = sapiBase[..v1Idx];
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{sapiBase}/sapi/v1/auth/token");
         if (!string.IsNullOrEmpty(firmId))
             request.Headers.Add("X-Firm-Id", firmId);
 
         var body = new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
-            ["client_id"] = apiKey,
-            ["client_secret"] = apiKey,
+            ["client_id"] = clientId,
+            ["client_secret"] = clientSecret,
         };
         if (!string.IsNullOrEmpty(scope))
             body["scope"] = scope;

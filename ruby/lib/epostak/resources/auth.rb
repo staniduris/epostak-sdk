@@ -56,9 +56,9 @@ module EPostak
     # +client.account.status+ / +client.account.rotate_secret+ helpers.
     #
     # @example
-    #   client = EPostak::Client.new(api_key: "sk_live_xxxxx")
+    #   client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "secret")
     #
-    #   tokens = client.auth.token(api_key: "sk_live_xxxxx")
+    #   tokens = client.auth.token(client_id: "sk_live_xxxxx", client_secret: "secret")
     #   puts tokens["access_token"], tokens["expires_in"]
     #
     #   # Later, before the access token expires:
@@ -80,38 +80,37 @@ module EPostak
 
       # Mint an OAuth access token via the `client_credentials` grant.
       #
-      # The API key is sent as both the `Authorization: Bearer` header and the
-      # `client_secret` body field — the server accepts either, but doubling
-      # up keeps the SDK compatible across spec revisions. For integrator keys
-      # (`sk_int_*`) you must also pass `firm_id`, which is forwarded as
-      # `X-Firm-Id` so the issued JWT is bound to the right tenant.
+      # POSTs to +/sapi/v1/auth/token+ with the client credentials. For
+      # integrator keys (+sk_int_*+) you must also pass +firm_id+, which is
+      # forwarded as +X-Firm-Id+ so the issued JWT is bound to the right tenant.
       #
-      # @param api_key [String] The `sk_live_*` or `sk_int_*` key to exchange
+      # @param client_id [String] The +sk_live_*+ or +sk_int_*+ key
+      # @param client_secret [String] The OAuth client secret
       # @param firm_id [String, nil] Required for integrator keys
       # @param scope [String, nil] Optional space-separated scope subset
       # @return [Hash] Access + refresh token pair (access_token, refresh_token,
       #   token_type, expires_in, scope)
       #
       # @example sk_live_* — direct firm access
-      #   tokens = client.auth.token(api_key: "sk_live_xxxxx")
+      #   tokens = client.auth.token(client_id: "sk_live_xxxxx", client_secret: "secret")
       #
       # @example sk_int_* — integrator acting on behalf of a managed firm
-      #   tokens = client.auth.token(api_key: "sk_int_xxxxx", firm_id: "client-firm-uuid")
-      def token(api_key:, firm_id: nil, scope: nil)
+      #   tokens = client.auth.token(client_id: "sk_int_xxxxx", client_secret: "secret", firm_id: "uuid")
+      def token(client_id:, client_secret:, firm_id: nil, scope: nil)
         body = {
           grant_type: "client_credentials",
-          client_id: api_key,
-          client_secret: api_key
+          client_id: client_id,
+          client_secret: client_secret
         }
         body[:scope] = scope if scope
 
-        conn = Faraday.new(url: @base_url) do |f|
+        sapi_base = @base_url.sub(%r{/api/v1\z}, "")
+        conn = Faraday.new(url: sapi_base) do |f|
           f.adapter Faraday.default_adapter
-          f.headers["Authorization"] = "Bearer #{api_key}"
           f.headers["X-Firm-Id"] = firm_id if firm_id
         end
 
-        response = conn.run_request(:post, "/auth/token", nil, nil) do |req|
+        response = conn.run_request(:post, "/sapi/v1/auth/token", nil, nil) do |req|
           req.headers["Content-Type"] = "application/json"
           req.body = JSON.generate(body)
         end
