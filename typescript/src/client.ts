@@ -5,21 +5,23 @@ import { WebhooksResource } from "./resources/webhooks.js";
 import { ReportingResource } from "./resources/reporting.js";
 import { ExtractResource } from "./resources/extract.js";
 import { AccountResource } from "./resources/account.js";
+import { AuthResource } from "./resources/auth.js";
+import { AuditResource } from "./resources/audit.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport } from "./types.js";
 import { EPostakError } from "./utils/errors.js";
 
-const DEFAULT_BASE_URL = "https://epostak.sk/api/enterprise";
+const DEFAULT_BASE_URL = "https://epostak.sk/api/v1";
 const PUBLIC_VALIDATE_URL = "https://epostak.sk/api/validate";
 
 export interface EPostakConfig {
   /**
-   * Your Enterprise API key. Use `sk_live_*` for direct access or
-   * `sk_int_*` for integrator (multi-tenant) access.
+   * Your API key. Use `sk_live_*` for direct firm access or `sk_int_*`
+   * for integrator (multi-tenant) access.
    */
   apiKey: string;
   /**
-   * Base URL for the API. Defaults to `https://epostak.sk/api/enterprise`.
+   * Base URL for the API. Defaults to `https://epostak.sk/api/v1`.
    * Override for staging or local testing.
    */
   baseUrl?: string;
@@ -38,32 +40,36 @@ export interface EPostakConfig {
 }
 
 /**
- * ePošťák Enterprise API client.
+ * ePošťák API client.
  *
  * @example
  * ```typescript
- * import { EPostak } from '@epostak/sdk';
+ * import { EPostak } from "@epostak/sdk";
  *
- * const client = new EPostak({ apiKey: 'sk_live_xxxxx' });
+ * const client = new EPostak({ apiKey: "sk_live_xxxxx" });
  * const result = await client.documents.send({ ... });
  * ```
  */
 export class EPostak {
   private readonly clientConfig: ClientConfig;
 
-  /** Send and receive documents via Peppol */
+  /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
+  auth: AuthResource;
+  /** Per-firm audit feed (cursor-paginated). */
+  audit: AuditResource;
+  /** Send and receive documents via Peppol. */
   documents: DocumentsResource;
-  /** Manage client firms (integrator keys) */
+  /** Manage client firms (integrator keys). */
   firms: FirmsResource;
-  /** SMP lookup and Peppol directory search */
+  /** SMP lookup and Peppol directory search. */
   peppol: PeppolResource;
-  /** Manage webhook subscriptions and pull queue */
+  /** Manage webhook subscriptions and pull queue. */
   webhooks: WebhooksResource;
-  /** Document statistics and reports */
+  /** Document statistics and reports. */
   reporting: ReportingResource;
-  /** AI-powered OCR extraction from PDFs and images */
+  /** AI-powered OCR extraction from PDFs and images. */
   extract: ExtractResource;
-  /** Account and firm information */
+  /** Account and firm information. */
   account: AccountResource;
 
   constructor(config: EPostakConfig) {
@@ -78,6 +84,8 @@ export class EPostak {
       maxRetries: config.maxRetries ?? 3,
     };
 
+    this.auth = new AuthResource(this.clientConfig);
+    this.audit = new AuditResource(this.clientConfig);
     this.documents = new DocumentsResource(this.clientConfig);
     this.firms = new FirmsResource(this.clientConfig);
     this.peppol = new PeppolResource(this.clientConfig);
@@ -97,14 +105,12 @@ export class EPostak {
    *
    * @example
    * ```typescript
-   * const integrator = new EPostak({ apiKey: 'sk_int_xxxxx' });
+   * const integrator = new EPostak({ apiKey: "sk_int_xxxxx" });
    *
-   * // Act on behalf of firm A
-   * const firmA = integrator.withFirm('firm-a-uuid');
+   * const firmA = integrator.withFirm("firm-a-uuid");
    * await firmA.documents.send({ ... });
    *
-   * // Act on behalf of firm B
-   * const firmB = integrator.withFirm('firm-b-uuid');
+   * const firmB = integrator.withFirm("firm-b-uuid");
    * await firmB.documents.inbox.list();
    * ```
    */
@@ -126,14 +132,6 @@ export class EPostak {
    *
    * @param xml - Full UBL 2.1 Invoice or CreditNote XML
    * @returns Full three-layer validation report
-   *
-   * @example
-   * ```typescript
-   * const report = await client.validate(ublXml);
-   * if (!report.valid) {
-   *   console.error('Peppol errors:', report.peppol.messages);
-   * }
-   * ```
    */
   validate(xml: string): Promise<PublicValidationReport> {
     return EPostak.validate(xml);
@@ -142,17 +140,6 @@ export class EPostak {
   /**
    * Static variant of {@link EPostak.prototype.validate}. Call this without
    * instantiating a client when you only need the public validator.
-   *
-   * @param xml - Full UBL 2.1 Invoice or CreditNote XML
-   * @param baseUrl - Override the validator URL (defaults to the production endpoint)
-   * @returns Full three-layer validation report
-   *
-   * @example
-   * ```typescript
-   * import { EPostak } from '@epostak/sdk';
-   *
-   * const report = await EPostak.validate(ublXml);
-   * ```
    */
   static async validate(
     xml: string,
@@ -177,7 +164,7 @@ export class EPostak {
       } catch {
         errorBody = { error: res.statusText };
       }
-      throw new EPostakError(res.status, errorBody);
+      throw new EPostakError(res.status, errorBody, res.headers);
     }
     return (await res.json()) as PublicValidationReport;
   }

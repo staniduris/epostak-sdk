@@ -246,11 +246,14 @@ export class DocumentsResource extends BaseResource {
     body: SendDocumentRequest,
     options?: { idempotencyKey?: string },
   ): Promise<SendDocumentResponse> {
-    const headers: Record<string, string> = {};
-    if (options?.idempotencyKey) {
-      headers["x-idempotency-key"] = options.idempotencyKey;
-    }
-    return this.request("POST", "/documents/send", body, { headers });
+    return this.request(
+      "POST",
+      "/documents/send",
+      body,
+      options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined,
+    );
   }
 
   /**
@@ -526,12 +529,17 @@ export class DocumentsResource extends BaseResource {
    * }
    * ```
    */
-  sendBatch(items: BatchSendItem[]): Promise<BatchSendResponse> {
+  sendBatch(
+    items: BatchSendItem[],
+    options?: { idempotencyKey?: string },
+  ): Promise<BatchSendResponse> {
     return this.request(
       "POST",
       "/documents/send/batch",
       { items },
-      { retry: true },
+      options?.idempotencyKey
+        ? { retry: true, idempotencyKey: options.idempotencyKey }
+        : { retry: true },
     );
   }
 

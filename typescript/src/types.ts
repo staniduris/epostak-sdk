@@ -251,12 +251,19 @@ export type SendDocumentRequest =
 
 /** Response returned after successfully sending a document via Peppol. */
 export interface SendDocumentResponse {
-  /** Unique document ID in the ePosťak system */
+  /** Unique document ID in the ePošťák system */
   documentId: string;
   /** Peppol AS4 message ID for tracking delivery */
   messageId: string;
   /** Status is always `"SENT"` on success */
   status: "SENT";
+  /**
+   * Hex-lowercase SHA-256 digest over the canonical UBL XML wire payload —
+   * lets the receiver verify the bytes off Peppol AS4 match what ePošťák
+   * logged at send time. Always present on 201 responses; absent only on
+   * `202 SENT_DB_PENDING` recoveries.
+   */
+  payloadSha256?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1219,25 +1226,37 @@ export type ReportingPeriod = "month" | "quarter" | "year";
 
 /** Query parameters for the reporting statistics endpoint. */
 export interface StatisticsParams {
-  /** Preset period — `"month"` (current month), `"quarter"` or `"year"`. Ignored when `from`/`to` are supplied. */
-  period?: ReportingPeriod;
+  /**
+   * Convenience period selector — `"month"` (current calendar month, default),
+   * `"quarter"`, or `"year"`. Ignored when both `from` and `to` are provided.
+   */
+  period?: "month" | "quarter" | "year";
   /** Start of the reporting period in `YYYY-MM-DD` format. */
   from?: string;
   /** End of the reporting period in `YYYY-MM-DD` format. */
   to?: string;
 }
 
-/** Top-N recipient / sender row in the statistics response. */
-export interface StatisticsParty {
-  /** Legal name, or `null` if unavailable */
+/**
+ * Top recipient/sender entry in the statistics response. Each entry
+ * aggregates by the (party name, peppol id) tuple over the reporting window.
+ */
+export interface StatisticsTopParty {
+  /** Legal name of the party, or `null` when not present in the source UBL */
   name: string | null;
-  /** Peppol participant ID, or `null` */
+  /** Peppol participant ID of the party, or `null` */
   peppol_id: string | null;
-  /** Number of documents in this period */
+  /** Number of documents exchanged with this party in the period */
   count: number;
 }
 
-/** Aggregated document statistics for a given time period. */
+/**
+ * Aggregated document statistics for a given time period.
+ *
+ * Counts are split by direction (`sent` / `received`) and broken down by
+ * `doc_type` (`invoice`, `credit_note`, `self_billing`, `correction`, ...).
+ * `delivery_rate` is `delivered / total_sent` rounded to three decimals.
+ */
 export interface Statistics {
   /** The reporting period boundaries */
   period: {
@@ -1246,26 +1265,30 @@ export interface Statistics {
     /** End date in `YYYY-MM-DD` format */
     to: string;
   };
-  /** Outbound (sent) documents aggregated by document type */
+  /** Outbound (sent) document statistics */
   sent: {
-    /** Total sent documents in the period */
+    /** Total outbound documents in the period */
     total: number;
-    /** Count broken down by `doc_type` (e.g. `{Invoice: 42, CreditNote: 3}`) */
+    /** Counts keyed by UBL doc type (e.g. `invoice`, `credit_note`) */
     by_type: Record<string, number>;
   };
-  /** Inbound (received) documents aggregated by document type */
+  /** Inbound (received) document statistics */
   received: {
-    /** Total received documents in the period */
+    /** Total inbound documents in the period */
     total: number;
-    /** Count broken down by `doc_type` */
+    /** Counts keyed by UBL doc type */
     by_type: Record<string, number>;
   };
-  /** Delivery rate for outbound documents (0–1, three decimal places) */
+  /**
+   * Fraction of outbound documents that reached `delivered` / `accepted` /
+   * `paid` status, rounded to three decimals (e.g. `0.987`). Zero when
+   * nothing was sent in the period.
+   */
   delivery_rate: number;
-  /** Top 5 recipients in the period */
-  top_recipients: StatisticsParty[];
-  /** Top 5 senders in the period */
-  top_senders: StatisticsParty[];
+  /** Up to five top recipients of outbound documents, ordered by count. */
+  top_recipients: StatisticsTopParty[];
+  /** Up to five top senders of inbound documents, ordered by count. */
+  top_senders: StatisticsTopParty[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1311,56 +1334,86 @@ export interface Account {
 }
 
 // ---------------------------------------------------------------------------
-// Auth introspection & rotation
+// Auth — OAuth client_credentials, introspection, rotation, IP allowlist
 // ---------------------------------------------------------------------------
+
+/**
+ * Response from `POST /auth/token` and `POST /auth/renew` — OAuth
+ * `client_credentials` access + refresh token pair.
+ *
+ * Access tokens expire in 15 minutes (`expires_in: 900`); refresh tokens are
+ * valid for 30 days and rotate on every renewal call. Always replace your
+ * stored refresh token with the value returned by `renew()`.
+ */
+export interface TokenResponse {
+  /** Short-lived JWT access token (sent as `Authorization: Bearer ...`). */
+  access_token: string;
+  /** Refresh token used by `auth.renew()` to mint a new access token. */
+  refresh_token: string;
+  /** Token type — always `"Bearer"`. */
+  token_type: "Bearer";
+  /** Lifetime of the access token in seconds (`900` = 15 minutes). */
+  expires_in: number;
+  /** Resolved scope — space-separated list, or `"*"` for wildcard keys. */
+  scope: string;
+  /**
+   * Server-recommended timestamp at which the client should renew the
+   * access token. Only present on `auth.renew()` responses.
+   */
+  refresh_recommended_at?: string;
+  /** Whether the server is requesting a renew on the next call. */
+  should_refresh?: boolean;
+}
+
+/** Response from `POST /auth/revoke`. Idempotent — returns 200 even on misses. */
+export interface RevokeResponse {
+  success: boolean;
+  message: string;
+  /** ISO 8601 timestamp when the access token will fully expire (access-token revocations). */
+  access_tokens_expire_at?: string;
+  /** ISO 8601 server timestamp. */
+  timestamp: string;
+}
 
 /** Key metadata returned by the auth status introspection endpoint. */
 export interface AuthStatusKey {
-  /** Opaque key ID (UUID) */
+  /** Opaque key ID (not the plaintext secret). */
   id: string;
-  /** Human-readable key name set by the firm */
+  /** Caller-assigned name for the key (free text). */
   name: string;
-  /** Short prefix identifying the key (e.g. `"sk_live_abc"`) — safe to log */
+  /** Short prefix identifying the key (e.g. `"sk_live_abc"`) — safe to log. */
   prefix: string;
-  /** Permission scopes granted to this key (e.g. `["documents:send"]`) */
-  permissions: string[];
-  /** Whether the key is currently active */
+  /** Space-separated permission string (legacy keys) or scope list. */
+  permissions: string;
+  /** Whether the key is currently active. */
   active: boolean;
-  /** ISO 8601 timestamp when the key was created */
+  /** ISO 8601 timestamp when the key was created. */
   createdAt: string;
-  /** ISO 8601 timestamp of the last successful request, or `null` if never used */
+  /** ISO 8601 timestamp of the last successful request, or `null` if never used. */
   lastUsedAt: string | null;
 }
 
-/** Firm info returned by the auth status endpoint. */
-export interface AuthStatusFirm {
-  /** Firm UUID */
-  id: string;
-  /** Peppol registration status (e.g. `"active"`, `"pending"`, `"none"`) */
-  peppolStatus: string;
-}
-
-/** Plan info returned by the auth status endpoint. */
+/** Subscription plan info returned by the auth status endpoint. */
 export interface AuthStatusPlan {
-  /** Plan name (e.g. `"api-enterprise"`, `"business"`) */
+  /** Plan slug (e.g. `"free"`, `"business"`, `"enterprise"`). */
   name: string;
-  /** ISO 8601 expiration timestamp, or `null` when plan has no expiry (e.g. free) */
+  /** ISO 8601 timestamp when the plan expires, or `null` for evergreen plans. */
   expiresAt: string | null;
-  /** `true` when plan is non-free and not expired */
+  /** Whether the plan is currently active. */
   active: boolean;
 }
 
-/** Rate-limit info returned by the auth status introspection endpoint. */
+/** Rate-limit summary returned by the auth status introspection endpoint. */
 export interface AuthStatusRateLimit {
-  /** Requests allowed per minute (200 for all enterprise keys) */
+  /** Maximum requests allowed in the window. */
   perMinute: number;
-  /** Human-readable window descriptor (e.g. `"60s"`) */
+  /** Window length (e.g. `"60s"`). */
   window: string;
 }
 
-/** Integrator summary returned when the key belongs to an integrator account. */
+/** Integrator summary — only present on `sk_int_*` keys. */
 export interface AuthStatusIntegrator {
-  /** Integrator UUID */
+  /** Integrator UUID. */
   id: string;
 }
 
@@ -1369,15 +1422,20 @@ export interface AuthStatusIntegrator {
  * without revealing the plaintext secret.
  */
 export interface AuthStatusResponse {
-  /** Metadata about the API key being used */
+  /** Metadata about the API key being used. */
   key: AuthStatusKey;
-  /** The firm this key is authenticated against */
-  firm: AuthStatusFirm;
-  /** Current subscription plan */
+  /** The firm this key is authenticated against. */
+  firm: {
+    /** Firm UUID. */
+    id: string;
+    /** Peppol registration status (`"active"`, `"pending"`, `"none"`). */
+    peppolStatus: string;
+  };
+  /** Current subscription plan. */
   plan: AuthStatusPlan;
-  /** Applicable rate-limit configuration */
+  /** Applicable rate-limit configuration. */
   rateLimit: AuthStatusRateLimit;
-  /** Integrator summary — `null` when the key is `sk_live_*` */
+  /** Integrator summary — `null` for direct (`sk_live_*`) keys. */
   integrator: AuthStatusIntegrator | null;
 }
 
@@ -1387,12 +1445,21 @@ export interface AuthStatusResponse {
  * Integrator keys (`sk_int_*`) are rejected with 403.
  */
 export interface RotateSecretResponse {
-  /** The new plaintext API key (`sk_live_...`) — returned only once */
+  /** The new plaintext API key (`sk_live_...`) — returned only once. */
   key: string;
-  /** Short prefix of the new key — safe to store for reference */
+  /** Short prefix of the new key — safe to log/store for reference. */
   prefix: string;
-  /** Human-readable confirmation message */
+  /** Human-readable confirmation message. */
   message: string;
+}
+
+/**
+ * Response from `GET` / `PUT /auth/ip-allowlist`. An empty array means no
+ * IP restriction is in effect.
+ */
+export interface IpAllowlistResponse {
+  /** Bare IP addresses or CIDR blocks (`addr/prefix`). Max 50 entries. */
+  ip_allowlist: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1783,4 +1850,74 @@ export interface BatchExtractItem {
 export interface BatchExtractResult {
   /** Individual results for each file (mixed success/failure) */
   results: BatchExtractItem[];
+}
+
+// ---------------------------------------------------------------------------
+// Cursor pagination
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic cursor-paginated page. Used by endpoints that walk
+ * `(timestamp DESC, id DESC)` keysets — pass `next_cursor` from one page
+ * back into the next call until `has_more === false` (or `next_cursor`
+ * comes back as `null`).
+ */
+export interface CursorPage<T> {
+  /** Items in the current page, newest first. */
+  items: T[];
+  /** Opaque cursor for the next page, or `null` when there is no next page. */
+  next_cursor: string | null;
+  /** Whether more pages are available. */
+  has_more: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/** Actor type recorded against an audit row. */
+export type AuditActorType = "user" | "apiKey" | "integratorKey" | "system";
+
+/**
+ * A single row in the per-firm audit feed. Field naming is snake_case to
+ * match the wire format — these rows are JSON-stringified and forwarded to
+ * SIEMs, so we keep them stable rather than camelCasing on the way through.
+ */
+export interface AuditEvent {
+  /** Audit row UUID. */
+  id: string;
+  /** ISO 8601 timestamp when the event occurred. */
+  occurred_at: string;
+  /** Type of actor that triggered the event. */
+  actor_type: AuditActorType;
+  /** UUID of the actor (key ID, user ID, or `null` for `system`). */
+  actor_id: string | null;
+  /** Event name (e.g. `"jwt.issued"`, `"api_key.rotated"`, `"refresh.revoked"`). */
+  event: string;
+  /** Type of the target object (e.g. `"jwt"`, `"apiKey"`, `"refreshToken"`). */
+  target_type: string | null;
+  /** UUID of the target object, when applicable. */
+  target_id: string | null;
+  /** Source IP, when captured. */
+  ip: string | null;
+  /** Caller User-Agent, when captured. */
+  user_agent: string | null;
+  /** Free-form metadata (e.g. `{ scope, key_type }`). */
+  metadata: Record<string, unknown> | null;
+}
+
+/** Query parameters for `GET /audit`. */
+export interface AuditListParams {
+  /** Exact match on the `event` field (e.g. `"jwt.issued"`). */
+  event?: string;
+  /** Exact match on the `actor_type` field. */
+  actorType?: AuditActorType;
+  /** ISO 8601 timestamp — only return rows newer than or equal to this. */
+  since?: string;
+  /** ISO 8601 timestamp — only return rows older than or equal to this. */
+  until?: string;
+  /** Opaque cursor from a previous page's `next_cursor`. */
+  cursor?: string;
+  /** Page size (1–100). Defaults to 20. */
+  limit?: number;
 }

@@ -249,8 +249,18 @@ export class WebhooksResource extends BaseResource {
    * console.log(webhook.secret); // Store this securely!
    * ```
    */
-  create(body: CreateWebhookRequest): Promise<WebhookDetail> {
-    return this.request("POST", "/webhooks", body);
+  create(
+    body: CreateWebhookRequest,
+    options?: { idempotencyKey?: string },
+  ): Promise<WebhookDetail> {
+    return this.request(
+      "POST",
+      "/webhooks",
+      body,
+      options?.idempotencyKey
+        ? { idempotencyKey: options.idempotencyKey }
+        : undefined,
+    );
   }
 
   /**

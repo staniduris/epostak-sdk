@@ -1,7 +1,7 @@
 {
   "name": "@epostak/sdk",
-  "version": "1.8.0",
-  "description": "Official Node.js SDK for ePošťák Enterprise API — Peppol e-invoicing",
+  "version": "2.0.0",
+  "description": "Official Node.js SDK for the ePošťák API — Peppol e-invoicing for Slovakia",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -33,6 +33,7 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ]
 }

@@ -5,7 +5,16 @@ export type { EPostakConfig } from "./client.js";
 // Error class
 export { EPostakError } from "./utils/errors.js";
 
+// Webhook signature verification helper
+export { verifyWebhookSignature } from "./utils/webhook-signature.js";
+export type {
+  VerifyWebhookSignatureOptions,
+  VerifyWebhookSignatureResult,
+} from "./utils/webhook-signature.js";
+
 // Resource classes (for typing and instanceof checks)
+export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
+export { AuditResource } from "./resources/audit.js";
 export { DocumentsResource, InboxResource } from "./resources/documents.js";
 export { FirmsResource } from "./resources/firms.js";
 export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
@@ -98,6 +107,7 @@ export type {
   WebhookDelivery,
   WebhookWithDeliveries,
   WebhookListResponse,
+  WebhookRotateSecretResponse,
   // Webhook test & delivery history
   WebhookTestResponse,
   WebhookDeliveryDetail,
@@ -114,6 +124,7 @@ export type {
   WebhookQueueAllResponse,
   // Reporting
   StatisticsParams,
+  StatisticsTopParty,
   Statistics,
   StatisticsParty,
   // Account
@@ -122,14 +133,22 @@ export type {
   ExtractResult,
   BatchExtractItem,
   BatchExtractResult,
-  // Auth introspection & rotation
+  // Auth — OAuth + introspection + rotation + IP allowlist
+  TokenResponse,
+  RevokeResponse,
   AuthStatusKey,
-  AuthStatusFirm,
   AuthStatusPlan,
   AuthStatusRateLimit,
   AuthStatusIntegrator,
   AuthStatusResponse,
   RotateSecretResponse,
+  IpAllowlistResponse,
+  // Cursor pagination
+  CursorPage,
+  // Audit
+  AuditActorType,
+  AuditEvent,
+  AuditListParams,
   // Batch send
   BatchSendItem,
   BatchSendResult,

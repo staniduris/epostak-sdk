@@ -2,7 +2,7 @@ import { EPostakError } from "./errors.js";
 
 /** Internal configuration passed to all resource classes. */
 export interface ClientConfig {
-  /** Base URL for the API (e.g. `"https://epostak.sk/api/enterprise"`) */
+  /** Base URL for the API (e.g. `"https://epostak.sk/api/v1"`) */
   baseUrl: string;
   /** API key for authentication (`sk_live_*` or `sk_int_*`) */
   apiKey: string;
@@ -17,6 +17,23 @@ const BASE_DELAY_MS = 500;
 const MAX_DELAY_MS = 30_000;
 /** HTTP methods retried by default (idempotent / safe). */
 const DEFAULT_RETRYABLE_METHODS = new Set(["GET", "DELETE"]);
+
+/** Per-request options accepted by `BaseResource.request`. */
+export interface RequestOptions {
+  /** Extra headers to merge into the request. */
+  headers?: Record<string, string>;
+  /** Return the raw `Response` instead of parsing JSON. */
+  rawResponse?: boolean;
+  /** Allow retries even for non-idempotent methods (POST/PATCH/PUT). */
+  retry?: boolean;
+  /**
+   * Optional client-chosen replay-safety token. Sent as the `Idempotency-Key`
+   * HTTP header. The server returns `409` (surfaced as
+   * `EPostakError` with code `idempotency_conflict`) when the same key is
+   * replayed before the original request finishes.
+   */
+  idempotencyKey?: string;
+}
 
 /**
  * Base class for all API resource classes. Provides the authenticated `request()`
@@ -34,19 +51,14 @@ export class BaseResource {
    * @param method - HTTP method (GET, POST, PATCH, DELETE)
    * @param path - API endpoint path (appended to baseUrl)
    * @param body - Request body (JSON-serializable object or FormData)
-   * @param options - Additional options for headers or raw response handling
+   * @param options - Additional options for headers, raw response, retry, idempotency
    * @returns Parsed JSON response, or raw Response if `rawResponse` is true
    */
   protected request<T>(
     method: string,
     path: string,
     body?: unknown,
-    options?: {
-      headers?: Record<string, string>;
-      rawResponse?: boolean;
-      /** Allow retries even for non-idempotent methods (POST/PATCH/PUT). */
-      retry?: boolean;
-    },
+    options?: RequestOptions,
   ): Promise<T> {
     return request<T>(
       this.config.baseUrl,
@@ -97,19 +109,16 @@ function isRetryableStatus(status: number): boolean {
 /**
  * Core fetch wrapper used by all resource methods.
  * Handles Bearer authentication, `X-Firm-Id` header for integrator keys,
- * JSON serialization, FormData pass-through, error normalization
- * into {@link EPostakError} instances, and automatic retries with
- * exponential backoff on 429 / 5xx responses.
+ * `Idempotency-Key`, JSON serialization, FormData pass-through, error
+ * normalization into {@link EPostakError} instances (including RFC 7807
+ * envelopes and `WWW-Authenticate: insufficient_scope`), and automatic
+ * retries with exponential backoff on 429 / 5xx responses.
  *
- * @param baseUrl - API base URL
- * @param apiKey - Bearer token for authentication
- * @param firmId - Optional firm UUID sent as `X-Firm-Id` header
- * @param method - HTTP method (GET, POST, PATCH, DELETE)
- * @param path - API endpoint path (appended to baseUrl)
- * @param body - Request body — JSON-serializable object or FormData
- * @param options - Additional headers, `rawResponse: true`, retry overrides, or `maxRetries`
- * @returns Parsed JSON response of type `T`, raw `Response` if rawResponse is true, or `undefined` for 204 responses
- * @throws {EPostakError} On non-2xx responses (after exhausting retries) or network errors
+ * @returns Parsed JSON response of type `T`, raw `Response` if `rawResponse`
+ *   is true, or `undefined` for 204 responses
+ * @throws {EPostakError} On non-2xx responses (after exhausting retries) or
+ *   network errors. `409` responses with `code: "idempotency_conflict"` are
+ *   surfaced verbatim — callers can detect them via `err.code`.
  */
 export async function request<T>(
   baseUrl: string,
@@ -118,14 +127,7 @@ export async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  options?: {
-    headers?: Record<string, string>;
-    rawResponse?: boolean;
-    /** Allow retries for non-idempotent methods (POST/PATCH/PUT). */
-    retry?: boolean;
-    /** Maximum number of retries. Defaults to {@link DEFAULT_MAX_RETRIES}. */
-    maxRetries?: number;
-  },
+  options?: RequestOptions & { maxRetries?: number },
 ): Promise<T> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -134,6 +136,10 @@ export async function request<T>(
 
   if (firmId) {
     headers["X-Firm-Id"] = firmId;
+  }
+
+  if (options?.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
   }
 
   if (body !== undefined && !(body instanceof FormData)) {
@@ -175,9 +181,8 @@ export async function request<T>(
       });
     }
 
-    // Retry on retryable status codes if we have attempts left
+    // Retry on retryable status codes if we have attempts left.
     if (canRetry && isRetryableStatus(res.status) && attempt < maxRetries) {
-      // Respect Retry-After header (value in seconds) when present
       const retryAfterHeader = res.headers.get("Retry-After");
       let delayMs: number;
       if (retryAfterHeader) {
@@ -200,14 +205,13 @@ export async function request<T>(
       } catch {
         errorBody = { error: res.statusText };
       }
-      throw new EPostakError(res.status, errorBody);
+      throw new EPostakError(res.status, errorBody, res.headers);
     }
 
     if (options?.rawResponse) {
       return res as unknown as T;
     }
 
-    // Handle 204 No Content (e.g. DELETE ack, batch-ack)
     if (res.status === 204 || res.headers.get("content-length") === "0") {
       return undefined as unknown as T;
     }
