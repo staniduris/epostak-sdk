@@ -21,7 +21,6 @@ export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
 export {
   WebhooksResource,
   WebhookQueueResource,
-  verifyWebhookSignature,
 } from "./resources/webhooks.js";
 export { ReportingResource } from "./resources/reporting.js";
 export { ExtractResource } from "./resources/extract.js";
@@ -113,7 +112,6 @@ export type {
   WebhookDeliveryDetail,
   WebhookDeliveriesParams,
   WebhookDeliveriesResponse,
-  WebhookRotateSecretResponse,
   // Webhook queue
   WebhookQueueParams,
   WebhookQueueItem,
@@ -126,7 +124,6 @@ export type {
   StatisticsParams,
   StatisticsTopParty,
   Statistics,
-  StatisticsParty,
   // Account
   Account,
   // Extract
