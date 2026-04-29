@@ -1,1 +1,0 @@
-- [SDK Review](sdk_review_2026_04_26.md) -- @epostak/sdk TypeScript SDK architecture, patterns, and gaps identified

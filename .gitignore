@@ -18,3 +18,4 @@ target/
 .npmrc
 .venv/
 venv/
+.claude/
