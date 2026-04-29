@@ -12,6 +12,9 @@ export type {
   VerifyWebhookSignatureResult,
 } from "./utils/webhook-signature.js";
 
+// OAuth authorization_code + PKCE helpers (integrator-initiated onboarding)
+export { OAuth } from "./resources/oauth.js";
+
 // Resource classes (for typing and instanceof checks)
 export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
 export { AuditResource } from "./resources/audit.js";

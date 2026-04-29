@@ -3,6 +3,37 @@
 All notable changes to `epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 2.1.0 — 2026-04-29
+
+### Added
+
+- **`EPostak\Resources\OAuth`** — helpers for the integrator-initiated
+  onboarding flow (`authorization_code` grant + PKCE S256). Use these from
+  your backend to let an end-user firm consent to your integrator app from
+  inside your own UI. All methods are `static` — no client instance
+  required:
+  - `OAuth::generatePkce()` — fresh `['codeVerifier', 'codeChallenge']`
+    pair.
+  - `OAuth::buildAuthorizeUrl(['clientId', 'redirectUri', 'codeChallenge',
+'state', 'scope'?, 'origin'?])` — authorize URL the user is
+    redirected to.
+  - `OAuth::exchangeCode(['code', 'codeVerifier', 'clientId',
+'clientSecret', 'redirectUri', 'origin'?])` — exchanges the returned
+    `code` for an access + refresh token pair against
+    `${origin}/api/oauth/token`. Hits the OAuth namespace directly,
+    bypassing the configured `EPostak` base URL.
+
+  Use this when the firm has no API key with you yet. After
+  `exchangeCode()` succeeds, you have a 15-minute access JWT and a 30-day
+  rotating refresh token bound to the firm — store both server-side. The
+  existing `$client->auth->token($apiKey)` (`client_credentials`)
+  continues to be the right choice once the firm is linked through other
+  means (dashboard confirm, integrator-managed plan, manual link).
+
+- Required `redirect_uris` must be registered with ePošťák
+  (`info@epostak.sk`) before first use — exact-match enforced, no
+  wildcards.
+
 ## 2.0.0 — 2026-04-29
 
 This is a clean break-release that aligns the SDK with the ePošťák public

@@ -6,14 +6,14 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 ## Available SDKs
 
-| Language                | Directory                      | Package                  | Status                     |
-| ----------------------- | ------------------------------ | ------------------------ | -------------------------- |
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | `npm install @epostak/sdk` |
-| Python                  | [`python/`](./python/)         | `epostak`                | Source on GitHub           |
-| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | Source on GitHub           |
-| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | Source on GitHub           |
-| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | Source on GitHub           |
-| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | Source on GitHub           |
+| Language                | Directory                      | Package                  | Version | Status                     |
+| ----------------------- | ------------------------------ | ------------------------ | ------- | -------------------------- |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | 2.1.0   | `npm install @epostak/sdk` |
+| Python                  | [`python/`](./python/)         | `epostak`                | 2.1.0   | Source on GitHub           |
+| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | 2.1.0   | Source on GitHub           |
+| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | 2.1.0   | Source on GitHub           |
+| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | 2.1.0   | Source on GitHub           |
+| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | 2.1.0   | Source on GitHub           |
 
 TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
 
@@ -59,6 +59,34 @@ Use `0245:DIČ` for all Slovak firms. The `9950:SK...` VAT-number form is **not*
 | `sk_int_*`  | Integrator access — acts on behalf of client firms |
 
 Generate API keys in your ePošťák firm settings.
+
+---
+
+## OAuth `authorization_code` + PKCE (integrator onboarding)
+
+For integrators onboarding end-user firms from inside their own UI, every SDK ships stateless `OAuth` helpers (`generatePkce`, `buildAuthorizeUrl`, `exchangeCode`) that hit `https://epostak.sk/oauth/authorize` and `https://epostak.sk/api/oauth/token` directly — they bypass the configured base URL because the OAuth namespace lives outside `/api/v1`. Generate a fresh PKCE pair per attempt, redirect the user to `/oauth/authorize`, then exchange the returned `code` for a 15-minute access JWT and 30-day rotating refresh token. Pre-register your `redirect_uris` with `info@epostak.sk` (exact-match enforced).
+
+```typescript
+import { OAuth } from "@epostak/sdk";
+
+const { codeVerifier, codeChallenge } = OAuth.generatePkce();
+const url = OAuth.buildAuthorizeUrl({
+  clientId: process.env.EPOSTAK_OAUTH_CLIENT_ID!,
+  redirectUri: "https://your-app.com/oauth/epostak/callback",
+  state: req.session.id,
+  codeChallenge,
+});
+// later, on the callback:
+const tokens = await OAuth.exchangeCode({
+  code: req.query.code,
+  codeVerifier,
+  clientId: process.env.EPOSTAK_OAUTH_CLIENT_ID!,
+  clientSecret: process.env.EPOSTAK_OAUTH_CLIENT_SECRET!,
+  redirectUri: "https://your-app.com/oauth/epostak/callback",
+});
+```
+
+Use this when the firm has no API key with you yet. Once linked, switch to the regular `client.auth.token({ apiKey })` (`client_credentials`) flow.
 
 ---
 

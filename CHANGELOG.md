@@ -1,5 +1,39 @@
 # Changelog
 
+## 2.1.0 — 2026-04-29 — OAuth `authorization_code` + PKCE helpers
+
+Cross-language pass adding stateless OAuth `authorization_code` + PKCE (S256) helpers to all six SDKs. Every SDK now ships an `OAuth` resource (Java: `OAuthHelper`, to dodge `javax.security.auth.oauth`) with three operations:
+
+- **`generatePkce`** — `(codeVerifier, codeChallenge)` pair. Verifier is 32 random bytes base64url-encoded (43 chars, ≈256 bits); challenge is `base64url(SHA256(codeVerifier))`.
+- **`buildAuthorizeUrl`** — builds `${origin}/oauth/authorize?...` with `response_type=code`, `code_challenge_method=S256`, and an optional `scope`.
+- **`exchangeCode`** — POSTs `application/x-www-form-urlencoded` to `${origin}/api/oauth/token` and returns a `TokenResponse` (15-min access JWT + 30-day rotating refresh token). On non-2xx, raises the SDK's existing error type.
+
+Use this when the firm has no API key with you yet. Once linked, switch to the regular `client_credentials` flow (`client.auth.token(...)`). Default origin is `https://epostak.sk` — the helpers bypass the configured `/api/v1` base URL because the OAuth namespace lives at the bare host. `redirect_uris` must be pre-registered with ePošťák (`info@epostak.sk`); exact-match enforced, no wildcards.
+
+### Per-language API surface
+
+| Language   | Class / module                            | Method names                                             |
+| ---------- | ----------------------------------------- | -------------------------------------------------------- |
+| TypeScript | `OAuth` (class, static methods)           | `generatePkce`, `buildAuthorizeUrl`, `exchangeCode`      |
+| Python     | `epostak.OAuth` (class, `@staticmethod`)  | `generate_pkce`, `build_authorize_url`, `exchange_code`  |
+| PHP        | `EPostak\Resources\OAuth` (final, static) | `generatePkce`, `buildAuthorizeUrl`, `exchangeCode`      |
+| Ruby       | `EPostak::OAuth` (module functions)       | `generate_pkce`, `build_authorize_url`, `exchange_code`  |
+| Java       | `OAuthHelper` (final, static)             | `generatePkce`, `buildAuthorizeUrl`, `exchangeCode`      |
+| .NET       | `EPostak.Resources.OAuth` (static class)  | `GeneratePkce`, `BuildAuthorizeUrl`, `ExchangeCodeAsync` |
+
+### Per-language version bumps
+
+| Language                        | Version       |
+| ------------------------------- | ------------- |
+| TypeScript (`@epostak/sdk`)     | 2.0.0 → 2.1.0 |
+| Python (`epostak`)              | 2.0.0 → 2.1.0 |
+| PHP (`epostak/sdk`)             | 2.0.0 → 2.1.0 |
+| Ruby (`epostak`)                | 2.0.0 → 2.1.0 |
+| Java (`sk.epostak:epostak-sdk`) | 2.0.0 → 2.1.0 |
+| .NET (`EPostak`)                | 2.0.0 → 2.1.0 |
+
+---
+
 ## All SDKs — 2026-04-25 — Backend security pass alignment
 
 Cross-language pass aligning every SDK with the backend security/contract changes shipped in the ePošťák `feat/backend-security-pass-2026-04` branch. **No breaking wire-protocol changes** for existing SDK users — the only on-the-wire delta is the lowercase canonical idempotency header (HTTP header names are case-insensitive per RFC 7230, so existing callers keep working). The bulk of the work is documentation/error-code expansion.
@@ -11,7 +45,7 @@ The 6 deltas applied across all 6 SDKs (TypeScript, Python, Java, PHP, Ruby, .NE
    - `404 FIRM_NOT_REGISTERED` — Firm doesn't exist; needs FS SR PFS signup first.
    - `403 CONSENT_REQUIRED` — Firm exists but hasn't granted consent.
    - `409 ALREADY_LINKED` — integrator already linked to this Firm.
-   No SDK had typed-per-code exception classes (all use a single `EPostakError`/`EPostakException` with a string `code` field), so no new exception classes were added — the existing pattern already carries the new codes.
+     No SDK had typed-per-code exception classes (all use a single `EPostakError`/`EPostakException` with a string `code` field), so no new exception classes were added — the existing pattern already carries the new codes.
 3. **`POST /api/v1/integrator/firms`** — same lookup-only shift as `firms.assign()`. None of the 6 SDKs expose this endpoint, so no per-SDK code changes.
 4. **Supplier-party pinning (XML mode `documents.send()`)** — when raw UBL is submitted via `xml`, the server overwrites `cac:AccountingSupplierParty/cac:Party` (or `cac:AccountingCustomerParty` for self-billing typecodes 261/389) with values from the authenticated firm's record. `EndpointID` is the only supplier-party field still validated; mismatched IDs return 422. BG-24 attachments, line items, payment terms, and notes are preserved. Documented in every SDK's `send()` doc comment.
 5. **New `docType` value `self_billing_credit_note`** — full set is now `invoice`, `credit_note`, `correction`, `self_billing`, `reverse_charge`, `self_billing_credit_note`. TypeScript exports a new `DocType` string-literal union and adds `docType?: DocType` to `SendDocumentJsonRequest`; other SDKs document the values in `send()` doc comments. No SDK had a strongly-typed `DocType` enum previously, so no enum constants were added.
@@ -19,14 +53,14 @@ The 6 deltas applied across all 6 SDKs (TypeScript, Python, Java, PHP, Ruby, .NE
 
 ### Per-language version bumps
 
-| Language                              | Version          |
-|-|-|
-| TypeScript (`@epostak/sdk`)           | 1.5.0 → 1.6.0    |
-| Python (`epostak`)                    | 0.3.0 → 0.4.0    |
-| Java (`sk.epostak:epostak-sdk`)       | 1.2.0 → 1.6.0    |
-| PHP (`epostak/sdk`)                   | 1.2.0 → 1.6.0    |
-| Ruby (`epostak`)                      | 1.2.0 → 1.6.0    |
-| .NET (`EPostak`)                      | 1.5.0 → 1.6.0    |
+| Language                        | Version       |
+| ------------------------------- | ------------- |
+| TypeScript (`@epostak/sdk`)     | 1.5.0 → 1.6.0 |
+| Python (`epostak`)              | 0.3.0 → 0.4.0 |
+| Java (`sk.epostak:epostak-sdk`) | 1.2.0 → 1.6.0 |
+| PHP (`epostak/sdk`)             | 1.2.0 → 1.6.0 |
+| Ruby (`epostak`)                | 1.2.0 → 1.6.0 |
+| .NET (`EPostak`)                | 1.5.0 → 1.6.0 |
 
 Java/PHP/Ruby jump from `1.2.x` → `1.6.0` to align the version family across all 1.x SDKs (matching prior cross-SDK sync precedent — see ".NET 1.1.0 → 1.5.0 catches up with the TypeScript 1.4.0 line"). Python stays on its independent pre-1.0 line.
 
@@ -54,9 +88,9 @@ Backend security pass alignment. See **All SDKs — 2026-04-25** above for the c
 
 ### SDK versions
 
-| Language                              | Version |
-|-|-|
-| TypeScript (`@epostak/sdk`)           | 1.6.0   |
+| Language                    | Version |
+| --------------------------- | ------- |
+| TypeScript (`@epostak/sdk`) | 1.6.0   |
 
 ---
 
@@ -69,9 +103,9 @@ Backend security pass alignment. See **All SDKs — 2026-04-25** above for the c
 
 ### SDK versions
 
-| Language                              | Version |
-|-|-|
-| Python (`epostak`)                    | 0.4.0   |
+| Language           | Version |
+| ------------------ | ------- |
+| Python (`epostak`) | 0.4.0   |
 
 ---
 
@@ -195,9 +229,9 @@ Extract:
 
 ### SDK versions
 
-| Language                              | Version |
-|-|-|
-| TypeScript (`@epostak/sdk`)           | 1.5.0   |
+| Language                    | Version |
+| --------------------------- | ------- |
+| TypeScript (`@epostak/sdk`) | 1.5.0   |
 
 No other SDKs changed in this release.
 
@@ -234,9 +268,9 @@ Audit against the live backend surfaced a handful of drifted `TypedDict` fields.
 
 ### SDK versions
 
-| Language                              | Version |
-|-|-|
-| Python (`epostak`)                    | 0.3.0   |
+| Language           | Version |
+| ------------------ | ------- |
+| Python (`epostak`) | 0.3.0   |
 
 No other SDKs changed in this release.
 
@@ -340,9 +374,9 @@ No other SDKs changed in this release.
 
 ### SDK versions
 
-| Language                              | Version |
-| ------------------------------------- | ------- |
-| PHP (`epostak/sdk`)                   | 1.2.0   |
+| Language            | Version |
+| ------------------- | ------- |
+| PHP (`epostak/sdk`) | 1.2.0   |
 
 No other SDKs changed in this release.
 
@@ -363,9 +397,9 @@ No other SDKs changed in this release.
 
 ### SDK versions
 
-| Language                              | Version |
-| ------------------------------------- | ------- |
-| Ruby (`epostak` gem)                  | 1.2.0   |
+| Language             | Version |
+| -------------------- | ------- |
+| Ruby (`epostak` gem) | 1.2.0   |
 
 No other SDKs changed in this release — TypeScript, Python, Java, PHP and .NET will add `documents.envelope()` in parallel follow-up bumps.
 

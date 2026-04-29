@@ -8,6 +8,7 @@ use EPostak\Resources\Auth;
 use EPostak\Resources\Audit;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Firms;
+use EPostak\Resources\OAuth;
 use EPostak\Resources\Peppol;
 use EPostak\Resources\Webhooks;
 use EPostak\Resources\Reporting;
