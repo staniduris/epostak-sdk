@@ -31,7 +31,7 @@ class TokenManager:
         self._client_id = client_id
         self._client_secret = client_secret
         self._base_url = base_url
-        self._firm_id = firm_id
+        # firm_id accepted for backward compatibility but not used for token minting
 
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
@@ -65,8 +65,6 @@ class TokenManager:
     def _do_mint(self) -> None:
         url = f"{self._sapi_base_url()}{_SAPI_TOKEN_PATH}"
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        if self._firm_id:
-            headers["X-Firm-Id"] = self._firm_id
 
         body: dict[str, str] = {
             "grant_type": "client_credentials",

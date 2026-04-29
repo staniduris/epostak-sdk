@@ -25,7 +25,6 @@ class TokenManager
     private string $clientId;
     private string $clientSecret;
     private string $baseUrl;
-    private ?string $firmId;
     private ?string $scope;
 
     private ?string $accessToken = null;
@@ -36,7 +35,7 @@ class TokenManager
      * @param string      $clientId     OAuth client ID (sk_live_* or sk_int_*).
      * @param string      $clientSecret OAuth client secret.
      * @param string      $baseUrl      API base URL (e.g. 'https://epostak.sk/api/v1').
-     * @param string|null $firmId       Optional firm ID for integrator keys.
+     * @param string|null $firmId       Accepted for backward compatibility but not used for token minting.
      * @param string|null $scope        Optional space-separated scope subset.
      */
     public function __construct(
@@ -49,7 +48,7 @@ class TokenManager
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
         $this->baseUrl = $baseUrl;
-        $this->firmId = $firmId;
+        // firmId accepted for backward compat but not used for token minting
         $this->scope = $scope;
     }
 
@@ -108,9 +107,6 @@ class TokenManager
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ];
-        if ($this->firmId !== null) {
-            $headers['X-Firm-Id'] = $this->firmId;
-        }
 
         $body = [
             'grant_type' => 'client_credentials',

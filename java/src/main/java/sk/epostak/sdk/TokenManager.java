@@ -28,7 +28,6 @@ public final class TokenManager {
     private final String clientId;
     private final String clientSecret;
     private final String baseUrl;
-    private final String firmId;
 
     private final java.net.http.HttpClient jdkClient;
 
@@ -40,13 +39,13 @@ public final class TokenManager {
      * @param clientId     the API key (e.g. {@code sk_live_*} or {@code sk_int_*})
      * @param clientSecret the API secret (same value as clientId for ePošťák keys)
      * @param baseUrl      the full base URL including {@code /api/v1} suffix
-     * @param firmId       optional firm UUID for integrator keys, or {@code null}
+     * @param firmId       accepted for backward compatibility but not used for token minting
      */
     public TokenManager(String clientId, String clientSecret, String baseUrl, String firmId) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.baseUrl = baseUrl;
-        this.firmId = firmId;
+        // firmId accepted for backward compat but not used for token minting
         this.jdkClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(TIMEOUT)
                 .build();
@@ -92,16 +91,14 @@ public final class TokenManager {
         body.put("client_id", clientId);
         body.put("client_secret", clientSecret);
 
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(TIMEOUT)
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8));
-        if (firmId != null) {
-            builder.header("X-Firm-Id", firmId);
-        }
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8))
+                .build();
 
-        TokenResponse resp = send(builder.build());
+        TokenResponse resp = send(request);
         applyTokenResponse(resp);
     }
 

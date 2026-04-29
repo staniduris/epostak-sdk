@@ -8,7 +8,6 @@ export interface TokenManagerConfig {
   clientId: string;
   clientSecret: string;
   baseUrl: string;
-  firmId?: string;
   scope?: string;
 }
 
@@ -56,9 +55,6 @@ export class TokenManager {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (this.config.firmId) {
-      headers["X-Firm-Id"] = this.config.firmId;
-    }
 
     const body: Record<string, string> = {
       grant_type: "client_credentials",

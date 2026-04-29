@@ -73,38 +73,34 @@ public final class AuthResource {
     /**
      * Mint an OAuth access token via the {@code client_credentials} grant.
      * <p>
-     * For integrator keys ({@code sk_int_*}) you must also pass {@code firmId},
-     * which is forwarded as {@code X-Firm-Id} so the issued JWT is bound to
-     * the right tenant.
+     * The JWT returned is not firm-scoped; use the {@code X-Firm-Id} header
+     * on subsequent API calls to scope requests to a specific firm.
      *
      * @param clientId     the OAuth client ID (API key)
      * @param clientSecret the OAuth client secret
-     * @param firmId       the firm UUID for integrator keys (sent as {@code X-Firm-Id}), or {@code null}
      * @param scope        optional space-separated scope subset, or {@code null} for the key's own scopes
      * @return the access + refresh token pair, scope, and {@code expires_in} (seconds)
      * @throws EPostakException if the request fails
      */
-    public TokenResponse token(String clientId, String clientSecret, String firmId, String scope) {
+    public TokenResponse token(String clientId, String clientSecret, String scope) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("grant_type", "client_credentials");
         body.put("client_id", clientId);
         body.put("client_secret", clientSecret);
         if (scope != null) body.put("scope", scope);
 
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
+        HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(http.getBaseUrl() + "/auth/token"))
                 .timeout(TIMEOUT)
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8));
-        if (firmId != null) {
-            builder.header("X-Firm-Id", firmId);
-        }
+                .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8))
+                .build();
 
-        return sendDirect(builder.build(), TokenResponse.class);
+        return sendDirect(request, TokenResponse.class);
     }
 
     /**
-     * Mint a token using just clientId + clientSecret (no integrator firm pinning, no scope subset).
+     * Mint a token using just clientId + clientSecret (no scope subset).
      *
      * @param clientId     the OAuth client ID (API key)
      * @param clientSecret the OAuth client secret
@@ -112,7 +108,7 @@ public final class AuthResource {
      * @throws EPostakException if the request fails
      */
     public TokenResponse token(String clientId, String clientSecret) {
-        return token(clientId, clientSecret, null, null);
+        return token(clientId, clientSecret, null);
     }
 
     /**

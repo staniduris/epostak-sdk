@@ -43,17 +43,13 @@ export class AuthResource extends BaseResource {
    *
    * @param params.clientId - The API key ID (UUID) or key prefix
    * @param params.clientSecret - The full API key (`sk_live_*` or `sk_int_*`)
-   * @param params.firmId - Required for `sk_int_*` keys
    * @param params.scope - Optional space-separated scope subset
    */
   token(params: {
     clientId: string;
     clientSecret: string;
-    firmId?: string;
     scope?: string;
   }): Promise<TokenResponse> {
-    const headers: Record<string, string> = {};
-    if (params.firmId) headers["X-Firm-Id"] = params.firmId;
     return request<TokenResponse>(
       this.config.baseUrl,
       params.clientSecret,
@@ -66,7 +62,7 @@ export class AuthResource extends BaseResource {
         client_secret: params.clientSecret,
         ...(params.scope ? { scope: params.scope } : {}),
       },
-      { headers, maxRetries: this.config.maxRetries },
+      { maxRetries: this.config.maxRetries },
     );
   }
 

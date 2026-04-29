@@ -80,20 +80,17 @@ public sealed class AuthResource
     /// <para>
     /// Posts to the SAPI token endpoint (<c>/sapi/v1/auth/token</c>) with the
     /// provided <paramref name="clientId"/> and <paramref name="clientSecret"/>.
-    /// For integrator keys (<c>sk_int_*</c>) you must also pass
-    /// <paramref name="firmId"/>, which is forwarded as <c>X-Firm-Id</c> so the
-    /// issued JWT is bound to the right tenant.
+    /// The JWT returned is not firm-scoped; use the <c>X-Firm-Id</c> header
+    /// on subsequent API calls to scope requests to a specific firm.
     /// </para>
     /// </summary>
     /// <param name="clientId">OAuth client ID (typically the API key).</param>
     /// <param name="clientSecret">OAuth client secret (typically the API key).</param>
-    /// <param name="firmId">Optional firm UUID for integrator keys.</param>
     /// <param name="scope">Optional space-separated scope subset.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task<TokenResponse> TokenAsync(
         string clientId,
         string clientSecret,
-        string? firmId = null,
         string? scope = null,
         CancellationToken ct = default)
     {
@@ -104,8 +101,6 @@ public sealed class AuthResource
             sapiBase = sapiBase[..v1Idx];
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{sapiBase}/sapi/v1/auth/token");
-        if (!string.IsNullOrEmpty(firmId))
-            request.Headers.Add("X-Firm-Id", firmId);
 
         var body = new Dictionary<string, string>
         {

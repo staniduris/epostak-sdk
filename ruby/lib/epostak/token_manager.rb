@@ -62,7 +62,6 @@ module EPostak
 
       response = conn.post("/sapi/v1/auth/token") do |req|
         req.headers["Content-Type"] = "application/json"
-        req.headers["X-Firm-Id"] = @firm_id if @firm_id
         req.body = JSON.generate(body)
       end
 
@@ -82,7 +81,6 @@ module EPostak
       response = conn.post("/sapi/v1/auth/renew") do |req|
         req.headers["Content-Type"] = "application/json"
         req.headers["Authorization"] = "Bearer #{@access_token}"
-        req.headers["X-Firm-Id"] = @firm_id if @firm_id
         req.body = JSON.generate(body)
       end
 

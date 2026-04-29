@@ -50,25 +50,20 @@ class Auth
      * Mint an OAuth access token via the `client_credentials` grant.
      *
      * Posts to the SAPI token endpoint (`/sapi/v1/auth/token`) with the
-     * given client credentials. For integrator keys (`sk_int_*`) you must
-     * also pass `firmId`, which is forwarded as `X-Firm-Id` so the issued
-     * JWT is bound to the right tenant.
+     * given client credentials. The JWT returned is not firm-scoped; use
+     * the `X-Firm-Id` header on subsequent API calls to scope requests
+     * to a specific firm.
      *
      * @param string      $clientId     OAuth client ID (`sk_live_*` or `sk_int_*`).
      * @param string      $clientSecret OAuth client secret.
-     * @param string|null $firmId       Required when using an integrator key.
      * @param string|null $scope        Optional space-separated scope subset.
      * @return array{access_token: string, refresh_token: string, token_type: string, expires_in: int, scope?: string}
      * @throws EPostakError On API error.
      *
      * @example
-     *   // sk_live_* — direct firm access
      *   $tokens = $client->auth->token('sk_live_xxx', 'secret');
-     *
-     *   // sk_int_* — integrator acting on behalf of a managed firm
-     *   $tokens = $client->auth->token('sk_int_xxx', 'secret', 'client-firm-uuid');
      */
-    public function token(string $clientId, string $clientSecret, ?string $firmId = null, ?string $scope = null): array
+    public function token(string $clientId, string $clientSecret, ?string $scope = null): array
     {
         $body = [
             'grant_type' => 'client_credentials',
@@ -83,9 +78,6 @@ class Auth
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ];
-        if ($firmId !== null) {
-            $headers['X-Firm-Id'] = $firmId;
-        }
 
         // Token endpoint is on the SAPI path, not the main API path
         $sapiBase = preg_replace('#/api/v1/?$#', '', $this->http->getBaseUrl());

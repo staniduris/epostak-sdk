@@ -20,7 +20,6 @@ internal sealed class TokenManager
     private readonly string _clientId;
     private readonly string _clientSecret;
     private readonly string _sapiBaseUrl;
-    private readonly string? _firmId;
 
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private string? _accessToken;
@@ -32,7 +31,7 @@ internal sealed class TokenManager
         _http = http;
         _clientId = clientId;
         _clientSecret = clientSecret;
-        _firmId = firmId;
+        // firmId accepted for backward compat but not used for token minting
 
         // Strip /api/v1 suffix to get the origin for SAPI endpoints
         var idx = baseUrl.IndexOf("/api/v1", StringComparison.Ordinal);
@@ -86,9 +85,6 @@ internal sealed class TokenManager
     {
         var url = $"{_sapiBaseUrl}{SapiTokenPath}";
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
-
-        if (_firmId is not null)
-            request.Headers.Add("X-Firm-Id", _firmId);
 
         var body = new Dictionary<string, string>
         {

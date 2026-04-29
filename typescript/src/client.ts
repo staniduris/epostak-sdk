@@ -65,6 +65,8 @@ export interface EPostakConfig {
 export class EPostak {
   private readonly clientConfig: ClientConfig;
   private readonly tokenManager: TokenManager;
+  private readonly _clientId: string;
+  private readonly _clientSecret: string;
 
   /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
   auth: AuthResource;
@@ -97,12 +99,14 @@ export class EPostak {
 
     const baseUrl = config.baseUrl ?? DEFAULT_BASE_URL;
 
+    this._clientId = config.clientId;
+    this._clientSecret = config.clientSecret;
+
     const tmConfig: import("./utils/token-manager.js").TokenManagerConfig = {
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       baseUrl,
     };
-    if (config.firmId) tmConfig.firmId = config.firmId;
 
     this.tokenManager = tokenManager ?? new TokenManager(tmConfig);
 
@@ -146,8 +150,8 @@ export class EPostak {
   withFirm(firmId: string): EPostak {
     return new EPostak(
       {
-        clientId: "",
-        clientSecret: this.clientConfig.tokenManager ? "shared" : "placeholder",
+        clientId: this._clientId,
+        clientSecret: this._clientSecret,
         baseUrl: this.clientConfig.baseUrl,
         firmId,
         maxRetries: this.clientConfig.maxRetries,

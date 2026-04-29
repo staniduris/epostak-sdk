@@ -80,23 +80,19 @@ module EPostak
 
       # Mint an OAuth access token via the `client_credentials` grant.
       #
-      # POSTs to +/sapi/v1/auth/token+ with the client credentials. For
-      # integrator keys (+sk_int_*+) you must also pass +firm_id+, which is
-      # forwarded as +X-Firm-Id+ so the issued JWT is bound to the right tenant.
+      # POSTs to +/sapi/v1/auth/token+ with the client credentials. The JWT
+      # returned is not firm-scoped; use the +X-Firm-Id+ header on subsequent
+      # API calls to scope requests to a specific firm.
       #
       # @param client_id [String] The +sk_live_*+ or +sk_int_*+ key
       # @param client_secret [String] The OAuth client secret
-      # @param firm_id [String, nil] Required for integrator keys
       # @param scope [String, nil] Optional space-separated scope subset
       # @return [Hash] Access + refresh token pair (access_token, refresh_token,
       #   token_type, expires_in, scope)
       #
-      # @example sk_live_* — direct firm access
+      # @example
       #   tokens = client.auth.token(client_id: "sk_live_xxxxx", client_secret: "secret")
-      #
-      # @example sk_int_* — integrator acting on behalf of a managed firm
-      #   tokens = client.auth.token(client_id: "sk_int_xxxxx", client_secret: "secret", firm_id: "uuid")
-      def token(client_id:, client_secret:, firm_id: nil, scope: nil)
+      def token(client_id:, client_secret:, scope: nil)
         body = {
           grant_type: "client_credentials",
           client_id: client_id,
@@ -107,7 +103,6 @@ module EPostak
         sapi_base = @base_url.sub(%r{/api/v1\z}, "")
         conn = Faraday.new(url: sapi_base) do |f|
           f.adapter Faraday.default_adapter
-          f.headers["X-Firm-Id"] = firm_id if firm_id
         end
 
         response = conn.run_request(:post, "/sapi/v1/auth/token", nil, nil) do |req|

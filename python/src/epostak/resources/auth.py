@@ -112,7 +112,6 @@ class AuthResource(_BaseResource):
         self,
         client_id: str,
         client_secret: str,
-        firm_id: Optional[str] = None,
         scope: Optional[str] = None,
     ) -> TokenResponse:
         """Mint an OAuth access token via the ``client_credentials`` grant.
@@ -120,7 +119,6 @@ class AuthResource(_BaseResource):
         Args:
             client_id: The API key (e.g. ``sk_live_*`` or ``sk_int_*``).
             client_secret: The API key secret.
-            firm_id: Required for integrator keys (``sk_int_*``).
             scope: Optional space-separated scope subset (defaults to the
                 key's own scopes).
 
@@ -151,8 +149,6 @@ class AuthResource(_BaseResource):
         sapi_base = re.sub(r"/api/v1/?$", "", self._base_url)
         url = f"{sapi_base}/sapi/v1/auth/token"
         headers: Dict[str, str] = {"Content-Type": "application/json"}
-        if firm_id:
-            headers["X-Firm-Id"] = firm_id
 
         response = self._client.request(
             "POST",
