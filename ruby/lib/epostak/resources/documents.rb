@@ -213,6 +213,8 @@ module EPostak
       # Validate a document without sending it. Checks Peppol BIS 3.0 compliance
       # and returns warnings. For JSON input, also returns the generated UBL XML preview.
       #
+      # Requires +documents:read+ scope.
+      #
       # @param body [Hash] Document data to validate (same format as +send_document+)
       # @return [Hash] Validation result with +valid+ boolean, +warnings+ array, and optional UBL preview
       #
@@ -244,6 +246,8 @@ module EPostak
 
       # Convert between JSON and UBL XML formats without sending.
       # Useful for previewing the UBL output or parsing received XML into structured data.
+      #
+      # Requires +documents:read+ scope.
       #
       # @param input_format [String] Format of the input document: "json" or "ubl"
       # @param output_format [String] Desired output format: "ubl" or "json"
@@ -310,6 +314,8 @@ module EPostak
       end
 
       # Parse a UBL XML invoice into a structured JSON representation.
+      #
+      # Requires +documents:read+ scope.
       #
       # Streams the XML as the raw request body with
       # +Content-Type: application/xml+.

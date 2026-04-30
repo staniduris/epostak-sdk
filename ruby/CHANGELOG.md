@@ -3,6 +3,28 @@
 All notable changes to the `epostak` Ruby gem are documented in this file.
 The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.0 — 2026-04-30
+
+### Added
+
+- **`client.webhooks.register_receive_callback(url:, events:)`** — wraps
+  `POST /document/receive-callback` (also at SAPI alias
+  `/sapi/v1/document/receive-callback`). Registers a webhook URL for
+  inbound document notifications. Requires `webhooks:write` scope.
+  Returns `{ "id", "url", "events", "secret", "is_active",
+"created_at" }` — `secret` is shown only once.
+
+### Changed
+
+- **`client.auth.status`** response now includes `firm_id`, `key_type`,
+  and `scope` fields alongside the existing `key`, `firm`, `plan`,
+  `rateLimit`, and `integrator` envelope.
+- **`/sapi/v1/auth/status`** is now documented as an alias for
+  `client.auth.status`.
+- **Scope requirement documented** for 4 endpoints that now require
+  `documents:read`: `documents.validate`, `documents.parse`,
+  `documents.convert`, and `peppol.directory.search`.
+
 ## 2.2.0 — 2026-04-29
 
 ### Added

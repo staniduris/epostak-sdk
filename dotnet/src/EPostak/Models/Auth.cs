@@ -83,6 +83,62 @@ public sealed class IpAllowlistResponse
 }
 
 // ---------------------------------------------------------------------------
+// Token status (JWT introspection)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Response from <c>GET /auth/token/status</c> (also available at
+/// <c>/sapi/v1/auth/status</c>). Introspects the calling JWT access token
+/// and returns its metadata without revealing the underlying API key.
+/// </summary>
+public sealed class TokenStatusResponse
+{
+    /// <summary>Whether the token is currently valid.</summary>
+    [JsonPropertyName("valid")]
+    public bool Valid { get; set; }
+
+    /// <summary>Token type — always <c>"access"</c>.</summary>
+    [JsonPropertyName("token_type")]
+    public string TokenType { get; set; } = "access";
+
+    /// <summary>The OAuth client ID (API key ID) that minted this token.</summary>
+    [JsonPropertyName("client_id")]
+    public string ClientId { get; set; } = "";
+
+    /// <summary>The firm UUID the token is scoped to.</summary>
+    [JsonPropertyName("firm_id")]
+    public string FirmId { get; set; } = "";
+
+    /// <summary>Key prefix type: <c>"sk_live"</c>, <c>"sk_int"</c>, or <c>"sk_peppol"</c>.</summary>
+    [JsonPropertyName("key_type")]
+    public string KeyType { get; set; } = "";
+
+    /// <summary>Space-separated scope string granted to this token.</summary>
+    [JsonPropertyName("scope")]
+    public string Scope { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp when the token was issued.</summary>
+    [JsonPropertyName("issued_at")]
+    public string IssuedAt { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp when the token expires.</summary>
+    [JsonPropertyName("expires_at")]
+    public string ExpiresAt { get; set; } = "";
+
+    /// <summary>Seconds remaining until expiry (floored to 0 when expired).</summary>
+    [JsonPropertyName("expires_in_seconds")]
+    public int ExpiresInSeconds { get; set; }
+
+    /// <summary>Whether the server recommends renewing the token now.</summary>
+    [JsonPropertyName("should_refresh")]
+    public bool ShouldRefresh { get; set; }
+
+    /// <summary>ISO 8601 timestamp at which the client should renew.</summary>
+    [JsonPropertyName("refresh_recommended_at")]
+    public string? RefreshRecommendedAt { get; set; }
+}
+
+// ---------------------------------------------------------------------------
 // Cursor pagination
 // ---------------------------------------------------------------------------
 

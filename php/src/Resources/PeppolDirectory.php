@@ -24,6 +24,8 @@ class PeppolDirectory
     /**
      * Search the Peppol Business Card directory.
      *
+     * Requires `documents:read` scope.
+     *
      * @param array{q?: string, country?: string, page?: int, page_size?: int} $params Search filters:
      *   - `q`         Free-text search query (company name, ID, etc.).
      *   - `country`   ISO 3166-1 alpha-2 country code (e.g. 'SK', 'CZ').

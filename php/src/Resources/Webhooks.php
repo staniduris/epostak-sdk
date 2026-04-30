@@ -230,4 +230,40 @@ class Webhooks
     {
         return $this->http->request('POST', '/webhooks/' . urlencode($id) . '/rotate-secret');
     }
+
+    /**
+     * Register a receive-callback webhook for inbound documents.
+     *
+     * Posts to `POST /document/receive-callback` (also available at the
+     * SAPI alias `/sapi/v1/document/receive-callback`). Registers a URL
+     * that will be called when documents are received. Unlike the general
+     * webhook system, this is specifically for inbound document
+     * notifications.
+     *
+     * Requires `webhooks:write` scope.
+     *
+     * @param string        $url    HTTPS URL to receive callback POST payloads.
+     * @param string[]|null $events Event types to subscribe to (null = all events).
+     * @return array{id: string, url: string, events: string[], secret: string, is_active: bool, created_at: string}
+     *         Created callback — `secret` is shown only once; store it securely.
+     * @throws EPostakError On API error.
+     *
+     * @example
+     *   $cb = $client->webhooks->registerReceiveCallback(
+     *       'https://example.com/receive',
+     *       ['document.received']
+     *   );
+     *   echo 'Secret: ' . $cb['secret']; // store securely
+     *   echo 'ID: ' . $cb['id'];
+     */
+    public function registerReceiveCallback(string $url, ?array $events = null): array
+    {
+        $body = ['url' => $url];
+        if ($events !== null) {
+            $body['events'] = $events;
+        }
+        return $this->http->request('POST', '/document/receive-callback', [
+            'json' => $body,
+        ]);
+    }
 }

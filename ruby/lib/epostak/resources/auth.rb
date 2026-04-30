@@ -168,14 +168,18 @@ module EPostak
       #
       # In v2 this endpoint is **GET** (was POST in v1).
       #
+      # Also available at the SAPI alias +/sapi/v1/auth/status+.
+      #
       # @return [Hash] { "key" => {id,name,prefix,permissions,active,createdAt,
-      #   lastUsedAt}, "firm" => {id,peppolStatus}, "plan" =>
-      #   {name,expiresAt,active}, "rateLimit" => {perMinute,window},
+      #   lastUsedAt}, "firm" => {id,peppolStatus}, "firm_id" => String,
+      #   "key_type" => String, "scope" => String,
+      #   "plan" => {name,expiresAt,active}, "rateLimit" => {perMinute,window},
       #   "integrator" => {id} or nil }
       #
       # @example
       #   status = client.auth.status
       #   puts "#{status['key']['prefix']} on plan #{status['plan']['name']}"
+      #   puts "firm: #{status['firm_id']}, type: #{status['key_type']}, scope: #{status['scope']}"
       def status
         @http.request(:get, "/auth/status")
       end

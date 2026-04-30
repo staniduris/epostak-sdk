@@ -1418,8 +1418,8 @@ export interface AuthStatusIntegrator {
 }
 
 /**
- * Response from `GET /auth/status` — introspects the calling API key
- * without revealing the plaintext secret.
+ * Response from `GET /auth/status` (also available at `/auth/token/status`)
+ * — introspects the calling API key without revealing the plaintext secret.
  */
 export interface AuthStatusResponse {
   /** Metadata about the API key being used. */
@@ -1437,6 +1437,12 @@ export interface AuthStatusResponse {
   rateLimit: AuthStatusRateLimit;
   /** Integrator summary — `null` for direct (`sk_live_*`) keys. */
   integrator: AuthStatusIntegrator | null;
+  /** UUID of the firm this token is scoped to. */
+  firm_id: string;
+  /** Key type — `"live"` for `sk_live_*` keys, `"integrator"` for `sk_int_*` keys. */
+  key_type: "live" | "integrator";
+  /** Space-separated scope string granted to this token (e.g. `"documents:read documents:write"`). `"*"` for wildcard keys. */
+  scope: string;
 }
 
 /**
@@ -1460,6 +1466,34 @@ export interface RotateSecretResponse {
 export interface IpAllowlistResponse {
   /** Bare IP addresses or CIDR blocks (`addr/prefix`). Max 50 entries. */
   ip_allowlist: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Receive callback (webhook registration for inbound documents)
+// ---------------------------------------------------------------------------
+
+/** Request body for `POST /document/receive-callback`. Requires `webhooks:write` scope. */
+export interface ReceiveCallbackRequest {
+  /** HTTPS URL where inbound document notifications will be POSTed. */
+  url: string;
+  /** Optional list of event types to subscribe to. Defaults to all events if omitted. */
+  events?: WebhookEvent[];
+}
+
+/** Response from `POST /document/receive-callback`. */
+export interface ReceiveCallbackResponse {
+  /** Callback subscription UUID. */
+  id: string;
+  /** Registered callback URL. */
+  url: string;
+  /** Event types this callback is subscribed to. */
+  events: WebhookEvent[];
+  /** HMAC-SHA256 signing secret for verifying callback payloads. Store securely — only returned once. */
+  secret: string;
+  /** Whether the callback is currently active. */
+  is_active: boolean;
+  /** ISO 8601 timestamp when the callback was created. */
+  created_at: string;
 }
 
 // ---------------------------------------------------------------------------

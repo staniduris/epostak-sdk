@@ -157,6 +157,8 @@ class Auth
     /**
      * Inspect the calling API key, firm, plan, and rate limits.
      *
+     * Also available at the SAPI alias `/sapi/v1/auth/status`.
+     *
      * @return array{
      *   key: array{
      *     id: string,
@@ -168,6 +170,9 @@ class Auth
      *     lastUsedAt: ?string
      *   },
      *   firm: array{id: string, peppolStatus: string},
+     *   firm_id: string,
+     *   key_type: string,
+     *   scope: string,
      *   plan: array{name: string, expiresAt: ?string, active: bool},
      *   rateLimit: array{perMinute: int, window: string},
      *   integrator: ?array{id: string}
@@ -177,6 +182,7 @@ class Auth
      * @example
      *   $info = $client->auth->status();
      *   echo $info['key']['prefix'], " on plan ", $info['plan']['name'];
+     *   echo $info['firm_id'], " type: ", $info['key_type'], " scope: ", $info['scope'];
      */
     public function status(): array
     {

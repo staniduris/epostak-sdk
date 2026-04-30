@@ -231,6 +231,7 @@ class Documents
      * Validate a document payload without sending it.
      *
      * Returns validation results including any UBL or business-rule errors.
+     * Requires `documents:read` scope.
      *
      * @param array $body Document payload (same structure as send()).
      * @return array Validation result with `valid` boolean and `errors` array.
@@ -267,6 +268,8 @@ class Documents
 
     /**
      * Convert between JSON and UBL XML formats.
+     *
+     * Requires `documents:read` scope.
      *
      * @param string       $inputFormat  Source format: 'json' or 'ubl'.
      * @param string       $outputFormat Target format: 'ubl' or 'json'.
@@ -338,6 +341,8 @@ class Documents
 
     /**
      * Parse a UBL XML invoice into a structured JSON representation.
+     *
+     * Requires `documents:read` scope.
      *
      * Streams the XML as the raw request body with `Content-Type: application/xml`.
      *

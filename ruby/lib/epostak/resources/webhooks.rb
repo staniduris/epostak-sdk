@@ -205,6 +205,34 @@ module EPostak
         @http.request(:post, "/webhooks/#{encode(id)}/rotate-secret")
       end
 
+      # Register a receive-callback webhook for inbound documents.
+      #
+      # POSTs to +POST /document/receive-callback+ (also available at the
+      # SAPI alias +/sapi/v1/document/receive-callback+). Registers a URL
+      # that will be called when documents are received. Unlike the general
+      # webhook system, this is specifically for inbound document
+      # notifications.
+      #
+      # Requires +webhooks:write+ scope.
+      #
+      # @param url [String] HTTPS URL to receive callback POST requests.
+      # @param events [Array<String>, nil] Event types to subscribe to (nil = all events).
+      # @return [Hash] { "id", "url", "events", "secret", "is_active", "created_at" }
+      #   — +secret+ is shown only once; store it securely.
+      #
+      # @example
+      #   cb = client.webhooks.register_receive_callback(
+      #     url: "https://example.com/receive",
+      #     events: ["document.received"]
+      #   )
+      #   puts cb["secret"] # => Store securely
+      #   puts cb["id"]
+      def register_receive_callback(url:, events: nil)
+        body = { url: url }
+        body[:events] = events if events
+        @http.request(:post, "/document/receive-callback", body: body)
+      end
+
       private
 
       def encode(value)

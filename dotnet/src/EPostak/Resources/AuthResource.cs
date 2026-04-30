@@ -181,6 +181,24 @@ public sealed class AuthResource
         => _http.RequestAsync<AuthStatusResponse>(HttpMethod.Get, "/auth/status", ct);
 
     /// <summary>
+    /// Introspect the calling JWT access token. Returns token validity,
+    /// the firm it is scoped to, the key type, granted scopes, and expiry
+    /// timing. This endpoint is also available at the SAPI alias
+    /// <c>/sapi/v1/auth/status</c>.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Token status including <c>FirmId</c>, <c>KeyType</c>, and <c>Scope</c>.</returns>
+    /// <example>
+    /// <code>
+    /// var ts = await client.Auth.TokenStatusAsync();
+    /// if (ts.ShouldRefresh)
+    ///     tokens = await client.Auth.RenewAsync(savedRefreshToken);
+    /// </code>
+    /// </example>
+    public Task<TokenStatusResponse> TokenStatusAsync(CancellationToken ct = default)
+        => _http.RequestAsync<TokenStatusResponse>(HttpMethod.Get, "/auth/token/status", ct);
+
+    /// <summary>
     /// Rotate the calling API key. The previous key is deactivated immediately
     /// and the new plaintext key is returned ONCE — store it in your secret
     /// manager before continuing. Integrator keys (<c>sk_int_*</c>) are

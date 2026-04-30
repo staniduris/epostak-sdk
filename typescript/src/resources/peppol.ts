@@ -18,6 +18,7 @@ import type {
 export class PeppolDirectoryResource extends BaseResource {
   /**
    * Search the Peppol Business Card directory for registered participants.
+   * Requires the `documents:read` scope.
    * `q` is required (min 2 chars). Matches business name (starts-with) or
    * an exact participant ID.
    *
@@ -102,10 +103,7 @@ export class PeppolResource extends BaseResource {
       );
     } catch (err) {
       // 404 → not registered. Re-throw anything else.
-      if (
-        err instanceof Error &&
-        (err as { status?: number }).status === 404
-      ) {
+      if (err instanceof Error && (err as { status?: number }).status === 404) {
         return null;
       }
       throw err;

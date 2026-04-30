@@ -421,56 +421,57 @@ try {
 
 ## Full Endpoint Map
 
-| Method                                   | HTTP   | Path                                 |
-| ---------------------------------------- | ------ | ------------------------------------ |
-| `auth.token({ clientId, clientSecret })` | POST   | `/auth/token`                        |
-| `auth.renew({ refreshToken })`           | POST   | `/auth/renew`                        |
-| `auth.revoke({ token })`                 | POST   | `/auth/revoke`                       |
-| `auth.status()`                          | GET    | `/auth/status`                       |
-| `auth.rotateSecret()`                    | POST   | `/auth/rotate-secret`                |
-| `auth.ipAllowlist.get()`                 | GET    | `/auth/ip-allowlist`                 |
-| `auth.ipAllowlist.update({ cidrs })`     | PUT    | `/auth/ip-allowlist`                 |
-| `audit.list(params?)`                    | GET    | `/audit`                             |
-| `documents.get(id)`                      | GET    | `/documents/{id}`                    |
-| `documents.update(id, body)`             | PATCH  | `/documents/{id}`                    |
-| `documents.send(body, opts?)`            | POST   | `/documents/send`                    |
-| `documents.sendBatch(items, opts?)`      | POST   | `/documents/send/batch`              |
-| `documents.status(id)`                   | GET    | `/documents/{id}/status`             |
-| `documents.evidence(id)`                 | GET    | `/documents/{id}/evidence`           |
-| `documents.pdf(id)`                      | GET    | `/documents/{id}/pdf`                |
-| `documents.ubl(id)`                      | GET    | `/documents/{id}/ubl`                |
-| `documents.respond(id, body)`            | POST   | `/documents/{id}/respond`            |
-| `documents.validate(body)`               | POST   | `/documents/validate`                |
-| `documents.preflight(body)`              | POST   | `/documents/preflight`               |
-| `documents.convert(body)`                | POST   | `/documents/convert`                 |
-| `documents.inbox.list(params?)`          | GET    | `/documents/inbox`                   |
-| `documents.inbox.get(id)`                | GET    | `/documents/inbox/{id}`              |
-| `documents.inbox.acknowledge(id)`        | POST   | `/documents/inbox/{id}/acknowledge`  |
-| `documents.inbox.listAll(params?)`       | GET    | `/documents/inbox/all`               |
-| `peppol.lookup(scheme, id)`              | GET    | `/peppol/participants/{scheme}/{id}` |
-| `peppol.directory.search(params?)`       | GET    | `/peppol/directory/search`           |
-| `peppol.companyLookup(ico)`              | GET    | `/company/lookup/{ico}`              |
-| `firms.list()`                           | GET    | `/firms`                             |
-| `firms.get(id)`                          | GET    | `/firms/{id}`                        |
-| `firms.documents(id, params?)`           | GET    | `/firms/{id}/documents`              |
-| `firms.registerPeppolId(id, body)`       | POST   | `/firms/{id}/peppol-identifiers`     |
-| `firms.assign(body)`                     | POST   | `/firms/assign`                      |
-| `firms.assignBatch(body)`                | POST   | `/firms/assign/batch`                |
-| `webhooks.create(body, opts?)`           | POST   | `/webhooks`                          |
-| `webhooks.list()`                        | GET    | `/webhooks`                          |
-| `webhooks.get(id)`                       | GET    | `/webhooks/{id}`                     |
-| `webhooks.update(id, body)`              | PATCH  | `/webhooks/{id}`                     |
-| `webhooks.delete(id)`                    | DELETE | `/webhooks/{id}`                     |
-| `webhooks.rotateSecret(id)`              | POST   | `/webhooks/{id}/rotate-secret`       |
-| `webhooks.queue.pull(params?)`           | GET    | `/webhook-queue`                     |
-| `webhooks.queue.ack(eventId)`            | DELETE | `/webhook-queue/{eventId}`           |
-| `webhooks.queue.batchAck(ids)`           | POST   | `/webhook-queue/batch-ack`           |
-| `webhooks.queue.pullAll(params?)`        | GET    | `/webhook-queue/all`                 |
-| `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`       |
-| `reporting.statistics(params?)`          | GET    | `/reporting/statistics`              |
-| `account.get()`                          | GET    | `/account`                           |
-| `extract.single(file, mime, name)`       | POST   | `/extract`                           |
-| `extract.batch(files)`                   | POST   | `/extract/batch`                     |
+| Method                                   | HTTP   | Path                                         |
+| ---------------------------------------- | ------ | -------------------------------------------- |
+| `auth.token({ clientId, clientSecret })` | POST   | `/auth/token`                                |
+| `auth.renew({ refreshToken })`           | POST   | `/auth/renew`                                |
+| `auth.revoke({ token })`                 | POST   | `/auth/revoke`                               |
+| `auth.status()`                          | GET    | `/auth/status` (alias: `/auth/token/status`) |
+| `auth.rotateSecret()`                    | POST   | `/auth/rotate-secret`                        |
+| `auth.ipAllowlist.get()`                 | GET    | `/auth/ip-allowlist`                         |
+| `auth.ipAllowlist.update({ cidrs })`     | PUT    | `/auth/ip-allowlist`                         |
+| `audit.list(params?)`                    | GET    | `/audit`                                     |
+| `documents.get(id)`                      | GET    | `/documents/{id}`                            |
+| `documents.update(id, body)`             | PATCH  | `/documents/{id}`                            |
+| `documents.send(body, opts?)`            | POST   | `/documents/send`                            |
+| `documents.sendBatch(items, opts?)`      | POST   | `/documents/send/batch`                      |
+| `documents.status(id)`                   | GET    | `/documents/{id}/status`                     |
+| `documents.evidence(id)`                 | GET    | `/documents/{id}/evidence`                   |
+| `documents.pdf(id)`                      | GET    | `/documents/{id}/pdf`                        |
+| `documents.ubl(id)`                      | GET    | `/documents/{id}/ubl`                        |
+| `documents.respond(id, body)`            | POST   | `/documents/{id}/respond`                    |
+| `documents.validate(body)`               | POST   | `/documents/validate`                        |
+| `documents.preflight(body)`              | POST   | `/documents/preflight`                       |
+| `documents.convert(body)`                | POST   | `/documents/convert`                         |
+| `documents.receiveCallback(body)`        | POST   | `/document/receive-callback`                 |
+| `documents.inbox.list(params?)`          | GET    | `/documents/inbox`                           |
+| `documents.inbox.get(id)`                | GET    | `/documents/inbox/{id}`                      |
+| `documents.inbox.acknowledge(id)`        | POST   | `/documents/inbox/{id}/acknowledge`          |
+| `documents.inbox.listAll(params?)`       | GET    | `/documents/inbox/all`                       |
+| `peppol.lookup(scheme, id)`              | GET    | `/peppol/participants/{scheme}/{id}`         |
+| `peppol.directory.search(params?)`       | GET    | `/peppol/directory/search`                   |
+| `peppol.companyLookup(ico)`              | GET    | `/company/lookup/{ico}`                      |
+| `firms.list()`                           | GET    | `/firms`                                     |
+| `firms.get(id)`                          | GET    | `/firms/{id}`                                |
+| `firms.documents(id, params?)`           | GET    | `/firms/{id}/documents`                      |
+| `firms.registerPeppolId(id, body)`       | POST   | `/firms/{id}/peppol-identifiers`             |
+| `firms.assign(body)`                     | POST   | `/firms/assign`                              |
+| `firms.assignBatch(body)`                | POST   | `/firms/assign/batch`                        |
+| `webhooks.create(body, opts?)`           | POST   | `/webhooks`                                  |
+| `webhooks.list()`                        | GET    | `/webhooks`                                  |
+| `webhooks.get(id)`                       | GET    | `/webhooks/{id}`                             |
+| `webhooks.update(id, body)`              | PATCH  | `/webhooks/{id}`                             |
+| `webhooks.delete(id)`                    | DELETE | `/webhooks/{id}`                             |
+| `webhooks.rotateSecret(id)`              | POST   | `/webhooks/{id}/rotate-secret`               |
+| `webhooks.queue.pull(params?)`           | GET    | `/webhook-queue`                             |
+| `webhooks.queue.ack(eventId)`            | DELETE | `/webhook-queue/{eventId}`                   |
+| `webhooks.queue.batchAck(ids)`           | POST   | `/webhook-queue/batch-ack`                   |
+| `webhooks.queue.pullAll(params?)`        | GET    | `/webhook-queue/all`                         |
+| `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`               |
+| `reporting.statistics(params?)`          | GET    | `/reporting/statistics`                      |
+| `account.get()`                          | GET    | `/account`                                   |
+| `extract.single(file, mime, name)`       | POST   | `/extract`                                   |
+| `extract.batch(files)`                   | POST   | `/extract/batch`                             |
 
 All paths relative to `https://epostak.sk/api/v1`.
 

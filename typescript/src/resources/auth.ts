@@ -85,6 +85,12 @@ export class AuthResource extends BaseResource {
     });
   }
 
+  /**
+   * Introspect the calling API key. Returns key metadata, firm, plan,
+   * rate limits, and — since v3.1 — `firm_id`, `key_type`, and `scope`.
+   *
+   * Available at both `/auth/status` and `/auth/token/status` (alias).
+   */
   status(): Promise<AuthStatusResponse> {
     return this.request("GET", "/auth/status");
   }

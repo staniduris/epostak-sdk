@@ -3,6 +3,42 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.0 — 2026-04-30
+
+### Added
+
+- **`documents.receiveCallback(body)`** — wraps
+  `POST /sapi/v1/document/receive-callback`. Registers a webhook URL
+  for inbound document notifications. Accepts `{url, events?}`, returns
+  `{id, url, events, secret, is_active, created_at}`. Requires the
+  `webhooks:write` scope. The `secret` is only returned once — store it
+  securely for HMAC verification of callback payloads.
+
+- **`AuthStatusResponse` now includes `firm_id`, `key_type`, `scope`** —
+  three new fields on the response from `auth.status()` (and its alias
+  `auth/token/status`). `firm_id` is the UUID of the firm the token is
+  scoped to, `key_type` is `"live"` or `"integrator"`, and `scope` is
+  the space-separated scope string granted to the token.
+
+- **Auth status path alias** — `GET /sapi/v1/auth/status` now works in
+  addition to `GET /sapi/v1/auth/token/status`. The SDK uses
+  `/auth/status`.
+
+- New types: `ReceiveCallbackRequest`, `ReceiveCallbackResponse`.
+
+### Changed
+
+- **Scope requirements documented** — `documents.validate()`,
+  `documents.parse()`, `documents.convert()`, and
+  `peppol.directory.search()` now document that they require the
+  `documents:read` scope.
+
+- **Batch send rate limit documented** — `documents.sendBatch()` is
+  rate-limited to 10 requests per minute.
+
+- **`clientId` clarification** — `EPostakConfig.clientId` must be the
+  API key UUID or key prefix, not a firm ID.
+
 ## 3.0.0 — 2026-04-29
 
 ### Breaking

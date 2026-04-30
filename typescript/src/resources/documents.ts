@@ -31,6 +31,8 @@ import type {
   InvoiceResponsesListResponse,
   DocumentEventsParams,
   DocumentEventsResponse,
+  ReceiveCallbackRequest,
+  ReceiveCallbackResponse,
 } from "../types.js";
 
 /**
@@ -421,6 +423,8 @@ export class DocumentsResource extends BaseResource {
    * Validate a document without sending it. Runs UBL XSD + EN 16931 + Peppol
    * BIS 3.0 schematron against the payload and returns the findings list.
    *
+   * Requires the `documents:read` scope.
+   *
    * The endpoint responds 200 when `valid === true` and 422 when `valid ===
    * false`; the SDK converts the 422 into an `EPostakError` by default, so
    * catch it when you want to read the failing findings.
@@ -473,6 +477,7 @@ export class DocumentsResource extends BaseResource {
 
   /**
    * Convert between JSON and UBL XML formats without sending.
+   * Requires the `documents:read` scope.
    * Useful for previewing the UBL output or parsing received XML into structured data.
    *
    * @param body - Conversion request with direction and input data
@@ -500,10 +505,11 @@ export class DocumentsResource extends BaseResource {
   }
 
   /**
-   * Send up to 50 invoices in a single call. The endpoint always returns
-   * HTTP 200 — each item carries its own HTTP status on `results[i].status`
-   * (e.g. `201` when sent, `422` on validation failure, `502` on transport
-   * failure). A partial failure does not abort the remaining items.
+   * Send up to 50 invoices in a single call. Rate-limited to **10 requests
+   * per minute**. The endpoint always returns HTTP 200 — each item carries
+   * its own HTTP status on `results[i].status` (e.g. `201` when sent,
+   * `422` on validation failure, `502` on transport failure). A partial
+   * failure does not abort the remaining items.
    *
    * Each item accepts the same fields as {@link DocumentsResource.send},
    * plus an optional `idempotencyKey` for per-item replay safety.
@@ -549,7 +555,7 @@ export class DocumentsResource extends BaseResource {
    * that don't fit the normalized shape (e.g. Peppol extensions, custom
    * allowance/charge lines).
    *
-   * Max 10 MB per request.
+   * Requires the `documents:read` scope. Max 10 MB per request.
    *
    * @param xml - The UBL XML string
    * @returns `{invoice, extras, allowances}`
@@ -596,10 +602,16 @@ export class DocumentsResource extends BaseResource {
   }
 
   responses(id: string): Promise<InvoiceResponsesListResponse> {
-    return this.request("GET", `/documents/${encodeURIComponent(id)}/responses`);
+    return this.request(
+      "GET",
+      `/documents/${encodeURIComponent(id)}/responses`,
+    );
   }
 
-  events(id: string, params?: DocumentEventsParams): Promise<DocumentEventsResponse> {
+  events(
+    id: string,
+    params?: DocumentEventsParams,
+  ): Promise<DocumentEventsResponse> {
     return this.request(
       "GET",
       `/documents/${encodeURIComponent(id)}/events${buildQuery({
@@ -621,5 +633,30 @@ export class DocumentsResource extends BaseResource {
       `/documents/${encodeURIComponent(id)}/mark`,
       body,
     );
+  }
+
+  /**
+   * Register a receive-callback webhook for inbound document notifications.
+   * Requires the `webhooks:write` scope.
+   *
+   * The returned `secret` is only available at creation time — store it
+   * securely for HMAC verification of callback payloads.
+   *
+   * @param body - Callback URL and optional event filter
+   * @returns Callback details including the one-time signing secret
+   *
+   * @example
+   * ```typescript
+   * const callback = await client.documents.receiveCallback({
+   *   url: 'https://example.com/callbacks/inbound',
+   *   events: ['document.received'],
+   * });
+   * console.log(callback.id, callback.secret); // Store secret securely!
+   * ```
+   */
+  receiveCallback(
+    body: ReceiveCallbackRequest,
+  ): Promise<ReceiveCallbackResponse> {
+    return this.request("POST", "/document/receive-callback", body);
   }
 }

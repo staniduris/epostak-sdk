@@ -163,6 +163,9 @@ export type {
   AuditActorType,
   AuditEvent,
   AuditListParams,
+  // Receive callback
+  ReceiveCallbackRequest,
+  ReceiveCallbackResponse,
   // Batch send
   BatchSendItem,
   BatchSendResult,

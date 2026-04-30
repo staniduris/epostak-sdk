@@ -8,6 +8,7 @@ import sk.epostak.sdk.models.IpAllowlistResponse;
 import sk.epostak.sdk.models.RevokeResponse;
 import sk.epostak.sdk.models.RotateSecretResponse;
 import sk.epostak.sdk.models.TokenResponse;
+import sk.epostak.sdk.models.TokenStatusResponse;
 
 import java.io.IOException;
 import java.net.URI;
@@ -166,6 +167,26 @@ public final class AuthResource {
      */
     public AuthStatusResponse status() {
         return http.get("/auth/status", AuthStatusResponse.class);
+    }
+
+    /**
+     * Introspect the calling JWT access token. Returns token validity,
+     * the firm it is scoped to, the key type, granted scopes, and expiry
+     * timing. This endpoint is also available at the SAPI alias
+     * {@code /sapi/v1/auth/status}.
+     *
+     * <pre>{@code
+     * TokenStatusResponse ts = client.auth().tokenStatus();
+     * if (ts.shouldRefresh()) {
+     *     TokenResponse renewed = client.auth().renew(savedRefreshToken);
+     * }
+     * }</pre>
+     *
+     * @return the token status including {@code firmId}, {@code keyType}, and {@code scope}
+     * @throws EPostakException if the token is invalid, expired, or revoked
+     */
+    public TokenStatusResponse tokenStatus() {
+        return http.get("/auth/token/status", TokenStatusResponse.class);
     }
 
     /**

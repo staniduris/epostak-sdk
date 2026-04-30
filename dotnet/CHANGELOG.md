@@ -3,6 +3,35 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.0 — 2026-04-30
+
+### Added
+
+- **`client.Documents.ReceiveCallbackAsync(request)`** — wraps
+  `POST /sapi/v1/document/receive-callback`. Registers a webhook endpoint
+  for inbound document delivery notifications. The response includes a
+  one-time HMAC-SHA256 signing secret. Requires `webhooks:write` scope.
+  Convenience overload `ReceiveCallbackAsync(url)` subscribes to the
+  default `document.received` event.
+- New types: `ReceiveCallbackRequest`, `ReceiveCallbackResponse`.
+- **`client.Auth.TokenStatusAsync()`** — wraps
+  `GET /auth/token/status`. Introspects the calling JWT access token and
+  returns `FirmId`, `KeyType`, `Scope`, expiry timing, and refresh
+  recommendation. Also available at the SAPI alias `/sapi/v1/auth/status`.
+- New type: `TokenStatusResponse` with properties `Valid`, `TokenType`,
+  `ClientId`, `FirmId`, `KeyType`, `Scope`, `IssuedAt`, `ExpiresAt`,
+  `ExpiresInSeconds`, `ShouldRefresh`, `RefreshRecommendedAt`.
+
+### Changed
+
+- Four document endpoints now require the `documents:read` scope:
+  `Documents.ValidateAsync(...)`, `Documents.ParseAsync(...)`,
+  `Documents.ConvertAsync(...)`, and `Peppol.Directory.SearchAsync(...)`.
+  This is a server-side enforcement change — no SDK code changes are
+  needed, but callers must ensure their API key or OAuth token includes
+  the `documents:read` scope. Requests without it receive HTTP 403 with
+  `RequiredScope = "documents:read"`.
+
 ## 2.2.0 — 2026-04-29
 
 ### Added

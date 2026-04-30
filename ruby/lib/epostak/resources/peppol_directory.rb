@@ -19,6 +19,8 @@ module EPostak
       # Search the Peppol Business Card directory for registered participants.
       # Supports free-text search and country filtering with pagination.
       #
+      # Requires +documents:read+ scope.
+      #
       # @param q [String, nil] Free-text search query (company name, ID, etc.)
       # @param country [String, nil] ISO 3166-1 alpha-2 country code filter (e.g. "SK", "CZ")
       # @param page [Integer, nil] Page number (1-based)
