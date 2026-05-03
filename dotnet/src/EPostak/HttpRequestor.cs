@@ -398,6 +398,9 @@ internal sealed class HttpRequestor
         string? instance = null;
         string? requestId = null;
         string? requiredScope = null;
+        List<string>? conflictKey = null;
+        DuplicateInvoiceExistingDocument? existingDocument = null;
+        bool sawErrorObject = false;
 
         try
         {
@@ -439,6 +442,7 @@ internal sealed class HttpRequestor
                         }
                         else if (errorProp.ValueKind == JsonValueKind.Object)
                         {
+                            sawErrorObject = true;
                             if (errorProp.TryGetProperty("message", out var msgProp))
                                 message = msgProp.GetString();
                             if (errorProp.TryGetProperty("code", out var codeProp))
@@ -449,6 +453,40 @@ internal sealed class HttpRequestor
                                 requiredScope = scopeProp.GetString();
                             if (errorProp.TryGetProperty("requestId", out var ridProp) && ridProp.ValueKind == JsonValueKind.String)
                                 requestId = ridProp.GetString();
+
+                            if (code == "DUPLICATE_INVOICE_NUMBER")
+                            {
+                                if (errorProp.TryGetProperty("conflictKey", out var ckProp)
+                                    && ckProp.ValueKind == JsonValueKind.Array)
+                                {
+                                    conflictKey = new List<string>();
+                                    foreach (var item in ckProp.EnumerateArray())
+                                    {
+                                        if (item.ValueKind == JsonValueKind.String)
+                                            conflictKey.Add(item.GetString()!);
+                                    }
+                                }
+
+                                if (errorProp.TryGetProperty("existingDocument", out var edProp)
+                                    && edProp.ValueKind == JsonValueKind.Object)
+                                {
+                                    DuplicateInvoiceRecipient? recipient = null;
+                                    if (edProp.TryGetProperty("recipient", out var rProp)
+                                        && rProp.ValueKind == JsonValueKind.Object)
+                                    {
+                                        recipient = new DuplicateInvoiceRecipient(
+                                            OptString(rProp, "peppolId"),
+                                            OptString(rProp, "ico"),
+                                            OptString(rProp, "name"));
+                                    }
+                                    existingDocument = new DuplicateInvoiceExistingDocument(
+                                        OptString(edProp, "id") ?? "",
+                                        OptString(edProp, "invoiceNumber") ?? "",
+                                        OptString(edProp, "status") ?? "",
+                                        OptString(edProp, "sentAt") ?? "",
+                                        recipient);
+                                }
+                            }
                         }
                     }
 
@@ -487,6 +525,23 @@ internal sealed class HttpRequestor
             }
         }
 
+        if (sawErrorObject && code == "DUPLICATE_INVOICE_NUMBER")
+        {
+            throw new DuplicateInvoiceNumberException(
+                (int)response.StatusCode,
+                message ?? $"API request failed with status {(int)response.StatusCode}",
+                code,
+                details,
+                type,
+                title,
+                detail,
+                instance,
+                requestId,
+                requiredScope,
+                conflictKey,
+                existingDocument);
+        }
+
         throw new EPostakException(
             (int)response.StatusCode,
             message ?? $"API request failed with status {(int)response.StatusCode}",
@@ -515,5 +570,11 @@ internal sealed class HttpRequestor
                 parts.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}");
         }
         return parts.Count > 0 ? "?" + string.Join("&", parts) : "";
+    }
+
+    private static string? OptString(JsonElement obj, string property)
+    {
+        if (!obj.TryGetProperty(property, out var p)) return null;
+        return p.ValueKind == JsonValueKind.String ? p.GetString() : null;
     }
 }

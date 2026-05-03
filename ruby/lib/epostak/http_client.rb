@@ -110,7 +110,7 @@ module EPostak
 
       unless response.success?
         error_body = parse_error_body(response)
-        raise Error.new(response.status, error_body, response.headers)
+        raise EPostak.build_api_error(response.status, error_body, response.headers)
       end
 
       response.body
@@ -190,7 +190,7 @@ module EPostak
     def handle_response(response)
       unless response.success?
         error_body = parse_error_body(response)
-        raise Error.new(response.status, error_body, response.headers)
+        raise EPostak.build_api_error(response.status, error_body, response.headers)
       end
 
       return nil if response.status == 204 || response.body.nil? || response.body.empty?

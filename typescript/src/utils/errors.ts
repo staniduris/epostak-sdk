@@ -176,3 +176,120 @@ function parseRequiredScope(headers?: Headers): string | null {
   const m = raw.match(/scope\s*=\s*"([^"]+)"/i);
   return m ? m[1] : null;
 }
+
+/** Recipient identification on the existing duplicate invoice. */
+export interface DuplicateInvoiceRecipient {
+  peppolId: string | null;
+  ico: string | null;
+  name: string | null;
+}
+
+/** Existing document that caused the duplicate-invoice-number conflict. */
+export interface DuplicateInvoiceExistingDocument {
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  /** ISO 8601 timestamp — `peppolSentAt` if available, otherwise `createdAt`. */
+  sentAt: string;
+  recipient: DuplicateInvoiceRecipient | null;
+}
+
+/**
+ * Thrown when `POST /api/v1/documents/send` (or the dashboard create
+ * endpoint) rejects an outbound invoice whose `invoice_number` is already
+ * in use for the firm. The conflict key is `(firmId, invoiceNumber)` —
+ * recipient is intentionally NOT part of it; outbound numbering belongs
+ * to the sender.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await client.documents.send({ invoiceNumber: "2026001", ... });
+ * } catch (err) {
+ *   if (err instanceof DuplicateInvoiceNumberError) {
+ *     const existing = err.existingDocument;
+ *     if (existing) {
+ *       console.error(
+ *         `Already sent on ${existing.sentAt}, document id ${existing.id}`,
+ *       );
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export class DuplicateInvoiceNumberError extends EPostakError {
+  /** Always `["firmId", "invoiceNumber"]`. */
+  conflictKey: string[];
+  /**
+   * The pre-existing outbound invoice that triggered the conflict.
+   * `null` if the original was deleted between the constraint hit and
+   * the lookup, or if the lookup itself failed.
+   */
+  existingDocument: DuplicateInvoiceExistingDocument | null;
+
+  constructor(
+    status: number,
+    body: Record<string, unknown>,
+    headers?: Headers,
+  ) {
+    super(status, body, headers);
+    this.name = "DuplicateInvoiceNumberError";
+
+    const errorObj = body?.error;
+    const errorMap =
+      errorObj !== null && typeof errorObj === "object" && !Array.isArray(errorObj)
+        ? (errorObj as Record<string, unknown>)
+        : {};
+
+    this.conflictKey = Array.isArray(errorMap.conflictKey)
+      ? (errorMap.conflictKey as unknown[]).map(String)
+      : ["firmId", "invoiceNumber"];
+
+    const ed = errorMap.existingDocument;
+    if (ed && typeof ed === "object" && !Array.isArray(ed)) {
+      const edMap = ed as Record<string, unknown>;
+      const recipient =
+        edMap.recipient && typeof edMap.recipient === "object"
+          ? (edMap.recipient as Record<string, unknown>)
+          : null;
+      this.existingDocument = {
+        id: String(edMap.id ?? ""),
+        invoiceNumber: String(edMap.invoiceNumber ?? ""),
+        status: String(edMap.status ?? ""),
+        sentAt: String(edMap.sentAt ?? ""),
+        recipient: recipient
+          ? {
+              peppolId:
+                recipient.peppolId == null ? null : String(recipient.peppolId),
+              ico: recipient.ico == null ? null : String(recipient.ico),
+              name: recipient.name == null ? null : String(recipient.name),
+            }
+          : null,
+      };
+    } else {
+      this.existingDocument = null;
+    }
+  }
+}
+
+/**
+ * Build the right error subclass from a parsed API error body.
+ * Falls back to {@link EPostakError} when no specialised mapping applies.
+ */
+export function buildApiError(
+  status: number,
+  body: Record<string, unknown>,
+  headers?: Headers,
+): EPostakError {
+  const errorObj = body?.error;
+  const code =
+    errorObj !== null &&
+    typeof errorObj === "object" &&
+    "code" in (errorObj as Record<string, unknown>)
+      ? String((errorObj as Record<string, unknown>).code)
+      : undefined;
+  if (code === "DUPLICATE_INVOICE_NUMBER") {
+    return new DuplicateInvoiceNumberError(status, body, headers);
+  }
+  return new EPostakError(status, body, headers);
+}

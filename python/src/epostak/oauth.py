@@ -53,7 +53,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from epostak.errors import EPostakError
+from epostak.errors import EPostakError, build_api_error
 
 if TYPE_CHECKING:
     from epostak.types import TokenResponse
@@ -185,5 +185,5 @@ class OAuth:
             parsed = {"error": {"message": text}}
 
         if not response.is_success:
-            raise EPostakError(response.status_code, parsed, response.headers)
+            raise build_api_error(response.status_code, parsed, response.headers)
         return parsed

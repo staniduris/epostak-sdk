@@ -156,4 +156,81 @@ module EPostak
       nil
     end
   end
+
+  # Raised when POST /api/v1/documents/send (or the dashboard create
+  # endpoint) rejects an outbound invoice whose +invoice_number+ already
+  # exists for the firm.
+  #
+  # The conflict key is +(firmId, invoiceNumber)+ — recipient is
+  # intentionally NOT part of it; outbound numbering belongs to the sender.
+  #
+  # @example
+  #   begin
+  #     client.documents.send_document(invoiceNumber: "2026001", ...)
+  #   rescue EPostak::DuplicateInvoiceNumberError => e
+  #     existing = e.existing_document
+  #     warn "Already sent on #{existing[:sent_at]}, id=#{existing[:id]}" if existing
+  #   end
+  class DuplicateInvoiceNumberError < Error
+    # @return [Array<String>] Always +["firmId", "invoiceNumber"]+.
+    attr_reader :conflict_key
+
+    # @return [Hash, nil] The pre-existing outbound invoice that triggered
+    #   the conflict, or +nil+ if it was deleted between the constraint hit
+    #   and the server-side lookup. Keys: +:id+, +:invoice_number+,
+    #   +:status+, +:sent_at+ (ISO 8601), +:recipient+ ({+:peppol_id+,
+    #   +:ico+, +:name+} or nil).
+    attr_reader :existing_document
+
+    def initialize(status, body = {}, headers = nil)
+      super
+      body ||= {}
+      error_obj = (body["error"] || body[:error])
+      error_obj = {} unless error_obj.is_a?(Hash)
+
+      ck = error_obj["conflictKey"] || error_obj[:conflictKey]
+      @conflict_key =
+        if ck.is_a?(Array)
+          ck.map(&:to_s)
+        else
+          %w[firmId invoiceNumber]
+        end
+
+      ed = error_obj["existingDocument"] || error_obj[:existingDocument]
+      @existing_document =
+        if ed.is_a?(Hash)
+          recipient_raw = ed["recipient"] || ed[:recipient]
+          recipient =
+            if recipient_raw.is_a?(Hash)
+              {
+                peppol_id: recipient_raw["peppolId"] || recipient_raw[:peppolId],
+                ico: recipient_raw["ico"] || recipient_raw[:ico],
+                name: recipient_raw["name"] || recipient_raw[:name],
+              }
+            end
+          {
+            id: (ed["id"] || ed[:id] || "").to_s,
+            invoice_number: (ed["invoiceNumber"] || ed[:invoiceNumber] || "").to_s,
+            status: (ed["status"] || ed[:status] || "").to_s,
+            sent_at: (ed["sentAt"] || ed[:sentAt] || "").to_s,
+            recipient: recipient,
+          }
+        end
+    end
+  end
+
+  # Build the right Error subclass from a parsed API error body. Falls
+  # back to {Error} when no specialised mapping applies.
+  #
+  # @param status [Integer]
+  # @param body [Hash]
+  # @param headers [Hash, nil]
+  # @return [Error]
+  def self.build_api_error(status, body = {}, headers = nil)
+    error_obj = body.is_a?(Hash) ? (body["error"] || body[:error]) : nil
+    code = error_obj.is_a?(Hash) ? (error_obj["code"] || error_obj[:code]) : nil
+    return DuplicateInvoiceNumberError.new(status, body, headers) if code == "DUPLICATE_INVOICE_NUMBER"
+
+    Error.new(status, body, headers)
+  end
 end

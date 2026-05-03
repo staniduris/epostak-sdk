@@ -10,7 +10,7 @@ import { AuditResource } from "./resources/audit.js";
 import { IntegratorResource } from "./resources/integrator.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport } from "./types.js";
-import { EPostakError } from "./utils/errors.js";
+import { EPostakError, buildApiError } from "./utils/errors.js";
 import { TokenManager } from "./utils/token-manager.js";
 
 const DEFAULT_BASE_URL = "https://epostak.sk/api/v1";
@@ -192,7 +192,7 @@ export class EPostak {
       } catch {
         errorBody = { error: res.statusText };
       }
-      throw new EPostakError(res.status, errorBody, res.headers);
+      throw buildApiError(res.status, errorBody, res.headers);
     }
     return (await res.json()) as PublicValidationReport;
   }

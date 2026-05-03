@@ -69,13 +69,13 @@ def validate(xml: str, base_url: Optional[str] = None) -> "dict":
             timeout=30.0,
         )
     if not response.is_success:
-        from epostak.errors import EPostakError
+        from epostak.errors import build_api_error
 
         try:
             body = response.json()
         except Exception:
             body = {"error": response.reason_phrase or "validate request failed"}
-        raise EPostakError(response.status_code, body, response.headers)
+        raise build_api_error(response.status_code, body, response.headers)
     return response.json()
 
 

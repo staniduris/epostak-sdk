@@ -1,7 +1,12 @@
 """ePošťák SDK -- Official Python SDK for the ePošťák API."""
 
 from epostak.client import EPostak, validate
-from epostak.errors import EPostakError
+from epostak.errors import (
+    DuplicateInvoiceExistingDocument,
+    DuplicateInvoiceNumberError,
+    DuplicateInvoiceRecipient,
+    EPostakError,
+)
 from epostak.oauth import OAuth
 from epostak.webhook_signature import (
     VerifyWebhookSignatureResult,
@@ -11,9 +16,12 @@ from epostak.webhook_signature import (
 __all__ = [
     "EPostak",
     "EPostakError",
+    "DuplicateInvoiceNumberError",
+    "DuplicateInvoiceRecipient",
+    "DuplicateInvoiceExistingDocument",
     "OAuth",
     "VerifyWebhookSignatureResult",
     "validate",
     "verify_webhook_signature",
 ]
-__version__ = "2.1.0"
+__version__ = "0.8.0"

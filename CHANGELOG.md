@@ -1,5 +1,95 @@
 # Changelog
 
+## All SDKs — 2026-05-04 — Typed `DuplicateInvoiceNumberError` + pre-launch version reset
+
+The Enterprise API now returns a structured 409 payload when an outbound
+invoice's `invoice_number` is already in use for the firm (backend commit
+`692badb`). The body shape:
+
+```json
+{
+  "error": {
+    "code": "DUPLICATE_INVOICE_NUMBER",
+    "message": "...",
+    "conflictKey": ["firmId", "invoiceNumber"],
+    "existingDocument": {
+      "id": "...",
+      "invoiceNumber": "...",
+      "status": "...",
+      "sentAt": "2026-04-15T10:23:11.000Z",
+      "recipient": { "peppolId": "...", "ico": "...", "name": "..." }
+    }
+  }
+}
+```
+
+Conflict key is **(firmId, invoiceNumber)** for outbound only — recipient
+is intentionally NOT part of it. All six SDKs now parse this payload into
+a typed exception subclass so callers can `catch` / `except` / `rescue`
+on it directly without inspecting the `code` string themselves.
+
+`existingDocument` may be `null` (deleted between the constraint hit and
+the server-side lookup, or the lookup itself failed). `recipient` may be
+`null` when the original invoice had no recipient Peppol ID stored.
+
+### Pre-launch version reset (with one npm carve-out)
+
+ePošťák has not yet launched, so the misleading 1.x/2.x/3.x version range
+(implying production stability + a long compat history we don't owe) is
+corrected. Five SDKs jump to a coherent **0.8.0** baseline. Pre-1.0 means
+breaking changes can still ship without a deprecation window.
+
+The TypeScript package `@epostak/sdk` is the exception: it has prior
+versions (1.0.0 through 3.1.0) on the npm registry, and npm forbids
+publishing a lower version over a published one. The package therefore
+bumps to **3.1.1** on npm only — the source files, internal docs, and
+the user-visible `__version__` analogue remain on `0.8.0` everywhere
+else. We accept this minor divergence rather than yank historical
+versions or invent a synthetic 4.0.0.
+
+### Per-language version moves
+
+| Language                              | Was       | Now (source)  | Now (registry)  |
+|-|-|-|-|
+| TypeScript (`@epostak/sdk`)           | 3.1.0     | 0.8.0         | **3.1.1**       |
+| Python (`epostak`)                    | 2.2.0     | 0.8.0         | 0.8.0 (first publish) |
+| Java (`sk.epostak:epostak-sdk`)       | 3.1.0     | 0.8.0         | 0.8.0 (first publish) |
+| PHP (`epostak/sdk`)                   | 3.1.0     | 0.8.0         | 0.8.0 (first publish) |
+| Ruby (`epostak`)                      | 3.1.0     | 0.8.0         | 0.8.0 (first publish) |
+| .NET (`EPostak`)                      | 3.1.0     | 0.8.0         | 0.8.0 (first publish) |
+
+### Per-language notes
+
+- **TypeScript** — `DuplicateInvoiceNumberError extends EPostakError`,
+  exported from the package root alongside the
+  `DuplicateInvoiceExistingDocument` / `DuplicateInvoiceRecipient` types.
+  The internal `buildApiError` factory is not part of the public surface.
+- **Python** — `DuplicateInvoiceNumberError(EPostakError)` with frozen
+  dataclasses `DuplicateInvoiceRecipient` and
+  `DuplicateInvoiceExistingDocument`. Public re-exports added to
+  `epostak/__init__.py`; `build_api_error` stays internal.
+- **Java** — `DuplicateInvoiceNumberException extends EPostakException`
+  with nested `ExistingDocument` / `Recipient` records. Dispatch happens
+  in `HttpClient.handleError`.
+- **PHP** — `EPostak\DuplicateInvoiceNumberError extends EPostakError`,
+  `getExistingDocument(): ?array` returns the structured payload using
+  camelCase keys matching the API.
+- **Ruby** — `EPostak::DuplicateInvoiceNumberError < EPostak::Error`
+  with `existing_document` returning a snake_case Hash. Factory
+  `EPostak.build_api_error(status, body, headers)` selects the subclass.
+- **.NET** — `DuplicateInvoiceNumberException : EPostakException` with
+  `DuplicateInvoiceExistingDocument` / `DuplicateInvoiceRecipient`
+  records. `HttpRequestor.ThrowApiError` performs the dispatch.
+  `ConflictKey` is exposed as a read-only `IReadOnlyList<string>` to
+  prevent mutation of exception state.
+
+Generic `EPostakError` / `EPostakException` continues to surface for
+every other 4xx/5xx — only the duplicate-invoice 409 path is specialised,
+and existing `catch EPostakError` blocks keep catching it via the
+inheritance chain.
+
+---
+
 ## 2.1.0 — 2026-04-29 — OAuth `authorization_code` + PKCE helpers
 
 Cross-language pass adding stateless OAuth `authorization_code` + PKCE (S256) helpers to all six SDKs. Every SDK now ships an `OAuth` resource (Java: `OAuthHelper`, to dodge `javax.security.auth.oauth`) with three operations:

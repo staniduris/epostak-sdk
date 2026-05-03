@@ -152,7 +152,7 @@ module EPostak
       if status >= 400
         headers = {}
         response.each_header { |k, v| headers[k] = v }
-        raise Error.new(status, parsed.is_a?(Hash) ? parsed : {}, headers)
+        raise EPostak.build_api_error(status, parsed.is_a?(Hash) ? parsed : {}, headers)
       end
       parsed.is_a?(Hash) ? parsed : {}
     end

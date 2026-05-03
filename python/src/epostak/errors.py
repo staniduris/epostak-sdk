@@ -1,14 +1,20 @@
 """Error types for the ePostak SDK.
 
-All API errors are raised as :class:`EPostakError`.  Network-level failures
+All API errors are raised as :class:`EPostakError`. Network-level failures
 (timeouts, DNS resolution, etc.) are also wrapped in ``EPostakError`` with
 ``status=0``.
+
+Specialised subclasses (currently :class:`DuplicateInvoiceNumberError`)
+are constructed automatically by :func:`build_api_error` based on the API
+``error.code`` field, so callers can ``except`` on the specific subclass
+without inspecting the code string themselves.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping, Optional
+from dataclasses import dataclass
+from typing import Any, List, Mapping, Optional
 
 
 _INSUFFICIENT_SCOPE_RE = re.compile(r'error\s*=\s*"?insufficient_scope', re.IGNORECASE)
@@ -195,4 +201,114 @@ class EPostakError(Exception):
         if self.code:
             parts.append(f"code={self.code!r}")
         parts.append(f"message={self.message!r}")
-        return f"EPostakError({', '.join(parts)})"
+        return f"{type(self).__name__}({', '.join(parts)})"
+
+
+@dataclass(frozen=True)
+class DuplicateInvoiceRecipient:
+    """Identification of the recipient on the existing duplicate invoice."""
+
+    peppol_id: Optional[str]
+    ico: Optional[str]
+    name: Optional[str]
+
+
+@dataclass(frozen=True)
+class DuplicateInvoiceExistingDocument:
+    """The pre-existing outbound invoice that triggered the conflict.
+
+    ``sent_at`` is an ISO 8601 string — ``peppolSentAt`` if the original
+    document was already delivered via Peppol, otherwise ``createdAt``.
+    """
+
+    id: str
+    invoice_number: str
+    status: str
+    sent_at: str
+    recipient: Optional[DuplicateInvoiceRecipient]
+
+
+class DuplicateInvoiceNumberError(EPostakError):
+    """Raised when ``POST /api/v1/documents/send`` (or the dashboard
+    create endpoint) rejects an outbound invoice whose ``invoice_number``
+    already exists for the firm.
+
+    The conflict key is ``("firmId", "invoiceNumber")`` — recipient is
+    intentionally NOT part of it; outbound numbering belongs to the
+    sender.
+
+    Example::
+
+        from epostak import EPostak, DuplicateInvoiceNumberError
+
+        try:
+            client.documents.send({"invoiceNumber": "2026001", ...})
+        except DuplicateInvoiceNumberError as err:
+            existing = err.existing_document
+            if existing is not None:
+                print(f"already sent on {existing.sent_at}, doc id {existing.id}")
+    """
+
+    conflict_key: List[str]
+    existing_document: Optional[DuplicateInvoiceExistingDocument]
+
+    def __init__(
+        self,
+        status: int,
+        body: Optional[dict[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
+    ) -> None:
+        super().__init__(status, body, headers)
+        body = body or {}
+        error_obj = body.get("error") if isinstance(body, dict) else None
+        error_map = error_obj if isinstance(error_obj, dict) else {}
+
+        ck = error_map.get("conflictKey")
+        self.conflict_key = (
+            [str(x) for x in ck]
+            if isinstance(ck, list)
+            else ["firmId", "invoiceNumber"]
+        )
+
+        ed = error_map.get("existingDocument")
+        if isinstance(ed, dict):
+            recipient_raw = ed.get("recipient")
+            recipient: Optional[DuplicateInvoiceRecipient] = None
+            if isinstance(recipient_raw, dict):
+                recipient = DuplicateInvoiceRecipient(
+                    peppol_id=_opt_str(recipient_raw.get("peppolId")),
+                    ico=_opt_str(recipient_raw.get("ico")),
+                    name=_opt_str(recipient_raw.get("name")),
+                )
+            self.existing_document = DuplicateInvoiceExistingDocument(
+                id=str(ed.get("id", "")),
+                invoice_number=str(ed.get("invoiceNumber", "")),
+                status=str(ed.get("status", "")),
+                sent_at=str(ed.get("sentAt", "")),
+                recipient=recipient,
+            )
+        else:
+            self.existing_document = None
+
+
+def _opt_str(value: Any) -> Optional[str]:
+    return None if value is None else str(value)
+
+
+def build_api_error(
+    status: int,
+    body: Optional[dict[str, Any]] = None,
+    headers: Optional[Mapping[str, str]] = None,
+) -> EPostakError:
+    """Build the right :class:`EPostakError` subclass from a parsed body.
+
+    Falls back to :class:`EPostakError` when no specialised mapping applies.
+    """
+    body = body or {}
+    error_obj = body.get("error") if isinstance(body, dict) else None
+    code: Optional[str] = None
+    if isinstance(error_obj, dict) and "code" in error_obj:
+        code = str(error_obj["code"])
+    if code == "DUPLICATE_INVOICE_NUMBER":
+        return DuplicateInvoiceNumberError(status, body, headers)
+    return EPostakError(status, body, headers)

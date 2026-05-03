@@ -2,8 +2,15 @@
 export { EPostak } from "./client.js";
 export type { EPostakConfig } from "./client.js";
 
-// Error class
-export { EPostakError } from "./utils/errors.js";
+// Error classes
+export {
+  EPostakError,
+  DuplicateInvoiceNumberError,
+} from "./utils/errors.js";
+export type {
+  DuplicateInvoiceRecipient,
+  DuplicateInvoiceExistingDocument,
+} from "./utils/errors.js";
 
 // Webhook signature verification helper
 export { verifyWebhookSignature } from "./utils/webhook-signature.js";

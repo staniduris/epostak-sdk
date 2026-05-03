@@ -77,7 +77,7 @@ module EPostak
         rescue StandardError
           { "error" => response.reason_phrase || "validate request failed" }
         end
-      raise Error.new(response.status, body, response.headers)
+      raise EPostak.build_api_error(response.status, body, response.headers)
     end
 
     return nil if response.body.nil? || response.body.empty?

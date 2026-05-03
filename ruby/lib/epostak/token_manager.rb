@@ -97,7 +97,7 @@ module EPostak
         rescue StandardError
           { "error" => response.reason_phrase || "Token request failed" }
         end
-        raise Error.new(response.status, error_body, response.headers)
+        raise EPostak.build_api_error(response.status, error_body, response.headers)
       end
 
       data = JSON.parse(response.body)

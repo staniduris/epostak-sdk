@@ -136,7 +136,7 @@ class AuthResource(_BaseResource):
         """
         import re
 
-        from epostak.errors import EPostakError
+        from epostak.errors import build_api_error
 
         body: Dict[str, Any] = {
             "grant_type": "client_credentials",
@@ -162,7 +162,7 @@ class AuthResource(_BaseResource):
                 err_body = response.json()
             except Exception:
                 err_body = {"error": response.reason_phrase or "API request failed"}
-            raise EPostakError(response.status_code, err_body, response.headers)
+            raise build_api_error(response.status_code, err_body, response.headers)
         return response.json()
 
     def renew(self, refresh_token: str) -> TokenResponse:

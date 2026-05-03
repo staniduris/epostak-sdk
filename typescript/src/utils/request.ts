@@ -1,4 +1,4 @@
-import { EPostakError } from "./errors.js";
+import { EPostakError, buildApiError } from "./errors.js";
 import type { TokenManager } from "./token-manager.js";
 
 /** Internal configuration passed to all resource classes. */
@@ -210,7 +210,7 @@ export async function request<T>(
       } catch {
         errorBody = { error: res.statusText };
       }
-      throw new EPostakError(res.status, errorBody, res.headers);
+      throw buildApiError(res.status, errorBody, res.headers);
     }
 
     if (options?.rawResponse) {

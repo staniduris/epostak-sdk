@@ -523,6 +523,7 @@ public final class HttpClient {
         String instance = null;
         String requestId = null;
         String requiredScope = null;
+        JsonObject errorObjForDup = null;
 
         try {
             JsonElement parsed = JsonParser.parseString(body);
@@ -551,6 +552,7 @@ public final class HttpClient {
                         message = errorEl.getAsString();
                     } else if (errorEl.isJsonObject()) {
                         JsonObject errorObj = errorEl.getAsJsonObject();
+                        errorObjForDup = errorObj;
                         if (errorObj.has("message")) {
                             message = errorObj.get("message").getAsString();
                         }
@@ -594,7 +596,57 @@ public final class HttpClient {
             }
         }
 
+        if ("DUPLICATE_INVOICE_NUMBER".equals(code) && errorObjForDup != null) {
+            throw buildDuplicateInvoiceException(
+                status, message, code, details, type, title, detail, instance,
+                requestId, requiredScope, errorObjForDup);
+        }
         throw new EPostakException(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
+    }
+
+    private static DuplicateInvoiceNumberException buildDuplicateInvoiceException(
+            int status, String message, String code, Object details,
+            String type, String title, String detail, String instance,
+            String requestId, String requiredScope, JsonObject errorObj) {
+        java.util.List<String> conflictKey = null;
+        if (errorObj.has("conflictKey") && errorObj.get("conflictKey").isJsonArray()) {
+            conflictKey = new java.util.ArrayList<>();
+            for (JsonElement el : errorObj.get("conflictKey").getAsJsonArray()) {
+                if (el.isJsonPrimitive()) conflictKey.add(el.getAsString());
+            }
+        }
+
+        DuplicateInvoiceNumberException.ExistingDocument existing = null;
+        if (errorObj.has("existingDocument") && errorObj.get("existingDocument").isJsonObject()) {
+            JsonObject ed = errorObj.get("existingDocument").getAsJsonObject();
+            DuplicateInvoiceNumberException.Recipient recipient = null;
+            if (ed.has("recipient") && ed.get("recipient").isJsonObject()) {
+                JsonObject r = ed.get("recipient").getAsJsonObject();
+                recipient = new DuplicateInvoiceNumberException.Recipient(
+                    optString(r, "peppolId"),
+                    optString(r, "ico"),
+                    optString(r, "name")
+                );
+            }
+            existing = new DuplicateInvoiceNumberException.ExistingDocument(
+                optString(ed, "id"),
+                optString(ed, "invoiceNumber"),
+                optString(ed, "status"),
+                optString(ed, "sentAt"),
+                recipient
+            );
+        }
+
+        return new DuplicateInvoiceNumberException(
+            status, message, code, details, type, title, detail, instance,
+            requestId, requiredScope, conflictKey, existing
+        );
+    }
+
+    private static String optString(JsonObject obj, String key) {
+        if (!obj.has(key)) return null;
+        JsonElement el = obj.get(key);
+        return (el == null || el.isJsonNull() || !el.isJsonPrimitive()) ? null : el.getAsString();
     }
 
     /**

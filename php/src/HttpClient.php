@@ -126,7 +126,7 @@ class HttpClient
                 } catch (\Throwable) {
                     $decoded = ['error' => $response->getReasonPhrase()];
                 }
-                throw new EPostakError($statusCode, $decoded, $response->getHeaders());
+                throw self::buildApiError($statusCode, $decoded, $response->getHeaders());
             }
 
             if ($body === '' || $body === '{}') {
@@ -212,7 +212,7 @@ class HttpClient
             } catch (\Throwable) {
                 $decoded = ['error' => $response->getReasonPhrase()];
             }
-            throw new EPostakError($statusCode, $decoded, $response->getHeaders());
+            throw self::buildApiError($statusCode, $decoded, $response->getHeaders());
         }
 
         return $response->getBody()->getContents();
@@ -249,5 +249,22 @@ class HttpClient
         }
 
         return '?' . http_build_query($filtered);
+    }
+
+    /**
+     * Build the right error subclass from a parsed API error body. Falls
+     * back to {@see EPostakError} when no specialised mapping applies.
+     *
+     * @param array<string, mixed>             $body
+     * @param array<string, array<int,string>> $headers
+     */
+    private static function buildApiError(int $status, array $body, array $headers = []): EPostakError
+    {
+        $error = $body['error'] ?? null;
+        $code = is_array($error) && isset($error['code']) ? (string) $error['code'] : null;
+        if ($code === 'DUPLICATE_INVOICE_NUMBER') {
+            return new DuplicateInvoiceNumberError($status, $body, $headers);
+        }
+        return new EPostakError($status, $body, $headers);
     }
 }

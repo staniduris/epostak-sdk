@@ -115,7 +115,7 @@ class _BaseResource:
         content: Any = None,
         extra_headers: Optional[Dict[str, str]] = None,
     ) -> Any:
-        from epostak.errors import EPostakError
+        from epostak.errors import EPostakError, build_api_error
 
         url = f"{self._base_url}{path}"
         last_exc: Optional[EPostakError] = None
@@ -152,7 +152,7 @@ class _BaseResource:
                     body = response.json()
                 except Exception:
                     body = {"error": response.reason_phrase or "API request failed"}
-                last_exc = EPostakError(response.status_code, body, response.headers)
+                last_exc = build_api_error(response.status_code, body, response.headers)
 
                 if attempt < self._max_retries and self._should_retry(method, response.status_code):
                     self._sleep_for_retry(attempt, response)
