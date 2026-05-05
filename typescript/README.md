@@ -154,8 +154,11 @@ const ubl = await client.documents.ubl("doc-uuid");
 // Respond to received invoice (AP=accept, RE=reject, UQ=query)
 await client.documents.respond("doc-uuid", { status: "AP", note: "Akceptované" });
 
-// Validate without sending
-const validation = await client.documents.validate({ receiverPeppolId: "0245:1234567890", items: [...] });
+// Validate without sending — pass the JSON invoice or raw UBL XML
+const validation = await client.documents.validate({
+  format: "json",
+  document: { receiverPeppolId: "0245:1234567890", items: [/* ... */] },
+});
 
 // Check receiver capability
 const check = await client.documents.preflight({ receiverPeppolId: "0245:1234567890" });
@@ -281,7 +284,8 @@ app.post(
   (req, res) => {
     const result = verifyWebhookSignature({
       payload: req.body, // Buffer
-      signatureHeader: req.header("x-epostak-signature") ?? "",
+      signature: req.header("x-webhook-signature") ?? "",
+      timestamp: req.header("x-webhook-timestamp") ?? "",
       secret: process.env.EPOSTAK_WEBHOOK_SECRET!,
       // toleranceSeconds: 300, // default — clamps replay attacks
     });
@@ -301,17 +305,20 @@ app.post(
 // Pull pending events
 const queue = await client.webhooks.queue.pull({ limit: 50 });
 for (const item of queue.items) {
-  console.log(item.id, item.type, item.payload);
-  await client.webhooks.queue.ack(item.id);
+  console.log(item.event_id, item.event, item.payload);
+  await client.webhooks.queue.ack(item.event_id);
+}
+if (queue.has_more) {
+  // Drain remaining events on the next iteration
 }
 
 // Batch acknowledge
-await client.webhooks.queue.batchAck(queue.items.map((e) => e.id));
+await client.webhooks.queue.batchAck(queue.items.map((e) => e.event_id));
 
 // Cross-firm (integrator)
 const allEvents = await client.webhooks.queue.pullAll({ limit: 200 });
 await client.webhooks.queue.batchAckAll(
-  allEvents.events.map((e) => e.event_id),
+  allEvents.items.map((e) => e.event_id),
 );
 ```
 
@@ -443,7 +450,6 @@ try {
 | `documents.validate(body)`               | POST   | `/documents/validate`                        |
 | `documents.preflight(body)`              | POST   | `/documents/preflight`                       |
 | `documents.convert(body)`                | POST   | `/documents/convert`                         |
-| `documents.receiveCallback(body)`        | POST   | `/document/receive-callback`                 |
 | `documents.inbox.list(params?)`          | GET    | `/documents/inbox`                           |
 | `documents.inbox.get(id)`                | GET    | `/documents/inbox/{id}`                      |
 | `documents.inbox.acknowledge(id)`        | POST   | `/documents/inbox/{id}/acknowledge`          |

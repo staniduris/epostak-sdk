@@ -31,8 +31,6 @@ import type {
   InvoiceResponsesListResponse,
   DocumentEventsParams,
   DocumentEventsResponse,
-  ReceiveCallbackRequest,
-  ReceiveCallbackResponse,
 } from "../types.js";
 
 /**
@@ -635,28 +633,4 @@ export class DocumentsResource extends BaseResource {
     );
   }
 
-  /**
-   * Register a receive-callback webhook for inbound document notifications.
-   * Requires the `webhooks:write` scope.
-   *
-   * The returned `secret` is only available at creation time — store it
-   * securely for HMAC verification of callback payloads.
-   *
-   * @param body - Callback URL and optional event filter
-   * @returns Callback details including the one-time signing secret
-   *
-   * @example
-   * ```typescript
-   * const callback = await client.documents.receiveCallback({
-   *   url: 'https://example.com/callbacks/inbound',
-   *   events: ['document.received'],
-   * });
-   * console.log(callback.id, callback.secret); // Store secret securely!
-   * ```
-   */
-  receiveCallback(
-    body: ReceiveCallbackRequest,
-  ): Promise<ReceiveCallbackResponse> {
-    return this.request("POST", "/document/receive-callback", body);
-  }
 }

@@ -3,6 +3,66 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.1.2 — 2026-05-06
+
+Bug-fix release. Three breaking-on-paper but pre-launch-clean fixes for
+webhook handling.
+
+### Fixed
+
+- **`verifyWebhookSignature()` rewritten.** Was parsing a single Stripe-
+  style `X-Epostak-Signature: t=…,v1=…` header with HMAC-SHA512. Server
+  has always sent two separate headers (`X-Webhook-Signature: sha256=…`
+  and `X-Webhook-Timestamp: …`) signed with HMAC-SHA256 over
+  `${timestamp}.${body}`. Every previous integration that called
+  `verifyWebhookSignature` was rejecting valid webhooks. New signature:
+  ```ts
+  verifyWebhookSignature({
+    payload: req.body,                                  // Buffer | string
+    signature: req.header("x-webhook-signature") ?? "", // "sha256=<hex>"
+    timestamp: req.header("x-webhook-timestamp") ?? "", // unix seconds
+    secret: process.env.EPOSTAK_WEBHOOK_SECRET!,
+  });
+  ```
+  The function still returns `{ valid, reason?, timestamp? }` and never
+  throws. The duplicated implementation at `resources/webhooks.ts` was
+  removed in favour of the canonical one in `utils/webhook-signature.ts`.
+- **`webhooks.queue.pull()` / `pullAll()` response shape.** Types
+  declared `{ events, count }`, server has always returned
+  `{ items, has_more }`. Updated `WebhookQueueResponse` and
+  `WebhookQueueAllResponse` accordingly. Items field is `event` (not
+  `event_type`).
+
+### Removed
+
+- **`documents.receiveCallback()` deleted.** The underlying endpoint
+  `POST /sapi/v1/document/receive-callback` was removed on the server
+  (2026-05-05) — it was an out-of-spec webhook subscription create
+  endpoint that duplicated `POST /api/v1/webhooks` under a misleading
+  name. The exported `ReceiveCallbackRequest` and `ReceiveCallbackResponse`
+  types were removed. Use `client.webhooks.create({ url, events })`
+  instead, which is the canonical webhook subscription path.
+
+### Migration
+
+```diff
+- await client.documents.receiveCallback({ url, events });
++ await client.webhooks.create({ url, events });
+
+  verifyWebhookSignature({
+    payload: req.body,
+-   signatureHeader: req.header("x-epostak-signature") ?? "",
++   signature: req.header("x-webhook-signature") ?? "",
++   timestamp: req.header("x-webhook-timestamp") ?? "",
+    secret: process.env.EPOSTAK_WEBHOOK_SECRET!,
+  });
+
+  for (const item of queue.items) {
+-   await client.webhooks.queue.ack(item.id);
++   await client.webhooks.queue.ack(item.event_id);
+  }
+```
+
 ## 3.1.0 — 2026-04-30
 
 ### Added

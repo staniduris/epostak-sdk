@@ -4,8 +4,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export interface VerifyWebhookSignatureOptions {
   /** Raw request body, exactly as bytes were received off the wire. */
   payload: Buffer | string;
-  /** Value of the `X-Epostak-Signature` (or equivalent) header. */
-  signatureHeader: string;
+  /** Value of the `X-Webhook-Signature` header — `sha256=<hex>`. */
+  signature: string;
+  /** Value of the `X-Webhook-Timestamp` header — Unix seconds. */
+  timestamp: string;
   /** The webhook signing secret, captured at webhook-creation time. */
   secret: string;
   /**
@@ -30,7 +32,7 @@ export interface VerifyWebhookSignatureResult {
   reason?:
     | "missing_header"
     | "malformed_header"
-    | "no_v1_signature"
+    | "unsupported_algorithm"
     | "signature_mismatch"
     | "timestamp_outside_tolerance";
   /** Parsed timestamp from the header, in seconds since the epoch. */
@@ -40,12 +42,11 @@ export interface VerifyWebhookSignatureResult {
 /**
  * Verify an ePošťák webhook payload using HMAC-SHA256 with timing-safe compare.
  *
- * Header format: `t=<unix_seconds>,v1=<hex_signature>`. Multiple `v1=`
- * signatures may appear (during secret rotation); any of them passing is
- * sufficient.
+ * Server signs with HMAC-SHA256 over `${timestamp}.${rawBody}` and ships:
+ *   - `X-Webhook-Signature: sha256=<hex>`
+ *   - `X-Webhook-Timestamp: <unix_seconds>`
  *
- * The signed string is `${t}.${rawBody}`, hex-encoded HMAC-SHA256, computed
- * on the bytes exactly as received off the wire — do NOT re-serialize the
+ * Use the bytes exactly as received off the wire — do NOT re-serialize the
  * parsed JSON, the round-trip will reorder keys and mutate whitespace.
  *
  * @example
@@ -61,7 +62,8 @@ export interface VerifyWebhookSignatureResult {
  *   (req, res) => {
  *     const result = verifyWebhookSignature({
  *       payload: req.body, // Buffer — express.raw gives raw bytes
- *       signatureHeader: req.header("x-epostak-signature") ?? "",
+ *       signature: req.header("x-webhook-signature") ?? "",
+ *       timestamp: req.header("x-webhook-timestamp") ?? "",
  *       secret: process.env.EPOSTAK_WEBHOOK_SECRET!,
  *     });
  *     if (!result.valid) {
@@ -77,28 +79,26 @@ export interface VerifyWebhookSignatureResult {
 export function verifyWebhookSignature(
   options: VerifyWebhookSignatureOptions,
 ): VerifyWebhookSignatureResult {
-  const { payload, signatureHeader, secret } = options;
+  const { payload, signature, timestamp, secret } = options;
   const tolerance = options.toleranceSeconds ?? 300;
 
-  if (!signatureHeader || signatureHeader.length === 0) {
+  if (!signature || !timestamp) {
     return { valid: false, reason: "missing_header" };
   }
 
-  const parts = signatureHeader.split(",").map((s) => s.trim());
-  let timestamp: string | undefined;
-  const v1Signatures: string[] = [];
-  for (const p of parts) {
-    const eq = p.indexOf("=");
-    if (eq < 0) continue;
-    const k = p.slice(0, eq);
-    const v = p.slice(eq + 1);
-    if (k === "t") timestamp = v;
-    else if (k === "v1") v1Signatures.push(v);
+  // Parse "sha256=<hex>" — server format. Reject any other algorithm.
+  const eqIdx = signature.indexOf("=");
+  if (eqIdx < 0) {
+    return { valid: false, reason: "malformed_header" };
   }
-
-  if (!timestamp) return { valid: false, reason: "malformed_header" };
-  if (v1Signatures.length === 0)
-    return { valid: false, reason: "no_v1_signature" };
+  const algo = signature.slice(0, eqIdx).trim().toLowerCase();
+  const sigHex = signature.slice(eqIdx + 1).trim();
+  if (algo !== "sha256") {
+    return { valid: false, reason: "unsupported_algorithm" };
+  }
+  if (sigHex.length === 0 || !/^[0-9a-f]+$/i.test(sigHex)) {
+    return { valid: false, reason: "malformed_header" };
+  }
 
   const ts = Number(timestamp);
   if (!Number.isFinite(ts)) {
@@ -126,17 +126,17 @@ export function verifyWebhookSignature(
   const expected = createHmac("sha256", secret).update(signed).digest("hex");
   const expectedBuf = Buffer.from(expected, "hex");
 
-  for (const candidate of v1Signatures) {
-    let candidateBuf: Buffer;
-    try {
-      candidateBuf = Buffer.from(candidate, "hex");
-    } catch {
-      continue;
-    }
-    if (candidateBuf.length !== expectedBuf.length) continue;
-    if (timingSafeEqual(candidateBuf, expectedBuf)) {
-      return { valid: true, timestamp: ts };
-    }
+  let candidateBuf: Buffer;
+  try {
+    candidateBuf = Buffer.from(sigHex, "hex");
+  } catch {
+    return { valid: false, reason: "malformed_header", timestamp: ts };
+  }
+  if (candidateBuf.length !== expectedBuf.length) {
+    return { valid: false, reason: "signature_mismatch", timestamp: ts };
+  }
+  if (timingSafeEqual(candidateBuf, expectedBuf)) {
+    return { valid: true, timestamp: ts };
   }
 
   return { valid: false, reason: "signature_mismatch", timestamp: ts };

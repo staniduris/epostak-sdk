@@ -1175,9 +1175,9 @@ export interface WebhookQueueItem {
 /** Response from pulling events from the webhook queue. */
 export interface WebhookQueueResponse {
   /** Array of unacknowledged events */
-  events: WebhookQueueItem[];
-  /** Number of events returned in this response */
-  count: number;
+  items: WebhookQueueItem[];
+  /** True when more events are available — call pull() again to drain them */
+  has_more: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1212,9 +1212,9 @@ export interface WebhookQueueAllEvent {
 /** Response from the integrator cross-firm webhook queue. */
 export interface WebhookQueueAllResponse {
   /** Array of events across all managed firms */
-  events: WebhookQueueAllEvent[];
-  /** Number of events returned in this response */
-  count: number;
+  items: WebhookQueueAllEvent[];
+  /** True when more events are available — call pullAll() again to drain them */
+  has_more: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1468,33 +1468,6 @@ export interface IpAllowlistResponse {
   ip_allowlist: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Receive callback (webhook registration for inbound documents)
-// ---------------------------------------------------------------------------
-
-/** Request body for `POST /document/receive-callback`. Requires `webhooks:write` scope. */
-export interface ReceiveCallbackRequest {
-  /** HTTPS URL where inbound document notifications will be POSTed. */
-  url: string;
-  /** Optional list of event types to subscribe to. Defaults to all events if omitted. */
-  events?: WebhookEvent[];
-}
-
-/** Response from `POST /document/receive-callback`. */
-export interface ReceiveCallbackResponse {
-  /** Callback subscription UUID. */
-  id: string;
-  /** Registered callback URL. */
-  url: string;
-  /** Event types this callback is subscribed to. */
-  events: WebhookEvent[];
-  /** HMAC-SHA256 signing secret for verifying callback payloads. Store securely — only returned once. */
-  secret: string;
-  /** Whether the callback is currently active. */
-  is_active: boolean;
-  /** ISO 8601 timestamp when the callback was created. */
-  created_at: string;
-}
 
 // ---------------------------------------------------------------------------
 // Batch send
