@@ -349,60 +349,6 @@ public sealed class WebhookListResponse
 }
 
 // ---------------------------------------------------------------------------
-// Receive callback (SAPI webhook registration)
-// ---------------------------------------------------------------------------
-
-/// <summary>
-/// Request body for <c>POST /document/receive-callback</c> — registers a
-/// webhook endpoint for inbound document delivery notifications.
-/// </summary>
-public sealed class ReceiveCallbackRequest
-{
-    /// <summary>The webhook endpoint URL (must be HTTPS).</summary>
-    [JsonPropertyName("url")]
-    public required string Url { get; set; }
-
-    /// <summary>
-    /// Event types to subscribe to. Defaults to <c>["document.received"]</c>
-    /// when null or omitted.
-    /// </summary>
-    [JsonPropertyName("events")]
-    public List<string>? Events { get; set; }
-}
-
-/// <summary>
-/// Response from <c>POST /document/receive-callback</c>. Contains the
-/// created webhook subscription including the one-time HMAC-SHA256 signing
-/// secret that should be stored for verifying incoming payloads.
-/// </summary>
-public sealed class ReceiveCallbackResponse
-{
-    /// <summary>The webhook subscription UUID.</summary>
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    /// <summary>The registered endpoint URL.</summary>
-    [JsonPropertyName("url")]
-    public string Url { get; set; } = "";
-
-    /// <summary>Subscribed event types.</summary>
-    [JsonPropertyName("events")]
-    public List<string> Events { get; set; } = [];
-
-    /// <summary>HMAC-SHA256 signing secret — returned ONCE at creation time.</summary>
-    [JsonPropertyName("secret")]
-    public string Secret { get; set; } = "";
-
-    /// <summary>Whether the subscription is active.</summary>
-    [JsonPropertyName("is_active")]
-    public bool IsActive { get; set; }
-
-    /// <summary>ISO 8601 timestamp of creation.</summary>
-    [JsonPropertyName("created_at")]
-    public string CreatedAt { get; set; } = "";
-}
-
-// ---------------------------------------------------------------------------
 // Webhook pull queue
 // ---------------------------------------------------------------------------
 
@@ -449,12 +395,12 @@ public sealed class WebhookQueueItem
 public sealed class WebhookQueueResponse
 {
     /// <summary>List of pending queue events.</summary>
-    [JsonPropertyName("events")]
-    public List<WebhookQueueItem> Events { get; set; } = [];
+    [JsonPropertyName("items")]
+    public List<WebhookQueueItem> Items { get; set; } = [];
 
-    /// <summary>Number of events returned in this response.</summary>
-    [JsonPropertyName("count")]
-    public int Count { get; set; }
+    /// <summary>Whether more events remain in the queue beyond this page.</summary>
+    [JsonPropertyName("has_more")]
+    public bool HasMore { get; set; }
 }
 
 /// <summary>
@@ -524,12 +470,12 @@ public sealed class WebhookQueueAllEvent
 public sealed class WebhookQueueAllResponse
 {
     /// <summary>Cross-firm queue events with firm IDs.</summary>
-    [JsonPropertyName("events")]
-    public List<WebhookQueueAllEvent> Events { get; set; } = [];
+    [JsonPropertyName("items")]
+    public List<WebhookQueueAllEvent> Items { get; set; } = [];
 
-    /// <summary>Total number of events returned in this response.</summary>
-    [JsonPropertyName("count")]
-    public int Count { get; set; }
+    /// <summary>Whether more events remain in the queue beyond this page.</summary>
+    [JsonPropertyName("has_more")]
+    public bool HasMore { get; set; }
 }
 
 /// <summary>

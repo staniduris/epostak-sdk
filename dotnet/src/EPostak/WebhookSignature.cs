@@ -15,7 +15,7 @@ public enum WebhookSignatureFailureReason
     MissingHeader,
     /// <summary>The signature header could not be parsed (no <c>t=</c> or non-numeric timestamp).</summary>
     MalformedHeader,
-    /// <summary>No <c>v1=</c> signature was present in the header.</summary>
+    /// <summary>The signature header did not contain a valid <c>sha256=</c> prefix or was empty after the prefix.</summary>
     NoV1Signature,
     /// <summary>The computed HMAC did not match any provided <c>v1=</c> value.</summary>
     SignatureMismatch,
@@ -47,21 +47,22 @@ public sealed class WebhookSignatureResult
 /// Verify ePošťák webhook payload signatures using HMAC-SHA256 with timing-safe
 /// comparison.
 /// <para>
-/// Header format: <c>t=&lt;unix_seconds&gt;,v1=&lt;hex_signature&gt;</c>. Multiple
-/// <c>v1=</c> signatures may appear (during secret rotation); any of them passing
-/// is sufficient.
-/// </para>
-/// <para>
-/// The signed string is <c>${t}.${rawBody}</c>, hex-encoded HMAC-SHA256, computed
-/// on the bytes exactly as received off the wire — do NOT re-serialize parsed
-/// JSON, the round-trip will reorder keys and mutate whitespace.
+/// The server sends two separate headers:
+/// <list type="bullet">
+///   <item><c>X-Webhook-Signature: sha256=&lt;hex&gt;</c></item>
+///   <item><c>X-Webhook-Timestamp: &lt;unix_seconds&gt;</c></item>
+/// </list>
+/// The signed string is <c>${timestamp}.${rawBody}</c>, hex-encoded HMAC-SHA256,
+/// computed on the bytes exactly as received off the wire — do NOT re-serialize
+/// parsed JSON, the round-trip will reorder keys and mutate whitespace.
 /// </para>
 /// </summary>
 /// <example>
 /// <code>
 /// var result = EPostak.WebhookSignature.Verify(
 ///     payload: requestBodyBytes,
-///     signatureHeader: request.Headers["X-Epostak-Signature"],
+///     signature: request.Headers["X-Webhook-Signature"],
+///     timestamp: request.Headers["X-Webhook-Timestamp"],
 ///     secret: Environment.GetEnvironmentVariable("EPOSTAK_WEBHOOK_SECRET")!);
 /// if (!result.Valid)
 ///     return Results.BadRequest($"bad signature: {result.Reason}");
@@ -72,9 +73,14 @@ public static class WebhookSignature
     /// <summary>Default timestamp tolerance, in seconds (5 minutes), matching the server-side replay window.</summary>
     public const int DefaultToleranceSeconds = 300;
 
-    /// <summary>Verify an ePošťák webhook signature against a raw byte payload.</summary>
+    /// <summary>
+    /// Verify an ePošťák webhook signature against a raw byte payload.
+    /// The server sends <c>X-Webhook-Signature: sha256=&lt;hex&gt;</c> and
+    /// <c>X-Webhook-Timestamp: &lt;unix_seconds&gt;</c> as two separate headers.
+    /// </summary>
     /// <param name="payload">Raw request body, exactly as bytes were received off the wire.</param>
-    /// <param name="signatureHeader">Value of the <c>X-Epostak-Signature</c> header.</param>
+    /// <param name="signature">Value of the <c>X-Webhook-Signature</c> header (e.g. <c>sha256=abc123</c>).</param>
+    /// <param name="timestamp">Value of the <c>X-Webhook-Timestamp</c> header (Unix seconds as a string).</param>
     /// <param name="secret">The webhook signing secret captured at creation time.</param>
     /// <param name="toleranceSeconds">
     /// Maximum age of the signature in seconds. Defaults to <see cref="DefaultToleranceSeconds"/>
@@ -82,35 +88,27 @@ public static class WebhookSignature
     /// </param>
     public static WebhookSignatureResult Verify(
         byte[] payload,
-        string signatureHeader,
+        string signature,
+        string timestamp,
         string secret,
         int toleranceSeconds = DefaultToleranceSeconds)
     {
-        if (string.IsNullOrEmpty(signatureHeader))
-        {
+        if (string.IsNullOrEmpty(signature))
             return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.MissingHeader };
-        }
 
-        string? timestampStr = null;
-        var v1Signatures = new List<string>();
-        foreach (var rawPart in signatureHeader.Split(','))
-        {
-            var part = rawPart.Trim();
-            var eq = part.IndexOf('=');
-            if (eq < 0) continue;
-            var k = part[..eq];
-            var v = part[(eq + 1)..];
-            if (k == "t") timestampStr = v;
-            else if (k == "v1") v1Signatures.Add(v);
-        }
-
-        if (timestampStr is null)
+        if (string.IsNullOrEmpty(timestamp))
             return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.MalformedHeader };
 
-        if (!long.TryParse(timestampStr, out var ts))
+        if (!long.TryParse(timestamp, out var ts))
             return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.MalformedHeader };
 
-        if (v1Signatures.Count == 0)
+        // Parse "sha256=<hex>" strictly.
+        const string prefix = "sha256=";
+        if (!signature.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.NoV1Signature, Timestamp = ts };
+
+        var hexPart = signature[prefix.Length..];
+        if (string.IsNullOrEmpty(hexPart))
             return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.NoV1Signature, Timestamp = ts };
 
         if (toleranceSeconds > 0)
@@ -127,43 +125,49 @@ public static class WebhookSignature
             }
         }
 
-        // Signed string: "<t>." + payload bytes.
-        var prefix = Encoding.UTF8.GetBytes($"{timestampStr}.");
-        var signed = new byte[prefix.Length + payload.Length];
-        Buffer.BlockCopy(prefix, 0, signed, 0, prefix.Length);
-        Buffer.BlockCopy(payload, 0, signed, prefix.Length, payload.Length);
+        // Signed string: "<timestamp>." + payload bytes.
+        var tsPrefix = Encoding.UTF8.GetBytes($"{timestamp}.");
+        var signed = new byte[tsPrefix.Length + payload.Length];
+        Buffer.BlockCopy(tsPrefix, 0, signed, 0, tsPrefix.Length);
+        Buffer.BlockCopy(payload, 0, signed, tsPrefix.Length, payload.Length);
 
         var keyBytes = Encoding.UTF8.GetBytes(secret);
         var expectedBytes = HMACSHA256.HashData(keyBytes, signed);
 
-        foreach (var candidate in v1Signatures)
+        byte[] candidateBytes;
+        try
         {
-            byte[] candidateBytes;
-            try
-            {
-                candidateBytes = Convert.FromHexString(candidate);
-            }
-            catch (FormatException)
-            {
-                continue;
-            }
-            if (candidateBytes.Length != expectedBytes.Length) continue;
-            if (CryptographicOperations.FixedTimeEquals(candidateBytes, expectedBytes))
-                return new WebhookSignatureResult { Valid = true, Reason = WebhookSignatureFailureReason.None, Timestamp = ts };
+            candidateBytes = Convert.FromHexString(hexPart);
         }
+        catch (FormatException)
+        {
+            return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.SignatureMismatch, Timestamp = ts };
+        }
+
+        if (candidateBytes.Length != expectedBytes.Length)
+            return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.SignatureMismatch, Timestamp = ts };
+
+        if (CryptographicOperations.FixedTimeEquals(candidateBytes, expectedBytes))
+            return new WebhookSignatureResult { Valid = true, Reason = WebhookSignatureFailureReason.None, Timestamp = ts };
 
         return new WebhookSignatureResult { Valid = false, Reason = WebhookSignatureFailureReason.SignatureMismatch, Timestamp = ts };
     }
 
-    /// <summary>Verify an ePošťák webhook signature against a UTF-8 string payload.</summary>
+    /// <summary>
+    /// Verify an ePošťák webhook signature against a UTF-8 string payload.
+    /// The server sends <c>X-Webhook-Signature: sha256=&lt;hex&gt;</c> and
+    /// <c>X-Webhook-Timestamp: &lt;unix_seconds&gt;</c> as two separate headers.
+    /// </summary>
     /// <param name="payload">Raw request body as a UTF-8 string.</param>
-    /// <param name="signatureHeader">Value of the <c>X-Epostak-Signature</c> header.</param>
+    /// <param name="signature">Value of the <c>X-Webhook-Signature</c> header (e.g. <c>sha256=abc123</c>).</param>
+    /// <param name="timestamp">Value of the <c>X-Webhook-Timestamp</c> header (Unix seconds as a string).</param>
     /// <param name="secret">The webhook signing secret captured at creation time.</param>
     /// <param name="toleranceSeconds">Maximum age of the signature in seconds (default 300).</param>
     public static WebhookSignatureResult Verify(
         string payload,
-        string signatureHeader,
+        string signature,
+        string timestamp,
         string secret,
         int toleranceSeconds = DefaultToleranceSeconds)
-        => Verify(Encoding.UTF8.GetBytes(payload ?? ""), signatureHeader, secret, toleranceSeconds);
+        => Verify(Encoding.UTF8.GetBytes(payload ?? ""), signature, timestamp, secret, toleranceSeconds);
 }

@@ -7,12 +7,12 @@ import java.util.Map;
 /**
  * Response from pulling the webhook event queue.
  *
- * @param events the list of pending events
- * @param count  total number of events returned
+ * @param items   the list of pending events
+ * @param hasMore whether more events remain in the queue beyond this page
  */
 public record WebhookQueueResponse(
-        List<WebhookQueueItem> events,
-        int count
+        List<WebhookQueueItem> items,
+        @SerializedName("has_more") boolean hasMore
 ) {
     /**
      * A single event in the webhook queue.

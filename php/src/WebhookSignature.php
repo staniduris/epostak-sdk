@@ -7,20 +7,21 @@ namespace EPostak;
 /**
  * Verify ePošťák webhook payloads using HMAC-SHA256 with timing-safe compare.
  *
- * Header format: `t=<unix_seconds>,v1=<hex_signature>`. Multiple `v1=`
- * signatures may appear (during secret rotation); any of them passing is
- * sufficient.
+ * The server sends two separate headers:
+ *   - `X-Webhook-Signature: sha256=<hex>`
+ *   - `X-Webhook-Timestamp: <unix_seconds>`
  *
- * The signed string is `${t}.${rawBody}`, hex-encoded HMAC-SHA256, computed
- * on the bytes exactly as received off the wire — do NOT re-serialize the
- * parsed JSON, the round-trip will reorder keys and mutate whitespace.
+ * The signed string is `${timestamp}.${rawBody}` — hex-encoded HMAC-SHA256
+ * computed on the bytes exactly as received off the wire. Do NOT re-serialize
+ * the parsed JSON; the round-trip will reorder keys and mutate whitespace.
  *
  * @example
  *   $raw = file_get_contents('php://input');
  *   $result = \EPostak\WebhookSignature::verify(
- *       $raw,
- *       $_SERVER['HTTP_X_EPOSTAK_SIGNATURE'] ?? '',
- *       getenv('EPOSTAK_WEBHOOK_SECRET'),
+ *       signature:  $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '',
+ *       timestamp:  $_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '',
+ *       body:       $raw,
+ *       secret:     getenv('EPOSTAK_WEBHOOK_SECRET'),
  *   );
  *   if (!$result['valid']) {
  *       http_response_code(400);
@@ -34,57 +35,46 @@ final class WebhookSignature
     /**
      * Verify a webhook signature.
      *
-     * @param string|resource $payload          Raw request body bytes — exactly
-     *                                          as received off the wire. May be
-     *                                          a string or a stream resource (the
-     *                                          resource will be drained with
-     *                                          `stream_get_contents`).
-     * @param string          $signatureHeader  Value of the `X-Epostak-Signature`
-     *                                          header.
-     * @param string          $secret           Webhook signing secret.
-     * @param int             $toleranceSeconds Maximum age of the signature in
-     *                                          seconds (default 300). Set 0 to
-     *                                          disable the timestamp check (not
-     *                                          recommended).
-     * @return array{valid: bool, reason: ?string, timestamp: ?int} Verification
-     *         result. `reason` is one of `missing_header`, `malformed_header`,
-     *         `no_v1_signature`, `signature_mismatch`,
+     * @param string $signature  Value of the `X-Webhook-Signature` header.
+     *                           Must be in the form `sha256=<hex>`. Any
+     *                           other algorithm prefix is rejected.
+     * @param string $timestamp  Value of the `X-Webhook-Timestamp` header.
+     *                           Unix seconds as a decimal string.
+     * @param string $body       Raw request body bytes — exactly as received
+     *                           off the wire. Do NOT pass the decoded JSON.
+     * @param string $secret     Webhook signing secret.
+     * @param int    $toleranceSeconds Maximum age of the signature in seconds
+     *                           (default 300). Set 0 to disable the timestamp
+     *                           check (not recommended for production).
+     * @return array{valid: bool, reason: ?string, timestamp: ?int}
+     *         `reason` is one of `missing_header`, `malformed_header`,
+     *         `unknown_algorithm`, `signature_mismatch`,
      *         `timestamp_outside_tolerance`, or null when valid.
      */
     public static function verify(
-        $payload,
-        string $signatureHeader,
+        string $signature,
+        string $timestamp,
+        string $body,
         string $secret,
         int $toleranceSeconds = 300,
     ): array {
-        if ($signatureHeader === '') {
+        if ($signature === '') {
+            return ['valid' => false, 'reason' => 'missing_header', 'timestamp' => null];
+        }
+        if ($timestamp === '') {
             return ['valid' => false, 'reason' => 'missing_header', 'timestamp' => null];
         }
 
-        $timestamp = null;
-        $v1Signatures = [];
-        foreach (explode(',', $signatureHeader) as $part) {
-            $part = trim($part);
-            $eq = strpos($part, '=');
-            if ($eq === false) {
-                continue;
-            }
-            $k = substr($part, 0, $eq);
-            $v = substr($part, $eq + 1);
-            if ($k === 't') {
-                $timestamp = $v;
-            } elseif ($k === 'v1') {
-                $v1Signatures[] = $v;
-            }
+        // Parse "sha256=<hex>" — reject unknown algorithms strictly
+        if (!str_starts_with($signature, 'sha256=')) {
+            return ['valid' => false, 'reason' => 'unknown_algorithm', 'timestamp' => null];
         }
-
-        if ($timestamp === null) {
+        $hex = substr($signature, 7);
+        if ($hex === '' || !ctype_xdigit($hex)) {
             return ['valid' => false, 'reason' => 'malformed_header', 'timestamp' => null];
         }
-        if (count($v1Signatures) === 0) {
-            return ['valid' => false, 'reason' => 'no_v1_signature', 'timestamp' => null];
-        }
-        if (!is_numeric($timestamp)) {
+
+        if (!is_numeric($timestamp) || str_contains($timestamp, '.')) {
             return ['valid' => false, 'reason' => 'malformed_header', 'timestamp' => null];
         }
 
@@ -101,17 +91,10 @@ final class WebhookSignature
             }
         }
 
-        $payloadBytes = is_resource($payload)
-            ? (string) stream_get_contents($payload)
-            : (string) $payload;
+        $expected = hash_hmac('sha256', $timestamp . '.' . $body, $secret);
 
-        $signed = $timestamp . '.' . $payloadBytes;
-        $expected = hash_hmac('sha256', $signed, $secret);
-
-        foreach ($v1Signatures as $candidate) {
-            if (hash_equals($expected, strtolower($candidate))) {
-                return ['valid' => true, 'reason' => null, 'timestamp' => $ts];
-            }
+        if (hash_equals($expected, strtolower($hex))) {
+            return ['valid' => true, 'reason' => null, 'timestamp' => $ts];
         }
 
         return ['valid' => false, 'reason' => 'signature_mismatch', 'timestamp' => $ts];

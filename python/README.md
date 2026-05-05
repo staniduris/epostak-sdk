@@ -261,7 +261,8 @@ def hook():
         # IMPORTANT: hash the bytes off the wire — do NOT re-serialise the
         # parsed JSON, the round-trip will reorder keys and mutate whitespace.
         payload=request.get_data(),
-        signature_header=request.headers.get("X-Epostak-Signature", ""),
+        signature=request.headers.get("x-webhook-signature", ""),
+        timestamp=request.headers.get("x-webhook-timestamp", ""),
         secret=WEBHOOK_SECRET,
         # tolerance_seconds=300,  # default — clamps replay attacks
     )
@@ -276,16 +277,20 @@ def hook():
 
 ```python
 queue = client.webhooks.queue.pull(limit=50)
-for item in queue["events"]:
-    print(item["event_id"], item["event_type"], item["payload"])
+for item in queue["items"]:
+    print(item["event_id"], item["event"], item["payload"])
     client.webhooks.queue.ack(item["event_id"])
 
+if queue["has_more"]:
+    # more events waiting — pull again
+    pass
+
 # Batch acknowledge
-client.webhooks.queue.batch_ack([e["event_id"] for e in queue["events"]])
+client.webhooks.queue.batch_ack([e["event_id"] for e in queue["items"]])
 
 # Cross-firm (integrator)
 all_events = client.webhooks.queue.pull_all(limit=200)
-client.webhooks.queue.batch_ack_all([e["event_id"] for e in all_events["events"]])
+client.webhooks.queue.batch_ack_all([e["event_id"] for e in all_events["items"]])
 ```
 
 ### Reporting

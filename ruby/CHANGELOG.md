@@ -2,6 +2,64 @@
 
 All notable changes to the `epostak` Ruby gem are documented in this file.
 The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Going forward, the gem version (`VERSION` constant) is the source of truth;
+earlier CHANGELOG headings used a different numbering scheme.
+
+## 0.8.1 — 2026-05-06
+
+Three P0 bug fixes that affect every integrator using webhooks.
+Pre-launch break-clean — no back-compat shims.
+
+### Fixed
+
+- **Webhook signature verification rewritten** — the server signs HMAC-SHA256
+  over `"#{timestamp}.#{body}"` and delivers two separate headers:
+  `X-Webhook-Signature: sha256=<hex>` and `X-Webhook-Timestamp: <unix>`.
+  The previous implementation parsed a single Stripe-style
+  `X-Epostak-Signature: t=,v1=` header with HMAC-SHA512 — every prior call
+  rejected valid server-signed webhooks.
+  - `EPostak.verify_webhook_signature` now takes `signature:` and `timestamp:`
+    keyword arguments instead of `signature_header:`.
+  - Reason `:no_v1_signature` removed; `:unsupported_algorithm` and
+    `:missing_timestamp` added.
+  - Hash algorithm changed from SHA-512 to SHA-256.
+
+- **`register_receive_callback` removed** — the server endpoint
+  `POST /document/receive-callback` was deleted on 2026-05-05.
+  Calling it would have returned 404. Migration: use
+  `client.webhooks.create(url:, events:)` instead.
+
+- **Webhook queue response shape corrected** — server returns
+  `{ items: [...], has_more: bool }`, not `{ events: [...], count: N }`.
+  YARD docs and README examples updated throughout.
+
+### Migration
+
+```diff
+- result = EPostak.verify_webhook_signature(
+-   payload:          raw,
+-   signature_header: request.env["HTTP_X_EPOSTAK_SIGNATURE"].to_s,
+-   secret:           ENV["EPOSTAK_WEBHOOK_SECRET"]
+- )
++ result = EPostak.verify_webhook_signature(
++   payload:   raw,
++   signature: request.env["HTTP_X_WEBHOOK_SIGNATURE"].to_s,
++   timestamp: request.env["HTTP_X_WEBHOOK_TIMESTAMP"].to_s,
++   secret:    ENV["EPOSTAK_WEBHOOK_SECRET"]
++ )
+```
+
+```diff
+- client.webhooks.register_receive_callback(url: "https://...", events: [...])
++ client.webhooks.create(url: "https://...", events: [...])
+```
+
+```diff
+- response["events"].each { |item| process(item) }
+- break if response["count"] == 0
++ response["items"].each { |item| process(item) }
++ break unless response["has_more"]
+```
 
 ## 3.1.0 — 2026-04-30
 

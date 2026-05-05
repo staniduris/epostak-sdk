@@ -3,6 +3,82 @@
 All notable changes to `epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+> **Note:** Previous entries in this file incorrectly listed versions as
+> `3.x.x`. The actual published version on Packagist has always been `0.8.x`.
+> The version history is corrected going forward.
+
+## 0.8.1 — 2026-05-06
+
+Bug-fix release. Four P0 fixes for webhook handling identified by audit.
+Pre-launch clean break — no compat shims.
+
+### Fixed
+
+- **`WebhookSignature::verify()` rewritten.** Was parsing a single
+  Stripe-style `X-Epostak-Signature: t=…,v1=…` header with HMAC-SHA512.
+  Server has always sent two separate headers (`X-Webhook-Signature: sha256=…`
+  and `X-Webhook-Timestamp: …`) signed with HMAC-SHA256 over
+  `${timestamp}.${body}`. Every previous call to `WebhookSignature::verify()`
+  was rejecting valid webhooks. New signature:
+  ```php
+  WebhookSignature::verify(
+      signature:  $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '',
+      timestamp:  $_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '',
+      body:       $raw,
+      secret:     getenv('EPOSTAK_WEBHOOK_SECRET'),
+  );
+  ```
+  Returns `['valid' => bool, 'reason' => ?string, 'timestamp' => ?int]`.
+  Algorithm prefix other than `sha256=` is rejected with `unknown_algorithm`.
+
+- **`webhooks->queue->pull()` response shape.** PHPDoc declared
+  `{events, count, firm_id}`; server has always returned `{items, has_more}`.
+  PHPDoc and example updated to match.
+
+- **README quick-start fixed.** Constructor examples used `apiKey` key which
+  does not exist — constructor requires `clientId` + `clientSecret`. All
+  four occurrences (lines 22, 55, 472, 475) corrected. Base URL in
+  constructor docs corrected from `api/enterprise` to `api/v1`.
+
+### Removed
+
+- **`$client->webhooks->registerReceiveCallback()` deleted.** The underlying
+  endpoint `POST /sapi/v1/document/receive-callback` was removed on the server
+  (2026-05-05). Use `$client->webhooks->create($url, $events)` instead.
+
+- **`$client->webhooks->verifyWebhookSignature()` deleted.** Was using wrong
+  header name, wrong format, and HMAC-SHA512. Use the canonical
+  `\EPostak\WebhookSignature::verify()` top-level helper instead.
+
+### Migration
+
+```diff
+- $client->webhooks->registerReceiveCallback($url, $events);
++ $client->webhooks->create($url, $events);
+
+- $isValid = $client->webhooks->verifyWebhookSignature(
+-     file_get_contents('php://input'),
+-     $_SERVER['HTTP_X_EPOSTAK_SIGNATURE'],
+-     $secret
+- );
++ $result = \EPostak\WebhookSignature::verify(
++     signature:  $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '',
++     timestamp:  $_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '',
++     body:       file_get_contents('php://input'),
++     secret:     $secret,
++ );
++ $isValid = $result['valid'];
+
+  foreach ($queue['items'] as $item) {
+-     $client->webhooks->queue->ack($item['id']);
++     $client->webhooks->queue->ack($item['event_id']);
+  }
+// $queue['has_more'] is bool (was $queue['count'] int)
+
+- $client = new EPostak(['apiKey' => 'sk_live_...']);
++ $client = new EPostak(['clientId' => 'sk_live_...', 'clientSecret' => '...']);
+```
+
 ## 3.1.0 — 2026-04-30
 
 ### Added

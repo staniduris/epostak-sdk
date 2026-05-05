@@ -31,14 +31,14 @@ class WebhookQueue
      * @param array{limit?: int, event_type?: string} $params Optional filters:
      *   - `limit`      Max events to return (default 20).
      *   - `event_type` Filter to a specific event type (e.g. 'document.received').
-     * @return array{events: array, count: int, firm_id: string} Pending events and count.
+     * @return array{items: array, has_more: bool} Pending events and pagination flag.
      * @throws EPostakError On API error.
      *
      * @example
      *   $result = $client->webhooks->queue->pull(['limit' => 50]);
-     *   foreach ($result['events'] as $event) {
-     *       processEvent($event);
-     *       $client->webhooks->queue->ack($event['event_id']);
+     *   foreach ($result['items'] as $item) {
+     *       processEvent($item);
+     *       $client->webhooks->queue->ack($item['event_id']);
      *   }
      */
     public function pull(array $params = []): array
@@ -86,8 +86,8 @@ class WebhookQueue
      * @param array{limit?: int, since?: string} $params Optional filters:
      *   - `limit` Max events to return (default 100, max 500).
      *   - `since` ISO 8601 datetime cutoff.
-     * @return array{events: list<array{event_id: string, firm_id: string, event: string, payload: array, created_at: string}>, count: int}
-     *   Pending events from all firms.
+     * @return array{items: list<array{event_id: string, firm_id: string, event: string, payload: array, created_at: string}>, has_more: bool}
+     *   Pending events from all firms; `has_more` indicates more events are available.
      * @throws EPostakError On API error.
      */
     public function pullAll(array $params = []): array

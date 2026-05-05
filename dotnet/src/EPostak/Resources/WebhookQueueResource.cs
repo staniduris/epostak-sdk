@@ -28,7 +28,7 @@ public sealed class WebhookQueueResource
     ///     Limit = 10,
     ///     EventType = WebhookEvents.DocumentReceived
     /// });
-    /// foreach (var item in response.Events)
+    /// foreach (var item in response.Items)
     /// {
     ///     Console.WriteLine($"Event {item.EventId}: {item.Event}");
     ///     // Process the event...
@@ -71,7 +71,7 @@ public sealed class WebhookQueueResource
     /// <code>
     /// var response = await client.Webhooks.Queue.PullAsync();
     /// // Process all events...
-    /// var ids = response.Events.Select(i => i.EventId);
+    /// var ids = response.Items.Select(i => i.EventId);
     /// var result = await client.Webhooks.Queue.BatchAckAsync(ids);
     /// Console.WriteLine($"Acknowledged {result.Acknowledged} events");
     /// </code>
@@ -94,7 +94,7 @@ public sealed class WebhookQueueResource
     ///     Limit = 100,
     ///     Since = "2026-04-01T00:00:00Z"
     /// });
-    /// foreach (var evt in response.Events)
+    /// foreach (var evt in response.Items)
     ///     Console.WriteLine($"[Firm {evt.FirmId}] {evt.Event}: {evt.EventId}");
     /// </code>
     /// </example>
@@ -117,7 +117,7 @@ public sealed class WebhookQueueResource
     /// <code>
     /// var response = await client.Webhooks.Queue.PullAllAsync();
     /// // Process events...
-    /// var ids = response.Events.Select(e => e.EventId);
+    /// var ids = response.Items.Select(e => e.EventId);
     /// var result = await client.Webhooks.Queue.BatchAckAllAsync(ids);
     /// Console.WriteLine($"Acknowledged {result.Acknowledged} events");
     /// </code>

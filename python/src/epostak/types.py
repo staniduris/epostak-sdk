@@ -646,8 +646,8 @@ class WebhookQueueItem(TypedDict):
 class WebhookQueueResponse(TypedDict):
     """Response from pulling the webhook event queue."""
 
-    events: List[WebhookQueueItem]  # Events on this page
-    count: int  # Number of events returned in this response
+    items: List[WebhookQueueItem]  # Events on this page
+    has_more: bool  # True if there are more events still in the queue
 
 
 # ---------------------------------------------------------------------------
@@ -668,8 +668,8 @@ class WebhookQueueAllEvent(TypedDict):
 class WebhookQueueAllResponse(TypedDict):
     """Response from pulling events across all firms (integrator only)."""
 
-    events: List[WebhookQueueAllEvent]  # Cross-firm events
-    count: int  # Number of events returned
+    items: List[WebhookQueueAllEvent]  # Cross-firm events
+    has_more: bool  # True if there are more events still in the queue
 
 
 # ---------------------------------------------------------------------------

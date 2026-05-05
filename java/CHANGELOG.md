@@ -4,6 +4,77 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.8.1 — 2026-05-06
+
+Bug-fix release. Three breaking-on-paper but pre-launch-clean fixes for
+webhook handling.
+
+### Fixed
+
+- **`WebhookSignature.verify()` rewritten.** Was parsing a single Stripe-style
+  `X-Epostak-Signature: t=…,v1=…` header with HMAC-SHA512. Server has always
+  sent two separate headers (`X-Webhook-Signature: sha256=…` and
+  `X-Webhook-Timestamp: …`) signed with HMAC-SHA256 over `${timestamp}.${body}`.
+  Every previous integration that called `verify()` was rejecting valid webhooks.
+  New signature:
+  ```java
+  WebhookSignature.VerifyResult result = WebhookSignature.verify(
+      rawBody,
+      request.getHeader("x-webhook-signature"),   // "sha256=<hex>"
+      request.getHeader("x-webhook-timestamp"),    // unix seconds
+      System.getenv("EPOSTAK_WEBHOOK_SECRET"));
+  ```
+  The method still returns `VerifyResult` (`valid`, `reason`, `timestamp`) and
+  never throws. Old `Reason` values `MISSING_HEADER`, `MALFORMED_HEADER`,
+  `SIGNATURE_MISMATCH`, and `TIMESTAMP_OUTSIDE_TOLERANCE` are preserved;
+  `NO_V1_SIGNATURE` is replaced with `UNSUPPORTED_ALGORITHM`.
+- **`WebhookQueueResponse` / `WebhookQueueAllResponse` response shape.** Records
+  declared `events` (List) and `count` (int); server has always returned
+  `items` and `has_more`. Renamed `events` → `items` and replaced `count`
+  with `hasMore` (boolean, Gson `@SerializedName("has_more")`).
+- **`documents().receiveCallback()` deleted.** The underlying endpoint
+  `POST /sapi/v1/document/receive-callback` was removed on the server
+  (2026-05-05). Use `client.webhooks().create(url, events)` instead.
+  Models `ReceiveCallbackRequest` and `ReceiveCallbackResponse` removed.
+
+### Migration
+
+```java
+// Before
+ReceiveCallbackResponse cb = client.documents().receiveCallback(
+    new ReceiveCallbackRequest("https://example.com/webhooks/epostak"));
+
+// After
+WebhookDetail wh = client.webhooks().create(
+    "https://example.com/webhooks/epostak",
+    List.of("document.received"));
+
+// Before — single combined header, SHA-512
+WebhookSignature.VerifyResult r = WebhookSignature.verify(
+    rawBody,
+    request.getHeader("X-Epostak-Signature"),
+    secret);
+
+// After — two separate headers, SHA-256
+WebhookSignature.VerifyResult r = WebhookSignature.verify(
+    rawBody,
+    request.getHeader("X-Webhook-Signature"),
+    request.getHeader("X-Webhook-Timestamp"),
+    secret);
+
+// Before
+for (var item : queue.events()) {
+    System.out.println(item.eventId());
+}
+System.out.println(queue.count() + " events");
+
+// After
+for (var item : queue.items()) {
+    System.out.println(item.eventId());
+}
+System.out.println("hasMore: " + queue.hasMore());
+```
+
 ## 3.1.0 — 2026-04-30
 
 ### Added

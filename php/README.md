@@ -19,7 +19,7 @@ composer require epostak/sdk
 ```php
 use EPostak\EPostak;
 
-$client = new EPostak(['apiKey' => 'sk_live_xxxxx']);
+$client = new EPostak(['clientId' => 'sk_live_xxxxx', 'clientSecret' => 'your-client-secret']);
 
 // Send an invoice
 $result = $client->documents->send([
@@ -52,9 +52,10 @@ Generate keys in your ePostak firm settings or via the dashboard.
 
 ```php
 $client = new EPostak([
-    'apiKey' => 'sk_live_xxxxx',           // Required
-    'baseUrl' => 'https://...',            // Optional, defaults to https://epostak.sk/api/enterprise
-    'firmId' => 'uuid',                    // Optional, required for integrator keys
+    'clientId'     => 'sk_live_xxxxx',     // Required
+    'clientSecret' => 'your-secret',       // Required
+    'baseUrl'      => 'https://...',       // Optional, defaults to https://epostak.sk/api/v1
+    'firmId'       => 'uuid',             // Optional, required for integrator keys
 ]);
 ```
 
@@ -344,6 +345,30 @@ $client->webhooks->update('webhook-uuid', [
 $client->webhooks->delete('webhook-uuid');
 ```
 
+#### Verifying webhook signatures
+
+The server sends `X-Webhook-Signature: sha256=<hex>` and `X-Webhook-Timestamp: <unix>`.
+Use `\EPostak\WebhookSignature::verify()` to validate deliveries:
+
+```php
+use EPostak\WebhookSignature;
+
+$raw = file_get_contents('php://input');
+$result = WebhookSignature::verify(
+    signature:  $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'] ?? '',
+    timestamp:  $_SERVER['HTTP_X_WEBHOOK_TIMESTAMP'] ?? '',
+    body:       $raw,
+    secret:     getenv('EPOSTAK_WEBHOOK_SECRET'),
+);
+
+if (!$result['valid']) {
+    http_response_code(400);
+    exit('bad signature: ' . $result['reason']);
+}
+
+$event = json_decode($raw, true);
+```
+
 ---
 
 ### Webhook Pull Queue
@@ -469,10 +494,10 @@ Use `sk_int_*` keys to act on behalf of client firms. Integrator keys unlock mul
 
 ```php
 // Option 1: pass firmId in constructor
-$client = new EPostak(['apiKey' => 'sk_int_xxxxx', 'firmId' => 'client-firm-uuid']);
+$client = new EPostak(['clientId' => 'sk_int_xxxxx', 'clientSecret' => 'your-secret', 'firmId' => 'client-firm-uuid']);
 
 // Option 2: scope at call time with withFirm()
-$base = new EPostak(['apiKey' => 'sk_int_xxxxx']);
+$base = new EPostak(['clientId' => 'sk_int_xxxxx', 'clientSecret' => 'your-secret']);
 $clientA = $base->withFirm('firm-uuid-a');
 $clientB = $base->withFirm('firm-uuid-b');
 
@@ -568,7 +593,7 @@ try {
 | `extract->single($path, $mime)`                              | POST   | `/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
 
-All paths are relative to `https://epostak.sk/api/enterprise`.
+All paths are relative to `https://epostak.sk/api/v1`.
 
 ---
 

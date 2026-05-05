@@ -321,6 +321,26 @@ webhook = client.webhooks.create(
 puts webhook["secret"] # Store this for HMAC-SHA256 verification!
 ```
 
+#### Verify an incoming webhook
+
+The server sends two headers: `X-Webhook-Signature: sha256=<hex>` and `X-Webhook-Timestamp: <unix>`.
+
+```ruby
+post "/webhooks/epostak" do
+  raw = request.body.read
+  result = EPostak.verify_webhook_signature(
+    payload:   raw,
+    signature: request.env["HTTP_X_WEBHOOK_SIGNATURE"].to_s,
+    timestamp: request.env["HTTP_X_WEBHOOK_TIMESTAMP"].to_s,
+    secret:    ENV["EPOSTAK_WEBHOOK_SECRET"]
+  )
+  halt 400, "bad signature: #{result[:reason]}" unless result[:valid]
+  event = JSON.parse(raw)
+  # process event...
+  status 204
+end
+```
+
 #### List webhooks
 
 ```ruby
@@ -377,7 +397,7 @@ client.webhooks.queue.ack("event-uuid")
 
 ```ruby
 response = client.webhooks.queue.pull(limit: 50)
-ids = response["items"].map { |i| i["id"] }
+ids = response["items"].map { |i| i["event_id"] }
 client.webhooks.queue.batch_ack(ids)
 # => nil (HTTP 204)
 ```
@@ -386,14 +406,14 @@ client.webhooks.queue.batch_ack(ids)
 
 ```ruby
 response = client.webhooks.queue.pull_all(since: "2026-04-11T00:00:00Z", limit: 200)
-response["events"].each { |e| puts "#{e['firm_id']}: #{e['type']}" }
+response["items"].each { |e| puts "#{e['firm_id']}: #{e['event']}" }
 ```
 
 #### Batch acknowledge all (integrator)
 
 ```ruby
 response = client.webhooks.queue.pull_all(limit: 100)
-ids = response["events"].map { |e| e["event_id"] }
+ids = response["items"].map { |e| e["event_id"] }
 result = client.webhooks.queue.batch_ack_all(ids)
 puts "Acknowledged: #{result['acknowledged']}"
 ```

@@ -442,35 +442,4 @@ public sealed class DocumentsResource
         return _http.RequestAsync<DocumentEventsResponse>(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/events{qs}", ct);
     }
 
-    /// <summary>
-    /// Register a webhook endpoint for inbound document delivery notifications
-    /// (SAPI receive-callback). Creates a webhook subscription scoped to the
-    /// authenticated firm. The response includes an HMAC-SHA256 signing secret
-    /// that is returned ONCE — store it securely for verifying incoming payloads.
-    /// Requires the <c>webhooks:write</c> scope.
-    /// </summary>
-    /// <param name="request">The callback URL and optional event types (defaults to <c>["document.received"]</c>).</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created subscription with the one-time signing secret.</returns>
-    /// <example>
-    /// <code>
-    /// var cb = await client.Documents.ReceiveCallbackAsync(new ReceiveCallbackRequest
-    /// {
-    ///     Url = "https://example.com/webhooks/epostak"
-    /// });
-    /// secretsManager.Save("epostak_webhook_secret", cb.Secret);
-    /// </code>
-    /// </example>
-    public Task<ReceiveCallbackResponse> ReceiveCallbackAsync(ReceiveCallbackRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<ReceiveCallbackResponse>(HttpMethod.Post, "/document/receive-callback", request, ct);
-
-    /// <summary>
-    /// Register a webhook endpoint for inbound document delivery notifications,
-    /// subscribing to the default <c>document.received</c> event only.
-    /// </summary>
-    /// <param name="url">The HTTPS endpoint URL to receive webhook payloads.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The created subscription with the one-time signing secret.</returns>
-    public Task<ReceiveCallbackResponse> ReceiveCallbackAsync(string url, CancellationToken ct = default)
-        => ReceiveCallbackAsync(new ReceiveCallbackRequest { Url = url }, ct);
 }

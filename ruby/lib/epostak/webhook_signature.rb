@@ -5,86 +5,75 @@ require "openssl"
 module EPostak
   # Verify an ePošťák webhook payload using HMAC-SHA256 with timing-safe compare.
   #
-  # Header format: `t=<unix_seconds>,v1=<hex_signature>`. Multiple `v1=`
-  # signatures may appear (during secret rotation); any of them passing is
-  # sufficient.
+  # The server sends two separate headers:
+  #   X-Webhook-Signature: sha256=<hex>
+  #   X-Webhook-Timestamp: <unix_seconds>
   #
-  # The signed string is `"#{t}.#{raw_body}"`, hex-encoded HMAC-SHA256, computed
-  # on the bytes exactly as received off the wire — do NOT re-serialize the
-  # parsed JSON, the round-trip will reorder keys and mutate whitespace.
+  # The signed string is +"#{timestamp}.#{raw_body}"+ — computed on the bytes
+  # exactly as received off the wire. Do NOT re-serialize parsed JSON.
   #
-  # @param payload [String] Raw request body, as bytes received off the wire
-  # @param signature_header [String] Value of the `X-Epostak-Signature` header
+  # @param payload [String] Raw request body bytes, as received off the wire
+  # @param signature [String] Value of the +X-Webhook-Signature+ header (e.g. "sha256=abc123")
+  # @param timestamp [String, Integer] Value of the +X-Webhook-Timestamp+ header (unix seconds)
   # @param secret [String] The webhook signing secret captured at creation time
   # @param tolerance_seconds [Integer] Maximum age of the signature in seconds.
-  #   Defaults to 300 (5 minutes). Set 0 to disable the timestamp check (not
+  #   Defaults to 300 (5 minutes). Set 0 to disable timestamp check (not
   #   recommended in production).
-  # @return [Hash] `{ valid: Boolean, reason: Symbol|nil, timestamp: Integer|nil }`
+  # @return [Hash] +{ valid: Boolean, reason: Symbol|nil, timestamp: Integer|nil }+
   #
   # @example Sinatra
   #   post "/webhooks/epostak" do
   #     raw = request.body.read
   #     result = EPostak.verify_webhook_signature(
-  #       payload: raw,
-  #       signature_header: request.env["HTTP_X_EPOSTAK_SIGNATURE"].to_s,
-  #       secret: ENV["EPOSTAK_WEBHOOK_SECRET"]
+  #       payload:   raw,
+  #       signature: request.env["HTTP_X_WEBHOOK_SIGNATURE"].to_s,
+  #       timestamp: request.env["HTTP_X_WEBHOOK_TIMESTAMP"].to_s,
+  #       secret:    ENV["EPOSTAK_WEBHOOK_SECRET"]
   #     )
   #     halt 400, "bad signature: #{result[:reason]}" unless result[:valid]
   #     event = JSON.parse(raw)
   #     # process event...
   #     status 204
   #   end
-  def self.verify_webhook_signature(payload:, signature_header:, secret:, tolerance_seconds: 300)
-    if signature_header.nil? || signature_header.empty?
+  def self.verify_webhook_signature(payload:, signature:, timestamp:, secret:, tolerance_seconds: 300)
+    if signature.nil? || signature.empty?
       return { valid: false, reason: :missing_header, timestamp: nil }
     end
 
-    timestamp_str = nil
-    v1_signatures = []
-    signature_header.split(",").each do |part|
-      stripped = part.strip
-      eq = stripped.index("=")
-      next if eq.nil?
-
-      key = stripped[0...eq]
-      val = stripped[(eq + 1)..]
-      case key
-      when "t"
-        timestamp_str = val
-      when "v1"
-        v1_signatures << val
-      end
+    if timestamp.nil? || timestamp.to_s.empty?
+      return { valid: false, reason: :missing_timestamp, timestamp: nil }
     end
 
-    return { valid: false, reason: :malformed_header, timestamp: nil } if timestamp_str.nil?
-    return { valid: false, reason: :no_v1_signature, timestamp: nil } if v1_signatures.empty?
+    # Parse "sha256=<hex>" — reject anything with a different algorithm prefix
+    unless signature.start_with?("sha256=")
+      return { valid: false, reason: :unsupported_algorithm, timestamp: nil }
+    end
 
-    timestamp = begin
-      Integer(timestamp_str, 10)
+    candidate_hex = signature[7..]
+
+    ts_int = begin
+      Integer(timestamp.to_s, 10)
     rescue ArgumentError, TypeError
       nil
     end
-    return { valid: false, reason: :malformed_header, timestamp: nil } if timestamp.nil?
+    return { valid: false, reason: :malformed_timestamp, timestamp: nil } if ts_int.nil?
 
     if tolerance_seconds.positive?
       now = Time.now.to_i
-      if (now - timestamp).abs > tolerance_seconds
-        return { valid: false, reason: :timestamp_outside_tolerance, timestamp: timestamp }
+      if (now - ts_int).abs > tolerance_seconds
+        return { valid: false, reason: :timestamp_outside_tolerance, timestamp: ts_int }
       end
     end
 
-    signed = "#{timestamp_str}.#{payload}"
-    expected = OpenSSL::HMAC.hexdigest("SHA256", secret, signed)
+    expected = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{ts_int}.#{payload}")
 
-    v1_signatures.each do |candidate|
-      next if candidate.length != expected.length
+    return { valid: false, reason: :signature_mismatch, timestamp: ts_int } if candidate_hex.length != expected.length
 
-      if secure_compare(candidate, expected)
-        return { valid: true, reason: nil, timestamp: timestamp }
-      end
+    if secure_compare(candidate_hex, expected)
+      { valid: true, reason: nil, timestamp: ts_int }
+    else
+      { valid: false, reason: :signature_mismatch, timestamp: ts_int }
     end
-
-    { valid: false, reason: :signature_mismatch, timestamp: timestamp }
   end
 
   # @api private

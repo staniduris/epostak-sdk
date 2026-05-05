@@ -352,6 +352,35 @@ client.webhooks().update("webhook-uuid",
 client.webhooks().delete("webhook-uuid");
 ```
 
+#### `WebhookSignature.verify(...)` -- Verify incoming webhook payload
+
+The server signs every delivery with HMAC-SHA256 over `"${timestamp}.${rawBody}"` and sends two headers:
+- `X-Webhook-Signature: sha256=<hex>`
+- `X-Webhook-Timestamp: <unix_seconds>`
+
+```java
+import sk.epostak.sdk.WebhookSignature;
+
+// In your HTTP handler (example: Jakarta EE / Spring MVC):
+WebhookSignature.VerifyResult result = WebhookSignature.verify(
+    rawBody,                                             // byte[] or String
+    request.getHeader("x-webhook-signature"),            // "sha256=<hex>"
+    request.getHeader("x-webhook-timestamp"),            // unix seconds
+    System.getenv("EPOSTAK_WEBHOOK_SECRET"));
+
+if (!result.valid()) {
+    response.setStatus(400);
+    response.getWriter().write("bad signature: " + result.reason());
+    return;
+}
+// Process event — parse rawBody as JSON
+```
+
+Use `express.raw()` (Node) or the equivalent in your framework to capture raw bytes. Do NOT re-serialize parsed JSON — the round-trip breaks the HMAC.
+
+> **Migration note:** the old single-header format (`X-Epostak-Signature: t=…,v1=…`) is no longer
+> used by the server. Use `client.webhooks().create(url, events)` to register webhook endpoints.
+
 ---
 
 ### Webhook Pull Queue
@@ -387,15 +416,16 @@ client.webhooks().queue().batchAck(ids);
 
 ```java
 WebhookQueueAllResponse all = client.webhooks().queue().pullAll(200, "2026-04-01T00:00:00Z");
-for (var event : all.events()) {
+for (var event : all.items()) {
     System.out.println(event.firmId() + " " + event.event() + " " + event.payload());
 }
+// all.hasMore()
 ```
 
 #### `webhooks().queue().batchAckAll(eventIds)` -- Cross-firm batch ack
 
 ```java
-List<String> ids = all.events().stream().map(e -> e.eventId()).toList();
+List<String> ids = all.items().stream().map(e -> e.eventId()).toList();
 var result = client.webhooks().queue().batchAckAll(ids);
 System.out.println(result.acknowledged());
 ```

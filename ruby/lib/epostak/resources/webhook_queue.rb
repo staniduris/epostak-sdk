@@ -13,11 +13,11 @@ module EPostak
     # @example Poll-based event consumption loop
     #   loop do
     #     response = client.webhooks.queue.pull(limit: 50)
-    #     break if response["events"].empty?
+    #     break if response["items"].empty?
     #
-    #     ids = response["events"].map { |item| process(item); item["event_id"] }
+    #     ids = response["items"].map { |item| process(item); item["event_id"] }
     #     client.webhooks.queue.batch_ack(ids)
-    #     break if response["count"] == 0
+    #     break unless response["has_more"]
     #   end
     class WebhookQueue
       # @param http [EPostak::HttpClient] Internal HTTP client
@@ -30,11 +30,11 @@ module EPostak
       #
       # @param limit [Integer, nil] Maximum number of events to return
       # @param event_type [String, nil] Filter by event type (e.g. "document.received")
-      # @return [Hash] Response with "events" array (each has event_id, firm_id, event, created_at, payload) and "count"
+      # @return [Hash] Response with "items" array (each has event_id, firm_id, event, created_at, payload) and "has_more" bool
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 20, event_type: "document.received")
-      #   response["events"].each { |item| puts item["event"] }
+      #   response["items"].each { |item| puts item["event"] }
       def pull(limit: nil, event_type: nil)
         query = { limit: limit, event_type: event_type }
         @http.request(:get, "/webhook-queue", query: query)
@@ -59,7 +59,7 @@ module EPostak
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 50)
-      #   ids = response["events"].map { |i| i["event_id"] }
+      #   ids = response["items"].map { |i| i["event_id"] }
       #   result = client.webhooks.queue.batch_ack(ids)
       #   puts "Acknowledged: #{result['acknowledged']}"
       def batch_ack(event_ids)
@@ -72,11 +72,11 @@ module EPostak
       #
       # @param limit [Integer, nil] Maximum number of events to return
       # @param since [String, nil] ISO 8601 timestamp for cursor-based polling
-      # @return [Hash] Response with "events" array and "count"
+      # @return [Hash] Response with "items" array and "has_more" bool
       #
       # @example
       #   response = client.webhooks.queue.pull_all(since: "2026-04-11T00:00:00Z", limit: 200)
-      #   response["events"].each { |e| puts "#{e['firm_id']}: #{e['type']}" }
+      #   response["items"].each { |e| puts "#{e['firm_id']}: #{e['event']}" }
       def pull_all(limit: nil, since: nil)
         query = { limit: limit, since: since }
         @http.request(:get, "/webhook-queue/all", query: query)
@@ -90,7 +90,7 @@ module EPostak
       #
       # @example
       #   response = client.webhooks.queue.pull_all(limit: 100)
-      #   ids = response["events"].map { |e| e["event_id"] }
+      #   ids = response["items"].map { |e| e["event_id"] }
       #   result = client.webhooks.queue.batch_ack_all(ids)
       #   puts "Acknowledged: #{result['acknowledged']}"
       def batch_ack_all(event_ids)

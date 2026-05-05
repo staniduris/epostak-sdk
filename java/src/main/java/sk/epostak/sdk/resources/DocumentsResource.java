@@ -509,40 +509,4 @@ public final class DocumentsResource {
         return events(id, null, null);
     }
 
-    /**
-     * Register a webhook endpoint for receiving document delivery notifications
-     * (SAPI receive-callback). This is the SAPI-compliant way to subscribe to
-     * inbound document events — the endpoint creates a webhook subscription
-     * scoped to the authenticated firm.
-     * <p>
-     * The response includes an HMAC-SHA256 signing secret that is returned
-     * ONCE — store it securely for verifying incoming webhook payloads.
-     * <p>
-     * Requires the {@code webhooks:write} scope.
-     *
-     * <pre>{@code
-     * ReceiveCallbackResponse cb = client.documents().receiveCallback(
-     *     new ReceiveCallbackRequest("https://example.com/webhooks/epostak"));
-     * System.out.println("Webhook secret: " + cb.secret()); // Store this!
-     * }</pre>
-     *
-     * @param request the callback URL and optional event types (defaults to {@code ["document.received"]})
-     * @return the created subscription with the one-time signing secret
-     * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
-     */
-    public ReceiveCallbackResponse receiveCallback(ReceiveCallbackRequest request) {
-        return http.post("/document/receive-callback", request, ReceiveCallbackResponse.class);
-    }
-
-    /**
-     * Register a webhook endpoint for receiving document delivery notifications,
-     * subscribing to the default {@code document.received} event only.
-     *
-     * @param url the HTTPS endpoint URL to receive webhook payloads
-     * @return the created subscription with the one-time signing secret
-     * @throws sk.epostak.sdk.EPostakException if the URL is invalid or the request fails
-     */
-    public ReceiveCallbackResponse receiveCallback(String url) {
-        return receiveCallback(new ReceiveCallbackRequest(url));
-    }
 }

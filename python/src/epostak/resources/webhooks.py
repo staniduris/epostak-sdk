@@ -46,13 +46,13 @@ class WebhookQueueResource(_BaseResource):
             event_type: Filter by event type, e.g. ``"document.received"``.
 
         Returns:
-            Dict with ``events`` (list of queue events) and ``count`` (int).
+            Dict with ``items`` (list of queue events) and ``has_more`` (bool).
 
         Example::
 
             queue = client.webhooks.queue.pull(limit=50)
-            for item in queue["events"]:
-                print(item["event"], item["payload"])
+            for item in queue["items"]:
+                print(item["event_id"], item["event"], item["payload"])
         """
         params = _build_query({"limit": limit, "event_type": event_type})
         return self._request("GET", "/webhook-queue", params=params)
@@ -84,7 +84,7 @@ class WebhookQueueResource(_BaseResource):
 
         Example::
 
-            ids = [item["event_id"] for item in queue["events"]]
+            ids = [item["event_id"] for item in queue["items"]]
             result = client.webhooks.queue.batch_ack(ids)
             print(result["acknowledged"])
         """
@@ -102,12 +102,12 @@ class WebhookQueueResource(_BaseResource):
             since: ISO 8601 timestamp -- only return events created after this time.
 
         Returns:
-            Dict with ``events`` (each including ``firm_id``) and ``count``.
+            Dict with ``items`` (each including ``firm_id``) and ``has_more``.
 
         Example::
 
             queue = client.webhooks.queue.pull_all(limit=200)
-            for event in queue["events"]:
+            for event in queue["items"]:
                 print(event["firm_id"], event["event"])
         """
         params = _build_query({"limit": limit, "since": since})
@@ -124,7 +124,7 @@ class WebhookQueueResource(_BaseResource):
 
         Example::
 
-            ids = [e["event_id"] for e in queue["events"]]
+            ids = [e["event_id"] for e in queue["items"]]
             result = client.webhooks.queue.batch_ack_all(ids)
             print(result["acknowledged"])
         """

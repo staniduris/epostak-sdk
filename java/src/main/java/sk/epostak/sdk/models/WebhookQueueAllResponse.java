@@ -7,12 +7,12 @@ import java.util.Map;
 /**
  * Cross-firm webhook queue response for integrator keys.
  *
- * @param events the list of events across all firms
- * @param count  total number of events returned
+ * @param items   the list of events across all firms
+ * @param hasMore whether more events remain in the queue beyond this page
  */
 public record WebhookQueueAllResponse(
-        List<WebhookQueueAllEvent> events,
-        int count
+        List<WebhookQueueAllEvent> items,
+        @SerializedName("has_more") boolean hasMore
 ) {
     /**
      * A single event in the cross-firm webhook queue, with firm identification.

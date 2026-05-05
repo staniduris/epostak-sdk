@@ -3,6 +3,66 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.8.1 — 2026-05-06
+
+Bug-fix release. Four breaking-on-paper but pre-launch-clean fixes for webhook
+handling and documentation.
+
+### Fixed
+
+- **`WebhookSignature.Verify()` rewritten.** Was parsing a single Stripe-style
+  `X-Epostak-Signature: t=…,v1=…` header. The server has always sent two
+  separate headers (`X-Webhook-Signature: sha256=<hex>` and
+  `X-Webhook-Timestamp: <unix_seconds>`) signed with HMAC-SHA256 over
+  `${timestamp}.${body}`. Every previous integration was rejecting valid
+  webhooks. New signature:
+  ```csharp
+  WebhookSignature.Verify(
+      payload: requestBodyBytes,
+      signature: request.Headers["X-Webhook-Signature"],  // "sha256=<hex>"
+      timestamp: request.Headers["X-Webhook-Timestamp"],  // unix seconds
+      secret: Environment.GetEnvironmentVariable("EPOSTAK_WEBHOOK_SECRET")!);
+  ```
+  The method still returns `WebhookSignatureResult` with a `Reason` enum and
+  never throws on bad signatures.
+- **`WebhookQueueResponse` / `WebhookQueueAllResponse` shape.** Properties
+  were declared as `Events` (`[JsonPropertyName("events")]`) and `Count`
+  (`[JsonPropertyName("count")]`). Server has always returned `items` and
+  `has_more`. Renamed to `Items` and `HasMore` (bool) with correct
+  `[JsonPropertyName]` attributes.
+- **README examples** used `new EPostakConfig { ApiKey = ... }`. `ApiKey` is
+  not a property — `EPostakConfig` requires `ClientId` + `ClientSecret`. All
+  four Quick Start / Configuration examples corrected.
+
+### Removed
+
+- **`Documents.ReceiveCallbackAsync()`** deleted. The underlying endpoint
+  `POST /sapi/v1/document/receive-callback` was removed server-side on
+  2026-05-05 — it duplicated `POST /api/v1/webhooks` under a misleading name.
+  Types `ReceiveCallbackRequest` and `ReceiveCallbackResponse` are also gone.
+  Use `client.Webhooks.CreateAsync(new CreateWebhookRequest { Url, Events })`
+  instead, which is the canonical webhook subscription path.
+
+### Migration
+
+```diff
+- await client.Documents.ReceiveCallbackAsync(new ReceiveCallbackRequest { Url = url });
++ await client.Webhooks.CreateAsync(new CreateWebhookRequest { Url = url });
+
+  WebhookSignature.Verify(
+      payload: bodyBytes,
+-     signatureHeader: request.Headers["X-Epostak-Signature"],
++     signature: request.Headers["X-Webhook-Signature"],
++     timestamp: request.Headers["X-Webhook-Timestamp"],
+      secret: secret);
+
+- foreach (var item in queue.Events)
++ foreach (var item in queue.Items)
+
+- new EPostakConfig { ApiKey = "sk_live_..." }
++ new EPostakConfig { ClientId = "sk_live_...", ClientSecret = "sk_live_..." }
+```
+
 ## 3.1.0 — 2026-04-30
 
 ### Added

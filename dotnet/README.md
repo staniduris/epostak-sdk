@@ -11,7 +11,7 @@ dotnet add package EPostak
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="EPostak" Version="1.0.0" />
+<PackageReference Include="EPostak" Version="0.8.1" />
 ```
 
 ## Quick start
@@ -22,7 +22,8 @@ using EPostak.Models;
 
 var client = new EPostakClient(new EPostakConfig
 {
-    ApiKey = "sk_live_your_api_key"
+    ClientId = "sk_live_xxxxx",
+    ClientSecret = "sk_live_xxxxx"
 });
 
 // Send an invoice
@@ -54,8 +55,10 @@ Console.WriteLine($"Sent! Document ID: {result.DocumentId}");
 ```csharp
 var client = new EPostakClient(new EPostakConfig
 {
-    // Required: your Enterprise API key
-    ApiKey = "sk_live_xxxxx",
+    // Required: OAuth client ID (your API key)
+    ClientId = "sk_live_xxxxx",
+    // Required: OAuth client secret
+    ClientSecret = "sk_live_xxxxx",
 
     // Optional: override base URL for staging/local testing
     BaseUrl = "https://epostak.sk/api/v1",
@@ -70,7 +73,7 @@ var client = new EPostakClient(new EPostakConfig
 If you use an integrator key (`sk_int_*`), scope requests to a specific firm:
 
 ```csharp
-var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_int_xxxxx" });
+var client = new EPostakClient(new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx" });
 
 // Create a firm-scoped client (shares the underlying HttpClient)
 var firmClient = client.WithFirm("firm-uuid-here");
@@ -83,7 +86,7 @@ For best performance in server applications, share an `HttpClient`:
 
 ```csharp
 var httpClient = new HttpClient();
-var client = new EPostakClient(new EPostakConfig { ApiKey = "sk_live_xxxxx" }, httpClient);
+var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" }, httpClient);
 ```
 
 ## Resources

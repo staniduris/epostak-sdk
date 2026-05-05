@@ -3,6 +3,58 @@
 All notable changes to the `epostak` Python SDK are documented in this
 file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.8.1 — 2026-05-06
+
+Bug-fix release. Two breaking-on-paper but pre-launch-clean fixes for
+webhook handling.
+
+### Fixed
+
+- **`verify_webhook_signature()` rewritten.** Was parsing a single Stripe-
+  style `X-Epostak-Signature: t=…,v1=…` header. Server has always sent two
+  separate headers (`X-Webhook-Signature: sha256=…` and
+  `X-Webhook-Timestamp: …`) signed with HMAC-SHA256 over
+  `{timestamp}.{body}`. Every previous integration that called
+  `verify_webhook_signature` was rejecting valid webhooks. New signature:
+  ```python
+  verify_webhook_signature(
+      payload=request.get_data(),                               # bytes | str
+      signature=request.headers.get("x-webhook-signature", ""),# "sha256=<hex>"
+      timestamp=request.headers.get("x-webhook-timestamp", ""),# unix seconds
+      secret=os.environ["EPOSTAK_WEBHOOK_SECRET"],
+  )
+  ```
+  The function still returns `VerifyWebhookSignatureResult(valid, reason,
+  timestamp)` and never raises. A new `reason="unsupported_algorithm"` is
+  returned when the signature prefix is not `sha256`.
+
+- **`webhooks.queue.pull()` / `pull_all()` response shape.** Types
+  declared `{ events, count }`, server has always returned
+  `{ items, has_more }`. Updated `WebhookQueueResponse` and
+  `WebhookQueueAllResponse` accordingly. Item field is `event` (not
+  `event_type`).
+
+### Migration
+
+```diff
+  verify_webhook_signature(
+      payload=request.get_data(),
+-     signature_header=request.headers.get("X-Epostak-Signature", ""),
++     signature=request.headers.get("x-webhook-signature", ""),
++     timestamp=request.headers.get("x-webhook-timestamp", ""),
+      secret=WEBHOOK_SECRET,
+  )
+
+  queue = client.webhooks.queue.pull(limit=50)
+- for item in queue["events"]:
++ for item in queue["items"]:
+-     print(item["event_type"])
++     print(item["event"])
+      client.webhooks.queue.ack(item["event_id"])
++ if queue["has_more"]:
++     ...  # pull again
+```
+
 ## 2.2.0 — 2026-04-29
 
 ### Added
