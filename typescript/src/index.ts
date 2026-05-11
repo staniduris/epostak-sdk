@@ -6,6 +6,7 @@ export type { EPostakConfig } from "./client.js";
 export {
   EPostakError,
   DuplicateInvoiceNumberError,
+  UblValidationError,
 } from "./utils/errors.js";
 export type {
   DuplicateInvoiceRecipient,
@@ -42,6 +43,8 @@ export {
   IntegratorResource,
   IntegratorLicensesResource,
 } from "./resources/integrator.js";
+export { InboundResource } from "./resources/inbound.js";
+export { OutboundResource } from "./resources/outbound.js";
 
 // All types
 export type {
@@ -202,4 +205,23 @@ export type {
   DocumentEventsParams,
   DocumentEvent,
   DocumentEventsResponse,
+  // Rate-limit
+  RateLimitState,
+  // UBL validation
+  UblRule,
+  // Pull API — Inbound
+  PeppolParty,
+  InboundDocumentAck,
+  InboundDocument,
+  InboundListParams,
+  InboundDocumentsListResponse,
+  InboundAckRequest,
+  // Pull API — Outbound
+  OutboundDocumentAttempt,
+  OutboundDocument as PullOutboundDocument,
+  OutboundListParams,
+  OutboundDocumentsListResponse,
+  OutboundEvent,
+  OutboundEventsParams,
+  OutboundEventsListResponse,
 } from "./types.js";

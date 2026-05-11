@@ -1,6 +1,8 @@
 import { EPostakError, buildApiError } from "./errors.js";
 import type { TokenManager } from "./token-manager.js";
 
+import type { RateLimitState } from "../types.js";
+
 /** Internal configuration passed to all resource classes. */
 export interface ClientConfig {
   /** Base URL for the API (e.g. `"https://epostak.sk/api/v1"`) */
@@ -11,6 +13,12 @@ export interface ClientConfig {
   firmId: string | undefined;
   /** Maximum number of retries on 429/5xx errors. Default 3, set 0 to disable. */
   maxRetries: number;
+  /**
+   * Optional callback invoked after each successful response with the parsed
+   * rate-limit headers. Used by the `EPostak` client to expose `lastRateLimit`.
+   * @internal
+   */
+  onRateLimit?: (state: RateLimitState) => void;
 }
 
 const DEFAULT_MAX_RETRIES = 3;
@@ -61,6 +69,13 @@ export class BaseResource {
     body?: unknown,
     options?: RequestOptions,
   ): Promise<T> {
+    const merged: RequestOptions & { maxRetries: number; onRateLimit?: (s: RateLimitState) => void } = {
+      ...options,
+      maxRetries: this.config.maxRetries,
+    };
+    if (this.config.onRateLimit !== undefined) {
+      merged.onRateLimit = this.config.onRateLimit;
+    }
     return request<T>(
       this.config.baseUrl,
       this.config.tokenManager,
@@ -68,10 +83,7 @@ export class BaseResource {
       method,
       path,
       body,
-      {
-        ...options,
-        maxRetries: this.config.maxRetries,
-      },
+      merged,
     );
   }
 }
@@ -121,6 +133,26 @@ function isRetryableStatus(status: number): boolean {
  *   network errors. `409` responses with `code: "idempotency_conflict"` are
  *   surfaced verbatim — callers can detect them via `err.code`.
  */
+/** Parse `X-RateLimit-*` headers from a response into a `RateLimitState` object. */
+function parseRateLimitHeaders(headers: Headers): RateLimitState | null {
+  const limit = headers.get("x-ratelimit-limit");
+  const remaining = headers.get("x-ratelimit-remaining");
+  const reset = headers.get("x-ratelimit-reset");
+  if (!limit || !remaining || !reset) return null;
+  const limitN = parseInt(limit, 10);
+  const remainingN = parseInt(remaining, 10);
+  const resetN = parseInt(reset, 10);
+  if (!Number.isFinite(limitN) || !Number.isFinite(remainingN) || !Number.isFinite(resetN)) {
+    return null;
+  }
+  return {
+    limit: limitN,
+    remaining: remainingN,
+    // X-RateLimit-Reset is a Unix timestamp (seconds)
+    resetAt: new Date(resetN * 1000),
+  };
+}
+
 export async function request<T>(
   baseUrl: string,
   tokenManagerOrKey: TokenManager | string,
@@ -128,7 +160,7 @@ export async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  options?: RequestOptions & { maxRetries?: number },
+  options?: RequestOptions & { maxRetries?: number; onRateLimit?: (s: RateLimitState) => void },
 ): Promise<T> {
   const bearer =
     typeof tokenManagerOrKey === "string"
@@ -211,6 +243,12 @@ export async function request<T>(
         errorBody = { error: res.statusText };
       }
       throw buildApiError(res.status, errorBody, res.headers);
+    }
+
+    // Parse rate-limit headers and notify the client.
+    const rlState = parseRateLimitHeaders(res.headers);
+    if (rlState && options?.onRateLimit) {
+      options.onRateLimit(rlState);
     }
 
     if (options?.rawResponse) {

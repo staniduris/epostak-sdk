@@ -1,6 +1,6 @@
 {
   "name": "@epostak/sdk",
-  "version": "3.1.2",
+  "version": "3.2.0",
   "description": "Official Node.js SDK for the ePošťák API — Peppol e-invoicing for Slovakia",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,7 +13,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "build:test": "tsc --project tsconfig.test.json",
+    "prepublishOnly": "npm run build",
+    "test": "npm run build:test && node --test dist/test/index.test.js"
   },
   "keywords": [
     "peppol",

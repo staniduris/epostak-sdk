@@ -273,6 +273,52 @@ export class DuplicateInvoiceNumberError extends EPostakError {
 }
 
 /**
+ * Thrown when the API rejects a document with a 422 and
+ * `code === "UBL_VALIDATION_ERROR"`. This indicates the submitted UBL XML
+ * failed one of the Peppol BIS 3.0 / EN 16931 schematron rules.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await client.documents.send({ xml: myXml, ... });
+ * } catch (err) {
+ *   if (err instanceof UblValidationError) {
+ *     console.error(`UBL rule ${err.rule} failed: ${err.message}`);
+ *   }
+ * }
+ * ```
+ */
+export class UblValidationError extends EPostakError {
+  /** Always `"UBL_VALIDATION_ERROR"`. */
+  override readonly code = "UBL_VALIDATION_ERROR" as const;
+  /**
+   * The specific schematron rule that triggered the error.
+   * One of: `"BR-02"`, `"BR-05"`, `"BR-06"`, `"BR-11"`, `"BR-16"`,
+   * `"BT-1"`, `"PEPPOL-R008"`.
+   */
+  readonly rule: string;
+
+  constructor(payload: {
+    message: string;
+    rule: string;
+    requestId?: string;
+  }) {
+    const errorBody: Record<string, unknown> = {
+      code: "UBL_VALIDATION_ERROR",
+      message: payload.message,
+      rule: payload.rule,
+    };
+    if (payload.requestId !== undefined) {
+      errorBody.requestId = payload.requestId;
+    }
+    super(422, { error: errorBody });
+    this.name = "UblValidationError";
+    this.rule = payload.rule;
+    if (payload.requestId !== undefined) this.requestId = payload.requestId;
+  }
+}
+
+/**
  * Build the right error subclass from a parsed API error body.
  * Falls back to {@link EPostakError} when no specialised mapping applies.
  */
@@ -282,14 +328,24 @@ export function buildApiError(
   headers?: Headers,
 ): EPostakError {
   const errorObj = body?.error;
-  const code =
-    errorObj !== null &&
-    typeof errorObj === "object" &&
-    "code" in (errorObj as Record<string, unknown>)
-      ? String((errorObj as Record<string, unknown>).code)
-      : undefined;
+  const errorMap =
+    errorObj !== null && typeof errorObj === "object" && !Array.isArray(errorObj)
+      ? (errorObj as Record<string, unknown>)
+      : null;
+  const code = errorMap && "code" in errorMap ? String(errorMap.code) : undefined;
+
   if (code === "DUPLICATE_INVOICE_NUMBER") {
     return new DuplicateInvoiceNumberError(status, body, headers);
+  }
+  if (status === 422 && code === "UBL_VALIDATION_ERROR" && errorMap) {
+    const ublPayload: { message: string; rule: string; requestId?: string } = {
+      message: typeof errorMap.message === "string" ? errorMap.message : "UBL validation error",
+      rule: typeof errorMap.rule === "string" ? errorMap.rule : "unknown",
+    };
+    if (typeof errorMap.requestId === "string") {
+      ublPayload.requestId = errorMap.requestId;
+    }
+    return new UblValidationError(ublPayload);
   }
   return new EPostakError(status, body, headers);
 }

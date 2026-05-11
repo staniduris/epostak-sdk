@@ -8,8 +8,10 @@ import { AccountResource } from "./resources/account.js";
 import { AuthResource } from "./resources/auth.js";
 import { AuditResource } from "./resources/audit.js";
 import { IntegratorResource } from "./resources/integrator.js";
+import { InboundResource } from "./resources/inbound.js";
+import { OutboundResource } from "./resources/outbound.js";
 import type { ClientConfig } from "./utils/request.js";
-import type { PublicValidationReport } from "./types.js";
+import type { PublicValidationReport, RateLimitState } from "./types.js";
 import { EPostakError, buildApiError } from "./utils/errors.js";
 import { TokenManager } from "./utils/token-manager.js";
 
@@ -67,6 +69,7 @@ export class EPostak {
   private readonly tokenManager: TokenManager;
   private readonly _clientId: string;
   private readonly _clientSecret: string;
+  private _lastRateLimit: RateLimitState | null = null;
 
   /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
   auth: AuthResource;
@@ -88,6 +91,25 @@ export class EPostak {
   account: AccountResource;
   /** Integrator-aggregate endpoints (sk_int_* keys). */
   integrator: IntegratorResource;
+  /** Pull API — cursor-based inbound document feed and acknowledgement. */
+  inbound: InboundResource;
+  /** Pull API — cursor-based outbound document feed and event stream. */
+  outbound: OutboundResource;
+
+  /**
+   * Rate-limit state from the most recent API response.
+   * Updated after every request that includes `X-RateLimit-*` headers.
+   * `null` until the first response is received.
+   *
+   * @example
+   * ```typescript
+   * await client.inbound.list();
+   * console.log(client.lastRateLimit?.remaining); // e.g. 487
+   * ```
+   */
+  get lastRateLimit(): RateLimitState | null {
+    return this._lastRateLimit;
+  }
 
   constructor(config: EPostakConfig);
   /** @internal Used by withFirm to share the token manager. */
@@ -115,6 +137,9 @@ export class EPostak {
       baseUrl,
       firmId: config.firmId,
       maxRetries: config.maxRetries ?? 3,
+      onRateLimit: (state) => {
+        this._lastRateLimit = state;
+      },
     };
 
     this.auth = new AuthResource(this.clientConfig);
@@ -127,6 +152,8 @@ export class EPostak {
     this.extract = new ExtractResource(this.clientConfig);
     this.account = new AccountResource(this.clientConfig);
     this.integrator = new IntegratorResource(this.clientConfig);
+    this.inbound = new InboundResource(this.clientConfig);
+    this.outbound = new OutboundResource(this.clientConfig);
   }
 
   /**

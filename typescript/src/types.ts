@@ -35,7 +35,8 @@ export type WebhookEvent =
   | "document.validated"
   | "document.delivered"
   | "document.rejected"
-  | "document.response_received";
+  | "document.response_received"
+  | "document.failed";
 
 /**
  * Direction of a document relative to the authenticated firm.
@@ -1032,6 +1033,12 @@ export type WebhookDeliveryStatus =
 
 /** A single webhook delivery attempt record (condensed, as returned with `GET /webhooks/{id}`). */
 export interface WebhookDelivery {
+  /**
+   * Deterministic SHA-256 hex identifying the logical delivery event (stable
+   * across retry attempts). Distinct from `id` (`X-Webhook-Id` header) which is
+   * per-attempt. Use this for idempotent event processing.
+   */
+  idempotency_key?: string;
   /** Delivery UUID */
   id: string;
   /** ID of the parent webhook */
@@ -1114,6 +1121,12 @@ export interface WebhookDeliveriesParams {
   status?: WebhookDeliveryStatus;
   /** Filter by event type (e.g. `"document.received"`) */
   event?: string;
+  /**
+   * When `true`, include the response body in each delivery record.
+   * By default the `responseBody` field is omitted. Use `?includeResponseBody=true`
+   * (or equivalently `?include=responseBody`) to opt-in.
+   */
+  includeResponseBody?: boolean;
 }
 
 /** Paginated response of webhook delivery history. */
@@ -2009,4 +2022,309 @@ export interface AuditListParams {
   cursor?: string;
   /** Page size (1–100). Defaults to 20. */
   limit?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Rate-limit
+// ---------------------------------------------------------------------------
+
+/**
+ * Rate-limit state from the most recent API response.
+ * All values are parsed from the `X-RateLimit-*` response headers.
+ */
+export interface RateLimitState {
+  /** Maximum requests allowed in the current window. */
+  limit: number;
+  /** Requests remaining in the current window. */
+  remaining: number;
+  /** UTC timestamp when the current window resets. */
+  resetAt: Date;
+}
+
+// ---------------------------------------------------------------------------
+// UBL validation error types
+// ---------------------------------------------------------------------------
+
+/**
+ * Known Peppol BIS 3.0 / EN 16931 schematron rule codes that the
+ * ePošťák validator can return in a `UBL_VALIDATION_ERROR` 422 response.
+ */
+export type UblRule =
+  | "BR-02"
+  | "BR-05"
+  | "BR-06"
+  | "BR-11"
+  | "BR-16"
+  | "BT-1"
+  | "PEPPOL-R008";
+
+// ---------------------------------------------------------------------------
+// Pull API — Inbound
+// ---------------------------------------------------------------------------
+
+/** A party in a Peppol document exchange (used by the Pull API). */
+export interface PeppolParty {
+  /** Peppol participant ID (e.g. `"0245:2012345678"`), or `null`. */
+  peppol_id: string | null;
+  /** Legal name of the party, or `null`. */
+  name: string | null;
+  /** ISO 3166-1 alpha-2 country code. Omitted when Peppol scheme is unknown. */
+  country?: string;
+}
+
+/** Acknowledgement state of an inbound Pull API document. */
+export interface InboundDocumentAck {
+  /**
+   * ISO 8601 timestamp when the document was acknowledged via
+   * `POST /inbound/documents/{id}/ack`, or `null` if not yet acknowledged.
+   */
+  acked_at: string | null;
+  /**
+   * The `client_reference` provided when the document was acknowledged,
+   * or `null` if not yet acknowledged or no reference was provided (max 256 chars).
+   */
+  client_reference: string | null;
+}
+
+/**
+ * An inbound document returned by the Pull API (`/inbound/documents`).
+ * This is the new preferred API over the legacy `/documents/inbox` path.
+ * Available on `api-enterprise` and `integrator-managed` plans.
+ */
+export interface InboundDocument {
+  /** Document UUID. */
+  id: string;
+  /** ISO 8601 timestamp when the document was received from Peppol. */
+  received_at: string;
+  /** Peppol doctype key (e.g. `"invoice"`, `"credit_note"`, `"self_billing_invoice"`). */
+  kind: string;
+  /** AS4 Peppol message UUID, or `null`. */
+  peppol_message_id: string | null;
+  /** Sender's Peppol participant info. */
+  sender: PeppolParty;
+  /** Recipient's Peppol participant info. */
+  recipient: PeppolParty;
+  /** Human-readable document type label (e.g. `"BIS Billing 3.0 Invoice"`). */
+  document_type: string;
+  /** Full Peppol document type URN, or `null`. */
+  document_type_id: string | null;
+  /** Absolute URL of the UBL XML download endpoint. */
+  ubl_url: string;
+  /**
+   * Whitelisted safe fields extracted from the UBL XML:
+   * `invoice_number`, `total_amount`, `currency`, `issue_date`.
+   */
+  metadata: Record<string, string>;
+  /** Acknowledgement state for this document. */
+  ack: InboundDocumentAck;
+}
+
+/** Query parameters for `GET /inbound/documents`. */
+export interface InboundListParams {
+  /**
+   * Opaque versioned cursor from the previous response's `next_cursor`.
+   * Omit to start from the beginning.
+   */
+  since?: string;
+  /** Maximum number of documents to return (1–500). Defaults to `100`. */
+  limit?: number;
+  /** Filter by doctype key (e.g. `"invoice"`, `"credit_note"`). */
+  kind?: string;
+  /** Filter by sender Peppol ID (exact match). */
+  sender?: string;
+}
+
+/** Response from `GET /inbound/documents`. */
+export interface InboundDocumentsListResponse {
+  /** Documents in the current page. */
+  documents: InboundDocument[];
+  /**
+   * Opaque base64url cursor. Pass as `since` in the next request.
+   * `null` when no more pages.
+   */
+  next_cursor: string | null;
+  /** `true` when more pages are available. */
+  has_more: boolean;
+}
+
+/** Request body for `POST /inbound/documents/{id}/ack`. */
+export interface InboundAckRequest {
+  /**
+   * Optional client-side reference string (max 256 chars).
+   * Stored on the document and returned in subsequent `get()` calls.
+   * Semantics are caller-defined (e.g. internal ERP reference number).
+   * Latest-ack-wins — acknowledging again overwrites the stored reference.
+   */
+  client_reference?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pull API — Outbound
+// ---------------------------------------------------------------------------
+
+/** A single AS4 delivery attempt for an outbound document. */
+export interface OutboundDocumentAttempt {
+  /** Attempt number (1-based). */
+  attempt: number;
+  /** Delivery status for this attempt. */
+  status: string;
+  /** HTTP status code from the remote AP, or `null` if no HTTP response. */
+  http_status: number | null;
+  /** Error message if this attempt failed, or `null` on success. */
+  error_message: string | null;
+  /** ISO 8601 timestamp when this attempt was made. */
+  attempted_at: string;
+}
+
+/**
+ * An outbound document returned by the Pull API (`/outbound/documents`).
+ * Unifies Invoice-backed (billing) and PeppolDocument (non-billing) rows.
+ */
+export interface OutboundDocument {
+  /** Document UUID. */
+  id: string;
+  /** Peppol doctype key (e.g. `"invoice"`). */
+  kind: string;
+  /** Human-readable document type label. */
+  document_type: string;
+  /** Full Peppol document type URN, or `null`. */
+  document_type_id: string | null;
+  /** Sender's Peppol participant info. */
+  sender: PeppolParty;
+  /** Recipient's Peppol participant info. */
+  recipient: PeppolParty;
+  /** ISO 8601 timestamp when the document was created. */
+  created_at: string;
+  /**
+   * AS4 transport status — uniform across billing and non-billing.
+   * One of: `"queued"`, `"sending"`, `"sent"`, `"delivered"`, `"failed"`, `"dead"`.
+   */
+  transport_status:
+    | "queued"
+    | "sending"
+    | "sent"
+    | "delivered"
+    | "failed"
+    | "dead";
+  /**
+   * Invoice lifecycle status. Present ONLY for Invoice-backed (billing) documents.
+   * Absent (`undefined`) for non-billing outbound docs.
+   */
+  business_status?: string;
+  /** Number of AS4 send attempts so far. */
+  attempt_count: number;
+  /** ISO 8601 timestamp of the last AS4 send attempt, or `null`. */
+  last_attempt_at: string | null;
+  /** Last error info. `message` is `null` when no error occurred. */
+  error: { message: string | null };
+  /** AS4 Peppol message UUID, or `null`. */
+  peppol_message_id: string | null;
+  /**
+   * ISO 8601 timestamp when the AS4 send was made (billing only).
+   * `null` for non-billing docs or before first send.
+   */
+  sent_at: string | null;
+  /**
+   * ISO 8601 timestamp when AS4 delivery (MDN) was received (billing only).
+   * `null` for non-billing docs or not yet delivered.
+   */
+  delivered_at: string | null;
+  /** Absolute URL of the UBL XML download endpoint. */
+  ubl_url: string;
+  /**
+   * Delivery attempts, newest first.
+   * Empty array on the list endpoint — populated only on the detail endpoint.
+   */
+  attempt_history: OutboundDocumentAttempt[];
+  /**
+   * Business metadata extracted from the UBL XML.
+   * Populated only for Invoice-backed rows. Fields: `invoice_number`,
+   * `total_amount`, `currency`, `issue_date`, `due_date`.
+   */
+  metadata: Record<string, string>;
+}
+
+/** Query parameters for `GET /outbound/documents`. */
+export interface OutboundListParams {
+  /**
+   * Opaque union-cursor from the previous response's `next_cursor`.
+   * Omit to start from the beginning.
+   */
+  since?: string;
+  /** Maximum number of documents to return (1–500). Defaults to `100`. */
+  limit?: number;
+  /**
+   * Filter by doctype key (e.g. `"invoice"`, `"credit_note"`).
+   * Also accepts `"self_billing"` as an alias for `"self_billing_invoice"`.
+   */
+  kind?: string;
+  /** Filter by AS4 transport status. */
+  status?: "queued" | "sending" | "sent" | "delivered" | "failed" | "dead";
+  /**
+   * Filter by invoice lifecycle status (billing docs only).
+   * E.g. `"sent"`, `"delivered"`, `"paid"`.
+   */
+  business_status?: string;
+  /** Filter by recipient Peppol ID (exact match). */
+  recipient?: string;
+}
+
+/** Response from `GET /outbound/documents`. */
+export interface OutboundDocumentsListResponse {
+  /** Documents in the current page. */
+  documents: OutboundDocument[];
+  /**
+   * Opaque union-cursor. Pass as `since` in the next request.
+   * `null` when no more pages.
+   */
+  next_cursor: string | null;
+  /** `true` when more pages are available. */
+  has_more: boolean;
+}
+
+/**
+ * A single outbound document lifecycle event.
+ * Coverage is Invoice-backed (billing) events only in v1.
+ */
+export interface OutboundEvent {
+  /** Event UUID. */
+  id: string;
+  /** UUID of the invoice this event belongs to. */
+  document_id: string;
+  /** Event type (e.g. `"document.delivered"`, `"document.rejected"`). */
+  type: string;
+  /** Who triggered the event (`"system"`, `"api"`, user email), or `null`. */
+  actor: string | null;
+  /** Human-readable detail, or `null`. */
+  detail: string | null;
+  /** Event-specific metadata, or `null`. */
+  meta: Record<string, unknown> | null;
+  /** ISO 8601 timestamp when the event occurred. */
+  occurred_at: string;
+}
+
+/** Query parameters for `GET /outbound/events`. */
+export interface OutboundEventsParams {
+  /**
+   * Versioned cursor from the previous response's `next_cursor`.
+   * Omit to start from the beginning.
+   */
+  since?: string;
+  /** Maximum number of events to return (1–500). Defaults to `100`. */
+  limit?: number;
+  /** Filter to events for a specific document UUID. */
+  document_id?: string;
+}
+
+/** Response from `GET /outbound/events`. */
+export interface OutboundEventsListResponse {
+  /** Events in the current page, oldest first. */
+  events: OutboundEvent[];
+  /**
+   * Opaque cursor. Pass as `since` in the next request.
+   * `null` when no more pages.
+   */
+  next_cursor: string | null;
+  /** `true` when more events are available. */
+  has_more: boolean;
 }

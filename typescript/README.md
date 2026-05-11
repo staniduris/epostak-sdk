@@ -4,6 +4,19 @@ Official Node.js / TypeScript SDK for the [ePošťák API](https://epostak.sk/ap
 
 Zero runtime dependencies. Requires Node.js 18+.
 
+## Recent changes
+
+### v3.2.0 — 2026-05-12
+
+- **New:** Pull API — `client.inbound` (`list`, `get`, `getUbl`, `ack`) and `client.outbound` (`list`, `get`, `getUbl`, `events`) resources with full TypeScript types (`InboundDocument`, `OutboundDocument`, `OutboundEvent`, etc.).
+- **New:** `UblValidationError` class — thrown on `422 UBL_VALIDATION_ERROR`; carries `.rule` (e.g. `"BR-06"`) and `UblRule` exported union type for the 7 known rule codes.
+- **New:** `client.webhooks.test(id, { event? })` — `event` is now passed as `?event=` query parameter (server precedence over body).
+- **New:** `client.lastRateLimit: { limit, remaining, resetAt: Date } | null` — updated after every request that includes `X-RateLimit-*` response headers.
+- **Improved:** `WebhookDelivery` type adds optional `idempotency_key?: string` — SHA-256 hex stable across retry attempts.
+- **Improved:** `WebhookDeliveriesParams` adds `includeResponseBody?: boolean` (opt-in response body in delivery history).
+- **Improved:** `WebhookEvent` union adds `"document.failed"` variant.
+- Resolved doc drifts surfaced by 2026-05-12 endpoint consistency audit.
+
 > **v3.0 — OAuth-only auth.** The SDK now auto-mints a JWT on the first
 > API call and refreshes it before expiry. Constructor takes `clientId` +
 > `clientSecret` instead of `apiKey`. Raw `sk_live_*` bearer is no longer

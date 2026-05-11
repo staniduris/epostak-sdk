@@ -284,23 +284,34 @@ export class WebhooksResource extends BaseResource {
    * Send a test event to a webhook endpoint. Useful for verifying your
    * webhook URL is reachable and responding correctly.
    *
+   * The `event` option is passed as a `?event=` query parameter (the server
+   * prefers the query param over the body field when both are present).
+   * Defaults to `"document.created"` when omitted.
+   *
    * @param id - Webhook UUID to test
-   * @param event - Event type to simulate (defaults to server-chosen event)
+   * @param options - Optional test options
+   * @param options.event - Event type to simulate (defaults to server-chosen event)
    * @returns Test result with success status, HTTP status code, and response time
    *
    * @example
    * ```typescript
-   * const result = await client.webhooks.test('webhook-uuid');
+   * const result = await client.webhooks.test('webhook-uuid', {
+   *   event: 'document.received',
+   * });
    * console.log(result.success, result.responseTime + 'ms');
    * ```
    */
-  test(id: string, event?: WebhookEvent): Promise<WebhookTestResponse> {
-    const body: Record<string, string> = {};
-    if (event) body.event = event;
+  test(
+    id: string,
+    options?: { event?: WebhookEvent },
+  ): Promise<WebhookTestResponse> {
+    const qs = options?.event
+      ? `?event=${encodeURIComponent(options.event)}`
+      : "";
     return this.request(
       "POST",
-      `/webhooks/${encodeURIComponent(id)}/test`,
-      body,
+      `/webhooks/${encodeURIComponent(id)}/test${qs}`,
+      {},
     );
   }
 
@@ -331,6 +342,7 @@ export class WebhooksResource extends BaseResource {
         offset: params?.offset,
         status: params?.status,
         event: params?.event,
+        includeResponseBody: params?.includeResponseBody ? "true" : undefined,
       })}`,
     );
   }

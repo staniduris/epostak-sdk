@@ -1,5 +1,16 @@
 # Changelog
 
+## [TS 3.2.0] — 2026-05-12
+
+- **New:** Pull API — `InboundResource` (`client.inbound.list/get/getUbl/ack`) and `OutboundResource` (`client.outbound.list/get/getUbl/events`). Full TypeScript types: `InboundDocument`, `OutboundDocument`, `OutboundEvent`, `InboundDocumentsListResponse`, `OutboundDocumentsListResponse`, `OutboundEventsListResponse`.
+- **New:** `UblValidationError` class — thrown on 422 `UBL_VALIDATION_ERROR`; `.rule` carries the schematron rule code. `UblRule` exported union of 7 known codes.
+- **New:** `client.webhooks.test(id, { event? })` — optional `event` sent as `?event=` query param.
+- **New:** `client.lastRateLimit: RateLimitState | null` — populated from `X-RateLimit-*` headers after each response.
+- **Improved:** `WebhookDelivery.idempotency_key?: string` — SHA-256 per-logical-event, stable across retries.
+- **Improved:** `WebhookDeliveriesParams.includeResponseBody?: boolean` — opt-in response body in delivery history.
+- **Improved:** `WebhookEvent` adds `"document.failed"` variant.
+- Resolved doc drifts surfaced by 2026-05-12 endpoint consistency audit.
+
 ## [Ruby 0.9.0] — 2026-05-12
 
 Pull API resources (`client.inbound` + `client.outbound`), `UblValidationError`
