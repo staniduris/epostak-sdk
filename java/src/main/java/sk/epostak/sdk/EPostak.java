@@ -52,6 +52,8 @@ public final class EPostak {
     private final AuthResource auth;
     private final AuditResource audit;
     private final IntegratorResource integrator;
+    private final InboundResource inbound;
+    private final OutboundResource outbound;
 
     /** Maximum number of retries on 429/5xx. */
     private final int maxRetries;
@@ -84,6 +86,8 @@ public final class EPostak {
         this.auth = new AuthResource(httpClient);
         this.audit = new AuditResource(httpClient);
         this.integrator = new IntegratorResource(httpClient);
+        this.inbound = new InboundResource(httpClient);
+        this.outbound = new OutboundResource(httpClient);
     }
 
     /**
@@ -166,6 +170,50 @@ public final class EPostak {
      * @return the integrator resource
      */
     public IntegratorResource integrator() { return integrator; }
+
+    /**
+     * Pull API — received (inbound) documents.
+     * <p>
+     * Use this resource for cursor-based polling of inbound Peppol documents.
+     * Requires {@code requireApiEligiblePlan} (api-enterprise or integrator-managed).
+     *
+     * @return the inbound pull API resource
+     */
+    public InboundResource inbound() { return inbound; }
+
+    /**
+     * Pull API — sent (outbound) documents and event stream.
+     * <p>
+     * Use this resource for cursor-based inspection of outbound Peppol documents
+     * and their lifecycle events.
+     * Requires {@code requireApiEligiblePlan} (api-enterprise or integrator-managed).
+     *
+     * @return the outbound pull API resource
+     */
+    public OutboundResource outbound() { return outbound; }
+
+    /**
+     * Returns the rate-limit snapshot captured from the most recent API response.
+     * <p>
+     * Every API response includes {@code X-RateLimit-Limit},
+     * {@code X-RateLimit-Remaining}, and {@code X-RateLimit-Reset} headers.
+     * These are captured automatically and made available here so callers can
+     * implement back-pressure without parsing headers manually.
+     *
+     * <pre>{@code
+     * client.documents().list();
+     * RateLimitInfo rl = client.getLastRateLimit();
+     * if (rl != null && rl.getRemaining() < 10) {
+     *     long msUntilReset = rl.getResetAt().toEpochMilli() - System.currentTimeMillis();
+     *     Thread.sleep(msUntilReset);
+     * }
+     * }</pre>
+     *
+     * @return the last observed rate-limit info, or {@code null} if no response has been received
+     */
+    public RateLimitInfo getLastRateLimit() {
+        return httpClient.getLastRateLimit();
+    }
 
     /**
      * Validate a UBL XML document against Peppol BIS 3.0 rules without creating a client.

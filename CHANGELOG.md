@@ -1,5 +1,11 @@
 # Changelog
 
+## [Java 0.9.0] — 2026-05-12
+
+Pull API resources (`client.inbound()` + `client.outbound()`), `UblValidationException`
+with `UblRule` enum, `WebhookTestParams`, `WebhookDeliveriesResponse.DeliveryDetail.idempotencyKey`,
+and `client.getLastRateLimit()` / `RateLimitInfo`. See `java/CHANGELOG.md` for full details.
+
 ## [Python 0.9.0] — 2026-05-12
 
 Pull API resources (`client.inbound` + `client.outbound`), `UblValidationError`

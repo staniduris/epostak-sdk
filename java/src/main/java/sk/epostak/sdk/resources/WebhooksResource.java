@@ -5,6 +5,7 @@ import sk.epostak.sdk.models.Webhook;
 import sk.epostak.sdk.models.WebhookDeliveriesResponse;
 import sk.epostak.sdk.models.WebhookDetail;
 import sk.epostak.sdk.models.WebhookRotateSecretResponse;
+import sk.epostak.sdk.models.WebhookTestParams;
 import sk.epostak.sdk.models.WebhookTestResponse;
 
 import java.util.LinkedHashMap;
@@ -164,6 +165,26 @@ public final class WebhooksResource {
     }
 
     /**
+     * Send a test event to a webhook endpoint using structured params.
+     * <p>
+     * Example:
+     * <pre>{@code
+     * WebhookTestResponse r = client.webhooks().test(
+     *     webhookId,
+     *     new WebhookTestParams().event("document.delivered"));
+     * }</pre>
+     *
+     * @param id     the webhook UUID to test
+     * @param params test params including optional event type; pass {@code null} for the server default
+     * @return the test result with success status, HTTP status code, and response time
+     * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
+     */
+    public WebhookTestResponse test(String id, WebhookTestParams params) {
+        String event = (params != null) ? params.getEvent() : null;
+        return test(id, event);
+    }
+
+    /**
      * Send a test event to a webhook endpoint using the server default event type.
      *
      * @param id the webhook UUID to test
@@ -171,7 +192,7 @@ public final class WebhooksResource {
      * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
      */
     public WebhookTestResponse test(String id) {
-        return test(id, null);
+        return test(id, (String) null);
     }
 
     /**

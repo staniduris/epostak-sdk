@@ -4,6 +4,47 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.0 — 2026-05-12
+
+### Added
+
+- **`client.inbound()`** — Pull API resource for received Peppol documents
+  (`GET /inbound/documents`). Methods:
+  - `list(InboundListParams)` / `list()` — cursor-paginated list, newest first
+  - `get(String id)` — single document detail
+  - `getUbl(String id)` — raw UBL 2.1 XML download (`String`)
+  - `ack(String id, InboundAckParams)` / `ack(String id)` — idempotent acknowledgement;
+    optional `clientReference` (max 256 chars) stored server-side
+- **`client.outbound()`** — Pull API resource for sent Peppol documents
+  (`GET /outbound/documents` + `GET /outbound/events`). Methods:
+  - `list(OutboundListParams)` / `list()` — cursor-paginated list with filters
+    (`kind`, `status`, `businessStatus`, `recipient`, `since`)
+  - `get(String id)` — detail view including `attemptHistory`
+  - `getUbl(String id)` — raw UBL 2.1 XML download (`String`)
+  - `events(OutboundEventsParams)` / `events()` — cursor stream of document
+    lifecycle events; `OutboundEventsParams.forDocument(id)` scopes to one doc
+- New POJOs: `InboundDocument`, `OutboundDocument`, `OutboundEvent`.
+- New params records: `InboundListParams`, `InboundAckParams`, `OutboundListParams`,
+  `OutboundEventsParams`. All support a fluent `.builder()` where applicable.
+- **`UblValidationException`** — thrown on `422` + `code = "UBL_VALIDATION_ERROR"`.
+  Extends `EPostakException`; adds `getRule()` returning the first failing
+  schematron rule identifier (e.g. `"BR_02"`, `"PEPPOL_R008"`).
+- **`UblRule`** enum with 7 values: `BR_02`, `BR_05`, `BR_06`, `BR_11`, `BR_16`,
+  `BT_1`, `PEPPOL_R008`.
+- **`webhooks().test(id, WebhookTestParams)`** overload — structured params with fluent
+  `.event(String)` setter. Existing `test(id, String)` and `test(id)` overloads are
+  preserved for backwards compatibility.
+- **`WebhookDeliveriesResponse.DeliveryDetail`** — added nullable `idempotencyKey`
+  field (Gson maps the camelCase field from the wire response).
+- **`client.getLastRateLimit()`** — returns a `RateLimitInfo(limit, remaining, resetAt)`
+  snapshot captured from `X-RateLimit-Limit` / `X-RateLimit-Remaining` /
+  `X-RateLimit-Reset` response headers of the most recent API call. Returns `null`
+  before the first call completes. Thread-safe via `AtomicReference`.
+- New class `RateLimitInfo` (record) with `getLimit()`, `getRemaining()`,
+  `getResetAt()` (returns `Instant`).
+- JUnit 5 + WireMock test dependencies added to `pom.xml` (test scope only —
+  no new runtime dependencies).
+
 ## 0.8.1 — 2026-05-06
 
 Bug-fix release. Three breaking-on-paper but pre-launch-clean fixes for

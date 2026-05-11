@@ -16,10 +16,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Internal HTTP wrapper around {@link java.net.http.HttpClient}.
@@ -45,6 +47,8 @@ public final class HttpClient {
     private final int maxRetries;
     /** Underlying JDK HTTP client. */
     private final java.net.http.HttpClient client;
+    /** Last captured rate-limit info from response headers. Volatile read is fine; AtomicReference for write. */
+    private final AtomicReference<RateLimitInfo> lastRateLimit = new AtomicReference<>();
 
     /**
      * Creates a new HTTP client.
@@ -100,6 +104,16 @@ public final class HttpClient {
      */
     public String getFirmId() {
         return firmId;
+    }
+
+    /**
+     * Returns the most recently captured rate-limit snapshot, or {@code null} if no
+     * successful response has been received yet. Updated after every non-retry response.
+     *
+     * @return the last {@link RateLimitInfo}, or {@code null}
+     */
+    public RateLimitInfo getLastRateLimit() {
+        return lastRateLimit.get();
     }
 
     // -- convenience request methods ------------------------------------------
@@ -472,6 +486,9 @@ public final class HttpClient {
                 continue;
             }
 
+            // Capture rate-limit headers before error handling so they are available even on 4xx.
+            captureRateLimit(response.headers());
+
             if (status >= 400) {
                 handleError(status, response.body(), response.headers());
             }
@@ -511,6 +528,26 @@ public final class HttpClient {
         double jitter = ThreadLocalRandom.current().nextDouble(); // 0–1s of jitter
         double delay = Math.min(baseDelay * Math.pow(2, attempt) + jitter, maxDelay);
         return (long) (delay * 1000);
+    }
+
+    /**
+     * Capture {@code X-RateLimit-*} headers into {@link #lastRateLimit}.
+     * Silently ignores malformed or absent headers.
+     */
+    private void captureRateLimit(HttpHeaders headers) {
+        if (headers == null) return;
+        try {
+            String limitStr = headers.firstValue("x-ratelimit-limit").orElse(null);
+            String remainStr = headers.firstValue("x-ratelimit-remaining").orElse(null);
+            String resetStr = headers.firstValue("x-ratelimit-reset").orElse(null);
+            if (limitStr == null || remainStr == null || resetStr == null) return;
+            int limit = Integer.parseInt(limitStr.trim());
+            int remaining = Integer.parseInt(remainStr.trim());
+            Instant resetAt = Instant.ofEpochSecond(Long.parseLong(resetStr.trim()));
+            lastRateLimit.set(new RateLimitInfo(limit, remaining, resetAt));
+        } catch (Exception ignored) {
+            // Non-fatal; leave lastRateLimit unchanged
+        }
     }
 
     private void handleError(int status, String body, HttpHeaders headers) {
@@ -601,6 +638,11 @@ public final class HttpClient {
                 status, message, code, details, type, title, detail, instance,
                 requestId, requiredScope, errorObjForDup);
         }
+        if ("UBL_VALIDATION_ERROR".equals(code)) {
+            // Extract rule from first entry in details list or from the error detail field.
+            String rule = extractUblRule(details, detail);
+            throw new UblValidationException(status, message, code, details, type, title, detail, instance, requestId, requiredScope, rule);
+        }
         throw new EPostakException(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
     }
 
@@ -641,6 +683,35 @@ public final class HttpClient {
             status, message, code, details, type, title, detail, instance,
             requestId, requiredScope, conflictKey, existing
         );
+    }
+
+    /**
+     * Extract the first UBL rule identifier from the structured error details.
+     * The API may return {@code details} as a list of strings or as the {@code detail}
+     * problem+json field.
+     */
+    @SuppressWarnings("unchecked")
+    private static String extractUblRule(Object details, String detailField) {
+        if (details instanceof java.util.List<?> list && !list.isEmpty()) {
+            Object first = list.get(0);
+            if (first instanceof String s) {
+                // Extract rule token before first space/colon, e.g. "BR_02: ..."
+                int sep = s.indexOf(':');
+                if (sep > 0) return s.substring(0, sep).trim();
+                int sp = s.indexOf(' ');
+                if (sp > 0) return s.substring(0, sp).trim();
+                return s.trim();
+            }
+        }
+        if (detailField != null) {
+            // Try to pull a rule-like token from the detail string
+            int sep = detailField.indexOf(':');
+            if (sep > 0) {
+                String candidate = detailField.substring(0, sep).trim();
+                if (!candidate.contains(" ")) return candidate;
+            }
+        }
+        return null;
     }
 
     private static String optString(JsonObject obj, String key) {
