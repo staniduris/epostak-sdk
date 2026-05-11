@@ -34,6 +34,7 @@ public sealed class EPostakClient : IDisposable
     private readonly bool _ownsHttpClient;
     private readonly EPostakConfig _config;
     private readonly TokenManager _tokenManager;
+    private readonly HttpRequestor _requestor;
 
     /// <summary>OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist.</summary>
     public AuthResource Auth { get; }
@@ -69,6 +70,26 @@ public sealed class EPostakClient : IDisposable
     /// manages — not per-firm.
     /// </summary>
     public IntegratorResource Integrator { get; }
+
+    /// <summary>
+    /// Pull API for received (inbound) Peppol documents.
+    /// Requires an <c>api-enterprise</c> or <c>integrator-managed</c> plan.
+    /// </summary>
+    public InboundResource Inbound { get; }
+
+    /// <summary>
+    /// Pull API for sent (outbound) Peppol documents and their event stream.
+    /// Requires an <c>api-enterprise</c> or <c>integrator-managed</c> plan.
+    /// </summary>
+    public OutboundResource Outbound { get; }
+
+    /// <summary>
+    /// Rate-limit information from the most recent API response received by this client.
+    /// Populated from <c>X-RateLimit-Limit</c>, <c>X-RateLimit-Remaining</c>, and
+    /// <c>X-RateLimit-Reset</c> response headers. <c>null</c> until the first response
+    /// that carries these headers is received.
+    /// </summary>
+    public RateLimitInfo? LastRateLimit => _requestor.LastRateLimit;
 
     /// <summary>
     /// Create a new ePosťak client with the given configuration.
@@ -118,6 +139,7 @@ public sealed class EPostakClient : IDisposable
         _tokenManager = tokenManager;
 
         var requestor = new HttpRequestor(_http, _tokenManager, config.BaseUrl, config.FirmId, config.MaxRetries);
+        _requestor = requestor;
 
         Auth = new AuthResource(requestor, _http, config.BaseUrl);
         Audit = new AuditResource(requestor);
@@ -129,6 +151,8 @@ public sealed class EPostakClient : IDisposable
         Extract = new ExtractResource(requestor);
         Account = new AccountResource(requestor);
         Integrator = new IntegratorResource(requestor);
+        Inbound = new InboundResource(requestor);
+        Outbound = new OutboundResource(requestor);
     }
 
     /// <summary>

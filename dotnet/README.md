@@ -11,7 +11,7 @@ dotnet add package EPostak
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="EPostak" Version="0.8.1" />
+<PackageReference Include="EPostak" Version="0.9.0" />
 ```
 
 ## Quick start
@@ -334,6 +334,10 @@ var batchResult = await client.Extract.BatchAsync(
 
 Console.WriteLine($"Batch: {batchResult.Successful}/{batchResult.Total} successful");
 ```
+
+## Recent changes
+
+**v0.9.0** — Pull API resources (`client.Inbound`, `client.Outbound`), `UblValidationException` with `UblRule` constants, typed `WebhookTestParams` + `WebhookEvent` enum, `WebhookDelivery.IdempotencyKey`, `client.LastRateLimit`.
 
 ## Error handling
 

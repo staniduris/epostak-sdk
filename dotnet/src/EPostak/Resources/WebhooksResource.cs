@@ -140,10 +140,48 @@ public sealed class WebhooksResource
     /// </example>
     public Task<WebhookTestResponse> TestAsync(string id, string? webhookEvent = null, CancellationToken ct = default)
     {
+        var qs = webhookEvent != null ? $"?event={Uri.EscapeDataString(webhookEvent)}" : "";
         var body = new Dictionary<string, string>();
         if (webhookEvent != null) body["event"] = webhookEvent;
-        return _http.RequestAsync<WebhookTestResponse>(HttpMethod.Post, $"/webhooks/{Uri.EscapeDataString(id)}/test", body, ct);
+        return _http.RequestAsync<WebhookTestResponse>(HttpMethod.Post, $"/webhooks/{Uri.EscapeDataString(id)}/test{qs}", body, ct);
     }
+
+    /// <summary>
+    /// Send a test event to a webhook endpoint using a typed <see cref="WebhookTestParams"/>.
+    /// The event type is sent as a <c>?event=</c> query parameter (server-side gives it
+    /// precedence over the body field).
+    /// </summary>
+    /// <param name="id">The webhook subscription UUID to test.</param>
+    /// <param name="params">Test parameters including the optional event type enum value.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Test result with success status, HTTP status code, and response time.</returns>
+    /// <example>
+    /// <code>
+    /// var result = await client.Webhooks.TestAsync("wh_abc123", new WebhookTestParams
+    /// {
+    ///     Event = WebhookEvent.DocumentDelivered
+    /// });
+    /// Console.WriteLine($"Success: {result.Success}, Time: {result.ResponseTime}ms");
+    /// </code>
+    /// </example>
+    public Task<WebhookTestResponse> TestAsync(string id, WebhookTestParams? @params, CancellationToken ct = default)
+    {
+        var wireEvent = @params?.Event != null ? WebhookEventToString(@params.Event.Value) : null;
+        return TestAsync(id, wireEvent, ct);
+    }
+
+    /// <summary>Convert a <see cref="WebhookEvent"/> enum value to its wire string (e.g. <c>"document.delivered"</c>).</summary>
+    private static string WebhookEventToString(WebhookEvent e) => e switch
+    {
+        WebhookEvent.DocumentCreated => WebhookEvents.DocumentCreated,
+        WebhookEvent.DocumentSent => WebhookEvents.DocumentSent,
+        WebhookEvent.DocumentReceived => WebhookEvents.DocumentReceived,
+        WebhookEvent.DocumentValidated => WebhookEvents.DocumentValidated,
+        WebhookEvent.DocumentDelivered => WebhookEvents.DocumentDelivered,
+        WebhookEvent.DocumentRejected => WebhookEvents.DocumentRejected,
+        WebhookEvent.DocumentResponseReceived => WebhookEvents.DocumentResponseReceived,
+        _ => throw new ArgumentOutOfRangeException(nameof(e), e, "Unknown WebhookEvent value")
+    };
 
     /// <summary>
     /// Get paginated delivery history for a webhook. Use this to inspect

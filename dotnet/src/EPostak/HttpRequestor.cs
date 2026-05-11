@@ -19,6 +19,9 @@ internal sealed class HttpRequestor
     private readonly string _baseUrl;
     private readonly int _maxRetries;
 
+    /// <summary>Most-recently observed rate-limit info from API response headers. Thread-unsafe; last-write-wins.</summary>
+    internal volatile RateLimitInfo? LastRateLimit;
+
     /// <summary>HTTP methods that are safe to retry by default.</summary>
     private static readonly HashSet<HttpMethod> RetryableMethods = new() { HttpMethod.Get, HttpMethod.Delete };
 
@@ -222,6 +225,8 @@ internal sealed class HttpRequestor
 
             using (response)
             {
+                CaptureRateLimitHeaders(response);
+
                 if (retryable && attempt < _maxRetries && ShouldRetry(response))
                 {
                     await DelayForRetry(attempt, response, ct).ConfigureAwait(false);
@@ -265,6 +270,8 @@ internal sealed class HttpRequestor
 
             using (response)
             {
+                CaptureRateLimitHeaders(response);
+
                 if (retryable && attempt < _maxRetries && ShouldRetry(response))
                 {
                     await DelayForRetry(attempt, response, ct).ConfigureAwait(false);
@@ -300,6 +307,8 @@ internal sealed class HttpRequestor
             {
                 throw new EPostakException($"Network error: {ex.Message}", ex);
             }
+
+            CaptureRateLimitHeaders(response);
 
             if (retryable && attempt < _maxRetries && ShouldRetry(response))
             {
@@ -542,6 +551,21 @@ internal sealed class HttpRequestor
                 existingDocument);
         }
 
+        if ((int)response.StatusCode == 422 && code is not null && code.StartsWith("UBL_", StringComparison.Ordinal))
+        {
+            throw new UblValidationException(
+                (int)response.StatusCode,
+                message ?? $"API request failed with status {(int)response.StatusCode}",
+                code,
+                details,
+                type,
+                title,
+                detail,
+                instance,
+                requestId,
+                requiredScope);
+        }
+
         throw new EPostakException(
             (int)response.StatusCode,
             message ?? $"API request failed with status {(int)response.StatusCode}",
@@ -570,6 +594,41 @@ internal sealed class HttpRequestor
                 parts.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(value)}");
         }
         return parts.Count > 0 ? "?" + string.Join("&", parts) : "";
+    }
+
+    /// <summary>
+    /// Capture X-RateLimit-* headers from a response and update <see cref="LastRateLimit"/>.
+    /// Silently ignores malformed or missing headers.
+    /// </summary>
+    private void CaptureRateLimitHeaders(HttpResponseMessage response)
+    {
+        try
+        {
+            if (!response.Headers.TryGetValues("X-RateLimit-Limit", out var limitValues)) return;
+            if (!response.Headers.TryGetValues("X-RateLimit-Remaining", out var remainingValues)) return;
+            if (!response.Headers.TryGetValues("X-RateLimit-Reset", out var resetValues)) return;
+
+            string? limitStr = null, remainingStr = null, resetStr = null;
+            foreach (var v in limitValues) { limitStr = v; break; }
+            foreach (var v in remainingValues) { remainingStr = v; break; }
+            foreach (var v in resetValues) { resetStr = v; break; }
+
+            if (limitStr is null || remainingStr is null || resetStr is null) return;
+            if (!int.TryParse(limitStr, out var limit)) return;
+            if (!int.TryParse(remainingStr, out var remaining)) return;
+            if (!long.TryParse(resetStr, out var resetEpoch)) return;
+
+            LastRateLimit = new RateLimitInfo
+            {
+                Limit = limit,
+                Remaining = remaining,
+                ResetAt = DateTimeOffset.FromUnixTimeSeconds(resetEpoch)
+            };
+        }
+        catch
+        {
+            // Never let header parsing break a successful response.
+        }
     }
 
     private static string? OptString(JsonElement obj, string property)

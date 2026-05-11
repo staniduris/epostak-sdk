@@ -3,6 +3,55 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [.NET 0.9.0] — 2026-05-12
+
+### Added
+
+- **Pull API — `client.Inbound`** (`InboundResource`): four methods covering
+  the full Pull API receive flow for inbound documents:
+  - `ListAsync(InboundListParams?)` — cursor-paginated list (`GET /inbound/documents`)
+  - `GetAsync(string id)` — single document retrieval (`GET /inbound/documents/{id}`)
+  - `GetUblAsync(string id)` — raw UBL 2.1 XML download (`GET /inbound/documents/{id}/ubl`)
+  - `AckAsync(string id, InboundAckParams?)` — acknowledge receipt with optional
+    `ClientReference` (`POST /inbound/documents/{id}/ack`, requires `documents:write` scope)
+  - New POCOs: `InboundDocument`, `InboundListResponse`, `InboundListParams`, `InboundAckParams`.
+
+- **Pull API — `client.Outbound`** (`OutboundResource`): three methods for outbound document inspection:
+  - `ListAsync(OutboundListParams?)` — cursor-paginated list (`GET /outbound/documents`)
+  - `GetAsync(string id)` — single document with `AttemptHistory` (`GET /outbound/documents/{id}`)
+  - `GetUblAsync(string id)` — raw UBL 2.1 XML download (`GET /outbound/documents/{id}/ubl`)
+  - `EventsAsync(OutboundEventsParams?)` — cursor stream of delivery events (`GET /outbound/events`)
+  - New POCOs: `OutboundDocument`, `OutboundListResponse`, `OutboundListParams`,
+    `OutboundEventsParams`, `OutboundEvent`, `OutboundEventsResponse`.
+
+- **`UblValidationException`** — thrown automatically when the API returns HTTP 422
+  with a code matching `UBL_*` (e.g. `UBL_VALIDATION_ERROR`, `UBL_EN16931_VIOLATION`).
+  Exposes `Rule` (the code string) in addition to all base `EPostakException` fields.
+  - **`UblRule`** static class with seven `const string` codes:
+    `UblValidationError`, `SchemaInvalid`, `UnsupportedDocumentType`,
+    `SupplierMismatch`, `En16931Violation`, `PeppolBisViolation`, `SkNationalViolation`.
+
+- **`WebhookTestParams`** — typed parameter object for `Webhooks.TestAsync`:
+  ```csharp
+  await client.Webhooks.TestAsync(id, new WebhookTestParams { Event = WebhookEvent.DocumentDelivered });
+  ```
+  The event is sent as a `?event=` query parameter (server precedence over body).
+  The existing `TestAsync(id, string? webhookEvent)` overload still works.
+
+- **`WebhookEvent` enum** — strongly-typed webhook event values used by
+  `WebhookTestParams.Event` and convertible to wire strings via the new
+  overload of `TestAsync`.
+
+- **`WebhookDelivery.IdempotencyKey`** (`string?`) — nullable property added
+  to the `WebhookDelivery` POCO. Populated when the triggering API call
+  supplied an `Idempotency-Key` header.
+
+- **`client.LastRateLimit`** (`RateLimitInfo?`) — exposes the most recent
+  `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` headers
+  captured from any API response. Returns `null` until the first rate-limited
+  response is observed.
+  - New type: `RateLimitInfo { int Limit, int Remaining, DateTimeOffset ResetAt }`.
+
 ## 0.8.1 — 2026-05-06
 
 Bug-fix release. Four breaking-on-paper but pre-launch-clean fixes for webhook

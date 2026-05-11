@@ -3,6 +3,45 @@ using System.Text.Json.Serialization;
 namespace EPostak.Models;
 
 // ---------------------------------------------------------------------------
+// Webhook event enum
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Well-typed webhook event identifier. Use when creating subscriptions or
+/// sending test events via <c>client.Webhooks.TestAsync</c>.
+/// </summary>
+public enum WebhookEvent
+{
+    /// <summary>Fired when a new document is created (e.g. draft saved).</summary>
+    DocumentCreated,
+    /// <summary>Fired when a document is successfully sent via the Peppol network.</summary>
+    DocumentSent,
+    /// <summary>Fired when a new document is received from the Peppol network.</summary>
+    DocumentReceived,
+    /// <summary>Fired when a document passes or fails Peppol BIS 3.0 validation.</summary>
+    DocumentValidated,
+    /// <summary>Fired when the receiver's access point confirms AS4 delivery.</summary>
+    DocumentDelivered,
+    /// <summary>Fired when a sent document is rejected by the receiver or validation.</summary>
+    DocumentRejected,
+    /// <summary>Fired when a Peppol Invoice Response is received for a sent document.</summary>
+    DocumentResponseReceived
+}
+
+/// <summary>
+/// Parameters for <c>client.Webhooks.TestAsync</c>. The <c>Event</c> type is sent
+/// as a <c>?event=</c> query parameter (server-side takes the query param over
+/// any body field), letting you simulate specific event types against your endpoint.
+/// </summary>
+public sealed class WebhookTestParams
+{
+    /// <summary>
+    /// Event type to simulate. Defaults to <c>document.created</c> on the server when omitted.
+    /// </summary>
+    public WebhookEvent? Event { get; set; }
+}
+
+// ---------------------------------------------------------------------------
 // Webhook events
 // ---------------------------------------------------------------------------
 
@@ -168,6 +207,14 @@ public sealed class WebhookDelivery
     /// <summary>Timestamp when the delivery was created (ISO 8601).</summary>
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = "";
+
+    /// <summary>
+    /// Idempotency key supplied by the caller on the triggering API request, if any.
+    /// <c>null</c> for deliveries triggered by system events or requests without an
+    /// idempotency key.
+    /// </summary>
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
 }
 
 /// <summary>
