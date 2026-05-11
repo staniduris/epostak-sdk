@@ -409,6 +409,7 @@ internal sealed class HttpRequestor
         string? requiredScope = null;
         List<string>? conflictKey = null;
         DuplicateInvoiceExistingDocument? existingDocument = null;
+        string? ublRule = null;
         bool sawErrorObject = false;
 
         try
@@ -462,6 +463,14 @@ internal sealed class HttpRequestor
                                 requiredScope = scopeProp.GetString();
                             if (errorProp.TryGetProperty("requestId", out var ridProp) && ridProp.ValueKind == JsonValueKind.String)
                                 requestId = ridProp.GetString();
+
+                            // 2026-05-12 audit: server emits error.rule for
+                            // UBL_VALIDATION_ERROR (one of BR-02/BR-05/BR-06/
+                            // BR-11/BR-16/BT-1/PEPPOL-R008). Captured here
+                            // so the dispatch below can pass it to
+                            // UblValidationException.Rule.
+                            if (errorProp.TryGetProperty("rule", out var ruleProp) && ruleProp.ValueKind == JsonValueKind.String)
+                                ublRule = ruleProp.GetString();
 
                             if (code == "DUPLICATE_INVOICE_NUMBER")
                             {
@@ -551,12 +560,16 @@ internal sealed class HttpRequestor
                 existingDocument);
         }
 
-        if ((int)response.StatusCode == 422 && code is not null && code.StartsWith("UBL_", StringComparison.Ordinal))
+        if ((int)response.StatusCode == 422 && code == "UBL_VALIDATION_ERROR")
         {
+            // 2026-05-12 audit fix: server emits error.code ==
+            // "UBL_VALIDATION_ERROR" exactly, with error.rule carrying the
+            // specific BR-* / BT-* / PEPPOL-R008 violated. Previous dispatch
+            // used StartsWith("UBL_") which matched only fictional codes.
             throw new UblValidationException(
                 (int)response.StatusCode,
                 message ?? $"API request failed with status {(int)response.StatusCode}",
-                code,
+                ublRule ?? "",
                 details,
                 type,
                 title,

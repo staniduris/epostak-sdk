@@ -301,17 +301,21 @@ def _opt_str(value: Any) -> Optional[str]:
 
 
 UBL_RULES = (
-    "BR-06",
-    "BR-07",
-    "BR-08",
-    "BR-09",
-    "BR-10",
-    "BR-11",
-    "BR-12",
+    "BR-02",  # issueDate (BT-2) required
+    "BR-05",  # Seller name (BT-27) required
+    "BR-06",  # Buyer name (BT-44) required
+    "BR-11",  # Seller VAT identifier required for VAT-rated invoices
+    "BR-16",  # Invoice must have at least one line
+    "BT-1",   # invoiceNumber required
+    "PEPPOL-R008",  # EndpointID empty — firm needs DIČ/IČO/peppolId
 )
 """The 7 known UBL validation rule codes that may appear in
 ``UblValidationError.rule`` when the server rejects with
-``code == 'UBL_VALIDATION_ERROR'``.
+``code == 'UBL_VALIDATION_ERROR'``. Mirrors the enum in the
+OpenAPI ``UblValidationError`` schema and the source thrown
+sites in ``lib/ubl/generate.ts``. New rules may be added in
+future versions — clients should check the string, not assume
+the tuple is exhaustive.
 """
 
 

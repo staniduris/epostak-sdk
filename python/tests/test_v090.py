@@ -64,8 +64,12 @@ def _make_client() -> EPostak:
 def test_ubl_rules_constant():
     assert isinstance(UBL_RULES, tuple)
     assert len(UBL_RULES) == 7
-    assert "BR-06" in UBL_RULES
-    assert "BR-12" in UBL_RULES
+    # The 7 canonical rule codes from lib/ubl/generate.ts (server side).
+    # New rules may be added later; the tuple is a known-codes hint, not a
+    # closed enum — clients should compare strings, not assume membership.
+    assert "BR-06" in UBL_RULES  # Buyer name (the Pavel Horák report case)
+    assert "BR-11" in UBL_RULES  # Seller VAT identifier
+    assert "PEPPOL-R008" in UBL_RULES
 
 
 # ---------------------------------------------------------------------------

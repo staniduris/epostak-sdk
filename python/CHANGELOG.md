@@ -20,7 +20,7 @@ Additive release. Backward-compatible with 0.8.x.
   - `outbound.get_ubl(id)` — raw UBL XML.
   - `outbound.events(since=None, limit=100, document_id=None)` — cursor-paginated delivery event stream.
 - **`UblValidationError`** — raised automatically by `build_api_error` when the server returns HTTP 422 with `code == 'UBL_VALIDATION_ERROR'`. Exposes `rule` (e.g. `"BR-06"`) and inherits all `EPostakError` fields.
-- **`UBL_RULES`** — constant tuple of the 7 known Peppol BIS 3.0 rule codes: `("BR-06", …, "BR-12")`.
+- **`UBL_RULES`** — constant tuple of the 7 known Peppol BIS 3.0 rule codes: `("BR-02", "BR-05", "BR-06", "BR-11", "BR-16", "BT-1", "PEPPOL-R008")`. New rules may be added; treat as hint, not closed enum.
 - **`client.last_rate_limit`** — property returning `{"limit": int, "remaining": int, "reset_at": datetime}` parsed from `X-RateLimit-*` headers, or `None` before the first request. Shared across all resource namespaces on the client instance.
 - **`WebhookDelivery.idempotency_key`** — optional field on the `WebhookDelivery` TypedDict.
 - **`webhooks.test(id, event=None)`** — now sends `?event=` as a query parameter in addition to the request body, matching server behaviour (PR #114 in epostak backend).

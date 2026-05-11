@@ -112,44 +112,109 @@ class Webhooks
     /**
      * Send a test event to a webhook endpoint.
      *
-     * @param string      $id    Webhook UUID to test.
-     * @param string|null $event Event type to simulate (e.g. 'document.created'). Null uses server default.
+     * The event type is forwarded as a `?event=` query parameter (takes
+     * precedence server-side over the body field per PR #114). An array
+     * `$params` is accepted so callers can use named-key syntax:
+     *
+     * ```php
+     * $client->webhooks->test($id, ['event' => 'document.delivered']);
+     * ```
+     *
+     * @param string                    $id     Webhook UUID to test.
+     * @param array{event?: string}|string|null $params Event type string or params array.
+     *                                          Null uses the server default (`document.created`).
      * @return array Test result with success, statusCode, responseTime, webhookId, event, and optional error.
      * @throws EPostakError On API error.
      *
      * @example
-     *   $result = $client->webhooks->test('webhook-uuid', 'document.received');
+     *   $result = $client->webhooks->test('webhook-uuid', ['event' => 'document.delivered']);
      *   echo $result['success'] ? 'OK' : $result['error'];
      */
-    public function test(string $id, ?string $event = null): array
+    public function test(string $id, array|string|null $params = null): array
     {
-        $body = [];
-        if ($event !== null) {
-            $body['event'] = $event;
+        $event = null;
+        if (is_string($params)) {
+            $event = $params;
+        } elseif (is_array($params) && isset($params['event'])) {
+            $event = (string) $params['event'];
         }
-        return $this->http->request('POST', '/webhooks/' . urlencode($id) . '/test', [
-            'json' => $body,
-        ]);
+
+        $options = ['json' => new \stdClass()];  // empty body for POST
+        if ($event !== null) {
+            $options['query'] = ['event' => $event];
+        }
+        return $this->http->request('POST', '/webhooks/' . urlencode($id) . '/test', $options);
     }
 
     /**
      * Get paginated delivery history for a webhook.
      *
+     * Each delivery object in the response includes an optional `idempotency_key`
+     * field (present when the triggering event was submitted with an idempotency
+     * key). The `responseBody` field is omitted by default; pass
+     * `includeResponseBody: true` to include it.
+     *
      * @param string $id     Webhook UUID.
-     * @param array  $params Optional query params: limit (1-100), offset, status (SUCCESS/FAILED/PENDING/RETRYING), event.
-     * @return array Paginated response with deliveries, total, limit, offset.
+     * @param array{
+     *   limit?: int,
+     *   offset?: int,
+     *   cursor?: string,
+     *   status?: string,
+     *   event?: string,
+     *   includeResponseBody?: bool,
+     *   include?: string
+     * } $params Optional query params:
+     *   - `limit`               Page size (1–100).
+     *   - `offset`              Pagination offset.
+     *   - `cursor`              Cursor-based pagination cursor (alternative to offset).
+     *   - `status`              Filter by status: SUCCESS | FAILED | PENDING | RETRYING.
+     *   - `event`               Filter by event type.
+     *   - `includeResponseBody` Include the raw receiver response body in each item.
+     *   - `include`             Comma-separated field inclusions (e.g. 'responseBody').
+     * @return array{
+     *   deliveries: list<array{
+     *     id: string,
+     *     webhookId: string,
+     *     event: string,
+     *     status: string,
+     *     attempts: int,
+     *     responseStatus: int|null,
+     *     idempotency_key: string|null,
+     *     createdAt: string,
+     *     responseBody?: string
+     *   }>,
+     *   total: int,
+     *   limit: int,
+     *   offset: int,
+     *   nextCursor: string|null
+     * } Paginated delivery history.
      * @throws EPostakError On API error.
      *
      * @example
      *   $result = $client->webhooks->deliveries('webhook-uuid', ['status' => 'FAILED', 'limit' => 50]);
      *   foreach ($result['deliveries'] as $d) {
-     *       echo $d['event'] . ': ' . $d['status'] . PHP_EOL;
+     *       echo $d['event'] . ': ' . $d['status'];
+     *       if (isset($d['idempotency_key'])) {
+     *           echo ' (idem: ' . $d['idempotency_key'] . ')';
+     *       }
+     *       echo PHP_EOL;
      *   }
      */
     public function deliveries(string $id, array $params = []): array
     {
+        $query = array_filter([
+            'limit' => $params['limit'] ?? null,
+            'offset' => $params['offset'] ?? null,
+            'cursor' => $params['cursor'] ?? null,
+            'status' => $params['status'] ?? null,
+            'event' => $params['event'] ?? null,
+            'includeResponseBody' => isset($params['includeResponseBody'])
+                ? ($params['includeResponseBody'] ? 'true' : 'false')
+                : null,
+            'include' => $params['include'] ?? null,
+        ], fn ($v) => $v !== null);
         return $this->http->request('GET', '/webhooks/' . urlencode($id) . '/deliveries', [
-            'query' => $params,
+            'query' => $query,
         ]);
     }
 

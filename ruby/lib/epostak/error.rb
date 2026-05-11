@@ -230,15 +230,17 @@ module EPostak
   #     puts "UBL rule violated: #{e.rule} (request #{e.request_id})"
   #   end
   class UblValidationError < Error
-    # Known schematron rule codes returned by the server.
+    # The 7 known UBL pre-flight rule codes the API may return in
+    # `error.rule`. Source: lib/ubl/generate.ts in the epostak repo.
+    # New rules may be added later — treat as a hint, not a closed enum.
     UBL_RULES = %w[
-      BR-01
       BR-02
-      BR-04
-      BR-CL-01
-      BR-S-08
-      PEPPOL-EN16931-R004
-      PEPPOL-EN16931-R010
+      BR-05
+      BR-06
+      BR-11
+      BR-16
+      BT-1
+      PEPPOL-R008
     ].freeze
 
     # @return [String, nil] The schematron rule code that triggered the error.

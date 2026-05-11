@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace EPostak;
 
+use EPostak\RateLimit;
+use EPostak\UblValidationException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -22,6 +24,9 @@ class HttpClient
     private string $baseUrl;
     private ?string $firmId;
     private int $maxRetries;
+
+    /** @var RateLimit|null Last rate-limit snapshot captured from response headers. */
+    private ?RateLimit $lastRateLimit = null;
 
     /** @var string[] HTTP methods that are safe to retry by default. */
     private const RETRYABLE_METHODS = ['GET', 'DELETE'];
@@ -66,6 +71,19 @@ class HttpClient
     }
 
     /**
+     * Return the rate-limit snapshot captured from the most recent response.
+     *
+     * Returns `null` if no request has been made yet or the last response did
+     * not include rate-limit headers.
+     *
+     * @return RateLimit|null
+     */
+    public function getLastRateLimit(): ?RateLimit
+    {
+        return $this->lastRateLimit;
+    }
+
+    /**
      * Send a JSON request and return the decoded response.
      *
      * @param string $method  HTTP method (GET, POST, PATCH, DELETE).
@@ -105,6 +123,9 @@ class HttpClient
             }
 
             $statusCode = $response->getStatusCode();
+
+            // Capture rate-limit headers from every response
+            $this->captureRateLimit($response->getHeaders());
 
             // Retry on 429 or 5xx for safe methods
             if ($retryable && $attempt < $this->maxRetries && ($statusCode === 429 || $statusCode >= 500)) {
@@ -262,9 +283,61 @@ class HttpClient
     {
         $error = $body['error'] ?? null;
         $code = is_array($error) && isset($error['code']) ? (string) $error['code'] : null;
+
+        // Also accept top-level `code` field (RFC 7807 + our problem+json envelope)
+        if ($code === null && isset($body['code']) && is_string($body['code'])) {
+            $code = $body['code'];
+        }
+
         if ($code === 'DUPLICATE_INVOICE_NUMBER') {
             return new DuplicateInvoiceNumberError($status, $body, $headers);
         }
+        if ($status === 422 && $code === 'UBL_VALIDATION_ERROR') {
+            return new UblValidationException($status, $body, $headers);
+        }
         return new EPostakError($status, $body, $headers);
+    }
+
+    /**
+     * Parse X-RateLimit-* headers from a Guzzle headers array and cache them.
+     *
+     * @param array<string, array<int, string>> $headers
+     */
+    private function captureRateLimit(array $headers): void
+    {
+        $limit = $this->headerLineFromMap($headers, 'x-ratelimit-limit');
+        $remaining = $this->headerLineFromMap($headers, 'x-ratelimit-remaining');
+        $reset = $this->headerLineFromMap($headers, 'x-ratelimit-reset');
+
+        if ($limit !== null || $remaining !== null || $reset !== null) {
+            $resetAt = null;
+            if ($reset !== null) {
+                // Accept Unix timestamp or HTTP-date
+                $resetAt = is_numeric($reset)
+                    ? \DateTimeImmutable::createFromFormat('U', $reset) ?: null
+                    : (new \DateTimeImmutable($reset) ?: null);
+            }
+            $this->lastRateLimit = new RateLimit(
+                limit:     $limit !== null ? (int) $limit : null,
+                remaining: $remaining !== null ? (int) $remaining : null,
+                resetAt:   $resetAt,
+            );
+        }
+    }
+
+    /**
+     * Case-insensitive header lookup from a Guzzle headers map.
+     *
+     * @param array<string, array<int, string>> $headers
+     */
+    private function headerLineFromMap(array $headers, string $name): ?string
+    {
+        $needle = strtolower($name);
+        foreach ($headers as $key => $values) {
+            if (strtolower((string) $key) === $needle) {
+                return is_array($values) && isset($values[0]) ? (string) $values[0] : null;
+            }
+        }
+        return null;
     }
 }

@@ -1,32 +1,33 @@
 namespace EPostak;
 
 /// <summary>
-/// Well-known UBL validation rule codes returned by the API when a document
-/// fails Peppol BIS 3.0 / EN 16931 schematron rules.
-/// These correspond to the <c>code</c> field in the 422 error response body.
+/// Well-known UBL pre-flight rule codes returned in <c>error.rule</c> when the
+/// API rejects a document with <c>error.code == "UBL_VALIDATION_ERROR"</c>
+/// (HTTP 422). Source of truth: <c>lib/ubl/generate.ts</c> in the epostak repo.
+/// New rules may be added in future API versions; treat as hint, not closed enum.
 /// </summary>
 public static class UblRule
 {
-    /// <summary>Generic UBL validation failure — the error body contains rule-level details.</summary>
-    public const string UblValidationError = "UBL_VALIDATION_ERROR";
+    /// <summary>BT-2 — Invoice issue date is mandatory.</summary>
+    public const string BR_02 = "BR-02";
 
-    /// <summary>The UBL XML is not well-formed or violates the UBL 2.1 XSD schema.</summary>
-    public const string SchemaInvalid = "UBL_SCHEMA_INVALID";
+    /// <summary>BT-27 — Seller name is mandatory.</summary>
+    public const string BR_05 = "BR-05";
 
-    /// <summary>The document type declared in the UBL header is not supported for Peppol transmission.</summary>
-    public const string UnsupportedDocumentType = "UBL_UNSUPPORTED_DOCUMENT_TYPE";
+    /// <summary>BT-44 — Buyer name is mandatory. Pass <c>receiverName</c> in the request body.</summary>
+    public const string BR_06 = "BR-06";
 
-    /// <summary>The supplier Peppol ID in the UBL XML does not match the authenticated firm.</summary>
-    public const string SupplierMismatch = "UBL_SUPPLIER_MISMATCH";
+    /// <summary>BT-31 / BT-32 — Seller VAT identifier required for VAT-rated invoices.</summary>
+    public const string BR_11 = "BR-11";
 
-    /// <summary>A mandatory EN 16931 business rule (BR-*) was violated.</summary>
-    public const string En16931Violation = "UBL_EN16931_VIOLATION";
+    /// <summary>Invoice must have at least one line.</summary>
+    public const string BR_16 = "BR-16";
 
-    /// <summary>A mandatory Peppol BIS 3.0 rule (PEPPOL-EN16931-R*) was violated.</summary>
-    public const string PeppolBisViolation = "UBL_PEPPOL_BIS_VIOLATION";
+    /// <summary>BT-1 — Invoice number must not be empty.</summary>
+    public const string BT_1 = "BT-1";
 
-    /// <summary>A Slovak national schematron rule (SK-R-*) was violated.</summary>
-    public const string SkNationalViolation = "UBL_SK_NATIONAL_VIOLATION";
+    /// <summary>EndpointID empty — firm must have DIČ, IČO, or a registered Peppol ID.</summary>
+    public const string PEPPOL_R008 = "PEPPOL-R008";
 }
 
 /// <summary>
@@ -60,8 +61,9 @@ public static class UblRule
 public sealed class UblValidationException : EPostakException
 {
     /// <summary>
-    /// The machine-readable rule code that caused the rejection. One of the
-    /// <see cref="UblRule"/> constants (e.g. <c>UblRule.UblValidationError</c>).
+    /// The Peppol BIS / EN 16931 rule code that caused the rejection. One of
+    /// the <see cref="UblRule"/> constants (e.g. <c>UblRule.BR_06</c>). May be
+    /// an empty string if the server omitted the <c>rule</c> field.
     /// </summary>
     public string Rule { get; }
 
@@ -76,7 +78,9 @@ public sealed class UblValidationException : EPostakException
         string? instance,
         string? requestId,
         string? requiredScope)
-        : base(status, message, rule, details, type, title, detail, instance, requestId, requiredScope)
+        // Code stays "UBL_VALIDATION_ERROR" (always — that's the wire code);
+        // the violated rule is exposed separately via Rule.
+        : base(status, message, "UBL_VALIDATION_ERROR", details, type, title, detail, instance, requestId, requiredScope)
     {
         Rule = rule;
     }

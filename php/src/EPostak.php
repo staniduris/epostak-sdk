@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace EPostak;
 
+use EPostak\RateLimit;
 use EPostak\Resources\Auth;
 use EPostak\Resources\Audit;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Firms;
+use EPostak\Resources\Inbound;
 use EPostak\Resources\Integrator;
 use EPostak\Resources\OAuth;
+use EPostak\Resources\Outbound;
 use EPostak\Resources\Peppol;
 use EPostak\Resources\Webhooks;
 use EPostak\Resources\Reporting;
@@ -25,6 +28,8 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Audit $audit Per-firm audit feed (cursor-paginated)
  * @property-read Documents $documents Send and receive documents via Peppol
  * @property-read Firms $firms Manage client firms (integrator keys)
+ * @property-read Inbound $inbound Pull API — receive and acknowledge inbound Peppol documents
+ * @property-read Outbound $outbound Pull API — list sent documents and stream delivery events
  * @property-read Peppol $peppol SMP lookup and Peppol directory search
  * @property-read Webhooks $webhooks Manage webhook subscriptions and pull queue
  * @property-read Reporting $reporting Document statistics and reports
@@ -47,12 +52,16 @@ class EPostak
     public Audit $audit;
     public Documents $documents;
     public Firms $firms;
+    public Inbound $inbound;
+    public Outbound $outbound;
     public Peppol $peppol;
     public Webhooks $webhooks;
     public Reporting $reporting;
     public Extract $extract;
     public Account $account;
     public Integrator $integrator;
+
+    private HttpClient $http;
 
     /**
      * Create a new ePošťák API client.
@@ -95,18 +104,41 @@ class EPostak
             $this->firmId
         );
 
-        $http = new HttpClient($this->baseUrl, $tokenManager, $this->firmId, $this->maxRetries);
+        $this->http = new HttpClient($this->baseUrl, $tokenManager, $this->firmId, $this->maxRetries);
 
-        $this->auth = new Auth($http);
-        $this->audit = new Audit($http);
-        $this->documents = new Documents($http);
-        $this->firms = new Firms($http);
-        $this->peppol = new Peppol($http);
-        $this->webhooks = new Webhooks($http);
-        $this->reporting = new Reporting($http);
-        $this->extract = new Extract($http);
-        $this->account = new Account($http);
-        $this->integrator = new Integrator($http);
+        $this->auth = new Auth($this->http);
+        $this->audit = new Audit($this->http);
+        $this->documents = new Documents($this->http);
+        $this->firms = new Firms($this->http);
+        $this->inbound = new Inbound($this->http);
+        $this->outbound = new Outbound($this->http);
+        $this->peppol = new Peppol($this->http);
+        $this->webhooks = new Webhooks($this->http);
+        $this->reporting = new Reporting($this->http);
+        $this->extract = new Extract($this->http);
+        $this->account = new Account($this->http);
+        $this->integrator = new Integrator($this->http);
+    }
+
+    /**
+     * Return the rate-limit snapshot from the most recent API response.
+     *
+     * Populated after every successful (or failed) call that reaches the server.
+     * Returns `null` before the first request or when the last response did not
+     * include `X-RateLimit-*` headers.
+     *
+     * @return RateLimit|null
+     *
+     * @example
+     *   $client->documents->list();
+     *   $rl = $client->getLastRateLimit();
+     *   if ($rl !== null) {
+     *       echo "Remaining: {$rl->remaining}/{$rl->limit}";
+     *   }
+     */
+    public function getLastRateLimit(): ?RateLimit
+    {
+        return $this->http->getLastRateLimit();
     }
 
     /**

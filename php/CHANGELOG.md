@@ -7,6 +7,48 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The actual published version on Packagist has always been `0.8.x`.
 > The version history is corrected going forward.
 
+## 0.9.0 — 2026-05-12
+
+### Added
+
+- **`$client->inbound`** — Pull API resource for inbound Peppol documents:
+  - `inbound->list($params)` — cursor-paginated list (`since`, `limit`, `kind`, `sender`, `next_cursor`).
+  - `inbound->get($id)` — single document detail.
+  - `inbound->getUbl($id)` — raw UBL XML string (`application/xml`).
+  - `inbound->ack($id, ['client_reference' => '...'])` — acknowledge with optional ERP reference (idempotent, latest-ack-wins).
+
+- **`$client->outbound`** — Pull API resource for outbound Peppol documents:
+  - `outbound->list($params)` — cursor-paginated list (`since`, `limit`, `kind`, `status`, `business_status`, `recipient`, `next_cursor`).
+  - `outbound->get($id)` — single document detail (includes `attempt_history`).
+  - `outbound->getUbl($id)` — raw UBL XML string.
+  - `outbound->events($params)` — cursor-paginated document event stream (`document_id`, `next_cursor`, `limit`).
+
+- **`UblValidationException`** — thrown when the API returns HTTP 422 with
+  `code: "UBL_VALIDATION_ERROR"`. Exposes `$rule` (machine-readable rule code)
+  and `$requestId`. Extends `EPostakError` — existing catch blocks still work.
+
+- **`UblRule`** — class constants for the 7 known UBL rule codes:
+  `SCHEMA_VIOLATION`, `MISSING_MANDATORY_ELEMENT`, `INVALID_CODE_LIST_VALUE`,
+  `CALCULATION_ERROR`, `BUSINESS_RULE_VIOLATION`, `ENDPOINT_MISMATCH`,
+  `UNKNOWN_RECEIVER`.
+
+- **`$client->getLastRateLimit()`** — returns a `RateLimit` value object
+  (`limit`, `remaining`, `resetAt`) populated from `X-RateLimit-*` response
+  headers after every request. Returns `null` before first request.
+
+- **`RateLimit`** DTO — `readonly` value object with `limit: ?int`,
+  `remaining: ?int`, `resetAt: ?\DateTimeImmutable`.
+
+- **`webhooks->test($id, $params)`** now accepts `['event' => '...']` array
+  and forwards the event as `?event=` query parameter (server-side priority
+  over body per PR #114). String shorthand `test($id, 'document.delivered')`
+  still works.
+
+- **`webhooks->deliveries()`** — PHPDoc updated to document
+  `idempotency_key?: string|null` on each delivery object, and `nextCursor`
+  on the paginated response. Params now include `cursor`, `includeResponseBody`,
+  and `include` pass-through fields.
+
 ## 0.8.1 — 2026-05-06
 
 Bug-fix release. Four P0 fixes for webhook handling identified by audit.

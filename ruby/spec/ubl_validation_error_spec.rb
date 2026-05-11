@@ -7,8 +7,8 @@ RSpec.describe EPostak::UblValidationError do
     {
       "error" => {
         "code"    => "UBL_VALIDATION_ERROR",
-        "message" => "Schematron rule BR-01 violated",
-        "rule"    => "BR-01",
+        "message" => "Schematron rule BR-06 violated",
+        "rule"    => "BR-06",
       },
     }
   end
@@ -19,7 +19,7 @@ RSpec.describe EPostak::UblValidationError do
 
   it "exposes the rule attribute" do
     err = described_class.new(422, body)
-    expect(err.rule).to eq("BR-01")
+    expect(err.rule).to eq("BR-06")
   end
 
   it "exposes the request_id from headers" do

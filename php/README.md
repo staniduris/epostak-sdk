@@ -588,12 +588,38 @@ try {
 | `webhooks->queue->batchAck($ids)`                            | POST   | `/webhook-queue/batch-ack`           |
 | `webhooks->queue->pullAll($params)`                          | GET    | `/webhook-queue/all`                 |
 | `webhooks->queue->batchAckAll($ids)`                         | POST   | `/webhook-queue/all/batch-ack`       |
+| `inbound->list($params)`                                     | GET    | `/inbound/documents`                 |
+| `inbound->get($id)`                                          | GET    | `/inbound/documents/{id}`            |
+| `inbound->getUbl($id)`                                       | GET    | `/inbound/documents/{id}/ubl`        |
+| `inbound->ack($id, $params)`                                 | POST   | `/inbound/documents/{id}/ack`        |
+| `outbound->list($params)`                                    | GET    | `/outbound/documents`                |
+| `outbound->get($id)`                                         | GET    | `/outbound/documents/{id}`           |
+| `outbound->getUbl($id)`                                      | GET    | `/outbound/documents/{id}/ubl`       |
+| `outbound->events($params)`                                  | GET    | `/outbound/events`                   |
 | `reporting->statistics($params)`                             | GET    | `/reporting/statistics`              |
 | `account->get()`                                             | GET    | `/account`                           |
 | `extract->single($path, $mime)`                              | POST   | `/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
 
 All paths are relative to `https://epostak.sk/api/v1`.
+
+---
+
+## Recent Changes
+
+### 0.9.0 — 2026-05-12
+
+- **Pull API** — `$client->inbound` and `$client->outbound` resources for
+  the new cursor-paginated Pull API endpoints (`/inbound/documents` and
+  `/outbound/documents`). Includes `ack()` with `client_reference` support
+  and `outbound->events()` for the cross-document event stream.
+- **`UblValidationException`** — dedicated exception for HTTP 422 +
+  `UBL_VALIDATION_ERROR`. Exposes `$rule` (compare against `UblRule::*`
+  constants) and `$requestId`.
+- **`$client->getLastRateLimit()`** — returns a `RateLimit` DTO
+  (`limit`, `remaining`, `resetAt`) populated from `X-RateLimit-*` headers.
+- **`webhooks->test()`** — now accepts `['event' => '...']` array and
+  forwards the event type as a query parameter (server priority per PR #114).
 
 ---
 
