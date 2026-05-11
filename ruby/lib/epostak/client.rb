@@ -47,6 +47,12 @@ module EPostak
     # @return [Resources::Integrator] Integrator-aggregate endpoints (+sk_int_*+ keys)
     attr_reader :integrator
 
+    # @return [Resources::Inbound] Pull API — list/get/ack received inbound documents
+    attr_reader :inbound
+
+    # @return [Resources::Outbound] Pull API — list/get sent outbound documents and events
+    attr_reader :outbound
+
     # Create a new ePošťák API client.
     #
     # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
@@ -82,18 +88,20 @@ module EPostak
         firm_id: @firm_id
       )
 
-      http = HttpClient.new(token_manager: @token_manager, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
+      @http = HttpClient.new(token_manager: @token_manager, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
-      @auth      = Resources::Auth.new(http, base_url: @base_url)
-      @audit     = Resources::Audit.new(http)
-      @documents = Resources::Documents.new(http)
-      @firms     = Resources::Firms.new(http)
-      @peppol    = Resources::Peppol.new(http)
-      @webhooks  = Resources::Webhooks.new(http)
-      @reporting = Resources::Reporting.new(http)
-      @account   = Resources::Account.new(http)
-      @extract   = Resources::Extract.new(http)
-      @integrator = Resources::Integrator.new(http)
+      @auth       = Resources::Auth.new(@http, base_url: @base_url)
+      @audit      = Resources::Audit.new(@http)
+      @documents  = Resources::Documents.new(@http)
+      @firms      = Resources::Firms.new(@http)
+      @peppol     = Resources::Peppol.new(@http)
+      @webhooks   = Resources::Webhooks.new(@http)
+      @reporting  = Resources::Reporting.new(@http)
+      @account    = Resources::Account.new(@http)
+      @extract    = Resources::Extract.new(@http)
+      @integrator = Resources::Integrator.new(@http)
+      @inbound    = Resources::Inbound.new(@http)
+      @outbound   = Resources::Outbound.new(@http)
     end
 
     # Create a new client instance scoped to a specific firm.
@@ -121,6 +129,21 @@ module EPostak
         max_retries: @max_retries,
         token_manager: @token_manager
       )
+    end
+
+    # Rate-limit snapshot from the most recent API response.
+    #
+    # Returns a +Struct+ with +:limit+, +:remaining+, and +:reset_at+ (+Time+).
+    # Returns +nil+ before any request has been made.
+    #
+    # @return [EPostak::RateLimitInfo, nil]
+    #
+    # @example
+    #   client.documents.list
+    #   rl = client.last_rate_limit
+    #   puts "#{rl.remaining}/#{rl.limit} requests left, resets at #{rl.reset_at}"
+    def last_rate_limit
+      @http.last_rate_limit
     end
 
     # Validate a UBL XML document via the public +/api/validate+ endpoint.

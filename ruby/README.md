@@ -2,6 +2,15 @@
 
 Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and receive e-invoices via the Slovak Peppol network.
 
+## Recent changes
+
+**v0.9.0** (2026-05-12)
+- Pull API: `client.inbound` (list/get/get_ubl/ack) and `client.outbound` (list/get/get_ubl/events)
+- `EPostak::UblValidationError` raised on 422 UBL_VALIDATION_ERROR with `.rule` attr
+- `client.last_rate_limit` exposes limit/remaining/reset_at after first request
+- `webhooks.test` now forwards `event:` kwarg to the server
+- `WebhookDelivery` data class gains optional `idempotency_key`; new `InboundDocument`, `OutboundDocument`, `OutboundEvent` data classes with `.from_hash`
+
 ## Installation
 
 Add to your Gemfile:

@@ -2,5 +2,5 @@
 
 module EPostak
   # Current version of the ePošťák Ruby SDK.
-  VERSION = "0.8.1"
+  VERSION = "0.9.0"
 end

@@ -3,3 +3,6 @@
 source "https://rubygems.org"
 
 gemspec
+
+gem "rspec", "~> 3.13", group: :test
+gem "webmock", "~> 3.26", group: :test

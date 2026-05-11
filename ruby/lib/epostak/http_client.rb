@@ -5,6 +5,11 @@ require "faraday/multipart"
 require "json"
 
 module EPostak
+  # Carries the last rate-limit information returned by the server.
+  # Populated from +X-RateLimit-Limit+, +X-RateLimit-Remaining+, and
+  # +X-RateLimit-Reset+ (Unix epoch) response headers.
+  RateLimitInfo = Struct.new(:limit, :remaining, :reset_at, keyword_init: true)
+
   # Internal HTTP wrapper around Faraday. Handles authentication,
   # JSON serialization, multipart uploads, and error normalization.
   #
@@ -15,15 +20,20 @@ module EPostak
     # HTTP methods that are safe to retry by default.
     RETRYABLE_METHODS = %i[get delete].freeze
 
+    # @return [EPostak::RateLimitInfo, nil] Rate-limit snapshot from the most
+    #   recent response. +nil+ before any request has been made.
+    attr_reader :last_rate_limit
+
     # @param token_manager [EPostak::TokenManager] Manages OAuth JWT tokens
     # @param base_url [String] API base URL
     # @param firm_id [String, nil] Optional firm UUID sent as X-Firm-Id header
     # @param max_retries [Integer] Maximum retries on 429/5xx (default: 3)
     def initialize(token_manager:, base_url:, firm_id: nil, max_retries: 3)
-      @token_manager = token_manager
-      @base_url      = base_url
-      @firm_id       = firm_id
-      @max_retries   = max_retries
+      @token_manager   = token_manager
+      @base_url        = base_url
+      @firm_id         = firm_id
+      @max_retries     = max_retries
+      @last_rate_limit = nil
 
       @conn = build_connection
     end
@@ -108,6 +118,8 @@ module EPostak
         req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
       end
 
+      capture_rate_limit(response.headers)
+
       unless response.success?
         error_body = parse_error_body(response)
         raise EPostak.build_api_error(response.status, error_body, response.headers)
@@ -188,6 +200,8 @@ module EPostak
     end
 
     def handle_response(response)
+      capture_rate_limit(response.headers)
+
       unless response.success?
         error_body = parse_error_body(response)
         raise EPostak.build_api_error(response.status, error_body, response.headers)
@@ -198,6 +212,39 @@ module EPostak
       JSON.parse(response.body)
     rescue JSON::ParserError
       response.body
+    end
+
+    def capture_rate_limit(headers)
+      return unless headers
+
+      limit_val     = header_value(headers, "x-ratelimit-limit") ||
+                      header_value(headers, "x-rate-limit-limit")
+      remaining_val = header_value(headers, "x-ratelimit-remaining") ||
+                      header_value(headers, "x-rate-limit-remaining")
+      reset_val     = header_value(headers, "x-ratelimit-reset") ||
+                      header_value(headers, "x-rate-limit-reset")
+
+      return unless limit_val || remaining_val || reset_val
+
+      reset_at =
+        if reset_val
+          epoch = Integer(reset_val, exception: false)
+          epoch ? Time.at(epoch) : nil
+        end
+
+      @last_rate_limit = RateLimitInfo.new(
+        limit:      limit_val     ? Integer(limit_val, exception: false)     : nil,
+        remaining:  remaining_val ? Integer(remaining_val, exception: false) : nil,
+        reset_at:   reset_at,
+      )
+    end
+
+    def header_value(headers, name)
+      lowered = name.downcase
+      headers.each do |k, v|
+        return v if k.to_s.downcase == lowered
+      end
+      nil
     end
 
     def parse_error_body(response)

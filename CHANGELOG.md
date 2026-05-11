@@ -1,5 +1,11 @@
 # Changelog
 
+## [Ruby 0.9.0] — 2026-05-12
+
+Pull API resources (`client.inbound` + `client.outbound`), `UblValidationError`
+with `UBL_RULES` constant, `webhooks.test(id, event:)` param, `WebhookDelivery#idempotency_key`,
+and `client.last_rate_limit` / `RateLimitInfo`. See `ruby/CHANGELOG.md` for full details.
+
 ## [Java 0.9.0] — 2026-05-12
 
 Pull API resources (`client.inbound()` + `client.outbound()`), `UblValidationException`

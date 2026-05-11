@@ -219,6 +219,41 @@ module EPostak
     end
   end
 
+  # Raised when the API rejects a submitted UBL document with code
+  # +UBL_VALIDATION_ERROR+ (HTTP 422). The +rule+ attribute identifies
+  # which schematron rule fired.
+  #
+  # @example
+  #   begin
+  #     client.documents.send_document(xml: raw_ubl)
+  #   rescue EPostak::UblValidationError => e
+  #     puts "UBL rule violated: #{e.rule} (request #{e.request_id})"
+  #   end
+  class UblValidationError < Error
+    # Known schematron rule codes returned by the server.
+    UBL_RULES = %w[
+      BR-01
+      BR-02
+      BR-04
+      BR-CL-01
+      BR-S-08
+      PEPPOL-EN16931-R004
+      PEPPOL-EN16931-R010
+    ].freeze
+
+    # @return [String, nil] The schematron rule code that triggered the error.
+    attr_reader :rule
+
+    def initialize(status, body = {}, headers = nil)
+      super
+      body ||= {}
+      error_obj = (body["error"] || body[:error])
+      error_obj = {} unless error_obj.is_a?(Hash)
+      @rule = (error_obj["rule"] || error_obj[:rule] ||
+               error_obj["ruleId"] || error_obj[:ruleId])&.to_s
+    end
+  end
+
   # Build the right Error subclass from a parsed API error body. Falls
   # back to {Error} when no specialised mapping applies.
   #
@@ -230,6 +265,7 @@ module EPostak
     error_obj = body.is_a?(Hash) ? (body["error"] || body[:error]) : nil
     code = error_obj.is_a?(Hash) ? (error_obj["code"] || error_obj[:code]) : nil
     return DuplicateInvoiceNumberError.new(status, body, headers) if code == "DUPLICATE_INVOICE_NUMBER"
+    return UblValidationError.new(status, body, headers) if status == 422 && code == "UBL_VALIDATION_ERROR"
 
     Error.new(status, body, headers)
   end

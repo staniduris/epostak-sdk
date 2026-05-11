@@ -5,6 +5,30 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
+## 0.9.0 — 2026-05-12
+
+### Added
+
+- **Pull API — `client.inbound`** (`EPostak::Resources::Inbound`):
+  - `list(since:, limit:, kind:, sender:)` — cursor-paginated list of received documents
+  - `get(id)` — fetch a single inbound document
+  - `get_ubl(id)` — download raw UBL XML
+  - `ack(id, client_reference: nil)` — acknowledge receipt; idempotent (latest-ack-wins)
+
+- **Pull API — `client.outbound`** (`EPostak::Resources::Outbound`):
+  - `list(since:, limit:, kind:, status:, business_status:, recipient:)` — cursor-paginated sent documents
+  - `get(id)` — fetch a single outbound document with `attempt_history`
+  - `get_ubl(id)` — download raw UBL XML
+  - `events(since:, limit:, document_id:, cursor:)` — outbound event stream (`GET /outbound/events`)
+
+- **`EPostak::UblValidationError`** — raised on `422 UBL_VALIDATION_ERROR`. Exposes `rule` (schematron rule code) and `request_id`. Carries `UBL_RULES` frozen constant with 7 known codes.
+
+- **`client.last_rate_limit`** — returns `EPostak::RateLimitInfo` struct with `limit`, `remaining`, `reset_at` (Time) after the first request. `nil` before any request.
+
+- **`webhooks.test` `event:` param** — previously accepted the kwarg but silently dropped it; now included in the POST body.
+
+- **`EPostak::WebhookDelivery`** data class — new optional `idempotency_key` attribute. Plus new data classes `InboundDocument`, `OutboundDocument`, `OutboundEvent` with `.from_hash` constructors.
+
 ## 0.8.1 — 2026-05-06
 
 Three P0 bug fixes that affect every integrator using webhooks.

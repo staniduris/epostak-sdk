@@ -2,6 +2,7 @@
 
 require_relative "epostak/version"
 require_relative "epostak/error"
+require_relative "epostak/types"
 require_relative "epostak/token_manager"
 require_relative "epostak/http_client"
 require_relative "epostak/webhook_signature"
@@ -20,6 +21,8 @@ require_relative "epostak/resources/webhook_queue"
 require_relative "epostak/resources/reporting"
 require_relative "epostak/resources/account"
 require_relative "epostak/resources/extract"
+require_relative "epostak/resources/inbound"
+require_relative "epostak/resources/outbound"
 
 # Top-level namespace for the ePošťák Ruby SDK.
 #
