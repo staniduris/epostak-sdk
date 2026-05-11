@@ -295,6 +295,78 @@ def _opt_str(value: Any) -> Optional[str]:
     return None if value is None else str(value)
 
 
+# ---------------------------------------------------------------------------
+# UBL validation errors (v0.9.0)
+# ---------------------------------------------------------------------------
+
+
+UBL_RULES = (
+    "BR-06",
+    "BR-07",
+    "BR-08",
+    "BR-09",
+    "BR-10",
+    "BR-11",
+    "BR-12",
+)
+"""The 7 known UBL validation rule codes that may appear in
+``UblValidationError.rule`` when the server rejects with
+``code == 'UBL_VALIDATION_ERROR'``.
+"""
+
+
+class UblValidationError(EPostakError):
+    """Raised when the server returns HTTP 422 with
+    ``error.code == 'UBL_VALIDATION_ERROR'``.
+
+    The ``rule`` attribute holds the failing Peppol BIS 3.0 rule ID (e.g.
+    ``"BR-06"``).  One of the constants in :data:`UBL_RULES`.
+
+    Attributes:
+        rule: The Peppol rule ID that caused the rejection.
+        request_id: Server-assigned request identifier (from base class).
+
+    Example::
+
+        from epostak import EPostak
+        from epostak.errors import UblValidationError
+
+        try:
+            client.documents.send({"xml": bad_xml, ...})
+        except UblValidationError as err:
+            print(f"Peppol validation failed: {err.rule} — {err.message}")
+    """
+
+    rule: Optional[str]
+
+    def __init__(
+        self,
+        status: int,
+        body: Optional[dict[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
+        *,
+        rule: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> None:
+        super().__init__(status, body, headers)
+        # If rule was passed explicitly (e.g. from tests), use it;
+        # otherwise try to extract from the body.
+        if rule is not None:
+            self.rule = rule
+        else:
+            body = body or {}
+            error_obj = body.get("error") if isinstance(body, dict) else None
+            rule_from_body: Optional[str] = None
+            if isinstance(error_obj, dict):
+                rule_from_body = _opt_str(error_obj.get("rule"))
+            if rule_from_body is None and isinstance(body, dict):
+                rule_from_body = _opt_str(body.get("rule"))
+            self.rule = rule_from_body
+        # Allow override of request_id from caller
+        if request_id is not None:
+            self.request_id = request_id
+
+
 def build_api_error(
     status: int,
     body: Optional[dict[str, Any]] = None,
@@ -311,4 +383,6 @@ def build_api_error(
         code = str(error_obj["code"])
     if code == "DUPLICATE_INVOICE_NUMBER":
         return DuplicateInvoiceNumberError(status, body, headers)
+    if status == 422 and code == "UBL_VALIDATION_ERROR":
+        return UblValidationError(status, body, headers)
     return EPostakError(status, body, headers)

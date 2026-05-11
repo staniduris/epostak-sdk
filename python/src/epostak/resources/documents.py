@@ -8,6 +8,7 @@ resource modules.
 
 from __future__ import annotations
 
+import datetime
 import random
 import time
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -48,6 +49,30 @@ def _build_query(params: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in params.items() if v is not None}
 
 
+def _parse_rate_limit_headers(headers: Any) -> Optional[Dict[str, Any]]:
+    """Parse ``X-RateLimit-Limit``, ``X-RateLimit-Remaining``, and
+    ``X-RateLimit-Reset`` headers into a dict.
+
+    Returns ``None`` when the headers are absent.
+    """
+    try:
+        limit_raw = headers.get("x-ratelimit-limit") or headers.get("X-RateLimit-Limit")
+        remaining_raw = headers.get("x-ratelimit-remaining") or headers.get("X-RateLimit-Remaining")
+        reset_raw = headers.get("x-ratelimit-reset") or headers.get("X-RateLimit-Reset")
+    except Exception:
+        return None
+    if limit_raw is None or remaining_raw is None or reset_raw is None:
+        return None
+    try:
+        limit = int(limit_raw)
+        remaining = int(remaining_raw)
+        reset_ts = float(reset_raw)
+        reset_at = datetime.datetime.fromtimestamp(reset_ts, tz=datetime.timezone.utc)
+        return {"limit": limit, "remaining": remaining, "reset_at": reset_at}
+    except (ValueError, TypeError, OSError):
+        return None
+
+
 def _idempotency_headers(idempotency_key: Optional[str]) -> Optional[Dict[str, str]]:
     """Build the ``Idempotency-Key`` header dict, or ``None`` when no key was passed."""
     if not idempotency_key:
@@ -66,12 +91,16 @@ class _BaseResource:
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
+        _rate_limit_store: Optional[List[Any]] = None,
     ) -> None:
         self._client = client
         self._base_url = base_url
         self._token_manager = token_manager
         self._firm_id = firm_id
         self._max_retries = max_retries
+        # Shared mutable list (1-element) so the EPostak client can read the
+        # last parsed rate-limit info across all resource instances.
+        self._rate_limit_store: List[Any] = _rate_limit_store if _rate_limit_store is not None else []
 
     def _headers(self) -> Dict[str, str]:
         token = self._token_manager.get_access_token()
@@ -158,6 +187,14 @@ class _BaseResource:
                     self._sleep_for_retry(attempt, response)
                     continue
                 raise last_exc
+
+            # Capture rate-limit info from every successful response.
+            rl = _parse_rate_limit_headers(response.headers)
+            if rl is not None:
+                if self._rate_limit_store:
+                    self._rate_limit_store[0] = rl
+                else:
+                    self._rate_limit_store.append(rl)
 
             if raw:
                 return response

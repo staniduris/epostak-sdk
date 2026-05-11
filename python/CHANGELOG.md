@@ -3,6 +3,28 @@
 All notable changes to the `epostak` Python SDK are documented in this
 file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.9.0 — 2026-05-12
+
+Additive release. Backward-compatible with 0.8.x.
+
+### Added
+
+- **`client.inbound`** (`InboundResource`) — Pull API for received documents:
+  - `inbound.list(since=None, limit=100, kind=None, sender=None)` — cursor-paginated list of received documents.
+  - `inbound.get(id)` — fetch a single received document.
+  - `inbound.get_ubl(id)` — fetch raw UBL XML (returns `str`).
+  - `inbound.ack(id, client_reference=None, idempotency_key=None)` — acknowledge receipt; scope `documents:write`.
+- **`client.outbound`** (`OutboundResource`) — Pull API for sent documents:
+  - `outbound.list(since=None, limit=100, kind=None, status=None, business_status=None, recipient=None)`.
+  - `outbound.get(id)` — detail view includes `attempt_history`.
+  - `outbound.get_ubl(id)` — raw UBL XML.
+  - `outbound.events(since=None, limit=100, document_id=None)` — cursor-paginated delivery event stream.
+- **`UblValidationError`** — raised automatically by `build_api_error` when the server returns HTTP 422 with `code == 'UBL_VALIDATION_ERROR'`. Exposes `rule` (e.g. `"BR-06"`) and inherits all `EPostakError` fields.
+- **`UBL_RULES`** — constant tuple of the 7 known Peppol BIS 3.0 rule codes: `("BR-06", …, "BR-12")`.
+- **`client.last_rate_limit`** — property returning `{"limit": int, "remaining": int, "reset_at": datetime}` parsed from `X-RateLimit-*` headers, or `None` before the first request. Shared across all resource namespaces on the client instance.
+- **`WebhookDelivery.idempotency_key`** — optional field on the `WebhookDelivery` TypedDict.
+- **`webhooks.test(id, event=None)`** — now sends `?event=` as a query parameter in addition to the request body, matching server behaviour (PR #114 in epostak backend).
+
 ## 0.8.1 — 2026-05-06
 
 Bug-fix release. Two breaking-on-paper but pre-launch-clean fixes for

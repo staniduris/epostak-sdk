@@ -615,6 +615,7 @@ class WebhookDelivery(TypedDict, total=False):
     attempts: int  # type: ignore[misc]  # Number of delivery attempts made
     responseStatus: Optional[int]  # HTTP status code from your endpoint, or None
     createdAt: str  # type: ignore[misc]  # ISO 8601 creation timestamp
+    idempotency_key: Optional[str]  # Idempotency key for the delivery, if set
 
 
 class WebhookWithDeliveries(TypedDict, total=False):
@@ -1139,6 +1140,107 @@ class CursorPage(TypedDict, Generic[_CursorItemT]):
 
     items: List[_CursorItemT]  # Rows in this page
     next_cursor: Optional[str]  # Opaque cursor or None when finished
+
+
+# ---------------------------------------------------------------------------
+# Pull API — inbound documents (v0.9.0)
+# ---------------------------------------------------------------------------
+
+
+class PullInboundDocument(TypedDict, total=False):
+    """A received (inbound) document as returned by the Pull API."""
+
+    id: str  # type: ignore[misc]  # Document UUID
+    kind: str  # type: ignore[misc]  # Document kind, e.g. "invoice", "credit_note"
+    status: str  # type: ignore[misc]  # Current status, e.g. "RECEIVED", "ACKNOWLEDGED"
+    sender_peppol_id: Optional[str]  # Sender Peppol participant ID
+    receiver_peppol_id: Optional[str]  # Receiver Peppol participant ID
+    peppol_message_id: Optional[str]  # Peppol AS4 message ID
+    client_acked_at: Optional[str]  # ISO 8601 timestamp of last client ack, or None
+    client_reference: Optional[str]  # Client reference set on ack, or None
+    received_at: str  # type: ignore[misc]  # ISO 8601 timestamp when the document was received
+    created_at: str  # type: ignore[misc]  # ISO 8601 creation timestamp
+
+
+class PullInboundListResponse(TypedDict, total=False):
+    """Cursor-paginated list of received documents."""
+
+    documents: List[PullInboundDocument]  # type: ignore[misc]
+    next_cursor: Optional[str]  # Opaque cursor for the next page, None when exhausted
+    has_more: bool  # type: ignore[misc]  # True if more documents exist past this page
+
+
+# PullInboundAckResponse is the full document shape post-ack
+PullInboundAckResponse = PullInboundDocument
+
+
+# ---------------------------------------------------------------------------
+# Pull API — outbound documents (v0.9.0)
+# ---------------------------------------------------------------------------
+
+
+class _OutboundAttempt(TypedDict, total=False):
+    """Single delivery attempt in the outbound document detail."""
+
+    attempted_at: str  # type: ignore[misc]
+    result: str  # type: ignore[misc]
+    error: Optional[str]
+
+
+class PullOutboundDocument(TypedDict, total=False):
+    """A sent (outbound) document as returned by the Pull API."""
+
+    id: str  # type: ignore[misc]
+    kind: str  # type: ignore[misc]
+    status: str  # type: ignore[misc]
+    business_status: Optional[str]
+    sender_peppol_id: Optional[str]
+    receiver_peppol_id: Optional[str]
+    peppol_message_id: Optional[str]
+    attempt_history: List[_OutboundAttempt]  # Only present in detail (get), not in list
+    created_at: str  # type: ignore[misc]
+    updated_at: str  # type: ignore[misc]
+
+
+class PullOutboundListResponse(TypedDict, total=False):
+    """Cursor-paginated list of sent documents."""
+
+    documents: List[PullOutboundDocument]  # type: ignore[misc]
+    next_cursor: Optional[str]
+    has_more: bool  # type: ignore[misc]
+
+
+class _OutboundEvent(TypedDict, total=False):
+    """A single delivery event for an outbound document."""
+
+    id: str  # type: ignore[misc]
+    document_id: str  # type: ignore[misc]
+    type: str  # type: ignore[misc]
+    actor: Optional[str]
+    detail: Optional[str]
+    meta: Dict[str, Any]  # type: ignore[misc]
+    occurred_at: str  # type: ignore[misc]
+
+
+class PullOutboundEventsResponse(TypedDict, total=False):
+    """Cursor-paginated delivery event stream."""
+
+    events: List[_OutboundEvent]  # type: ignore[misc]
+    next_cursor: Optional[str]
+    has_more: bool  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Rate-limit info (v0.9.0)
+# ---------------------------------------------------------------------------
+
+
+class RateLimitInfo(TypedDict):
+    """Parsed X-RateLimit-* headers from the last API response."""
+
+    limit: int  # Total requests allowed in the window
+    remaining: int  # Requests remaining in the current window
+    reset_at: Any  # datetime of the window reset (datetime.datetime object)
 
 
 # ---------------------------------------------------------------------------

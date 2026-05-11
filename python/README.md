@@ -4,12 +4,20 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v2.0 — break-clean release.** All endpoints now live under
-> `/api/v1` (Wave-5 namespace migration). New `auth` resource for the
-> OAuth `client_credentials` flow, new `audit` resource, top-level
-> `verify_webhook_signature` helper, and `Idempotency-Key` support on
-> mutating endpoints. See [CHANGELOG.md](./CHANGELOG.md) for the full
-> migration table.
+> **v0.9.0** — Pull API (`client.inbound`, `client.outbound`), `UblValidationError`,
+> `client.last_rate_limit`, `webhooks.test()` query-param fix. Fully backward-compatible
+> with 0.8.x. See [CHANGELOG.md](./CHANGELOG.md).
+
+## Recent changes
+
+### v0.9.0 — 2026-05-12
+
+- `client.inbound` — Pull API for received documents: `list`, `get`, `get_ubl`, `ack`.
+- `client.outbound` — Pull API for sent documents: `list`, `get`, `get_ubl`, `events`.
+- `UblValidationError` — raised on 422 `UBL_VALIDATION_ERROR`; exposes `.rule` (e.g. `"BR-06"`). `UBL_RULES` constant tuple of the 7 known rule codes.
+- `client.last_rate_limit` — `{"limit", "remaining", "reset_at"}` from `X-RateLimit-*` headers.
+- `WebhookDelivery.idempotency_key` optional field.
+- `webhooks.test(id, event=None)` now forwards `?event=` as a query param (matches server PR #114).
 
 ---
 

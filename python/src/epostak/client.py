@@ -3,11 +3,13 @@
 This module exports :class:`EPostak`, the top-level entry point for all SDK
 operations.  Instantiate it with an API key and access resource namespaces
 (``auth``, ``audit``, ``documents``, ``firms``, ``peppol``, ``webhooks``,
-``reporting``, ``extract``, ``account``) as attributes.
+``reporting``, ``extract``, ``account``, ``inbound``, ``outbound``) as
+attributes.
 """
 
 from __future__ import annotations
 
+import datetime
 from typing import Optional
 
 import httpx
@@ -18,7 +20,9 @@ from epostak.resources.auth import AuthResource
 from epostak.resources.documents import DocumentsResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
+from epostak.resources.inbound import InboundResource
 from epostak.resources.integrator import IntegratorResource
+from epostak.resources.outbound import OutboundResource
 from epostak.resources.peppol import PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.webhooks import WebhooksResource
@@ -124,6 +128,12 @@ class EPostak:
     firms: FirmsResource
     """Manage client firms (integrator keys)."""
 
+    inbound: InboundResource
+    """Pull API: received (inbound) documents."""
+
+    outbound: OutboundResource
+    """Pull API: sent (outbound) documents and events."""
+
     peppol: PeppolResource
     """SMP lookup and Peppol directory search."""
 
@@ -171,18 +181,46 @@ class EPostak:
             firm_id=firm_id,
         )
 
+        # Shared mutable list for rate-limit info; all resources write to the
+        # same list so client.last_rate_limit always reflects the latest call.
+        self._rate_limit_store: list = []
+
         retry_kw = {"max_retries": max_retries}
+        rl_kw = {"_rate_limit_store": self._rate_limit_store}
         tm = self._token_manager
-        self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.firms = FirmsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.peppol = PeppolResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.webhooks = WebhooksResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.reporting = ReportingResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.extract = ExtractResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
-        self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw)
+        self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.firms = FirmsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.inbound = InboundResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.outbound = OutboundResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.peppol = PeppolResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.webhooks = WebhooksResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.reporting = ReportingResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.extract = ExtractResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+
+    @property
+    def last_rate_limit(self) -> "Optional[dict]":
+        """Rate-limit info from the most recent API response.
+
+        Parsed from ``X-RateLimit-Limit``, ``X-RateLimit-Remaining``, and
+        ``X-RateLimit-Reset`` headers.  Returns ``None`` before the first
+        request or when the server omits these headers.
+
+        Returns:
+            Dict with keys ``limit`` (int), ``remaining`` (int), and
+            ``reset_at`` (``datetime.datetime`` in UTC).
+
+        Example::
+
+            client.inbound.list()
+            rl = client.last_rate_limit
+            if rl and rl["remaining"] < 10:
+                print(f"Rate limit almost exhausted, resets at {rl['reset_at']}")
+        """
+        return self._rate_limit_store[0] if self._rate_limit_store else None
 
     def with_firm(self, firm_id: str) -> EPostak:
         """Create a new client instance scoped to a specific firm.

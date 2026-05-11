@@ -73,7 +73,9 @@ class IntegratorResource:
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
+        _rate_limit_store: Optional[list] = None,
     ) -> None:
         self.licenses = IntegratorLicensesResource(
-            client, base_url, token_manager, firm_id, max_retries=max_retries
+            client, base_url, token_manager, firm_id, max_retries=max_retries,
+            _rate_limit_store=_rate_limit_store,
         )

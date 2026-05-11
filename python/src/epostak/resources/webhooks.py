@@ -145,9 +145,10 @@ class WebhooksResource(_BaseResource):
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
+        _rate_limit_store: Optional[list] = None,
     ) -> None:
-        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries)
-        self.queue = WebhookQueueResource(client, base_url, token_manager, firm_id, max_retries=max_retries)
+        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries, _rate_limit_store=_rate_limit_store)
+        self.queue = WebhookQueueResource(client, base_url, token_manager, firm_id, max_retries=max_retries, _rate_limit_store=self._rate_limit_store)
 
     def create(
         self,
@@ -287,10 +288,19 @@ class WebhooksResource(_BaseResource):
             result = client.webhooks.test("webhook-uuid", event="document.received")
             print(result["success"], result["responseTime"])
         """
+        # Server code (PR #114): ?event= query param takes precedence over body
+        # event field. We send both so the call works regardless of server version.
         body: Dict[str, Any] = {}
+        params: Optional[Dict[str, str]] = None
         if event is not None:
             body["event"] = event
-        return self._request("POST", f"/webhooks/{quote(id, safe='')}/test", json=body)
+            params = {"event": event}
+        return self._request(
+            "POST",
+            f"/webhooks/{quote(id, safe='')}/test",
+            json=body,
+            params=params,
+        )
 
     def deliveries(
         self,

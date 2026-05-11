@@ -1,5 +1,25 @@
 # Changelog
 
+## [Python 0.9.0] — 2026-05-12
+
+Pull API resources (`client.inbound` + `client.outbound`), `UblValidationError`
+with `UBL_RULES` constants, `webhooks.test()` query-param fix,
+`WebhookDelivery.idempotency_key`, and `client.last_rate_limit` / `RateLimitInfo`.
+See `python/CHANGELOG.md` for full details.
+
+## [.NET 0.9.0] — 2026-05-12
+
+Pull API resources (`client.Inbound` + `client.Outbound`), `UblValidationException`
+with `UblRule` constants, `WebhookTestParams` + `WebhookEvent` enum,
+`WebhookDelivery.IdempotencyKey`, and `client.LastRateLimit` / `RateLimitInfo`.
+See `dotnet/CHANGELOG.md` for full details.
+
+## [PHP 0.9.0] — 2026-05-12
+
+Pull API resources (`inbound` + `outbound`), `UblValidationException`, rate-limit
+header exposure, and webhook test query-param fix. See `php/CHANGELOG.md` for full
+details.
+
 ## All SDKs — 2026-05-04 — Typed `DuplicateInvoiceNumberError` + pre-launch version reset
 
 The Enterprise API now returns a structured 409 payload when an outbound

@@ -6,6 +6,8 @@ from epostak.errors import (
     DuplicateInvoiceNumberError,
     DuplicateInvoiceRecipient,
     EPostakError,
+    UBL_RULES,
+    UblValidationError,
 )
 from epostak.oauth import OAuth
 from epostak.webhook_signature import (
@@ -19,9 +21,11 @@ __all__ = [
     "DuplicateInvoiceNumberError",
     "DuplicateInvoiceRecipient",
     "DuplicateInvoiceExistingDocument",
+    "UblValidationError",
+    "UBL_RULES",
     "OAuth",
     "VerifyWebhookSignatureResult",
     "validate",
     "verify_webhook_signature",
 ]
-__version__ = "0.8.0"
+__version__ = "0.9.0"
