@@ -2,7 +2,6 @@ package sk.epostak.sdk.models;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Response from pulling the webhook event queue.
@@ -21,13 +20,13 @@ public record WebhookQueueResponse(
      * @param firmId    the firm UUID this event belongs to
      * @param event     the event type, e.g. {@code "document.received"}
      * @param createdAt ISO 8601 timestamp of when the event was created
-     * @param payload   event payload data as a map
+     * @param payload   typed v1 webhook payload envelope
      */
     public record WebhookQueueItem(
             @SerializedName("event_id") String eventId,
             @SerializedName("firm_id") String firmId,
             String event,
             @SerializedName("created_at") String createdAt,
-            Map<String, Object> payload
+            WebhookPayloadEnvelope payload
     ) {}
 }

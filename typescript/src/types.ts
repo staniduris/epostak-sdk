@@ -34,9 +34,104 @@ export type WebhookEvent =
   | "document.received"
   | "document.validated"
   | "document.delivered"
+  | "document.delivery_failed"
   | "document.rejected"
-  | "document.response_received"
-  | "document.failed";
+  | "document.response_received";
+
+/**
+ * Common envelope shape for every v1 webhook payload, whether received via
+ * push (POST to your URL) or pull (one item from `webhooks.queue.pull()`).
+ */
+export interface WebhookPayloadEnvelope<TData = WebhookPayloadData> {
+  /** Event type, e.g. `"document.sent"`. */
+  event: WebhookEvent;
+  /** Payload schema version. Always `"1"` for v1. */
+  event_version: "1";
+  /**
+   * Per-delivery UUID prefixed with `whk_`. Echoed in the
+   * `X-Webhook-Id` header. `null` for items returned from the pull queue.
+   */
+  webhook_id: string | null;
+  /**
+   * Pull-queue row UUID. Use it directly with
+   * `webhooks.queue.ack(webhook_event_id)` from your push handler to
+   * acknowledge the event without an extra GET round-trip. `null` when
+   * no pull subscription exists for this event on the firm.
+   */
+  webhook_event_id: string | null;
+  /** ISO 8601 timestamp when the dispatcher emitted this event. */
+  timestamp: string;
+  /** Business payload — shape depends on the event type. */
+  data: TData;
+}
+
+/**
+ * Business-data shape carried by webhook events. Common fields are
+ * always present; event-specific extras (`sent_at`, `response_code`, …)
+ * are present only on the relevant event type — they're optional at the
+ * type level so a single handler can branch on `event` without casts.
+ */
+export interface WebhookPayloadData {
+  /** Document UUID. Replaces the legacy `invoice_id` field (renamed 2026-05-12). */
+  document_id: string;
+  /** Human invoice/document number (billing events). */
+  document_number?: string | null;
+  /** `"inbound"` or `"outbound"`. */
+  direction: "inbound" | "outbound";
+  /** Peppol doctype key (e.g. `"invoice"`, `"credit_note"`, `"order"`). */
+  doctype_key: string;
+  /** Document status after this event's state transition. */
+  status: string;
+  /** Document status BEFORE this event, or `null` for create-type events. */
+  previous_status: string | null;
+  /** Total amount as string-encoded decimal (billing events). */
+  total_amount?: string | null;
+  /** ISO 4217 currency code (billing events). */
+  currency?: string | null;
+  /** YYYY-MM-DD issue date (billing events). */
+  issue_date?: string | null;
+  /** YYYY-MM-DD due date (billing events), or `null`. */
+  due_date?: string | null;
+  /** Sender Peppol participant identifier (e.g. `"0245:1122334455"`). */
+  sender_peppol_id?: string | null;
+  /** Receiver Peppol participant identifier. */
+  receiver_peppol_id?: string | null;
+
+  // Event-specific extras (optional at type level)
+
+  /** `document.sent` — wall-clock time the AS4 send succeeded. */
+  sent_at?: string;
+  /** `document.received` — AS4 ingest moment. */
+  received_at?: string;
+  /** `document.delivered` — when the receiving AP confirmed delivery. */
+  delivered_at?: string;
+  /** `document.delivered`, `document.sent`, `document.received` — AS4 EBMS message ID. */
+  as4_message_id?: string;
+  /** `document.rejected` — when the rejection arrived. */
+  rejected_at?: string;
+  /** `document.response_received` — when the buyer response arrived. */
+  responded_at?: string;
+  /**
+   * `document.rejected` / `document.response_received` — buyer response code.
+   * One of `"RE" | "AB" | "IP" | "UQ" | "CA" | "AP" | "PD"`.
+   */
+  response_code?: InvoiceResponseCode;
+  /** Human-readable rejection / response note (when supplied by the buyer). */
+  response_reason?: string;
+  /**
+   * `document.rejected` — which side produced the response.
+   * `"peer_ap"` (MLR from receiving AP), `"buyer"` (InvoiceResponse from
+   * the buyer's UI), or `"loopback"` (same-AP mirror).
+   */
+  responder?: "peer_ap" | "buyer" | "loopback";
+  /** `document.delivery_failed` — final error message from the queue (truncated 400 chars). */
+  failure_reason?: string;
+  /** `document.delivery_failed` — total number of attempts before giving up. */
+  attempts?: number;
+}
+
+/** Convenience alias — the full POST body / pull queue item payload. */
+export type WebhookPayload = WebhookPayloadEnvelope;
 
 /**
  * Direction of a document relative to the authenticated firm.
@@ -969,10 +1064,18 @@ export interface BatchAssignFirmsResponse {
 // Webhooks
 // ---------------------------------------------------------------------------
 
-/** Request body for creating a new webhook subscription. */
+/**
+ * Request body for creating a new webhook subscription.
+ *
+ * Since 3.3.0 (2026-05-12) `url` is optional: omit it (or pass `null`) to
+ * create a pull-only subscription whose events land in the queue read via
+ * `webhooks.queue.pull()`. Pass a HTTPS URL to receive POST deliveries.
+ * One subscription is exactly one channel — register two subscriptions
+ * (one with URL, one without) if you want both push and pull.
+ */
 export interface CreateWebhookRequest {
-  /** HTTPS URL where webhook payloads will be POSTed */
-  url: string;
+  /** HTTPS URL where webhook payloads will be POSTed, or `null` for pull-only. */
+  url?: string | null;
   /** Event types to subscribe to — defaults to all events if omitted */
   events?: WebhookEvent[];
   /** Whether the webhook is active (defaults to `true`) */
@@ -981,8 +1084,8 @@ export interface CreateWebhookRequest {
 
 /** Request body for updating an existing webhook subscription. Omit fields to leave unchanged. */
 export interface UpdateWebhookRequest {
-  /** New HTTPS URL for the webhook */
-  url?: string;
+  /** New HTTPS URL for the webhook, or `null` to switch to pull-only. */
+  url?: string | null;
   /** Updated list of event types to subscribe to */
   events?: WebhookEvent[];
   /** Set to `false` to pause the webhook without deleting it */
@@ -993,8 +1096,11 @@ export interface UpdateWebhookRequest {
 export interface Webhook {
   /** Webhook UUID */
   id: string;
-  /** HTTPS URL where payloads are delivered */
-  url: string;
+  /**
+   * HTTPS URL where payloads are delivered, or `null` for a pull-only
+   * subscription (consumed via `webhooks.queue.pull()`).
+   */
+  url: string | null;
   /** Event types this webhook is subscribed to */
   events: WebhookEvent[];
   /** Whether the webhook is currently active and receiving events */
@@ -1012,8 +1118,8 @@ export interface Webhook {
 export interface WebhookDetail {
   /** Webhook UUID */
   id: string;
-  /** HTTPS URL */
-  url: string;
+  /** HTTPS URL, or `null` for pull-only subscriptions. */
+  url: string | null;
   /** Event types */
   events: WebhookEvent[];
   /** HMAC-SHA256 signing secret (only returned on creation) */
@@ -1178,9 +1284,9 @@ export interface WebhookQueueItem {
   /** UUID of the firm this event belongs to */
   firm_id: string;
   /** Event type (e.g. `"document.received"`, `"document.sent"`) */
-  event: string;
-  /** Event payload containing the document data and metadata */
-  payload: Record<string, unknown>;
+  event: WebhookEvent;
+  /** The full v1 webhook payload (same envelope shape as push deliveries). */
+  payload: WebhookPayload;
   /** ISO 8601 timestamp when the event was created */
   created_at: string;
 }
@@ -1215,9 +1321,9 @@ export interface WebhookQueueAllEvent {
   /** UUID of the firm this event belongs to */
   firm_id: string;
   /** Event type (e.g. `"document.received"`) */
-  event: string;
-  /** Event payload containing document data and metadata */
-  payload: Record<string, unknown>;
+  event: WebhookEvent;
+  /** The full v1 webhook payload (same envelope shape as push deliveries). */
+  payload: WebhookPayload;
   /** ISO 8601 timestamp when the event was created */
   created_at: string;
 }

@@ -6,7 +6,8 @@ import java.util.List;
  * Webhook detail with HMAC signing secret and recent delivery history.
  *
  * @param id             the webhook UUID
- * @param url            the endpoint URL receiving webhook payloads
+ * @param url            the HTTPS endpoint URL receiving webhook payloads,
+ *                       or {@code null} for a pull-only subscription
  * @param events         list of subscribed event types
  * @param isActive       {@code true} if the webhook is actively delivering events
  * @param failedAttempts count of consecutive failed delivery attempts, or {@code null}
@@ -17,7 +18,7 @@ import java.util.List;
  */
 public record WebhookDetail(
         String id,
-        String url,
+        String url,    // nullable — null for pull-only subscriptions
         List<String> events,
         boolean isActive,
         Integer failedAttempts,

@@ -28,16 +28,34 @@ class WebhookQueue
      * Events must be acknowledged after processing via ack() or batchAck().
      * Unacknowledged events will be returned again on the next pull.
      *
+     * Each item's `payload` conforms to `WebhookPayloadEnvelope` (defined in
+     * {@see Webhooks}): `webhook_id` is always `null` for pull items.
+     *
      * @param array{limit?: int, event_type?: string} $params Optional filters:
      *   - `limit`      Max events to return (default 20).
      *   - `event_type` Filter to a specific event type (e.g. 'document.received').
-     * @return array{items: array, has_more: bool} Pending events and pagination flag.
+     * @return array{
+     *   items: list<array{
+     *     event_id: string,
+     *     event: string,
+     *     payload: array{
+     *       event: string,
+     *       event_version: '1',
+     *       webhook_id: string|null,
+     *       webhook_event_id: string|null,
+     *       timestamp: string,
+     *       data: array<string, mixed>
+     *     },
+     *     created_at: string
+     *   }>,
+     *   has_more: bool
+     * } Pending events and pagination flag.
      * @throws EPostakError On API error.
      *
      * @example
      *   $result = $client->webhooks->queue->pull(['limit' => 50]);
      *   foreach ($result['items'] as $item) {
-     *       processEvent($item);
+     *       processEvent($item['payload']);
      *       $client->webhooks->queue->ack($item['event_id']);
      *   }
      */
@@ -86,8 +104,23 @@ class WebhookQueue
      * @param array{limit?: int, since?: string} $params Optional filters:
      *   - `limit` Max events to return (default 100, max 500).
      *   - `since` ISO 8601 datetime cutoff.
-     * @return array{items: list<array{event_id: string, firm_id: string, event: string, payload: array, created_at: string}>, has_more: bool}
-     *   Pending events from all firms; `has_more` indicates more events are available.
+     * @return array{
+     *   items: list<array{
+     *     event_id: string,
+     *     firm_id: string,
+     *     event: string,
+     *     payload: array{
+     *       event: string,
+     *       event_version: '1',
+     *       webhook_id: string|null,
+     *       webhook_event_id: string|null,
+     *       timestamp: string,
+     *       data: array<string, mixed>
+     *     },
+     *     created_at: string
+     *   }>,
+     *   has_more: bool
+     * } Pending events from all firms; `has_more` indicates more events are available.
      * @throws EPostakError On API error.
      */
     public function pullAll(array $params = []): array

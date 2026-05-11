@@ -1,5 +1,50 @@
 # Changelog
 
+## [Webhook v1 sweep] — 2026-05-12
+
+All SDKs bumped to track the ePošťák webhook v1 contract shipped in
+ePošťák PR #120. Per-language versions:
+
+- **TS 3.3.0** (npm `@epostak/sdk`)
+- **Python 0.10.0** (PyPI `epostak`)
+- **Ruby 0.10.0** (RubyGems `epostak`)
+- **PHP 0.10.0** (Packagist `epostak/sdk`)
+- **.NET 0.10.0** (NuGet `EPostak`)
+- **Java 0.10.0** (Maven Central `sk.epostak:epostak-sdk`)
+
+### Common changes across all SDKs
+
+- **Push vs pull is now per-subscription.** `CreateWebhookRequest.url` is
+  optional: omit it or pass `null` for a pull-only subscription
+  (events land in the queue you read via `webhooks.queue.pull()`).
+  `Webhook.url` / `WebhookDetail.url` are nullable. Push and pull are
+  decoupled — a push subscription no longer writes to the pull queue,
+  so the queue stops growing for push subscribers.
+- **`WebhookPayload` envelope typed end-to-end.** New `WebhookPayload`
+  type (with `WebhookPayloadEnvelope` + `WebhookPayloadData` sub-types
+  in TS, equivalent `TypedDict` / records / classes elsewhere). Carries
+  `event`, `event_version: "1"`, `webhook_id`, `webhook_event_id`,
+  `timestamp`, `data` — same shape for push deliveries and pull queue
+  items.
+- **`data.document_id` replaces `data.invoice_id`** in webhook
+  payloads. Pre-launch break-clean — no deprecation alias. The DB
+  column name is unchanged.
+- **New `data` fields**: `previous_status`, `sender_peppol_id`,
+  `receiver_peppol_id` on billing events, plus per-event extras
+  `sent_at`, `received_at`, `delivered_at`, `as4_message_id`,
+  `rejected_at`, `responded_at`, `response_code`, `response_reason`,
+  `responder`, `failure_reason`, `attempts`.
+- **`document.delivery_failed`** is the canonical name; the previous
+  `document.failed` alias has been removed from the `WebhookEvent`
+  union (it was never emitted by the server).
+- **`WebhookQueueItem.payload` is now typed** as `WebhookPayload`
+  (was `Record<string, unknown>` / `dict[str, Any]`).
+
+### Server-side reference
+
+- Canonical lifecycle reference: https://epostak.sk/docs/integration/webhook-events-reference
+- Server PR: staniduris/epostak #120
+
 ## [TS 3.2.0] — 2026-05-12
 
 - **New:** Pull API — `InboundResource` (`client.inbound.list/get/getUbl/ack`) and `OutboundResource` (`client.outbound.list/get/getUbl/events`). Full TypeScript types: `InboundDocument`, `OutboundDocument`, `OutboundEvent`, `InboundDocumentsListResponse`, `OutboundDocumentsListResponse`, `OutboundEventsListResponse`.

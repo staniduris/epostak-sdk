@@ -51,6 +51,9 @@ export type {
   // Primitives
   InvoiceResponseCode,
   WebhookEvent,
+  WebhookPayload,
+  WebhookPayloadEnvelope,
+  WebhookPayloadData,
   DocumentDirection,
   ConvertInputFormat,
   ConvertOutputFormat,

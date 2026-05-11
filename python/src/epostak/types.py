@@ -44,10 +44,82 @@ WebhookEvent = Literal[
     "document.received",
     "document.validated",
     "document.delivered",
+    "document.delivery_failed",
     "document.rejected",
     "document.response_received",
 ]
 """Event types that a webhook subscription can listen for."""
+
+
+class WebhookPayloadData(TypedDict, total=False):
+    """Business-data shape carried by webhook events.
+
+    Common fields (``document_id``, ``direction``, ``doctype_key``,
+    ``status``, ``previous_status``) are always present.  Event-specific
+    extras (``sent_at``, ``response_code``, etc.) are optional so a single
+    handler can branch on ``event`` without casts.
+    """
+
+    document_id: str  # type: ignore[misc]  # Document UUID
+    direction: Literal["inbound", "outbound"]  # type: ignore[misc]  # Document direction
+    doctype_key: str  # type: ignore[misc]  # Peppol doctype key, e.g. "invoice"
+    status: str  # type: ignore[misc]  # Document status after this event
+    previous_status: Optional[str]  # type: ignore[misc]  # Status before this event, None for create events
+
+    # Common billing fields (present on most events)
+    document_number: Optional[str]  # Human invoice/document number
+    total_amount: Optional[str]  # Total amount as string-encoded decimal
+    currency: Optional[str]  # ISO 4217 currency code
+    issue_date: Optional[str]  # YYYY-MM-DD issue date
+    due_date: Optional[str]  # YYYY-MM-DD due date
+    sender_peppol_id: Optional[str]  # Sender Peppol participant identifier
+    receiver_peppol_id: Optional[str]  # Receiver Peppol participant identifier
+
+    # Event-specific extras
+
+    # document.sent
+    sent_at: Optional[str]  # Wall-clock time the AS4 send succeeded
+
+    # document.received
+    received_at: Optional[str]  # AS4 ingest moment
+
+    # document.delivered
+    delivered_at: Optional[str]  # When the receiving AP confirmed delivery
+
+    # document.delivered / document.sent / document.received
+    as4_message_id: Optional[str]  # AS4 EBMS message ID
+
+    # document.rejected
+    rejected_at: Optional[str]  # When the rejection arrived
+
+    # document.response_received
+    responded_at: Optional[str]  # When the buyer response arrived
+
+    # document.rejected / document.response_received
+    response_code: Optional[InvoiceResponseCode]  # Buyer response code
+    response_reason: Optional[str]  # Human-readable rejection/response note
+    responder: Optional[Literal["peer_ap", "buyer", "loopback"]]  # Which side produced the response
+
+    # document.delivery_failed
+    failure_reason: Optional[str]  # Final error message from the queue (truncated 400 chars)
+    attempts: Optional[int]  # Total number of attempts before giving up
+
+
+class WebhookPayload(TypedDict):
+    """Common envelope for every v1 webhook payload.
+
+    Received via push (POST to your URL) or pull (one item from
+    ``webhooks.queue.pull()``).  ``webhook_id`` is ``None`` for pulled items;
+    ``webhook_event_id`` is ``None`` when no pull subscription exists.
+    """
+
+    event: WebhookEvent
+    event_version: Literal["1"]
+    webhook_id: Optional[str]
+    webhook_event_id: Optional[str]
+    timestamp: str
+    data: WebhookPayloadData
+
 
 DocumentDirection = Literal["inbound", "outbound"]
 """Direction of a document relative to the authenticated firm."""
@@ -584,21 +656,51 @@ class BatchAssignFirmsResponse(TypedDict):
 # ---------------------------------------------------------------------------
 
 
+class CreateWebhookRequest(TypedDict, total=False):
+    """Request body for creating a new webhook subscription.
+
+    Since v0.10.0 ``url`` is optional: omit it (or pass ``None``) to create a
+    pull-only subscription whose events land in the queue read via
+    ``webhooks.queue.pull()``.  Pass an HTTPS URL to receive POST deliveries.
+    Register two subscriptions if you want both push and pull.
+    """
+
+    url: Optional[str]  # HTTPS URL where payloads are POSTed, or None for pull-only
+    events: List[WebhookEvent]  # Event types to subscribe to (defaults to all if omitted)
+    isActive: bool  # Whether the webhook is active (defaults to True)
+
+
+class UpdateWebhookRequest(TypedDict, total=False):
+    """Request body for updating an existing webhook subscription.
+
+    Omit fields to leave them unchanged.  Set ``url=None`` to switch an
+    existing push subscription to pull-only.
+    """
+
+    url: Optional[str]  # New HTTPS URL, or None to switch to pull-only
+    events: List[WebhookEvent]  # Updated list of event types to subscribe to
+    isActive: bool  # Set to False to pause without deleting
+
+
 class Webhook(TypedDict, total=False):
     """Webhook subscription (list view, no secret)."""
 
     id: str  # type: ignore[misc]  # Webhook UUID
-    url: str  # type: ignore[misc]  # Delivery URL
+    url: Optional[str]  # type: ignore[misc]  # Delivery URL, or None for pull-only subscriptions
     events: List[str]  # type: ignore[misc]  # Subscribed event types
     isActive: bool  # type: ignore[misc]  # Whether the webhook is enabled
+    failedAttempts: int  # type: ignore[misc]  # Consecutive delivery failures (for auto-disable)
     createdAt: str  # type: ignore[misc]  # ISO 8601 creation timestamp
 
 
 class WebhookDetail(TypedDict, total=False):
-    """Webhook subscription detail returned on creation (includes secret)."""
+    """Webhook subscription detail returned on creation (includes secret).
+
+    The ``secret`` is only returned once at creation time — store it securely.
+    """
 
     id: str  # type: ignore[misc]  # Webhook UUID
-    url: str  # type: ignore[misc]  # Delivery URL
+    url: Optional[str]  # type: ignore[misc]  # Delivery URL, or None for pull-only subscriptions
     events: List[str]  # type: ignore[misc]  # Subscribed event types
     isActive: bool  # type: ignore[misc]  # Whether the webhook is enabled
     createdAt: str  # type: ignore[misc]  # ISO 8601 creation timestamp
@@ -641,7 +743,7 @@ class WebhookQueueItem(TypedDict):
     firm_id: str  # UUID of the firm the event belongs to
     event: str  # Event type, e.g. "document.received"
     created_at: str  # ISO 8601 timestamp when the event was created
-    payload: Dict[str, Any]  # Event-specific payload data
+    payload: WebhookPayload  # Full v1 webhook envelope
 
 
 class WebhookQueueResponse(TypedDict):
@@ -662,7 +764,7 @@ class WebhookQueueAllEvent(TypedDict):
     event_id: str  # Event UUID (use this to acknowledge)
     firm_id: str  # UUID of the firm the event belongs to
     event: str  # Event type, e.g. "document.received"
-    payload: Dict[str, Any]  # Event-specific payload data
+    payload: WebhookPayload  # Full v1 webhook envelope
     created_at: str  # ISO 8601 timestamp when the event was created
 
 

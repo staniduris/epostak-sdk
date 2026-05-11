@@ -8,6 +8,62 @@ use EPostak\HttpClient;
 use EPostak\EPostakError;
 
 /**
+ * Canonical webhook event types (v1 contract).
+ *
+ * @phpstan-type WebhookEvent
+ *   'document.created'|'document.sent'|'document.received'|'document.validated'|
+ *   'document.delivered'|'document.delivery_failed'|'document.rejected'|
+ *   'document.response_received'
+ */
+
+/**
+ * Business-data shape carried in every webhook event payload.
+ *
+ * Common fields are always present; event-specific extras are optional so a
+ * single handler can branch on `event` without casts.
+ *
+ * @phpstan-type WebhookPayloadData array{
+ *   document_id: string,
+ *   direction: 'inbound'|'outbound',
+ *   doctype_key: string,
+ *   status: string,
+ *   previous_status: string|null,
+ *   document_number?: string|null,
+ *   total_amount?: string|null,
+ *   currency?: string|null,
+ *   issue_date?: string|null,
+ *   due_date?: string|null,
+ *   sender_peppol_id?: string|null,
+ *   receiver_peppol_id?: string|null,
+ *   sent_at?: string,
+ *   received_at?: string,
+ *   delivered_at?: string,
+ *   rejected_at?: string,
+ *   responded_at?: string,
+ *   as4_message_id?: string,
+ *   response_code?: string,
+ *   response_reason?: string,
+ *   responder?: 'peer_ap'|'buyer'|'loopback',
+ *   failure_reason?: string,
+ *   attempts?: int
+ * }
+ */
+
+/**
+ * Common envelope shape for every v1 webhook payload (push POST body or pull
+ * queue item).
+ *
+ * @phpstan-type WebhookPayloadEnvelope array{
+ *   event: WebhookEvent,
+ *   event_version: '1',
+ *   webhook_id: string|null,
+ *   webhook_event_id: string|null,
+ *   timestamp: string,
+ *   data: WebhookPayloadData
+ * }
+ */
+
+/**
  * Manage webhook subscriptions for real-time event notifications.
  *
  * Access via `$client->webhooks`. The pull-based event queue is available
@@ -27,9 +83,14 @@ class Webhooks
     }
 
     /**
-     * Register a webhook endpoint.
+     * Register a webhook subscription.
      *
-     * @param string        $url            HTTPS URL that will receive POST webhook payloads.
+     * Pass an HTTPS `$url` to receive POST deliveries. Omit it (or pass
+     * `null`) to create a pull-only subscription: events land in the queue
+     * readable via `$client->webhooks->queue->pull()`.
+     *
+     * @param string|null   $url            HTTPS URL that will receive POST webhook payloads,
+     *                                      or `null` for a pull-only subscription.
      * @param string[]|null $events         Event types to subscribe to (e.g. ['document.received', 'document.sent']).
      *                                      Pass null to subscribe to all event types.
      * @param string|null   $idempotencyKey Optional `Idempotency-Key` header value
@@ -38,19 +99,26 @@ class Webhooks
      * @throws EPostakError On API error.
      *
      * @example
+     *   // Push subscription
      *   $webhook = $client->webhooks->create(
      *       'https://example.com/webhooks/epostak',
-     *       ['document.received', 'document.status_changed']
+     *       ['document.received', 'document.sent']
      *   );
      *   echo 'Webhook secret: ' . $webhook['secret'];
+     *
+     *   // Pull-only subscription
+     *   $webhook = $client->webhooks->create(null, ['document.received']);
      */
-    public function create(string $url, ?array $events = null, ?string $idempotencyKey = null): array
+    public function create(?string $url = null, ?array $events = null, ?string $idempotencyKey = null): array
     {
-        $body = ['url' => $url];
+        $body = [];
+        if ($url !== null) {
+            $body['url'] = $url;
+        }
         if ($events !== null) {
             $body['events'] = $events;
         }
-        $options = ['json' => $body];
+        $options = ['json' => empty($body) ? new \stdClass() : $body];
         if ($idempotencyKey !== null) {
             $options['headers'] = ['Idempotency-Key' => $idempotencyKey];
         }
@@ -84,7 +152,8 @@ class Webhooks
      * Update a webhook configuration.
      *
      * @param string $id   Webhook UUID.
-     * @param array  $data Fields to update (url, events, active).
+     * @param array{url?: string|null, events?: string[], isActive?: bool} $data
+     *   Fields to update. Set `url` to `null` to switch to a pull-only subscription.
      * @return array Updated webhook object.
      * @throws EPostakError On API error.
      */

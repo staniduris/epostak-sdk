@@ -2,7 +2,6 @@ package sk.epostak.sdk.models;
 
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Cross-firm webhook queue response for integrator keys.
@@ -20,14 +19,14 @@ public record WebhookQueueAllResponse(
      * @param eventId   the event UUID (use this to acknowledge the event)
      * @param firmId    the firm UUID this event belongs to
      * @param event     the event type, e.g. {@code "document.received"}
-     * @param payload   event payload data as a map
+     * @param payload   typed v1 webhook payload envelope
      * @param createdAt ISO 8601 timestamp of when the event was created
      */
     public record WebhookQueueAllEvent(
             @SerializedName("event_id") String eventId,
             @SerializedName("firm_id") String firmId,
             String event,
-            Map<String, Object> payload,
+            WebhookPayloadEnvelope payload,
             @SerializedName("created_at") String createdAt
     ) {}
 }

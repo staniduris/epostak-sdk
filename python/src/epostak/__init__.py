@@ -15,6 +15,14 @@ from epostak.webhook_signature import (
     verify_webhook_signature,
 )
 
+from epostak.types import (
+    CreateWebhookRequest,
+    UpdateWebhookRequest,
+    WebhookEvent,
+    WebhookPayload,
+    WebhookPayloadData,
+)
+
 __all__ = [
     "EPostak",
     "EPostakError",
@@ -27,5 +35,10 @@ __all__ = [
     "VerifyWebhookSignatureResult",
     "validate",
     "verify_webhook_signature",
+    "CreateWebhookRequest",
+    "UpdateWebhookRequest",
+    "WebhookEvent",
+    "WebhookPayload",
+    "WebhookPayloadData",
 ]
-__version__ = "0.9.0"
+__version__ = "0.10.0"

@@ -1,6 +1,6 @@
 {
   "name": "@epostak/sdk",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Official Node.js SDK for the ePošťák API — Peppol e-invoicing for Slovakia",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

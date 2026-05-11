@@ -22,6 +22,8 @@ public enum WebhookEvent
     DocumentValidated,
     /// <summary>Fired when the receiver's access point confirms AS4 delivery.</summary>
     DocumentDelivered,
+    /// <summary>Fired when AS4 delivery fails after all retries.</summary>
+    DocumentDeliveryFailed,
     /// <summary>Fired when a sent document is rejected by the receiver or validation.</summary>
     DocumentRejected,
     /// <summary>Fired when a Peppol Invoice Response is received for a sent document.</summary>
@@ -60,6 +62,8 @@ public static class WebhookEvents
     public const string DocumentValidated = "document.validated";
     /// <summary>Fired when the receiver's access point confirms AS4 delivery.</summary>
     public const string DocumentDelivered = "document.delivered";
+    /// <summary>Fired when AS4 delivery fails after all retries.</summary>
+    public const string DocumentDeliveryFailed = "document.delivery_failed";
     /// <summary>Fired when a sent document is rejected by the receiver or validation.</summary>
     public const string DocumentRejected = "document.rejected";
     /// <summary>Fired when a Peppol Invoice Response is received for a previously sent document.</summary>
@@ -91,9 +95,9 @@ public static class WebhookDeliveryStatus
 /// </summary>
 public sealed class CreateWebhookRequest
 {
-    /// <summary>The URL that will receive POST requests with event payloads. Must be HTTPS.</summary>
+    /// <summary>HTTPS URL where payloads will be POSTed, or <c>null</c> for a pull-only subscription.</summary>
     [JsonPropertyName("url")]
-    public required string Url { get; set; }
+    public string? Url { get; set; }
 
     /// <summary>List of event types to subscribe to (e.g. "document.received"). Null subscribes to all events.</summary>
     [JsonPropertyName("events")]
@@ -127,9 +131,9 @@ public sealed class Webhook
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
 
-    /// <summary>The URL receiving event payloads.</summary>
+    /// <summary>HTTPS URL receiving event payloads, or <c>null</c> for pull-only subscriptions.</summary>
     [JsonPropertyName("url")]
-    public string Url { get; set; } = "";
+    public string? Url { get; set; }
 
     /// <summary>Event types this webhook is subscribed to.</summary>
     [JsonPropertyName("events")]
@@ -153,9 +157,9 @@ public sealed class WebhookDetail
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
 
-    /// <summary>The URL receiving event payloads.</summary>
+    /// <summary>HTTPS URL receiving event payloads, or <c>null</c> for pull-only subscriptions.</summary>
     [JsonPropertyName("url")]
-    public string Url { get; set; } = "";
+    public string? Url { get; set; }
 
     /// <summary>Event types this webhook is subscribed to.</summary>
     [JsonPropertyName("events")]
@@ -226,9 +230,9 @@ public sealed class WebhookWithDeliveries
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
 
-    /// <summary>The URL receiving event payloads.</summary>
+    /// <summary>HTTPS URL receiving event payloads, or <c>null</c> for pull-only subscriptions.</summary>
     [JsonPropertyName("url")]
-    public string Url { get; set; } = "";
+    public string? Url { get; set; }
 
     /// <summary>Event types this webhook is subscribed to.</summary>
     [JsonPropertyName("events")]
@@ -396,6 +400,160 @@ public sealed class WebhookListResponse
 }
 
 // ---------------------------------------------------------------------------
+// Webhook payload types (v1 contract)
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Common envelope shape for every v1 webhook payload, whether received via
+/// push (POST to your URL) or pull (one item from the queue).
+/// </summary>
+public sealed class WebhookPayloadEnvelope
+{
+    /// <summary>Event type, e.g. <c>"document.sent"</c>.</summary>
+    [JsonPropertyName("event")]
+    public string Event { get; set; } = "";
+
+    /// <summary>Payload schema version. Always <c>"1"</c> for v1.</summary>
+    [JsonPropertyName("event_version")]
+    public string EventVersion { get; set; } = "1";
+
+    /// <summary>
+    /// Per-delivery UUID prefixed with <c>whk_</c>. Echoed in the
+    /// <c>X-Webhook-Id</c> header. <c>null</c> for pull-queue items.
+    /// </summary>
+    [JsonPropertyName("webhook_id")]
+    public string? WebhookId { get; set; }
+
+    /// <summary>
+    /// Pull-queue row UUID. Use directly with
+    /// <c>webhooks.queue.ack(webhookEventId)</c> to acknowledge without an
+    /// extra round-trip. <c>null</c> when no pull subscription exists.
+    /// </summary>
+    [JsonPropertyName("webhook_event_id")]
+    public string? WebhookEventId { get; set; }
+
+    /// <summary>ISO 8601 timestamp when the dispatcher emitted this event.</summary>
+    [JsonPropertyName("timestamp")]
+    public string Timestamp { get; set; } = "";
+
+    /// <summary>Business payload.</summary>
+    [JsonPropertyName("data")]
+    public WebhookPayloadData Data { get; set; } = new();
+}
+
+/// <summary>
+/// Business-data shape carried by webhook events. Common fields are always
+/// present; event-specific extras are nullable and present only on the
+/// relevant event type.
+/// </summary>
+public sealed class WebhookPayloadData
+{
+    // --- Always present ---
+
+    /// <summary>Document UUID.</summary>
+    [JsonPropertyName("document_id")]
+    public string DocumentId { get; set; } = "";
+
+    /// <summary><c>"inbound"</c> or <c>"outbound"</c>.</summary>
+    [JsonPropertyName("direction")]
+    public string Direction { get; set; } = "";
+
+    /// <summary>Peppol doctype key (e.g. <c>"invoice"</c>, <c>"credit_note"</c>).</summary>
+    [JsonPropertyName("doctype_key")]
+    public string DoctypeKey { get; set; } = "";
+
+    /// <summary>Document status after this event's state transition.</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    /// <summary>Document status before this event, or <c>null</c> for create-type events.</summary>
+    [JsonPropertyName("previous_status")]
+    public string? PreviousStatus { get; set; }
+
+    // --- Often-present (billing events) ---
+
+    /// <summary>Human invoice/document number (billing events).</summary>
+    [JsonPropertyName("document_number")]
+    public string? DocumentNumber { get; set; }
+
+    /// <summary>Total amount as string-encoded decimal (billing events).</summary>
+    [JsonPropertyName("total_amount")]
+    public string? TotalAmount { get; set; }
+
+    /// <summary>ISO 4217 currency code (billing events).</summary>
+    [JsonPropertyName("currency")]
+    public string? Currency { get; set; }
+
+    /// <summary>YYYY-MM-DD issue date (billing events).</summary>
+    [JsonPropertyName("issue_date")]
+    public string? IssueDate { get; set; }
+
+    /// <summary>YYYY-MM-DD due date (billing events).</summary>
+    [JsonPropertyName("due_date")]
+    public string? DueDate { get; set; }
+
+    /// <summary>Sender Peppol participant identifier (e.g. <c>"0245:1122334455"</c>).</summary>
+    [JsonPropertyName("sender_peppol_id")]
+    public string? SenderPeppolId { get; set; }
+
+    /// <summary>Receiver Peppol participant identifier.</summary>
+    [JsonPropertyName("receiver_peppol_id")]
+    public string? ReceiverPeppolId { get; set; }
+
+    // --- Event-specific extras ---
+
+    /// <summary><c>document.sent</c> — wall-clock time the AS4 send succeeded.</summary>
+    [JsonPropertyName("sent_at")]
+    public string? SentAt { get; set; }
+
+    /// <summary><c>document.received</c> — AS4 ingest moment.</summary>
+    [JsonPropertyName("received_at")]
+    public string? ReceivedAt { get; set; }
+
+    /// <summary><c>document.delivered</c> — when the receiving AP confirmed delivery.</summary>
+    [JsonPropertyName("delivered_at")]
+    public string? DeliveredAt { get; set; }
+
+    /// <summary><c>document.rejected</c> — when the rejection arrived.</summary>
+    [JsonPropertyName("rejected_at")]
+    public string? RejectedAt { get; set; }
+
+    /// <summary><c>document.response_received</c> — when the buyer response arrived.</summary>
+    [JsonPropertyName("responded_at")]
+    public string? RespondedAt { get; set; }
+
+    /// <summary>AS4 EBMS message ID (<c>document.delivered</c>, <c>document.sent</c>, <c>document.received</c>).</summary>
+    [JsonPropertyName("as4_message_id")]
+    public string? As4MessageId { get; set; }
+
+    /// <summary>
+    /// Buyer response code (<c>document.rejected</c> / <c>document.response_received</c>).
+    /// One of <c>"RE"</c>, <c>"AB"</c>, <c>"IP"</c>, <c>"UQ"</c>, <c>"CA"</c>, <c>"AP"</c>, <c>"PD"</c>.
+    /// </summary>
+    [JsonPropertyName("response_code")]
+    public string? ResponseCode { get; set; }
+
+    /// <summary>Human-readable rejection / response note.</summary>
+    [JsonPropertyName("response_reason")]
+    public string? ResponseReason { get; set; }
+
+    /// <summary>
+    /// Which side produced the rejection response (<c>document.rejected</c>):
+    /// <c>"peer_ap"</c>, <c>"buyer"</c>, or <c>"loopback"</c>.
+    /// </summary>
+    [JsonPropertyName("responder")]
+    public string? Responder { get; set; }
+
+    /// <summary><c>document.delivery_failed</c> — final error message from the queue (truncated 400 chars).</summary>
+    [JsonPropertyName("failure_reason")]
+    public string? FailureReason { get; set; }
+
+    /// <summary><c>document.delivery_failed</c> — total number of attempts before giving up.</summary>
+    [JsonPropertyName("attempts")]
+    public int? Attempts { get; set; }
+}
+
+// ---------------------------------------------------------------------------
 // Webhook pull queue
 // ---------------------------------------------------------------------------
 
@@ -431,9 +589,9 @@ public sealed class WebhookQueueItem
     [JsonPropertyName("created_at")]
     public string CreatedAt { get; set; } = "";
 
-    /// <summary>Event payload containing event-specific data (e.g. document ID, status).</summary>
+    /// <summary>Event payload. Deserialize as <see cref="WebhookPayloadEnvelope"/>.</summary>
     [JsonPropertyName("payload")]
-    public Dictionary<string, object> Payload { get; set; } = [];
+    public WebhookPayloadEnvelope Payload { get; set; } = new();
 }
 
 /// <summary>
@@ -502,9 +660,9 @@ public sealed class WebhookQueueAllEvent
     [JsonPropertyName("event")]
     public string Event { get; set; } = "";
 
-    /// <summary>Event payload containing event-specific data.</summary>
+    /// <summary>Event payload. Deserialize as <see cref="WebhookPayloadEnvelope"/>.</summary>
     [JsonPropertyName("payload")]
-    public Dictionary<string, object> Payload { get; set; } = [];
+    public WebhookPayloadEnvelope Payload { get; set; } = new();
 
     /// <summary>Timestamp when the event was created (ISO 8601).</summary>
     [JsonPropertyName("created_at")]
