@@ -3,6 +3,21 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 3.3.1 — 2026-05-12
+
+Docs-only patch tracking ePošťák server PR #122 (webhook dedup +
+status-code-aware retry policy).
+
+- **README:** new "Dedup + retry headers (server v1.1)" section under
+  the verifier example. Documents the three new request headers
+  (`X-Webhook-Event-Id`, `X-Webhook-Attempt`, `X-Webhook-Max-Attempts`),
+  the recommended INSERT-ON-CONFLICT dedup pattern keyed on
+  `webhook_event_id`, and the new status-code-aware retry policy
+  (only 408/425/429/502/503/504 + network errors retry; 500 is
+  terminal — return 503 if you want a retry).
+- **No code changes.** The HMAC signature contract is unchanged, so
+  `verifyWebhookSignature` keeps working without modification.
+
 ## 3.1.2 — 2026-05-06
 
 Bug-fix release. Three breaking-on-paper but pre-launch-clean fixes for
