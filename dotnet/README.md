@@ -257,6 +257,39 @@ var updated = await client.Webhooks.UpdateAsync("webhook-id", new UpdateWebhookR
 await client.Webhooks.DeleteAsync("webhook-id");
 ```
 
+#### Dedup + retry headers (server v1.1 — 2026-05-12)
+
+Three new headers on every push delivery:
+
+| Header | Value | Use |
+|-|-|-|
+| `X-Webhook-Event-Id` | UUID, stable across retries | **Primary dedup key.** Body also carries it as `webhook_event_id`. |
+| `X-Webhook-Attempt` | 1-based attempt number | Telemetry / logging. |
+| `X-Webhook-Max-Attempts` | Total attempts in the retry window (10) | Telemetry / logging. |
+
+Recommended receiver pattern (ASP.NET Core minimal API):
+
+```csharp
+// INSERT ON CONFLICT DO NOTHING on the event id is enough — every retry
+// of the same logical event carries the SAME X-Webhook-Event-Id.
+app.MapPost("/webhooks/epostak", async (HttpRequest req, NpgsqlConnection db) =>
+{
+    var eventId = req.Headers["X-Webhook-Event-Id"].ToString();
+    var inserted = await db.ExecuteAsync(
+        @"INSERT INTO processed_webhooks (event_id) VALUES (@id)
+          ON CONFLICT (event_id) DO NOTHING",
+        new { id = eventId });
+    if (inserted == 0)
+        return Results.Ok(); // duplicate — ack and skip
+    // process event for the first time...
+    return Results.NoContent();
+});
+```
+
+**Retry policy (server-side, as of 2026-05-12):** retries fire only for `408`, `425`, `429`, `502`, `503`, `504` and network errors (~44h bounded backoff). Returning any other 4xx/5xx — including `500` — terminates the retry loop immediately. If your handler wants a retry on a transient failure, return `503` (not `500`).
+
+The signature contract is **unchanged** (HMAC-SHA256 over `${timestamp}.${body}`).
+
 ### Webhook Queue (polling)
 
 ```csharp

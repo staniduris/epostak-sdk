@@ -1,5 +1,45 @@
 # Changelog
 
+## [Webhook v1.1 — dedup + retry policy] — 2026-05-12
+
+Docs-only follow-up to track ePošťák PR #122 (server-side dedup + retry
+policy fixes). No SDK code changes — the signature contract is
+deliberately unchanged. Every receiver-side README gained a "Dedup +
+retry headers" section.
+
+### What changed server-side
+
+- **`webhook_event_id` is always a UUID.** Previously `null` for push-only
+  subscriptions; now always populated. Identical across every retry of
+  the same delivery and across the push/pull split. Use it as your
+  primary dedup key on the receiver side.
+- **New HTTP headers** on every push delivery:
+  - `X-Webhook-Event-Id` — same UUID as `body.webhook_event_id`. Stable
+    across retries. Recommended dedup key.
+  - `X-Webhook-Attempt` — 1-based attempt number.
+  - `X-Webhook-Max-Attempts` — total attempts in the retry window (10).
+- **Status-code-aware retry policy.** Previously every non-2xx triggered
+  retry. Now:
+  - Retryable: `408`, `425`, `429`, `502`, `503`, `504`, network errors.
+  - Terminal (no retry, immediate `FAILED`): `400`, `401`, `403`, `404`,
+    `405`, `410`, `413`, `415`, `422`, `500`, `501`.
+  - A receiver that wants retries on a transient app error should return
+    `503`, not `500`.
+- **Signature unchanged.** Still HMAC-SHA256 over `${timestamp}.${body}`.
+  All existing verifiers (`verifyWebhookSignature`, equivalent in
+  Python / Ruby / PHP / Java) continue to work without code changes.
+
+### Receiver migration
+
+Existing receivers using `webhook_id` for dedup will keep working but
+should migrate to `webhook_event_id` / `X-Webhook-Event-Id`. Only
+`webhook_event_id` is stable across retries AND across push/pull split.
+
+### Server-side reference
+
+- Canonical lifecycle reference: https://epostak.sk/docs/integration/webhook-events-reference
+- Server PR: staniduris/epostak #122
+
 ## [Webhook v1 sweep] — 2026-05-12
 
 All SDKs bumped to track the ePošťák webhook v1 contract shipped in

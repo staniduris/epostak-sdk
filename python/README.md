@@ -281,6 +281,36 @@ def hook():
     return "", 204
 ```
 
+#### Dedup + retry headers (server v1.1 — 2026-05-12)
+
+Three new headers on every push delivery:
+
+| Header | Value | Use |
+|-|-|-|
+| `X-Webhook-Event-Id` | UUID, stable across retries | **Primary dedup key.** Body also carries it as `webhook_event_id`. |
+| `X-Webhook-Attempt` | 1-based attempt number | Telemetry / logging. |
+| `X-Webhook-Max-Attempts` | Total attempts in the retry window (10) | Telemetry / logging. |
+
+Recommended receiver pattern:
+
+```python
+# INSERT ON CONFLICT DO NOTHING on the event id is enough — every retry
+# of the same logical event carries the SAME X-Webhook-Event-Id.
+event_id = request.headers["x-webhook-event-id"]
+inserted = db.execute(
+    "INSERT INTO processed_webhooks (event_id) VALUES (%s) "
+    "ON CONFLICT (event_id) DO NOTHING RETURNING id",
+    (event_id,),
+).fetchone()
+if inserted is None:
+    return "", 200  # duplicate — ack and skip
+# process event for the first time...
+```
+
+**Retry policy (server-side, as of 2026-05-12):** the server retries only on `408`, `425`, `429`, `502`, `503`, `504` and network errors (~44h bounded backoff). Returning any other 4xx/5xx — including `500` — terminates the retry loop immediately. If your handler hits an app-level error and you want a retry, return `503` (not `500`).
+
+The signature contract is **unchanged** — `verify_webhook_signature` continues to work without code changes.
+
 ### Webhook pull queue
 
 ```python

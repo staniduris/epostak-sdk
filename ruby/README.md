@@ -350,6 +350,35 @@ post "/webhooks/epostak" do
 end
 ```
 
+#### Dedup + retry headers (server v1.1 — 2026-05-12)
+
+Three new headers on every push delivery:
+
+| Header | Value | Use |
+|-|-|-|
+| `X-Webhook-Event-Id` | UUID, stable across retries | **Primary dedup key.** Body also carries it as `webhook_event_id`. |
+| `X-Webhook-Attempt` | 1-based attempt number | Telemetry / logging. |
+| `X-Webhook-Max-Attempts` | Total attempts in the retry window (10) | Telemetry / logging. |
+
+Recommended receiver pattern:
+
+```ruby
+# INSERT ON CONFLICT DO NOTHING on the event id is enough — every retry
+# of the same logical event carries the SAME X-Webhook-Event-Id.
+event_id = request.env["HTTP_X_WEBHOOK_EVENT_ID"]
+inserted = DB.exec_params(
+  "INSERT INTO processed_webhooks (event_id) VALUES ($1) " \
+  "ON CONFLICT (event_id) DO NOTHING RETURNING id",
+  [event_id]
+)
+halt 200 if inserted.ntuples == 0  # duplicate — ack and skip
+# process event for the first time...
+```
+
+**Retry policy (server-side, as of 2026-05-12):** retries fire only for `408`, `425`, `429`, `502`, `503`, `504` and network errors (~44h bounded backoff). Returning any other 4xx/5xx — including `500` — terminates the retry loop immediately. If your handler wants a retry on a transient failure, return `503` (not `500`).
+
+The signature contract is **unchanged** — `EPostak.verify_webhook_signature` continues to work without code changes.
+
 #### List webhooks
 
 ```ruby

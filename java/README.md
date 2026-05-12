@@ -381,6 +381,39 @@ Use `express.raw()` (Node) or the equivalent in your framework to capture raw by
 > **Migration note:** the old single-header format (`X-Epostak-Signature: t=…,v1=…`) is no longer
 > used by the server. Use `client.webhooks().create(url, events)` to register webhook endpoints.
 
+#### Dedup + retry headers (server v1.1 — 2026-05-12)
+
+Three new headers on every push delivery:
+
+| Header | Value | Use |
+|-|-|-|
+| `X-Webhook-Event-Id` | UUID, stable across retries | **Primary dedup key.** Body also carries it as `webhook_event_id`. |
+| `X-Webhook-Attempt` | 1-based attempt number | Telemetry / logging. |
+| `X-Webhook-Max-Attempts` | Total attempts in the retry window (10) | Telemetry / logging. |
+
+Recommended receiver pattern:
+
+```java
+// INSERT ON CONFLICT DO NOTHING on the event id is enough — every retry
+// of the same logical event carries the SAME X-Webhook-Event-Id.
+String eventId = request.getHeader("X-Webhook-Event-Id");
+try (PreparedStatement ps = db.prepareStatement(
+        "INSERT INTO processed_webhooks (event_id) VALUES (?) " +
+        "ON CONFLICT (event_id) DO NOTHING")) {
+    ps.setString(1, eventId);
+    int rows = ps.executeUpdate();
+    if (rows == 0) {
+        response.setStatus(200);
+        return; // duplicate — ack and skip
+    }
+}
+// process event for the first time...
+```
+
+**Retry policy (server-side, as of 2026-05-12):** retries fire only for `408`, `425`, `429`, `502`, `503`, `504` and network errors (~44h bounded backoff). Returning any other 4xx/5xx — including `500` — terminates the retry loop immediately. If your handler wants a retry on a transient failure, return `503` (not `500`).
+
+The signature contract is **unchanged** — `WebhookSignature.verify(...)` continues to work without code changes.
+
 ---
 
 ### Webhook Pull Queue
