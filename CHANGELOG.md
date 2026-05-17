@@ -1,5 +1,17 @@
 # Changelog
 
+## [Webhook DLQ + participant resolve sync] — 2026-05-17
+
+SDK code sync against the latest ePošťák Enterprise backend changes.
+
+- Added webhook queued test options across SDKs: `count`, `mode=direct|queued`,
+  queued-mode response fields, and `testRunId` delivery filtering.
+- Added webhook dead-letter queue helpers across SDKs:
+  list unresolved failed deliveries, replay a failed delivery, and mark a
+  failed delivery as resolved.
+- Added Peppol participant resolve helper for `/peppol/participants/resolve`.
+- Extended endpoint coverage checks from 67 to 97 checks for these surfaces.
+
 ## [Enterprise + SAPI endpoint sync] — 2026-05-17
 
 SDK code sync against current ePošťák backend route map.

@@ -9,12 +9,14 @@ import java.util.List;
  * @param total      total number of deliveries matching the filter
  * @param limit      number of deliveries returned
  * @param offset     offset used for pagination
+ * @param nextCursor opaque cursor for the next page, or {@code null}
  */
 public record WebhookDeliveriesResponse(
         List<DeliveryDetail> deliveries,
         int total,
         int limit,
-        int offset
+        int offset,
+        String nextCursor
 ) {
     /**
      * A single delivery record with full detail.

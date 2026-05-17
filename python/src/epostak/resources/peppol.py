@@ -120,6 +120,31 @@ class PeppolResource(_BaseResource):
         params = _build_query({"q": q, "limit": limit})
         return self._request("GET", "/company/search", params=params)
 
+    def resolve(
+        self,
+        *,
+        ico: Optional[str] = None,
+        dic: Optional[str] = None,
+        ic_dph: Optional[str] = None,
+        peppol_id: Optional[str] = None,
+        scheme: Optional[str] = None,
+        identifier: Optional[str] = None,
+        document_type_id: Optional[str] = None,
+        process_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Resolve one ERP identifier to a Peppol participant and capability."""
+        params = _build_query({
+            "ico": ico,
+            "dic": dic,
+            "icDph": ic_dph,
+            "peppolId": peppol_id,
+            "scheme": scheme,
+            "identifier": identifier,
+            "documentTypeId": document_type_id,
+            "processId": process_id,
+        })
+        return self._request("GET", "/peppol/participants/resolve", params=params)
+
     def capabilities(
         self,
         scheme: str,

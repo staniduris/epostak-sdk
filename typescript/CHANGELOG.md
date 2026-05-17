@@ -5,6 +5,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased — 2026-05-17
 
+Webhook DLQ and participant resolve sync against current Enterprise backend routes.
+
+- Added `client.webhooks.test(id, { count, mode })` support for
+  production-like queued webhook tests.
+- Added `testRunId` and `cursor` delivery-history filters.
+- Added `client.webhooks.deadLetters()`,
+  `client.webhooks.replayDeadLetter(id)`, and
+  `client.webhooks.resolveDeadLetter(id, { reason })`.
+- Added `client.peppol.resolve(...)` for `/peppol/participants/resolve`.
+
 Endpoint coverage sync against current Enterprise and SAPI backend routes.
 
 - Added `client.sapi` for SAPI-SK 1.0 document send, receive, detail,

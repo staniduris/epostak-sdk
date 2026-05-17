@@ -118,10 +118,17 @@ module EPostak
       # @example
       #   result = client.webhooks.test("webhook-uuid", event: "document.received")
       #   puts result["success"] ? "OK" : result["error"]
-      def test(id, event: nil)
+      def test(id, event: nil, count: nil, mode: nil)
         body = {}
         body[:event] = event if event
-        @http.request(:post, "/webhooks/#{encode(id)}/test", body: body)
+        body[:count] = count if count
+        body[:mode] = mode if mode
+        @http.request(
+          :post,
+          "/webhooks/#{encode(id)}/test",
+          body: body,
+          query: { event: event, count: count, mode: mode }.compact
+        )
       end
 
       # Get paginated delivery history for a webhook.
@@ -137,7 +144,22 @@ module EPostak
       #   result = client.webhooks.deliveries("webhook-uuid", status: "FAILED", limit: 50)
       #   result["deliveries"].each { |d| puts "#{d['event']}: #{d['status']}" }
       def deliveries(id, **params)
-        @http.request(:get, "/webhooks/#{encode(id)}/deliveries", query: params)
+        query = params.dup
+        query[:testRunId] = query.delete(:test_run_id) if query.key?(:test_run_id)
+        @http.request(:get, "/webhooks/#{encode(id)}/deliveries", query: query)
+      end
+
+      def dead_letters(**params)
+        @http.request(:get, "/webhook-dead-letter", query: params)
+      end
+
+      def replay_dead_letter(delivery_id)
+        @http.request(:post, "/webhook-dead-letter/#{encode(delivery_id)}/replay")
+      end
+
+      def resolve_dead_letter(delivery_id, reason: nil)
+        body = reason ? { reason: reason } : {}
+        @http.request(:post, "/webhook-dead-letter/#{encode(delivery_id)}/resolve", body: body)
       end
 
       # Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret

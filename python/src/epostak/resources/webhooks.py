@@ -271,7 +271,14 @@ class WebhooksResource(_BaseResource):
         """
         self._request("DELETE", f"/webhooks/{quote(id, safe='')}")
 
-    def test(self, id: str, event: Optional[str] = None) -> Dict[str, Any]:
+    def test(
+        self,
+        id: str,
+        event: Optional[str] = None,
+        *,
+        count: Optional[int] = None,
+        mode: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Send a test event to a webhook endpoint.
 
         Args:
@@ -291,10 +298,14 @@ class WebhooksResource(_BaseResource):
         # Server code (PR #114): ?event= query param takes precedence over body
         # event field. We send both so the call works regardless of server version.
         body: Dict[str, Any] = {}
-        params: Optional[Dict[str, str]] = None
+        query = _build_query({"event": event, "count": count, "mode": mode})
+        params = query or None
         if event is not None:
             body["event"] = event
-            params = {"event": event}
+        if count is not None:
+            body["count"] = count
+        if mode is not None:
+            body["mode"] = mode
         return self._request(
             "POST",
             f"/webhooks/{quote(id, safe='')}/test",
@@ -308,8 +319,11 @@ class WebhooksResource(_BaseResource):
         *,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        cursor: Optional[str] = None,
         status: Optional[str] = None,
         event: Optional[str] = None,
+        test_run_id: Optional[str] = None,
+        include_response_body: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Get paginated delivery history for a webhook.
 
@@ -329,8 +343,44 @@ class WebhooksResource(_BaseResource):
             for d in result["deliveries"]:
                 print(d["event"], d["status"], d["attempts"])
         """
-        params = _build_query({"limit": limit, "offset": offset, "status": status, "event": event})
+        params = _build_query({
+            "limit": limit,
+            "offset": offset,
+            "cursor": cursor,
+            "status": status,
+            "event": event,
+            "testRunId": test_run_id,
+            "includeResponseBody": "true" if include_response_body else None,
+        })
         return self._request("GET", f"/webhooks/{quote(id, safe='')}/deliveries", params=params)
+
+    def dead_letters(
+        self,
+        *,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        event: Optional[str] = None,
+        subscription_id: Optional[str] = None,
+        include_response_body: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """List unresolved terminally failed push webhook deliveries."""
+        params = _build_query({
+            "limit": limit,
+            "offset": offset,
+            "event": event,
+            "subscriptionId": subscription_id,
+            "includeResponseBody": "true" if include_response_body else None,
+        })
+        return self._request("GET", "/webhook-dead-letter", params=params)
+
+    def replay_dead_letter(self, delivery_id: str) -> Dict[str, Any]:
+        """Replay a dead-letter delivery by creating a new pending delivery row."""
+        return self._request("POST", f"/webhook-dead-letter/{quote(delivery_id, safe='')}/replay")
+
+    def resolve_dead_letter(self, delivery_id: str, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Mark a dead-letter delivery as manually resolved."""
+        body = {"reason": reason} if reason is not None else {}
+        return self._request("POST", f"/webhook-dead-letter/{quote(delivery_id, safe='')}/resolve", json=body)
 
     def rotate_secret(self, id: str) -> Dict[str, Any]:
         """Rotate a webhook's HMAC-SHA256 signing secret.

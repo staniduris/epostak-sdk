@@ -63,6 +63,27 @@ class Peppol
     }
 
     /**
+     * Resolve one ERP identifier to a Peppol participant and capability.
+     *
+     * @param array{
+     *   ico?: string,
+     *   dic?: string,
+     *   icDph?: string,
+     *   peppolId?: string,
+     *   scheme?: string,
+     *   identifier?: string,
+     *   documentTypeId?: string,
+     *   processId?: string
+     * } $params Query params; pass exactly one identifier form.
+     * @return array
+     * @throws EPostakError On API error.
+     */
+    public function resolve(array $params): array
+    {
+        return $this->http->request('GET', '/peppol/participants/resolve' . HttpClient::buildQuery($params));
+    }
+
+    /**
      * Check a participant's advertised Peppol capabilities.
      *
      * Verifies that a participant exists on SMP and (optionally) that it

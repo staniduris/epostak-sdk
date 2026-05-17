@@ -1181,14 +1181,32 @@ export interface WebhookListResponse {
 export interface WebhookTestResponse {
   /** Whether the test delivery was successful */
   success: boolean;
+  /** `"direct"` for immediate smoke tests, `"queued"` for production-worker tests */
+  mode?: "direct" | "queued";
   /** HTTP status code returned by the webhook URL, or `null` if the request failed */
-  statusCode: number | null;
+  statusCode?: number | null;
   /** Round-trip response time in milliseconds */
-  responseTime: number;
+  responseTime?: number;
   /** The test webhook id assigned to this invocation (for correlation) */
-  webhookId: string;
+  webhookId?: string;
   /** The event type used for the test */
   event: string;
+  /** Number of test deliveries requested */
+  requested?: number;
+  /** Number of immediate deliveries sent */
+  sent?: number;
+  /** Number of immediate deliveries that returned 2xx */
+  succeeded?: number;
+  /** Number of immediate deliveries that failed */
+  failed?: number;
+  /** Number of queued delivery rows created */
+  queued?: number;
+  /** Correlation ID for queued mode; pass to `webhooks.deliveries({ testRunId })` */
+  testRunId?: string;
+  /** `true` when only a subset of queued delivery IDs is returned by the API */
+  deliveryIdsTruncated?: boolean;
+  /** Convenience URL for polling queued test deliveries */
+  deliveriesUrl?: string;
   /** Error message if the test delivery failed */
   error?: string;
 }
@@ -1223,10 +1241,14 @@ export interface WebhookDeliveriesParams {
   limit?: number;
   /** Number of deliveries to skip for pagination. Defaults to `0`. */
   offset?: number;
+  /** Opaque cursor from a previous response; alternative to `offset`. */
+  cursor?: string;
   /** Filter by delivery status */
   status?: WebhookDeliveryStatus;
   /** Filter by event type (e.g. `"document.received"`) */
   event?: string;
+  /** Filter deliveries created by `webhooks.test(..., { mode: "queued" })`. */
+  testRunId?: string;
   /**
    * When `true`, include the response body in each delivery record.
    * By default the `responseBody` field is omitted. Use `?includeResponseBody=true`
@@ -1245,6 +1267,50 @@ export interface WebhookDeliveriesResponse {
   limit: number;
   /** Offset used for pagination */
   offset: number;
+  /** Opaque cursor for the next page, or `null` when exhausted */
+  nextCursor?: string | null;
+}
+
+/** Query parameters for listing terminally failed webhook push deliveries. */
+export interface WebhookDeadLetterParams {
+  limit?: number;
+  offset?: number;
+  event?: string;
+  subscriptionId?: string;
+  includeResponseBody?: boolean;
+}
+
+/** Terminally failed webhook delivery shown in the dead-letter queue. */
+export interface WebhookDeadLetter {
+  id: string;
+  webhookId: string;
+  webhookEventId: string;
+  event: string;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  responseStatus: number | null;
+  responseBody?: string | null;
+  lastAttemptAt: string | null;
+  nextRetryAt: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDeadLetterResponse {
+  items: WebhookDeadLetter[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WebhookDeadLetterReplayResponse {
+  replayedFrom: string;
+  deliveryId: string;
+  webhookId: string;
+  webhookEventId: string;
+}
+
+export interface WebhookDeadLetterResolveResponse {
+  resolved: boolean;
 }
 
 /**
@@ -1736,6 +1802,27 @@ export interface PeppolCapabilitiesResponse {
   source: string | null;
   /** Reason for negative lookup (only present when `found: false`) */
   reason?: string;
+}
+
+/** Query params for `GET /peppol/participants/resolve`. Pass exactly one identifier form. */
+export interface PeppolResolveParams {
+  ico?: string;
+  dic?: string;
+  icDph?: string;
+  peppolId?: string;
+  scheme?: string;
+  identifier?: string;
+  documentTypeId?: string;
+  processId?: string;
+}
+
+/** Response from one-step ERP participant resolution. */
+export interface PeppolResolveResponse {
+  query: Record<string, unknown>;
+  nextAction: string;
+  company?: Record<string, unknown> | null;
+  participant?: Record<string, unknown> | null;
+  capability?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------------

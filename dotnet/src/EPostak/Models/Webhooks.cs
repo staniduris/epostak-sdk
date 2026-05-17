@@ -41,6 +41,10 @@ public sealed class WebhookTestParams
     /// Event type to simulate. Defaults to <c>document.created</c> on the server when omitted.
     /// </summary>
     public WebhookEvent? Event { get; set; }
+    /// <summary>Number of synthetic deliveries to create, 1-1000.</summary>
+    public int? Count { get; set; }
+    /// <summary><c>direct</c> sends immediately; <c>queued</c> creates delivery rows for the worker.</summary>
+    public string? Mode { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +268,10 @@ public sealed class WebhookTestResponse
     [JsonPropertyName("success")]
     public bool Success { get; set; }
 
+    /// <summary><c>direct</c> for immediate tests, <c>queued</c> for worker-backed tests.</summary>
+    [JsonPropertyName("mode")]
+    public string? Mode { get; set; }
+
     /// <summary>HTTP status code returned by the webhook URL, or null if the request failed.</summary>
     [JsonPropertyName("statusCode")]
     public int? StatusCode { get; set; }
@@ -283,6 +291,23 @@ public sealed class WebhookTestResponse
     /// <summary>Error message if the test delivery failed.</summary>
     [JsonPropertyName("error")]
     public string? Error { get; set; }
+
+    [JsonPropertyName("requested")]
+    public int? Requested { get; set; }
+    [JsonPropertyName("sent")]
+    public int? Sent { get; set; }
+    [JsonPropertyName("succeeded")]
+    public int? Succeeded { get; set; }
+    [JsonPropertyName("failed")]
+    public int? Failed { get; set; }
+    [JsonPropertyName("queued")]
+    public int? Queued { get; set; }
+    [JsonPropertyName("testRunId")]
+    public string? TestRunId { get; set; }
+    [JsonPropertyName("deliveryIdsTruncated")]
+    public bool? DeliveryIdsTruncated { get; set; }
+    [JsonPropertyName("deliveriesUrl")]
+    public string? DeliveriesUrl { get; set; }
 }
 
 /// <summary>
@@ -340,10 +365,16 @@ public sealed class WebhookDeliveriesParams
     public int? Limit { get; set; }
     /// <summary>Number of deliveries to skip (default 0).</summary>
     public int? Offset { get; set; }
+    /// <summary>Opaque cursor from a previous response; alternative to <c>Offset</c>.</summary>
+    public string? Cursor { get; set; }
     /// <summary>Filter by status (UPPERCASE): <c>PENDING</c>, <c>SUCCESS</c>, <c>FAILED</c>, or <c>RETRYING</c>. See <see cref="WebhookDeliveryStatus"/>.</summary>
     public string? Status { get; set; }
     /// <summary>Filter by event type.</summary>
     public string? Event { get; set; }
+    /// <summary>Filter deliveries created by queued webhook tests.</summary>
+    public string? TestRunId { get; set; }
+    /// <summary>When true, include raw receiver response bodies.</summary>
+    public bool? IncludeResponseBody { get; set; }
 }
 
 /// <summary>
@@ -366,6 +397,10 @@ public sealed class WebhookDeliveriesResponse
     /// <summary>Offset used for pagination.</summary>
     [JsonPropertyName("offset")]
     public int Offset { get; set; }
+
+    /// <summary>Opaque cursor for the next page, or null when exhausted.</summary>
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
 }
 
 /// <summary>

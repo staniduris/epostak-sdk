@@ -15,6 +15,8 @@ package sk.epostak.sdk.models;
 public final class WebhookTestParams {
 
     private String event;
+    private Integer count;
+    private String mode;
 
     /**
      * Creates params with no event override (server will use its default).
@@ -41,5 +43,23 @@ public final class WebhookTestParams {
      */
     public String getEvent() {
         return event;
+    }
+
+    public WebhookTestParams count(Integer count) {
+        this.count = count;
+        return this;
+    }
+
+    public Integer getCount() {
+        return count;
+    }
+
+    public WebhookTestParams mode(String mode) {
+        this.mode = mode;
+        return this;
+    }
+
+    public String getMode() {
+        return mode;
     }
 }

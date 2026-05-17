@@ -167,7 +167,16 @@ public sealed class WebhooksResource
     public Task<WebhookTestResponse> TestAsync(string id, WebhookTestParams? @params, CancellationToken ct = default)
     {
         var wireEvent = @params?.Event != null ? WebhookEventToString(@params.Event.Value) : null;
-        return TestAsync(id, wireEvent, ct);
+        var query = new List<string>();
+        if (wireEvent != null) query.Add($"event={Uri.EscapeDataString(wireEvent)}");
+        if (@params?.Count != null) query.Add($"count={@params.Count}");
+        if (@params?.Mode != null) query.Add($"mode={Uri.EscapeDataString(@params.Mode)}");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+        var body = new Dictionary<string, object?>();
+        if (wireEvent != null) body["event"] = wireEvent;
+        if (@params?.Count != null) body["count"] = @params.Count;
+        if (@params?.Mode != null) body["mode"] = @params.Mode;
+        return _http.RequestAsync<WebhookTestResponse>(HttpMethod.Post, $"/webhooks/{Uri.EscapeDataString(id)}/test{qs}", body, ct);
     }
 
     /// <summary>Convert a <see cref="WebhookEvent"/> enum value to its wire string (e.g. <c>"document.delivered"</c>).</summary>
@@ -178,6 +187,7 @@ public sealed class WebhooksResource
         WebhookEvent.DocumentReceived => WebhookEvents.DocumentReceived,
         WebhookEvent.DocumentValidated => WebhookEvents.DocumentValidated,
         WebhookEvent.DocumentDelivered => WebhookEvents.DocumentDelivered,
+        WebhookEvent.DocumentDeliveryFailed => WebhookEvents.DocumentDeliveryFailed,
         WebhookEvent.DocumentRejected => WebhookEvents.DocumentRejected,
         WebhookEvent.DocumentResponseReceived => WebhookEvents.DocumentResponseReceived,
         _ => throw new ArgumentOutOfRangeException(nameof(e), e, "Unknown WebhookEvent value")
@@ -207,11 +217,38 @@ public sealed class WebhooksResource
         var query = new List<string>();
         if (parameters?.Limit != null) query.Add($"limit={parameters.Limit}");
         if (parameters?.Offset != null) query.Add($"offset={parameters.Offset}");
+        if (parameters?.Cursor != null) query.Add($"cursor={Uri.EscapeDataString(parameters.Cursor)}");
         if (parameters?.Status != null) query.Add($"status={Uri.EscapeDataString(parameters.Status)}");
         if (parameters?.Event != null) query.Add($"event={Uri.EscapeDataString(parameters.Event)}");
+        if (parameters?.TestRunId != null) query.Add($"testRunId={Uri.EscapeDataString(parameters.TestRunId)}");
+        if (parameters?.IncludeResponseBody != null) query.Add($"includeResponseBody={(parameters.IncludeResponseBody.Value ? "true" : "false")}");
         var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
         return _http.RequestAsync<WebhookDeliveriesResponse>(HttpMethod.Get, $"/webhooks/{Uri.EscapeDataString(id)}/deliveries{qs}", ct);
     }
+
+    /// <summary>List unresolved terminally failed push webhook deliveries.</summary>
+    public Task<Dictionary<string, object?>> DeadLettersAsync(
+        int? limit = null,
+        int? offset = null,
+        string? eventType = null,
+        string? subscriptionId = null,
+        bool? includeResponseBody = null,
+        CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("limit", limit?.ToString()),
+            ("offset", offset?.ToString()),
+            ("event", eventType),
+            ("subscriptionId", subscriptionId),
+            ("includeResponseBody", includeResponseBody == null ? null : (includeResponseBody.Value ? "true" : "false")));
+        return _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/webhook-dead-letter{qs}", ct);
+    }
+
+    public Task<Dictionary<string, object?>> ReplayDeadLetterAsync(string deliveryId, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, $"/webhook-dead-letter/{Uri.EscapeDataString(deliveryId)}/replay", new { }, ct);
+
+    public Task<Dictionary<string, object?>> ResolveDeadLetterAsync(string deliveryId, string? reason = null, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, $"/webhook-dead-letter/{Uri.EscapeDataString(deliveryId)}/resolve", reason == null ? new { } : new { reason }, ct);
 
     /// <summary>
     /// Rotate a webhook's HMAC-SHA256 signing secret. Issues a fresh secret

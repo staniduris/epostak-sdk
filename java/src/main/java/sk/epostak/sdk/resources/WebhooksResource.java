@@ -161,7 +161,8 @@ public final class WebhooksResource {
     public WebhookTestResponse test(String id, String event) {
         Map<String, Object> body = new LinkedHashMap<>();
         if (event != null) body.put("event", event);
-        return http.post("/webhooks/" + HttpClient.encode(id) + "/test", body, WebhookTestResponse.class);
+        String qs = event != null ? "?event=" + HttpClient.encode(event) : "";
+        return http.post("/webhooks/" + HttpClient.encode(id) + "/test" + qs, body, WebhookTestResponse.class);
     }
 
     /**
@@ -180,8 +181,14 @@ public final class WebhooksResource {
      * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
      */
     public WebhookTestResponse test(String id, WebhookTestParams params) {
-        String event = (params != null) ? params.getEvent() : null;
-        return test(id, event);
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (params != null) {
+            body.put("event", params.getEvent());
+            body.put("count", params.getCount());
+            body.put("mode", params.getMode());
+        }
+        String qs = HttpClient.buildQuery(body);
+        return http.post("/webhooks/" + HttpClient.encode(id) + "/test" + qs, body, WebhookTestResponse.class);
     }
 
     /**
@@ -201,7 +208,7 @@ public final class WebhooksResource {
      * @param id     the webhook UUID
      * @param params optional query parameters: {@code limit} (1-100), {@code offset},
      *               {@code status} (UPPERCASE: {@code PENDING}, {@code SUCCESS},
-     *               {@code FAILED}, {@code RETRYING}), {@code event}
+     *               {@code FAILED}, {@code RETRYING}), {@code event}, {@code testRunId}
      * @return paginated delivery records with total count
      * @throws sk.epostak.sdk.EPostakException if the webhook is not found or the request fails
      */
@@ -227,6 +234,26 @@ public final class WebhooksResource {
      */
     public WebhookDeliveriesResponse deliveries(String id) {
         return deliveries(id, null);
+    }
+
+    /**
+     * List unresolved terminally failed push webhook deliveries.
+     *
+     * @param params optional query parameters: limit, offset, event, subscriptionId, includeResponseBody
+     * @return dead-letter queue response
+     */
+    public Map<String, Object> deadLetters(Map<String, Object> params) {
+        return http.get("/webhook-dead-letter" + HttpClient.buildQuery(params), Map.class);
+    }
+
+    public Map<String, Object> replayDeadLetter(String deliveryId) {
+        return http.post("/webhook-dead-letter/" + HttpClient.encode(deliveryId) + "/replay", Map.of(), Map.class);
+    }
+
+    public Map<String, Object> resolveDeadLetter(String deliveryId, String reason) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (reason != null) body.put("reason", reason);
+        return http.post("/webhook-dead-letter/" + HttpClient.encode(deliveryId) + "/resolve", body, Map.class);
     }
 
     /**

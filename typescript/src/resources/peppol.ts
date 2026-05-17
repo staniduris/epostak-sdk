@@ -9,6 +9,8 @@ import type {
   PeppolCapabilitiesResponse,
   BatchLookupParticipant,
   BatchLookupResponse,
+  PeppolResolveParams,
+  PeppolResolveResponse,
 } from "../types.js";
 
 /**
@@ -133,6 +135,22 @@ export class PeppolResource extends BaseResource {
     return this.request(
       "GET",
       `/company/search${buildQuery({ q: params.q, limit: params.limit })}`,
+    );
+  }
+
+  resolve(params: PeppolResolveParams): Promise<PeppolResolveResponse> {
+    return this.request(
+      "GET",
+      `/peppol/participants/resolve${buildQuery({
+        ico: params.ico,
+        dic: params.dic,
+        icDph: params.icDph,
+        peppolId: params.peppolId,
+        scheme: params.scheme,
+        identifier: params.identifier,
+        documentTypeId: params.documentTypeId,
+        processId: params.processId,
+      })}`,
     );
   }
 

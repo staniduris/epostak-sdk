@@ -59,6 +59,20 @@ module EPostak
         @http.request(:get, "/company/search", query: { q: q, limit: limit })
       end
 
+      def resolve(**params)
+        query = {
+          ico: params[:ico],
+          dic: params[:dic],
+          icDph: params[:ic_dph] || params[:icDph],
+          peppolId: params[:peppol_id] || params[:peppolId],
+          scheme: params[:scheme],
+          identifier: params[:identifier],
+          documentTypeId: params[:document_type_id] || params[:documentTypeId],
+          processId: params[:process_id] || params[:processId]
+        }.compact
+        @http.request(:get, "/peppol/participants/resolve", query: query)
+      end
+
       # Check a participant's advertised Peppol capabilities.
       #
       # Verifies that a participant exists on SMP and (optionally) that

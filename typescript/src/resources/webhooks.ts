@@ -15,6 +15,10 @@ import type {
   WebhookTestResponse,
   WebhookDeliveriesParams,
   WebhookDeliveriesResponse,
+  WebhookDeadLetterParams,
+  WebhookDeadLetterResponse,
+  WebhookDeadLetterReplayResponse,
+  WebhookDeadLetterResolveResponse,
   WebhookRotateSecretResponse,
   WebhookEvent,
 } from "../types.js";
@@ -301,17 +305,24 @@ export class WebhooksResource extends BaseResource {
    * console.log(result.success, result.responseTime + 'ms');
    * ```
    */
-  test(
-    id: string,
-    options?: { event?: WebhookEvent },
-  ): Promise<WebhookTestResponse> {
-    const qs = options?.event
-      ? `?event=${encodeURIComponent(options.event)}`
-      : "";
+  test(id: string, options?: {
+    event?: WebhookEvent;
+    count?: number;
+    mode?: "direct" | "queued";
+  }): Promise<WebhookTestResponse> {
+    const qs = buildQuery({
+      event: options?.event,
+      count: options?.count,
+      mode: options?.mode,
+    });
     return this.request(
       "POST",
       `/webhooks/${encodeURIComponent(id)}/test${qs}`,
-      {},
+      {
+        ...(options?.event ? { event: options.event } : {}),
+        ...(options?.count ? { count: options.count } : {}),
+        ...(options?.mode ? { mode: options.mode } : {}),
+      },
     );
   }
 
@@ -340,10 +351,43 @@ export class WebhooksResource extends BaseResource {
       `/webhooks/${encodeURIComponent(id)}/deliveries${buildQuery({
         limit: params?.limit,
         offset: params?.offset,
+        cursor: params?.cursor,
         status: params?.status,
         event: params?.event,
+        testRunId: params?.testRunId,
         includeResponseBody: params?.includeResponseBody ? "true" : undefined,
       })}`,
+    );
+  }
+
+  deadLetters(params?: WebhookDeadLetterParams): Promise<WebhookDeadLetterResponse> {
+    return this.request(
+      "GET",
+      `/webhook-dead-letter${buildQuery({
+        limit: params?.limit,
+        offset: params?.offset,
+        event: params?.event,
+        subscriptionId: params?.subscriptionId,
+        includeResponseBody: params?.includeResponseBody ? "true" : undefined,
+      })}`,
+    );
+  }
+
+  replayDeadLetter(deliveryId: string): Promise<WebhookDeadLetterReplayResponse> {
+    return this.request(
+      "POST",
+      `/webhook-dead-letter/${encodeURIComponent(deliveryId)}/replay`,
+    );
+  }
+
+  resolveDeadLetter(
+    deliveryId: string,
+    params?: { reason?: string },
+  ): Promise<WebhookDeadLetterResolveResponse> {
+    return this.request(
+      "POST",
+      `/webhook-dead-letter/${encodeURIComponent(deliveryId)}/resolve`,
+      params?.reason ? { reason: params.reason } : {},
     );
   }
 

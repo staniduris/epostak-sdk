@@ -97,6 +97,16 @@ public final class PeppolResource {
     }
 
     /**
+     * Resolve one ERP identifier to a Peppol participant and routing capability.
+     *
+     * @param params query params; pass exactly one identifier form
+     * @return resolution response
+     */
+    public Map<String, Object> resolve(Map<String, Object> params) {
+        return http.get("/peppol/participants/resolve" + HttpClient.buildQuery(params), Map.class);
+    }
+
+    /**
      * Probe whether a participant can receive a specific document type. The response
      * reports the full set of supported document types and business processes, plus
      * the matched document type ID when a specific {@code documentType} is requested.

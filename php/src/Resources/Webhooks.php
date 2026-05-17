@@ -190,7 +190,7 @@ class Webhooks
      * ```
      *
      * @param string                    $id     Webhook UUID to test.
-     * @param array{event?: string}|string|null $params Event type string or params array.
+     * @param array{event?: string, count?: int, mode?: string}|string|null $params Event type string or params array.
      *                                          Null uses the server default (`document.created`).
      * @return array Test result with success, statusCode, responseTime, webhookId, event, and optional error.
      * @throws EPostakError On API error.
@@ -209,7 +209,15 @@ class Webhooks
         }
 
         $options = ['json' => new \stdClass()];  // empty body for POST
-        if ($event !== null) {
+        if (is_array($params)) {
+            $body = array_filter([
+                'event' => $event,
+                'count' => $params['count'] ?? null,
+                'mode' => $params['mode'] ?? null,
+            ], fn ($v) => $v !== null);
+            $options['json'] = $body ?: new \stdClass();
+            $options['query'] = $body;
+        } elseif ($event !== null) {
             $options['query'] = ['event' => $event];
         }
         return $this->http->request('POST', '/webhooks/' . urlencode($id) . '/test', $options);
@@ -230,6 +238,7 @@ class Webhooks
      *   cursor?: string,
      *   status?: string,
      *   event?: string,
+     *   testRunId?: string,
      *   includeResponseBody?: bool,
      *   include?: string
      * } $params Optional query params:
@@ -277,6 +286,7 @@ class Webhooks
             'cursor' => $params['cursor'] ?? null,
             'status' => $params['status'] ?? null,
             'event' => $params['event'] ?? null,
+            'testRunId' => $params['testRunId'] ?? null,
             'includeResponseBody' => isset($params['includeResponseBody'])
                 ? ($params['includeResponseBody'] ? 'true' : 'false')
                 : null,
@@ -284,6 +294,39 @@ class Webhooks
         ], fn ($v) => $v !== null);
         return $this->http->request('GET', '/webhooks/' . urlencode($id) . '/deliveries', [
             'query' => $query,
+        ]);
+    }
+
+    /**
+     * List unresolved terminally failed push webhook deliveries.
+     *
+     * @param array{limit?: int, offset?: int, event?: string, subscriptionId?: string, includeResponseBody?: bool} $params
+     * @return array
+     * @throws EPostakError On API error.
+     */
+    public function deadLetters(array $params = []): array
+    {
+        $query = array_filter([
+            'limit' => $params['limit'] ?? null,
+            'offset' => $params['offset'] ?? null,
+            'event' => $params['event'] ?? null,
+            'subscriptionId' => $params['subscriptionId'] ?? null,
+            'includeResponseBody' => isset($params['includeResponseBody'])
+                ? ($params['includeResponseBody'] ? 'true' : 'false')
+                : null,
+        ], fn ($v) => $v !== null);
+        return $this->http->request('GET', '/webhook-dead-letter', ['query' => $query]);
+    }
+
+    public function replayDeadLetter(string $deliveryId): array
+    {
+        return $this->http->request('POST', '/webhook-dead-letter/' . urlencode($deliveryId) . '/replay');
+    }
+
+    public function resolveDeadLetter(string $deliveryId, ?string $reason = null): array
+    {
+        return $this->http->request('POST', '/webhook-dead-letter/' . urlencode($deliveryId) . '/resolve', [
+            'json' => $reason === null ? new \stdClass() : ['reason' => $reason],
         ]);
     }
 

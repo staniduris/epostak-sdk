@@ -66,6 +66,15 @@ public sealed class PeppolResource
         return _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/company/search{qs}", ct);
     }
 
+    /// <summary>Resolve one ERP identifier to a Peppol participant and routing capability.</summary>
+    public Task<Dictionary<string, object?>> ResolveAsync(
+        Dictionary<string, string?> parameters,
+        CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(parameters.Select(kv => (kv.Key, kv.Value)).ToArray());
+        return _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/peppol/participants/resolve{qs}", ct);
+    }
+
     /// <summary>
     /// Probe whether a Peppol participant can receive a specific document type.
     /// The response reports the full set of supported document types and business

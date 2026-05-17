@@ -111,6 +111,8 @@ export type {
   DirectoryEntry,
   DirectorySearchResult,
   CompanyLookup,
+  PeppolResolveParams,
+  PeppolResolveResponse,
   // Firms
   FirmSummary,
   FirmDetail,
@@ -137,6 +139,11 @@ export type {
   WebhookDeliveryDetail,
   WebhookDeliveriesParams,
   WebhookDeliveriesResponse,
+  WebhookDeadLetterParams,
+  WebhookDeadLetter,
+  WebhookDeadLetterResponse,
+  WebhookDeadLetterReplayResponse,
+  WebhookDeadLetterResolveResponse,
   // Webhook queue
   WebhookQueueParams,
   WebhookQueueItem,
