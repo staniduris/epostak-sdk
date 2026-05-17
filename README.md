@@ -6,14 +6,14 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 ## Available SDKs
 
-| Language                | Directory                      | Package                  | Version | Status                     |
-| ----------------------- | ------------------------------ | ------------------------ | ------- | -------------------------- |
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk`           | 3.0.0   | `npm install @epostak/sdk` |
-| Python                  | [`python/`](./python/)         | `epostak`                | 3.0.0   | Source on GitHub           |
-| PHP                     | [`php/`](./php/)               | `epostak/sdk`            | 3.0.0   | Source on GitHub           |
-| C# / .NET               | [`dotnet/`](./dotnet/)         | `EPostak`                | 3.0.0   | Source on GitHub           |
-| Java                    | [`java/`](./java/)             | `sk.epostak:epostak-sdk` | 3.0.0   | Source on GitHub           |
-| Ruby                    | [`ruby/`](./ruby/)             | `epostak`                | 3.0.0   | Source on GitHub           |
+| Language | Directory | Package | Version | Status |
+|-|-|-|-|-|
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.2 | `npm install @epostak/sdk` |
+| Python | [`python/`](./python/) | `epostak` | 0.10.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 0.10.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.0 | Source on GitHub |
+| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 0.10.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 0.10.0 | Source on GitHub |
 
 TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
 
@@ -95,16 +95,18 @@ Use this when the firm has no API key with you yet. Once linked, switch to the r
 
 ## API Coverage
 
-All SDKs cover the complete Enterprise API (35+ endpoints):
+All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Documents** — send, get, update, status, evidence, PDF, UBL, respond, validate, preflight, convert
+- **Documents** — send, get, update, status, evidence, evidence bundle ZIP, PDF, UBL, respond, validate, preflight, convert, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
-- **Peppol** — SMP lookup, directory search, company lookup by ICO
+- **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence
+- **Peppol** — SMP lookup, directory search, company lookup/search, participant resolve, capability checks
 - **Firms** — list, get, documents, register Peppol ID, assign, batch assign (integrator)
-- **Webhooks** — CRUD + pull queue with single/batch acknowledge
-- **Reporting** — aggregated statistics
-- **Account** — firm info, plan, usage
+- **Webhooks** — CRUD, queued tests, delivery history, dead-letter queue replay/resolve, pull queue with single/batch acknowledge
+- **Reporting** — aggregated statistics and submissions
+- **Account** — firm info, plan, usage, license info
 - **Extract** — AI-powered OCR from PDFs/images (single + batch)
+- **SAPI** — `/sapi/v1/document/send`, receive list/detail, and acknowledge
 
 ---
 

@@ -4,6 +4,14 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 
 ## Recent changes
 
+**v0.10.0** (2026-05-18)
+- SAPI-SK 1.0 document flow via `client.sapi`
+- Enterprise evidence downloads: `documents.evidence_bundle` and `outbound.get_mdn`
+- Peppol additions: `company_search` and `resolve`
+- Webhook queued tests: `webhooks.test(id, count:, mode:)`
+- Webhook dead-letter queue: `dead_letters`, `replay_dead_letter`, `resolve_dead_letter`
+- License and Peppol document listing helpers
+
 **v0.9.0** (2026-05-12)
 - Pull API: `client.inbound` (list/get/get_ubl/ack) and `client.outbound` (list/get/get_ubl/events)
 - `EPostak::UblValidationError` raised on 422 UBL_VALIDATION_ERROR with `.rule` attr
@@ -314,6 +322,13 @@ results["results"].each { |r| puts r["name"] }
 company = client.peppol.company_lookup("12345678")
 puts company["name"]     # => "ACME s.r.o."
 puts company["peppolId"] # => "0245:1234567890" or nil
+
+matches = client.peppol.company_search(q: "Demo", limit: 10)
+
+resolved = client.peppol.resolve(
+  ico: "12345678",
+  document_type_id: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
+)
 ```
 
 ---
@@ -328,6 +343,25 @@ webhook = client.webhooks.create(
   events: ["document.received", "document.sent"]
 )
 puts webhook["secret"] # Store this for HMAC-SHA256 verification!
+
+queued = client.webhooks.test(
+  webhook["id"],
+  event: "document.received",
+  count: 250,
+  mode: "queued"
+)
+
+deliveries = client.webhooks.deliveries(
+  webhook["id"],
+  test_run_id: queued["testRunId"],
+  includeResponseBody: true
+)
+
+dlq = client.webhooks.dead_letters(includeResponseBody: true)
+dlq["items"].each do |failed|
+  client.webhooks.replay_dead_letter(failed["id"])
+  # or: client.webhooks.resolve_dead_letter(failed["id"], reason: "Handled in ERP")
+end
 ```
 
 #### Verify an incoming webhook

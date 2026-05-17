@@ -4,11 +4,20 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v0.9.0** — Pull API (`client.inbound`, `client.outbound`), `UblValidationError`,
-> `client.last_rate_limit`, `webhooks.test()` query-param fix. Fully backward-compatible
-> with 0.8.x. See [CHANGELOG.md](./CHANGELOG.md).
+> **v0.10.0** — SAPI document flow, evidence bundle/MDN downloads,
+> webhook queued tests + dead-letter queue, Peppol participant resolve,
+> license info, and endpoint coverage sync. See [CHANGELOG.md](./CHANGELOG.md).
 
 ## Recent changes
+
+### v0.10.0 — 2026-05-18
+
+- `client.sapi` — SAPI-SK 1.0 send, receive list/detail, and acknowledge.
+- `webhooks.test(id, event=None, count=None, mode=None)` — direct and queued webhook tests.
+- `webhooks.deliveries(..., test_run_id=..., include_response_body=True)` — queued-test polling and response-body debugging.
+- `webhooks.dead_letters()`, `replay_dead_letter(id)`, `resolve_dead_letter(id, reason=None)`.
+- `peppol.resolve(...)` — resolve ERP identifiers to Peppol participant + routing capability.
+- `documents.evidence_bundle`, `outbound.get_mdn`, `peppol.company_search`, `documents.peppol_documents`, and `account.license_info`.
 
 ### v0.9.0 — 2026-05-12
 
@@ -34,7 +43,7 @@ pip install epostak
 ```python
 from epostak import EPostak
 
-client = EPostak(api_key="sk_live_xxxxx")
+client = EPostak(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
 
 result = client.documents.send({
     "receiverPeppolId": "0245:1234567890",
@@ -69,7 +78,8 @@ Per Slovak PASR, only `0245:DIČ` is used. The `9950:SK...` VAT form is not supp
 
 ```python
 client = EPostak(
-    api_key="sk_live_xxxxx",
+    client_id="sk_live_xxxxx",
+    client_secret="sk_live_xxxxx",
     base_url="https://...",   # optional, defaults to https://epostak.sk/api/v1
     firm_id="uuid",           # optional, required for integrator keys
     max_retries=3,            # optional, exponential backoff with jitter
@@ -83,7 +93,10 @@ rotating refresh token. Use this when you want to hand a token to a
 worker fleet without distributing the long-lived key itself.
 
 ```python
-tokens = client.auth.token(api_key="sk_live_xxxxx")
+tokens = client.auth.token(
+    client_id="sk_live_xxxxx",
+    client_secret="sk_live_xxxxx",
+)
 print(tokens["access_token"], tokens["expires_in"])  # 900s
 
 # Before the access token expires:
@@ -220,6 +233,13 @@ participant = client.peppol.lookup("0245", "1234567890")
 results = client.peppol.directory.search(q="Telekom", country="SK")
 
 company = client.peppol.company_lookup("12345678")
+
+matches = client.peppol.company_search("Demo", limit=10)
+
+resolved = client.peppol.resolve(
+    ico="12345678",
+    document_type_id="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...",
+)
 ```
 
 ### Firms (integrator)
@@ -253,6 +273,23 @@ client.webhooks.delete(webhook["id"])
 # Rotate the signing secret (issues a fresh one, invalidates the old).
 rotated = client.webhooks.rotate_secret(webhook["id"])
 print(rotated["secret"])
+
+queued = client.webhooks.test(
+    webhook["id"],
+    event="document.received",
+    count=250,
+    mode="queued",
+)
+deliveries = client.webhooks.deliveries(
+    webhook["id"],
+    test_run_id=queued["testRunId"],
+    include_response_body=True,
+)
+
+dlq = client.webhooks.dead_letters(include_response_body=True)
+for failed in dlq["items"]:
+    client.webhooks.replay_dead_letter(failed["id"])
+    # or: client.webhooks.resolve_dead_letter(failed["id"], reason="Handled in ERP")
 ```
 
 #### Verifying a delivery
@@ -373,10 +410,14 @@ batch = client.extract.batch([
 
 ```python
 # Option 1: firm_id in constructor
-client = EPostak(api_key="sk_int_xxxxx", firm_id="client-firm-uuid")
+client = EPostak(
+    client_id="sk_int_xxxxx",
+    client_secret="sk_int_xxxxx",
+    firm_id="client-firm-uuid",
+)
 
 # Option 2: with_firm() for switching
-base = EPostak(api_key="sk_int_xxxxx")
+base = EPostak(client_id="sk_int_xxxxx", client_secret="sk_int_xxxxx")
 client_a = base.with_firm("firm-uuid-a")
 client_b = base.with_firm("firm-uuid-b")
 ```
@@ -423,7 +464,7 @@ except EPostakError as err:
 
 | Method                                                         | HTTP   | Path                                 |
 | -------------------------------------------------------------- | ------ | ------------------------------------ |
-| `auth.token(api_key, ...)`                                     | POST   | `/auth/token`                        |
+| `auth.token(client_id, client_secret, ...)`                    | POST   | `/auth/token`                        |
 | `auth.renew(refresh_token)`                                    | POST   | `/auth/renew`                        |
 | `auth.revoke(token, ...)`                                      | POST   | `/auth/revoke`                       |
 | `auth.status()`                                                | GET    | `/auth/status`                       |
@@ -437,12 +478,14 @@ except EPostakError as err:
 | `documents.send_batch(items, idempotency_key=...)`             | POST   | `/documents/send/batch`              |
 | `documents.status(id)`                                         | GET    | `/documents/{id}/status`             |
 | `documents.evidence(id)`                                       | GET    | `/documents/{id}/evidence`           |
+| `documents.evidence_bundle(id)`                                | GET    | `/documents/{id}/evidence-bundle`    |
 | `documents.pdf(id)`                                            | GET    | `/documents/{id}/pdf`                |
 | `documents.ubl(id)`                                            | GET    | `/documents/{id}/ubl`                |
 | `documents.respond(id, status, note)`                          | POST   | `/documents/{id}/respond`            |
 | `documents.validate(body)`                                     | POST   | `/documents/validate`                |
 | `documents.preflight(receiver_peppol_id)`                      | POST   | `/documents/preflight`               |
 | `documents.convert(...)`                                       | POST   | `/documents/convert`                 |
+| `documents.peppol_documents(**params)`                         | GET    | `/peppol-documents`                  |
 | `documents.inbox.list(**params)`                               | GET    | `/documents/inbox`                   |
 | `documents.inbox.get(id)`                                      | GET    | `/documents/inbox/{id}`              |
 | `documents.inbox.acknowledge(id)`                              | POST   | `/documents/inbox/{id}/acknowledge`  |
@@ -450,6 +493,8 @@ except EPostakError as err:
 | `peppol.lookup(scheme, id)`                                    | GET    | `/peppol/participants/{scheme}/{id}` |
 | `peppol.directory.search(**params)`                            | GET    | `/peppol/directory/search`           |
 | `peppol.company_lookup(ico)`                                   | GET    | `/company/lookup/{ico}`              |
+| `peppol.company_search(q, limit=None)`                         | GET    | `/company/search`                    |
+| `peppol.resolve(**params)`                                     | GET    | `/peppol/participants/resolve`       |
 | `firms.list()`                                                 | GET    | `/firms`                             |
 | `firms.get(id)`                                                | GET    | `/firms/{id}`                        |
 | `firms.documents(id, **params)`                                | GET    | `/firms/{id}/documents`              |
@@ -461,7 +506,12 @@ except EPostakError as err:
 | `webhooks.get(id)`                                             | GET    | `/webhooks/{id}`                     |
 | `webhooks.update(id, ...)`                                     | PATCH  | `/webhooks/{id}`                     |
 | `webhooks.delete(id)`                                          | DELETE | `/webhooks/{id}`                     |
+| `webhooks.test(id, event=None, count=None, mode=None)`         | POST   | `/webhooks/{id}/test`                |
+| `webhooks.deliveries(id, **params)`                            | GET    | `/webhooks/{id}/deliveries`          |
 | `webhooks.rotate_secret(id)`                                   | POST   | `/webhooks/{id}/rotate-secret`       |
+| `webhooks.dead_letters(**params)`                              | GET    | `/webhook-dead-letter`               |
+| `webhooks.replay_dead_letter(id)`                              | POST   | `/webhook-dead-letter/{id}/replay`   |
+| `webhooks.resolve_dead_letter(id, reason=None)`                | POST   | `/webhook-dead-letter/{id}/resolve`  |
 | `webhooks.queue.pull(**params)`                                | GET    | `/webhook-queue`                     |
 | `webhooks.queue.ack(event_id)`                                 | DELETE | `/webhook-queue/{event_id}`          |
 | `webhooks.queue.batch_ack(ids)`                                | POST   | `/webhook-queue/batch-ack`           |
@@ -469,10 +519,16 @@ except EPostakError as err:
 | `webhooks.queue.batch_ack_all(ids)`                            | POST   | `/webhook-queue/all/batch-ack`       |
 | `reporting.statistics(period=..., from_date=..., to_date=...)` | GET    | `/reporting/statistics`              |
 | `account.get()`                                                | GET    | `/account`                           |
+| `account.license_info()`                                       | GET    | `/licenses/info`                     |
 | `extract.single(file, mime, name)`                             | POST   | `/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/extract/batch`                     |
+| `outbound.get_mdn(id)`                                         | GET    | `/outbound/documents/{id}/mdn`       |
+| `sapi.send(body, participant_id=..., idempotency_key=...)`     | POST   | `/sapi/v1/document/send`             |
+| `sapi.receive(participant_id=..., ...)`                        | GET    | `/sapi/v1/document/receive`          |
+| `sapi.get(id, participant_id=...)`                             | GET    | `/sapi/v1/document/receive/{id}`     |
+| `sapi.acknowledge(id, participant_id=...)`                     | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-All paths relative to `https://epostak.sk/api/v1`.
+Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
 
 ---
 

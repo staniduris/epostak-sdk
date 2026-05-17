@@ -3,6 +3,17 @@
 All notable changes to the `epostak` Python SDK are documented in this
 file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.0 — 2026-05-18
+
+### Added
+
+- **`client.sapi`** — SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **Webhook queued tests** — `webhooks.test(..., count=None, mode=None)` supports `mode="direct"` and `mode="queued"`.
+- **Webhook delivery filters** — `deliveries(..., cursor=None, test_run_id=None, include_response_body=None)`.
+- **Webhook dead-letter queue** — `dead_letters()`, `replay_dead_letter(id)`, and `resolve_dead_letter(id, reason=None)`.
+- **Peppol participant resolve** — `peppol.resolve(...)` for `/peppol/participants/resolve`.
+- **Enterprise route gaps** — `documents.evidence_bundle`, `outbound.get_mdn`, `peppol.company_search`, `documents.peppol_documents`, and `account.license_info`.
+
 ## 0.9.0 — 2026-05-12
 
 Additive release. Backward-compatible with 0.8.x.
@@ -119,7 +130,7 @@ redirect_uri, origin=None)` — exchanges the returned `code` for a
   Use this when the firm has no API key with you yet. After
   `exchange_code` succeeds, you have a 15-minute access JWT and a 30-day
   rotating refresh token bound to the firm — store both server-side. The
-  existing `client.auth.token(api_key=...)` (`client_credentials`)
+  existing `client.auth.token(client_id=..., client_secret=...)` (`client_credentials`)
   continues to be the right choice once the firm is linked through other
   means (dashboard confirm, integrator-managed plan, manual link).
 
@@ -238,7 +249,7 @@ id DESC)`. Returns the new generic `CursorPage[AuditEvent]`.
 - client = EPostak(api_key="sk_live_xxx", base_url="https://epostak.sk/api/enterprise")
 - status = client.account.status()
 + from epostak import EPostak
-+ client = EPostak(api_key="sk_live_xxx")
++ client = EPostak(client_id="sk_live_xxx", client_secret="sk_live_xxx")
 + status = client.auth.status()
 ```
 

@@ -3,6 +3,17 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.0 — 2026-05-18
+
+### Added
+
+- **`client.Sapi`** — SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **Webhook queued tests** — `Webhooks.TestAsync(id, WebhookTestParams)` supports `Count` and `Mode`.
+- **Webhook delivery filters** — `WebhookDeliveriesParams` adds `Cursor`, `TestRunId`, and `IncludeResponseBody`.
+- **Webhook dead-letter queue** — `DeadLettersAsync()`, `ReplayDeadLetterAsync(id)`, and `ResolveDeadLetterAsync(id, reason)`.
+- **Peppol participant resolve** — `Peppol.ResolveAsync(...)` for `/peppol/participants/resolve`.
+- **Enterprise route gaps** — `Documents.EvidenceBundleAsync`, `Outbound.GetMdnAsync`, `Peppol.CompanySearchAsync`, `Documents.PeppolDocumentsAsync`, and `Account.LicenseInfoAsync`.
+
 ## [.NET 0.9.0] — 2026-05-12
 
 ### Added

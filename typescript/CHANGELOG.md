@@ -3,10 +3,13 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-05-17
+## 3.3.2 — 2026-05-18
 
-Webhook DLQ and participant resolve sync against current Enterprise backend routes.
+Endpoint and documentation sync after publishing `@epostak/sdk@3.3.2`.
 
+- Updated README examples for SAPI, evidence downloads, webhook queued tests,
+  webhook dead-letter queue, Peppol participant resolve, license info, and
+  endpoint coverage.
 - Added `client.webhooks.test(id, { count, mode })` support for
   production-like queued webhook tests.
 - Added `testRunId` and `cursor` delivery-history filters.

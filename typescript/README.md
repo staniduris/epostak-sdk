@@ -6,6 +6,15 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Recent changes
 
+### v3.3.2 — 2026-05-18
+
+- **New:** `client.sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **New:** `client.webhooks.test(id, { count, mode })` supports direct and queued webhook tests; queued tests return `testRunId` for delivery-history polling.
+- **New:** `client.webhooks.deadLetters()`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, { reason })` cover webhook dead-letter operations.
+- **New:** `client.peppol.resolve(...)` maps ERP identifiers (`ico`, `dic`, `icDph`, `peppolId`, or `scheme` + `identifier`) to Peppol participant + routing capability.
+- **New:** `client.documents.evidenceBundle(id)`, `client.outbound.getMdn(id)`, `client.peppol.companySearch(...)`, `client.documents.peppolDocuments(...)`, and `client.account.licenseInfo()`.
+- **Coverage:** static endpoint coverage expanded to 97 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+
 ### v3.2.0 — 2026-05-12
 
 - **New:** Pull API — `client.inbound` (`list`, `get`, `getUbl`, `ack`) and `client.outbound` (`list`, `get`, `getUbl`, `events`) resources with full TypeScript types (`InboundDocument`, `OutboundDocument`, `OutboundEvent`, etc.).
@@ -239,6 +248,13 @@ const results = await client.peppol.directory.search({
 });
 
 const company = await client.peppol.companyLookup("12345678");
+
+const matches = await client.peppol.companySearch({ q: "Demo", limit: 10 });
+
+const resolved = await client.peppol.resolve({
+  ico: "12345678",
+  documentTypeId: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...",
+});
 ```
 
 ### Firms (integrator)
@@ -279,6 +295,24 @@ await client.webhooks.delete(webhook.id);
 
 // Rotate the signing secret (issues a fresh one, invalidates the old).
 const { secret } = await client.webhooks.rotateSecret(webhook.id);
+
+// Production-like test: enqueue delivery rows for the normal webhook worker.
+const queued = await client.webhooks.test(webhook.id, {
+  event: "document.received",
+  count: 250,
+  mode: "queued",
+});
+
+const deliveries = await client.webhooks.deliveries(webhook.id, {
+  testRunId: queued.testRunId,
+  includeResponseBody: true,
+});
+
+const dlq = await client.webhooks.deadLetters({ includeResponseBody: true });
+for (const failed of dlq.items) {
+  await client.webhooks.replayDeadLetter(failed.id);
+  // or: await client.webhooks.resolveDeadLetter(failed.id, { reason: "Handled in ERP" });
+}
 ```
 
 #### Verifying a delivery
@@ -488,12 +522,14 @@ try {
 | `documents.sendBatch(items, opts?)`      | POST   | `/documents/send/batch`                      |
 | `documents.status(id)`                   | GET    | `/documents/{id}/status`                     |
 | `documents.evidence(id)`                 | GET    | `/documents/{id}/evidence`                   |
+| `documents.evidenceBundle(id)`           | GET    | `/documents/{id}/evidence-bundle`            |
 | `documents.pdf(id)`                      | GET    | `/documents/{id}/pdf`                        |
 | `documents.ubl(id)`                      | GET    | `/documents/{id}/ubl`                        |
 | `documents.respond(id, body)`            | POST   | `/documents/{id}/respond`                    |
 | `documents.validate(body)`               | POST   | `/documents/validate`                        |
 | `documents.preflight(body)`              | POST   | `/documents/preflight`                       |
 | `documents.convert(body)`                | POST   | `/documents/convert`                         |
+| `documents.peppolDocuments(params?)`     | GET    | `/peppol-documents`                          |
 | `documents.inbox.list(params?)`          | GET    | `/documents/inbox`                           |
 | `documents.inbox.get(id)`                | GET    | `/documents/inbox/{id}`                      |
 | `documents.inbox.acknowledge(id)`        | POST   | `/documents/inbox/{id}/acknowledge`          |
@@ -501,6 +537,8 @@ try {
 | `peppol.lookup(scheme, id)`              | GET    | `/peppol/participants/{scheme}/{id}`         |
 | `peppol.directory.search(params?)`       | GET    | `/peppol/directory/search`                   |
 | `peppol.companyLookup(ico)`              | GET    | `/company/lookup/{ico}`                      |
+| `peppol.companySearch(params)`           | GET    | `/company/search`                            |
+| `peppol.resolve(params)`                 | GET    | `/peppol/participants/resolve`               |
 | `firms.list()`                           | GET    | `/firms`                                     |
 | `firms.get(id)`                          | GET    | `/firms/{id}`                                |
 | `firms.documents(id, params?)`           | GET    | `/firms/{id}/documents`                      |
@@ -512,7 +550,12 @@ try {
 | `webhooks.get(id)`                       | GET    | `/webhooks/{id}`                             |
 | `webhooks.update(id, body)`              | PATCH  | `/webhooks/{id}`                             |
 | `webhooks.delete(id)`                    | DELETE | `/webhooks/{id}`                             |
+| `webhooks.test(id, opts?)`               | POST   | `/webhooks/{id}/test`                        |
+| `webhooks.deliveries(id, params?)`       | GET    | `/webhooks/{id}/deliveries`                  |
 | `webhooks.rotateSecret(id)`              | POST   | `/webhooks/{id}/rotate-secret`               |
+| `webhooks.deadLetters(params?)`          | GET    | `/webhook-dead-letter`                       |
+| `webhooks.replayDeadLetter(id)`          | POST   | `/webhook-dead-letter/{id}/replay`           |
+| `webhooks.resolveDeadLetter(id, body?)`  | POST   | `/webhook-dead-letter/{id}/resolve`          |
 | `webhooks.queue.pull(params?)`           | GET    | `/webhook-queue`                             |
 | `webhooks.queue.ack(eventId)`            | DELETE | `/webhook-queue/{eventId}`                   |
 | `webhooks.queue.batchAck(ids)`           | POST   | `/webhook-queue/batch-ack`                   |
@@ -520,10 +563,16 @@ try {
 | `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`               |
 | `reporting.statistics(params?)`          | GET    | `/reporting/statistics`                      |
 | `account.get()`                          | GET    | `/account`                                   |
+| `account.licenseInfo()`                  | GET    | `/licenses/info`                             |
 | `extract.single(file, mime, name)`       | POST   | `/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/extract/batch`                             |
+| `outbound.getMdn(id)`                    | GET    | `/outbound/documents/{id}/mdn`               |
+| `sapi.send(body, opts)`                  | POST   | `/sapi/v1/document/send`                     |
+| `sapi.receive(params, opts)`             | GET    | `/sapi/v1/document/receive`                  |
+| `sapi.get(id, opts)`                     | GET    | `/sapi/v1/document/receive/{id}`             |
+| `sapi.acknowledge(id, opts)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-All paths relative to `https://epostak.sk/api/v1`.
+Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
 
 ---
 

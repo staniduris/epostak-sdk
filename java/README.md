@@ -14,15 +14,25 @@ Java 17+. Single dependency: Gson. Uses `java.net.http.HttpClient` (built-in sin
 <dependency>
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>0.10.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'sk.epostak:epostak-sdk:1.0.0'
+implementation 'sk.epostak:epostak-sdk:0.10.0'
 ```
+
+## Recent changes
+
+### v0.10.0 — 2026-05-18
+
+- `client.sapi()` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- `client.webhooks().test(id, new WebhookTestParams().count(250).mode("queued"))` supports direct and queued webhook tests.
+- `client.webhooks().deadLetters(...)`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, reason)` cover webhook DLQ operations.
+- `client.peppol().resolve(...)` resolves ERP identifiers to Peppol participant + routing capability.
+- Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
 
 ---
 
@@ -35,7 +45,8 @@ import sk.epostak.sdk.models.*;
 import java.util.List;
 
 EPostak client = EPostak.builder()
-    .apiKey("sk_live_xxxxx")
+    .clientId("sk_live_xxxxx")
+    .clientSecret("sk_live_xxxxx")
     .build();
 
 // Send an invoice
@@ -65,7 +76,8 @@ System.out.println(result.documentId() + " " + result.messageId());
 
 ```java
 EPostak client = EPostak.builder()
-    .apiKey("sk_live_xxxxx")        // Required
+    .clientId("sk_live_xxxxx")      // Required
+    .clientSecret("sk_live_xxxxx")  // Required
     .baseUrl("https://...")          // Optional, defaults to production
     .firmId("uuid")                  // Optional, required for integrator keys
     .build();
@@ -263,6 +275,12 @@ DirectorySearchResult results = client.peppol().directory().search(
 ```java
 CompanyLookup company = client.peppol().companyLookup("12345678");
 // company.ico(), company.name(), company.dic(), company.peppolId()
+
+Map<String, Object> matches = client.peppol().companySearch("Demo", 10);
+
+Map<String, Object> resolved = client.peppol().resolve(Map.of(
+    "ico", "12345678",
+    "documentTypeId", "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."));
 ```
 
 ---
@@ -335,6 +353,21 @@ List<Webhook> webhooks = client.webhooks().list();
 ```java
 WebhookDetail detail = client.webhooks().get("webhook-uuid");
 // detail.deliveries()
+
+WebhookTestResponse queued = client.webhooks().test(
+    "webhook-uuid",
+    new WebhookTestParams()
+        .event("document.received")
+        .count(250)
+        .mode("queued"));
+
+WebhookDeliveriesResponse deliveries = client.webhooks().deliveries(
+    "webhook-uuid",
+    Map.of("testRunId", queued.testRunId(), "includeResponseBody", true));
+
+Map<String, Object> dlq = client.webhooks().deadLetters(Map.of("includeResponseBody", true));
+client.webhooks().replayDeadLetter("delivery-id");
+client.webhooks().resolveDeadLetter("delivery-id", "Handled in ERP");
 ```
 
 #### `webhooks().update(id, url, events, isActive)` -- Update webhook
@@ -520,13 +553,15 @@ Use `sk_int_*` keys to act on behalf of client firms.
 ```java
 // Option 1: pass firmId in builder
 EPostak client = EPostak.builder()
-    .apiKey("sk_int_xxxxx")
+    .clientId("sk_int_xxxxx")
+    .clientSecret("sk_int_xxxxx")
     .firmId("client-firm-uuid")
     .build();
 
 // Option 2: scope at call time with withFirm()
 EPostak base = EPostak.builder()
-    .apiKey("sk_int_xxxxx")
+    .clientId("sk_int_xxxxx")
+    .clientSecret("sk_int_xxxxx")
     .build();
 EPostak clientA = base.withFirm("firm-uuid-a");
 EPostak clientB = base.withFirm("firm-uuid-b");
@@ -588,12 +623,14 @@ try {
 | `documents().send(body)`              | POST   | `/documents/send`                    |
 | `documents().status(id)`              | GET    | `/documents/{id}/status`             |
 | `documents().evidence(id)`            | GET    | `/documents/{id}/evidence`           |
+| `documents().evidenceBundle(id)`      | GET    | `/documents/{id}/evidence-bundle`    |
 | `documents().pdf(id)`                 | GET    | `/documents/{id}/pdf`                |
 | `documents().ubl(id)`                 | GET    | `/documents/{id}/ubl`                |
 | `documents().respond(id, body)`       | POST   | `/documents/{id}/respond`            |
 | `documents().validate(body)`          | POST   | `/documents/validate`                |
 | `documents().preflight(...)`          | POST   | `/documents/preflight`               |
 | `documents().convert(...)`            | POST   | `/documents/convert`                 |
+| `documents().peppolDocuments(...)`    | GET    | `/peppol-documents`                  |
 | `documents().inbox().list(...)`       | GET    | `/documents/inbox`                   |
 | `documents().inbox().get(id)`         | GET    | `/documents/inbox/{id}`              |
 | `documents().inbox().acknowledge(id)` | POST   | `/documents/inbox/{id}/acknowledge`  |
@@ -601,6 +638,8 @@ try {
 | `peppol().lookup(scheme, id)`         | GET    | `/peppol/participants/{scheme}/{id}` |
 | `peppol().directory().search(...)`    | GET    | `/peppol/directory/search`           |
 | `peppol().companyLookup(ico)`         | GET    | `/company/lookup/{ico}`              |
+| `peppol().companySearch(q, limit)`    | GET    | `/company/search`                    |
+| `peppol().resolve(params)`            | GET    | `/peppol/participants/resolve`       |
 | `firms().list()`                      | GET    | `/firms`                             |
 | `firms().get(id)`                     | GET    | `/firms/{id}`                        |
 | `firms().documents(id, ...)`          | GET    | `/firms/{id}/documents`              |
@@ -612,6 +651,11 @@ try {
 | `webhooks().get(id)`                  | GET    | `/webhooks/{id}`                     |
 | `webhooks().update(id, ...)`          | PATCH  | `/webhooks/{id}`                     |
 | `webhooks().delete(id)`               | DELETE | `/webhooks/{id}`                     |
+| `webhooks().test(id, params)`         | POST   | `/webhooks/{id}/test`                |
+| `webhooks().deliveries(id, params)`   | GET    | `/webhooks/{id}/deliveries`          |
+| `webhooks().deadLetters(params)`      | GET    | `/webhook-dead-letter`               |
+| `webhooks().replayDeadLetter(id)`     | POST   | `/webhook-dead-letter/{id}/replay`   |
+| `webhooks().resolveDeadLetter(id, reason)` | POST | `/webhook-dead-letter/{id}/resolve` |
 | `webhooks().queue().pull(...)`        | GET    | `/webhook-queue`                     |
 | `webhooks().queue().ack(eventId)`     | DELETE | `/webhook-queue/{eventId}`           |
 | `webhooks().queue().batchAck(ids)`    | POST   | `/webhook-queue/batch-ack`           |
@@ -629,26 +673,15 @@ try {
 | `outbound().list(params)`             | GET    | `/outbound/documents`                |
 | `outbound().get(id)`                  | GET    | `/outbound/documents/{id}`           |
 | `outbound().getUbl(id)`               | GET    | `/outbound/documents/{id}/ubl`       |
+| `outbound().getMdn(id)`               | GET    | `/outbound/documents/{id}/mdn`       |
 | `outbound().events(params)`           | GET    | `/outbound/events`                   |
+| `account().licenseInfo()`             | GET    | `/licenses/info`                     |
+| `sapi().send(body, participantId, idempotencyKey)` | POST | `/sapi/v1/document/send`      |
+| `sapi().receive(participantId, ...)`  | GET    | `/sapi/v1/document/receive`          |
+| `sapi().get(id, participantId)`       | GET    | `/sapi/v1/document/receive/{id}`     |
+| `sapi().acknowledge(id, participantId)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-All paths are relative to `https://epostak.sk/api/v1`.
-
----
-
-## Recent changes
-
-### 0.9.0 — 2026-05-12
-
-- **Pull API**: `client.inbound()` and `client.outbound()` resources for cursor-based
-  document polling (8 new endpoints). Replaces the legacy `documents().inbox()` path
-  for api-eligible plans.
-- **`UblValidationException`**: typed exception thrown on `422 UBL_VALIDATION_ERROR`
-  with `getRule()` returning the first failing Peppol schematron rule.
-- **`UblRule` enum**: `BR_02`, `BR_05`, `BR_06`, `BR_11`, `BR_16`, `BT_1`, `PEPPOL_R008`.
-- **`webhooks().test(id, WebhookTestParams)`**: new overload with fluent `.event(...)` setter.
-- **`WebhookDeliveriesResponse.DeliveryDetail`**: added nullable `idempotencyKey()`.
-- **`client.getLastRateLimit()`**: returns `RateLimitInfo(limit, remaining, resetAt)`
-  from `X-RateLimit-*` headers of the most recent API response.
+Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
 
 ---
 

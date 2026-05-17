@@ -5,6 +5,17 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
+## 0.10.0 — 2026-05-18
+
+### Added
+
+- **`client.sapi`** — SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **Webhook queued tests** — `webhooks.test(id, count:, mode:)` supports direct and queued test modes.
+- **Webhook delivery filters** — delivery history accepts `testRunId` via `test_run_id:`.
+- **Webhook dead-letter queue** — `dead_letters`, `replay_dead_letter(id)`, and `resolve_dead_letter(id, reason:)`.
+- **Peppol participant resolve** — `peppol.resolve(...)` for `/peppol/participants/resolve`.
+- **Enterprise route gaps** — `documents.evidence_bundle`, `outbound.get_mdn`, `peppol.company_search`, `documents.peppol_documents`, and `account.license_info`.
+
 ## 0.9.0 — 2026-05-12
 
 ### Added

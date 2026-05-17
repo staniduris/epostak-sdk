@@ -7,6 +7,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The actual published version on Packagist has always been `0.8.x`.
 > The version history is corrected going forward.
 
+## 0.10.0 — 2026-05-18
+
+### Added
+
+- **`$client->sapi`** — SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **Webhook queued tests** — `webhooks->test($id, ['count' => ..., 'mode' => ...])` supports direct and queued modes.
+- **Webhook delivery filters** — `deliveries()` accepts `testRunId` and response-body opt-in.
+- **Webhook dead-letter queue** — `deadLetters()`, `replayDeadLetter($id)`, and `resolveDeadLetter($id, $reason)`.
+- **Peppol participant resolve** — `peppol->resolve([...])` for `/peppol/participants/resolve`.
+- **Enterprise route gaps** — `documents->evidenceBundle`, `outbound->getMdn`, `peppol->companySearch`, `documents->peppolDocuments`, and `account->licenseInfo`.
+
 ## 0.9.0 — 2026-05-12
 
 ### Added

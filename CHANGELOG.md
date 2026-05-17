@@ -1,5 +1,16 @@
 # Changelog
 
+## [README + changelog sync] — 2026-05-18
+
+Documentation sync for the latest GitHub and npm state.
+
+- Updated root and language README files for TypeScript `3.3.2` and source SDK
+  `0.10.0` surfaces.
+- Documented SAPI resources, Enterprise evidence downloads, webhook queued
+  tests, webhook dead-letter queue, and Peppol participant resolve.
+- Added matching language changelog entries so README and release notes no
+  longer lag the SDK code.
+
 ## [Webhook DLQ + participant resolve sync] — 2026-05-17
 
 SDK code sync against the latest ePošťák Enterprise backend changes.

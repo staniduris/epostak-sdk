@@ -6,6 +6,18 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ---
 
+## Recent changes
+
+### v0.10.0 — 2026-05-18
+
+- `$client->sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- `$client->webhooks->test($id, ['count' => 250, 'mode' => 'queued'])` supports direct and queued webhook tests.
+- `$client->webhooks->deadLetters()`, `replayDeadLetter($id)`, and `resolveDeadLetter($id, $reason)` cover webhook DLQ operations.
+- `$client->peppol->resolve([...])` resolves ERP identifiers to Peppol participant + routing capability.
+- Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
+
+---
+
 ## Installation
 
 ```bash
@@ -252,6 +264,13 @@ $results = $client->peppol->directory->search([
 ```php
 $company = $client->peppol->companyLookup('12345678');
 // => ['ico', 'name', 'dic', 'icDph', 'address', 'peppolId']
+
+$matches = $client->peppol->companySearch('Demo', 10);
+
+$resolved = $client->peppol->resolve([
+    'ico' => '12345678',
+    'documentTypeId' => 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...',
+]);
 ```
 
 ---
@@ -327,6 +346,23 @@ $webhooks = $client->webhooks->list();
 ```php
 $detail = $client->webhooks->get('webhook-uuid');
 // => [...webhook, 'deliveries' => [...]]
+
+$queued = $client->webhooks->test('webhook-uuid', [
+    'event' => 'document.received',
+    'count' => 250,
+    'mode' => 'queued',
+]);
+
+$deliveries = $client->webhooks->deliveries('webhook-uuid', [
+    'testRunId' => $queued['testRunId'],
+    'includeResponseBody' => true,
+]);
+
+$dlq = $client->webhooks->deadLetters(['includeResponseBody' => true]);
+foreach ($dlq['items'] as $failed) {
+    $client->webhooks->replayDeadLetter($failed['id']);
+    // or: $client->webhooks->resolveDeadLetter($failed['id'], 'Handled in ERP');
+}
 ```
 
 #### `webhooks->update($id, $data)` -- Update webhook
@@ -591,12 +627,14 @@ try {
 | `documents->send($body)`                                     | POST   | `/documents/send`                    |
 | `documents->status($id)`                                     | GET    | `/documents/{id}/status`             |
 | `documents->evidence($id)`                                   | GET    | `/documents/{id}/evidence`           |
+| `documents->evidenceBundle($id)`                             | GET    | `/documents/{id}/evidence-bundle`    |
 | `documents->pdf($id)`                                        | GET    | `/documents/{id}/pdf`                |
 | `documents->ubl($id)`                                        | GET    | `/documents/{id}/ubl`                |
 | `documents->respond($id, $status, $note)`                    | POST   | `/documents/{id}/respond`            |
 | `documents->validate($body)`                                 | POST   | `/documents/validate`                |
 | `documents->preflight($receiverPeppolId)`                    | POST   | `/documents/preflight`               |
 | `documents->convert($inputFormat, $outputFormat, $document)` | POST   | `/documents/convert`                 |
+| `documents->peppolDocuments($params)`                        | GET    | `/peppol-documents`                  |
 | `documents->inbox->list($params)`                            | GET    | `/documents/inbox`                   |
 | `documents->inbox->get($id)`                                 | GET    | `/documents/inbox/{id}`              |
 | `documents->inbox->acknowledge($id)`                         | POST   | `/documents/inbox/{id}/acknowledge`  |
@@ -604,6 +642,8 @@ try {
 | `peppol->lookup($scheme, $id)`                               | GET    | `/peppol/participants/{scheme}/{id}` |
 | `peppol->directory->search($params)`                         | GET    | `/peppol/directory/search`           |
 | `peppol->companyLookup($ico)`                                | GET    | `/company/lookup/{ico}`              |
+| `peppol->companySearch($q, $limit)`                          | GET    | `/company/search`                    |
+| `peppol->resolve($params)`                                   | GET    | `/peppol/participants/resolve`       |
 | `firms->list()`                                              | GET    | `/firms`                             |
 | `firms->get($id)`                                            | GET    | `/firms/{id}`                        |
 | `firms->documents($id, $params)`                             | GET    | `/firms/{id}/documents`              |
@@ -615,6 +655,11 @@ try {
 | `webhooks->get($id)`                                         | GET    | `/webhooks/{id}`                     |
 | `webhooks->update($id, $data)`                               | PATCH  | `/webhooks/{id}`                     |
 | `webhooks->delete($id)`                                      | DELETE | `/webhooks/{id}`                     |
+| `webhooks->test($id, $params)`                               | POST   | `/webhooks/{id}/test`                |
+| `webhooks->deliveries($id, $params)`                         | GET    | `/webhooks/{id}/deliveries`          |
+| `webhooks->deadLetters($params)`                             | GET    | `/webhook-dead-letter`               |
+| `webhooks->replayDeadLetter($id)`                            | POST   | `/webhook-dead-letter/{id}/replay`   |
+| `webhooks->resolveDeadLetter($id, $reason)`                  | POST   | `/webhook-dead-letter/{id}/resolve`  |
 | `webhooks->queue->pull($params)`                             | GET    | `/webhook-queue`                     |
 | `webhooks->queue->ack($eventId)`                             | DELETE | `/webhook-queue/{eventId}`           |
 | `webhooks->queue->batchAck($ids)`                            | POST   | `/webhook-queue/batch-ack`           |
@@ -627,13 +672,19 @@ try {
 | `outbound->list($params)`                                    | GET    | `/outbound/documents`                |
 | `outbound->get($id)`                                         | GET    | `/outbound/documents/{id}`           |
 | `outbound->getUbl($id)`                                      | GET    | `/outbound/documents/{id}/ubl`       |
+| `outbound->getMdn($id)`                                      | GET    | `/outbound/documents/{id}/mdn`       |
 | `outbound->events($params)`                                  | GET    | `/outbound/events`                   |
 | `reporting->statistics($params)`                             | GET    | `/reporting/statistics`              |
 | `account->get()`                                             | GET    | `/account`                           |
+| `account->licenseInfo()`                                     | GET    | `/licenses/info`                     |
 | `extract->single($path, $mime)`                              | POST   | `/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
+| `sapi->send($body, $participantId, $idempotencyKey)`         | POST   | `/sapi/v1/document/send`             |
+| `sapi->receive($participantId, $params)`                     | GET    | `/sapi/v1/document/receive`          |
+| `sapi->get($documentId, $participantId)`                     | GET    | `/sapi/v1/document/receive/{id}`     |
+| `sapi->acknowledge($documentId, $participantId)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-All paths are relative to `https://epostak.sk/api/v1`.
+Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
 
 ---
 

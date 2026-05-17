@@ -11,8 +11,18 @@ dotnet add package EPostak
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="EPostak" Version="0.9.0" />
+<PackageReference Include="EPostak" Version="0.10.0" />
 ```
+
+## Recent changes
+
+### v0.10.0 — 2026-05-18
+
+- `client.Sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- `client.Webhooks.TestAsync(id, new WebhookTestParams { Count = 250, Mode = "queued" })` supports direct and queued webhook tests.
+- `client.Webhooks.DeadLettersAsync()`, `ReplayDeadLetterAsync(id)`, and `ResolveDeadLetterAsync(id, reason)` cover webhook DLQ operations.
+- `client.Peppol.ResolveAsync(...)` resolves ERP identifiers to Peppol participant + routing capability.
+- Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
 
 ## Quick start
 
@@ -202,6 +212,14 @@ var results = await client.Peppol.Directory.SearchAsync(new DirectorySearchParam
 // Company lookup by ICO
 var company = await client.Peppol.CompanyLookupAsync("12345678");
 Console.WriteLine($"{company.Name}, DIC: {company.Dic}");
+
+var matches = await client.Peppol.CompanySearchAsync("Demo", limit: 10);
+
+var resolved = await client.Peppol.ResolveAsync(new Dictionary<string, string?>
+{
+    ["ico"] = "12345678",
+    ["documentTypeId"] = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
+});
 ```
 
 ### Firms
@@ -255,6 +273,23 @@ var updated = await client.Webhooks.UpdateAsync("webhook-id", new UpdateWebhookR
 
 // Delete webhook
 await client.Webhooks.DeleteAsync("webhook-id");
+
+var queued = await client.Webhooks.TestAsync("webhook-id", new WebhookTestParams
+{
+    Event = WebhookEvent.DocumentReceived,
+    Count = 250,
+    Mode = "queued"
+});
+
+var deliveries = await client.Webhooks.DeliveriesAsync("webhook-id", new WebhookDeliveriesParams
+{
+    TestRunId = queued.TestRunId,
+    IncludeResponseBody = true
+});
+
+var dlq = await client.Webhooks.DeadLettersAsync(includeResponseBody: true);
+await client.Webhooks.ReplayDeadLetterAsync("delivery-id");
+await client.Webhooks.ResolveDeadLetterAsync("delivery-id", "Handled in ERP");
 ```
 
 #### Dedup + retry headers (server v1.1 — 2026-05-12)
@@ -367,10 +402,6 @@ var batchResult = await client.Extract.BatchAsync(
 
 Console.WriteLine($"Batch: {batchResult.Successful}/{batchResult.Total} successful");
 ```
-
-## Recent changes
-
-**v0.9.0** — Pull API resources (`client.Inbound`, `client.Outbound`), `UblValidationException` with `UblRule` constants, typed `WebhookTestParams` + `WebhookEvent` enum, `WebhookDelivery.IdempotencyKey`, `client.LastRateLimit`.
 
 ## Error handling
 

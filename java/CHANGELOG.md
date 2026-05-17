@@ -4,6 +4,17 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.0 — 2026-05-18
+
+### Added
+
+- **`client.sapi()`** — SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **Webhook queued tests** — `WebhookTestParams` adds `.count(...)` and `.mode(...)`.
+- **Webhook delivery filters** — delivery history accepts `testRunId` and response-body opt-in params.
+- **Webhook dead-letter queue** — `deadLetters(...)`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, reason)`.
+- **Peppol participant resolve** — `peppol().resolve(...)` for `/peppol/participants/resolve`.
+- **Enterprise route gaps** — `documents().evidenceBundle`, `outbound().getMdn`, `peppol().companySearch`, `documents().peppolDocuments`, and `account().licenseInfo`.
+
 ## 0.9.0 — 2026-05-12
 
 ### Added
