@@ -23,4 +23,8 @@ export class AccountResource extends BaseResource {
   get(): Promise<Account> {
     return this.request("GET", "/account");
   }
+
+  licenseInfo(): Promise<Record<string, unknown>> {
+    return this.request("GET", "/licenses/info");
+  }
 }

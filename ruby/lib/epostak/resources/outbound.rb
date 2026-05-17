@@ -65,6 +65,14 @@ module EPostak
         @http.request_raw(:get, "/outbound/documents/#{encode(id)}/ubl")
       end
 
+      # Download the raw AS4 MDN receipt for an outbound document.
+      #
+      # @param id [String] Document UUID
+      # @return [String] Raw MDN bytes
+      def get_mdn(id)
+        @http.request_raw(:get, "/outbound/documents/#{encode(id)}/mdn")
+      end
+
       # Stream outbound document events (cursor-paginated).
       #
       # Each event has: +id+, +document_id+, +type+, +actor+, +detail+, +meta+,

@@ -69,6 +69,14 @@ internal sealed class HttpRequestor
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
 
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
+    {
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        foreach (var (key, value) in headers)
+            request.Headers.TryAddWithoutValidation(key, value);
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Send a request with a JSON body and deserialize the JSON response.
     /// </summary>
@@ -90,6 +98,18 @@ internal sealed class HttpRequestor
         using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(idempotencyKey))
             request.Headers.Add("Idempotency-Key", idempotencyKey);
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
+    {
+        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(idempotencyKey))
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
+        foreach (var (key, value) in headers)
+            request.Headers.TryAddWithoutValidation(key, value);
         var json = JsonSerializer.Serialize(body, JsonOptions);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
         return await SendAsync<T>(request, ct).ConfigureAwait(false);

@@ -45,6 +45,8 @@ export {
 } from "./resources/integrator.js";
 export { InboundResource } from "./resources/inbound.js";
 export { OutboundResource } from "./resources/outbound.js";
+export { SapiResource } from "./resources/sapi.js";
+export type { SapiParticipantOptions, SapiSendOptions } from "./resources/sapi.js";
 
 // All types
 export type {
@@ -227,4 +229,12 @@ export type {
   OutboundEvent,
   OutboundEventsParams,
   OutboundEventsListResponse,
+  SapiDocumentMetadata,
+  SapiSendDocumentRequest,
+  SapiSendDocumentResponse,
+  SapiDocumentListParams,
+  SapiDocumentListItem,
+  SapiDocumentListResponse,
+  SapiDocumentDetail,
+  SapiAcknowledgeResponse,
 } from "./types.js";

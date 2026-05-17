@@ -25,6 +25,7 @@ from epostak.resources.integrator import IntegratorResource
 from epostak.resources.outbound import OutboundResource
 from epostak.resources.peppol import PeppolResource
 from epostak.resources.reporting import ReportingResource
+from epostak.resources.sapi import SapiResource
 from epostak.resources.webhooks import WebhooksResource
 from epostak.token_manager import TokenManager
 
@@ -152,6 +153,9 @@ class EPostak:
     integrator: IntegratorResource
     """Integrator-aggregate endpoints (sk_int_* keys)."""
 
+    sapi: SapiResource
+    """SAPI-SK 1.0 interoperable document send/receive endpoints."""
+
     def __init__(
         self,
         client_id: str,
@@ -200,6 +204,7 @@ class EPostak:
         self.extract = ExtractResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.sapi = SapiResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
 
     @property
     def last_rate_limit(self) -> "Optional[dict]":

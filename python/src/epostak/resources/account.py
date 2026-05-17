@@ -35,3 +35,7 @@ class AccountResource(_BaseResource):
             print(f"Sent: {account['usage']['outbound']}")
         """
         return self._request("GET", "/account")
+
+    def license_info(self) -> dict:
+        """Get per-firm plan and current-period license usage."""
+        return self._request("GET", "/licenses/info")

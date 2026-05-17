@@ -53,6 +53,9 @@ module EPostak
     # @return [Resources::Outbound] Pull API — list/get sent outbound documents and events
     attr_reader :outbound
 
+    # @return [Resources::Sapi] SAPI-SK 1.0 interoperable document endpoints
+    attr_reader :sapi
+
     # Create a new ePošťák API client.
     #
     # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
@@ -102,6 +105,7 @@ module EPostak
       @integrator = Resources::Integrator.new(@http)
       @inbound    = Resources::Inbound.new(@http)
       @outbound   = Resources::Outbound.new(@http)
+      @sapi       = Resources::Sapi.new(@http, base_url: @base_url)
     end
 
     # Create a new client instance scoped to a specific firm.

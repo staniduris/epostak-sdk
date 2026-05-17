@@ -117,6 +117,16 @@ public final class OutboundResource {
     }
 
     /**
+     * Download the raw AS4 MDN receipt for an outbound document.
+     *
+     * @param id the outbound document UUID
+     * @return raw AS4 MDN bytes
+     */
+    public byte[] getMdn(String id) {
+        return http.getBytes("/outbound/documents/" + HttpClient.encode(id) + "/mdn");
+    }
+
+    /**
      * Stream outbound document events with cursor pagination.
      * <p>
      * Each event records a state transition on an outbound document.

@@ -214,6 +214,16 @@ public final class DocumentsResource {
     }
 
     /**
+     * Download the audit evidence ZIP bundle for a document.
+     *
+     * @param id the document UUID
+     * @return raw ZIP bytes
+     */
+    public byte[] evidenceBundle(String id) {
+        return http.getBytes("/documents/" + HttpClient.encode(id) + "/evidence-bundle");
+    }
+
+    /**
      * Send an invoice response for a received document. Status must be one of
      * the seven UBL response codes: {@code AB}, {@code IP}, {@code UQ},
      * {@code CA}, {@code RE}, {@code AP}, {@code PD}. See
@@ -459,6 +469,27 @@ public final class DocumentsResource {
      */
     public OutboxListResponse outbox() {
         return outbox(null, null, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> peppolDocuments(
+            Integer offset,
+            Integer limit,
+            String direction,
+            String doctypeKey,
+            String status,
+            String peppolMessageId,
+            String since
+    ) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("offset", offset);
+        params.put("limit", limit);
+        params.put("direction", direction);
+        params.put("doctypeKey", doctypeKey);
+        params.put("status", status);
+        params.put("peppolMessageId", peppolMessageId);
+        params.put("since", since);
+        return http.get("/peppol-documents" + HttpClient.buildQuery(params), Map.class);
     }
 
     /**

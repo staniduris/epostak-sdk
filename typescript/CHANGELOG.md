@@ -3,6 +3,18 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — 2026-05-17
+
+Endpoint coverage sync against current Enterprise and SAPI backend routes.
+
+- Added `client.sapi` for SAPI-SK 1.0 document send, receive, detail,
+  and acknowledge endpoints.
+- Added `client.documents.evidenceBundle(id)` and `client.outbound.getMdn(id)`
+  for audit ZIP and raw AS4 MDN evidence downloads.
+- Added `client.peppol.companySearch(...)`,
+  `client.documents.peppolDocuments(...)`, and
+  `client.account.licenseInfo()`.
+
 ## 3.3.1 — 2026-05-12
 
 Docs-only patch tracking ePošťák server PR #122 (webhook dedup +

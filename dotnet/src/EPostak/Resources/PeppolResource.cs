@@ -59,6 +59,13 @@ public sealed class PeppolResource
     public Task<CompanyLookup> CompanyLookupAsync(string ico, CancellationToken ct = default)
         => _http.RequestAsync<CompanyLookup>(HttpMethod.Get, $"/company/lookup/{Uri.EscapeDataString(ico)}", ct);
 
+    /// <summary>Search Slovak companies by name.</summary>
+    public Task<Dictionary<string, object?>> CompanySearchAsync(string q, int? limit = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(("q", q), ("limit", limit?.ToString()));
+        return _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/company/search{qs}", ct);
+    }
+
     /// <summary>
     /// Probe whether a Peppol participant can receive a specific document type.
     /// The response reports the full set of supported document types and business

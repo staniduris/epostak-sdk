@@ -49,7 +49,7 @@ module EPostak
     #   non-idempotent methods (POST/PATCH/PUT) become retryable.
     # @return [Hash, nil] Parsed JSON response, or nil for 204 responses
     # @raise [EPostak::Error] On non-2xx responses or network errors
-    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil)
+    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil, headers: nil, base_url: nil)
       retryable =
         if retry_on_failure.nil?
           RETRYABLE_METHODS.include?(method)
@@ -59,10 +59,12 @@ module EPostak
       attempt = 0
 
       loop do
-        response = @conn.run_request(method, path, nil, nil) do |req|
+        conn = base_url ? build_connection(base_url) : @conn
+        response = conn.run_request(method, path, nil, nil) do |req|
           req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
           req.params.update(compact_params(query)) if query
           req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
+          req.headers.update(headers) if headers
           if body
             req.headers["Content-Type"] = "application/json"
             req.body = JSON.generate(body)
@@ -192,8 +194,8 @@ module EPostak
       [base_delay * (2**attempt) + jitter, max_delay].min
     end
 
-    def build_connection
-      Faraday.new(url: @base_url) do |f|
+    def build_connection(base_url = @base_url)
+      Faraday.new(url: base_url) do |f|
         f.adapter Faraday.default_adapter
         f.headers["X-Firm-Id"] = @firm_id if @firm_id
       end

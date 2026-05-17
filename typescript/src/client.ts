@@ -10,6 +10,7 @@ import { AuditResource } from "./resources/audit.js";
 import { IntegratorResource } from "./resources/integrator.js";
 import { InboundResource } from "./resources/inbound.js";
 import { OutboundResource } from "./resources/outbound.js";
+import { SapiResource } from "./resources/sapi.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport, RateLimitState } from "./types.js";
 import { EPostakError, buildApiError } from "./utils/errors.js";
@@ -95,6 +96,8 @@ export class EPostak {
   inbound: InboundResource;
   /** Pull API — cursor-based outbound document feed and event stream. */
   outbound: OutboundResource;
+  /** SAPI-SK 1.0 interoperable document send/receive endpoints. */
+  sapi: SapiResource;
 
   /**
    * Rate-limit state from the most recent API response.
@@ -154,6 +157,7 @@ export class EPostak {
     this.integrator = new IntegratorResource(this.clientConfig);
     this.inbound = new InboundResource(this.clientConfig);
     this.outbound = new OutboundResource(this.clientConfig);
+    this.sapi = new SapiResource(this.clientConfig);
   }
 
   /**

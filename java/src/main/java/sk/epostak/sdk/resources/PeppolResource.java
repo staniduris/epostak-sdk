@@ -8,7 +8,9 @@ import sk.epostak.sdk.models.CapabilitiesResponse;
 import sk.epostak.sdk.models.CompanyLookup;
 import sk.epostak.sdk.models.PeppolParticipant;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * SMP participant lookup and Slovak company lookup.
@@ -84,6 +86,14 @@ public final class PeppolResource {
      */
     public CompanyLookup companyLookup(String ico) {
         return http.get("/company/lookup/" + HttpClient.encode(ico), CompanyLookup.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> companySearch(String q, Integer limit) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("q", q);
+        params.put("limit", limit);
+        return http.get("/company/search" + HttpClient.buildQuery(params), Map.class);
     }
 
     /**

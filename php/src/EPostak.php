@@ -16,6 +16,7 @@ use EPostak\Resources\Outbound;
 use EPostak\Resources\Peppol;
 use EPostak\Resources\Webhooks;
 use EPostak\Resources\Reporting;
+use EPostak\Resources\Sapi;
 use EPostak\Resources\Extract;
 use EPostak\Resources\Account;
 use GuzzleHttp\Client as GuzzleClient;
@@ -36,6 +37,7 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Extract $extract AI-powered OCR extraction from PDFs and images
  * @property-read Account $account Account and firm information
  * @property-read Integrator $integrator Integrator-aggregate endpoints (sk_int_* keys)
+ * @property-read Sapi $sapi SAPI-SK 1.0 interoperable document endpoints
  */
 class EPostak
 {
@@ -60,6 +62,7 @@ class EPostak
     public Extract $extract;
     public Account $account;
     public Integrator $integrator;
+    public Sapi $sapi;
 
     private HttpClient $http;
 
@@ -118,6 +121,7 @@ class EPostak
         $this->extract = new Extract($this->http);
         $this->account = new Account($this->http);
         $this->integrator = new Integrator($this->http);
+        $this->sapi = new Sapi($this->http);
     }
 
     /**

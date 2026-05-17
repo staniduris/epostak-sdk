@@ -544,6 +544,11 @@ class DocumentsResource(_BaseResource):
         response = self._request("GET", f"/documents/{quote(id, safe='')}/envelope", raw=True)
         return response.content
 
+    def evidence_bundle(self, id: str) -> bytes:
+        """Download the audit evidence ZIP bundle for a document."""
+        response = self._request("GET", f"/documents/{quote(id, safe='')}/evidence-bundle", raw=True)
+        return response.content
+
     def respond(self, id: str, status: str, note: Optional[str] = None) -> InvoiceRespondResponse:
         """Send an invoice response for a received document.
 
@@ -782,6 +787,29 @@ class DocumentsResource(_BaseResource):
             "since": since,
         })
         return self._request("GET", "/documents/outbox", params=params)
+
+    def peppol_documents(
+        self,
+        *,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        direction: Optional[str] = None,
+        doctype_key: Optional[str] = None,
+        status: Optional[str] = None,
+        peppol_message_id: Optional[str] = None,
+        since: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List non-billing Peppol documents."""
+        params = _build_query({
+            "offset": offset,
+            "limit": limit,
+            "direction": direction,
+            "doctypeKey": doctype_key,
+            "status": status,
+            "peppolMessageId": peppol_message_id,
+            "since": since,
+        })
+        return self._request("GET", "/peppol-documents", params=params)
 
     def responses(self, id: str) -> InvoiceResponsesListResponse:
         """List Invoice Responses associated with a document.

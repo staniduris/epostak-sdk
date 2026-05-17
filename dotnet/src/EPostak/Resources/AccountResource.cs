@@ -29,4 +29,8 @@ public sealed class AccountResource
     /// </summary>
     public Task<Account> GetAsync(CancellationToken ct = default)
         => _http.RequestAsync<Account>(HttpMethod.Get, "/account", ct);
+
+    /// <summary>Get per-firm plan and current-period license usage.</summary>
+    public Task<Dictionary<string, object?>> LicenseInfoAsync(CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, "/licenses/info", ct);
 }

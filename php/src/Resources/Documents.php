@@ -195,6 +195,11 @@ class Documents
         return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/envelope');
     }
 
+    public function evidenceBundle(string $id): string
+    {
+        return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/evidence-bundle');
+    }
+
     /**
      * Send an invoice response (BIS Invoice Response per Peppol BIS 3.0).
      *
@@ -379,6 +384,20 @@ class Documents
             'since' => $params['since'] ?? null,
         ]);
         return $this->http->request('GET', '/documents/outbox' . $qs);
+    }
+
+    public function peppolDocuments(array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'offset' => $params['offset'] ?? null,
+            'limit' => $params['limit'] ?? null,
+            'direction' => $params['direction'] ?? null,
+            'doctypeKey' => $params['doctypeKey'] ?? null,
+            'status' => $params['status'] ?? null,
+            'peppolMessageId' => $params['peppolMessageId'] ?? null,
+            'since' => $params['since'] ?? null,
+        ]);
+        return $this->http->request('GET', '/peppol-documents' . $qs);
     }
 
     /**

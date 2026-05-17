@@ -1,5 +1,18 @@
 # Changelog
 
+## [Enterprise + SAPI endpoint sync] — 2026-05-17
+
+SDK code sync against current ePošťák backend route map.
+
+- Added SAPI-SK 1.0 document resources in TypeScript, Python, Ruby, PHP,
+  .NET, and Java: send, receive list/detail, acknowledge.
+- Added Enterprise evidence downloads: `documents.evidenceBundle(...)`
+  / language equivalents for `/documents/{id}/evidence-bundle` and
+  outbound MDN receipt downloads for `/outbound/documents/{id}/mdn`.
+- Added coverage for Enterprise route gaps: `/company/search`,
+  `/peppol-documents`, and `/licenses/info`.
+- Added a static endpoint coverage check under `scripts/`.
+
 ## [Webhook v1.1 — dedup + retry policy] — 2026-05-12
 
 Docs-only follow-up to track ePošťák PR #122 (server-side dedup + retry

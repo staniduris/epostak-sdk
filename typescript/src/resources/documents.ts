@@ -375,6 +375,16 @@ export class DocumentsResource extends BaseResource {
     return Buffer.from(await res.arrayBuffer());
   }
 
+  async evidenceBundle(id: string): Promise<Buffer> {
+    const res = await this.request<Response>(
+      "GET",
+      `/documents/${encodeURIComponent(id)}/evidence-bundle`,
+      undefined,
+      { rawResponse: true },
+    );
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   /**
    * Send an Invoice Response (Peppol Application Response) for a received
    * document. Routes a signed UBL Invoice Response back to the original
@@ -592,6 +602,29 @@ export class DocumentsResource extends BaseResource {
       `/documents/outbox${buildQuery({
         offset: params?.offset,
         limit: params?.limit,
+        status: params?.status,
+        peppolMessageId: params?.peppolMessageId,
+        since: params?.since,
+      })}`,
+    );
+  }
+
+  peppolDocuments(params?: {
+    offset?: number;
+    limit?: number;
+    direction?: "inbound" | "outbound";
+    doctypeKey?: string;
+    status?: string;
+    peppolMessageId?: string;
+    since?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.request(
+      "GET",
+      `/peppol-documents${buildQuery({
+        offset: params?.offset,
+        limit: params?.limit,
+        direction: params?.direction,
+        doctypeKey: params?.doctypeKey,
         status: params?.status,
         peppolMessageId: params?.peppolMessageId,
         since: params?.since,

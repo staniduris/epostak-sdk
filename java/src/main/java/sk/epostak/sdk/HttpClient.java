@@ -162,6 +162,14 @@ public final class HttpClient {
         return request("POST", path, body, type);
     }
 
+    public <T> T getWithHeaders(String path, Class<T> type, Map<String, String> headers) {
+        return request("GET", path, null, type, headers);
+    }
+
+    public <T> T postWithHeaders(String path, Object body, Class<T> type, Map<String, String> headers) {
+        return request("POST", path, body, type, headers);
+    }
+
     /**
      * Perform a POST request with a JSON body and an explicit {@code Idempotency-Key}
      * header for safe replay of mutating endpoints.

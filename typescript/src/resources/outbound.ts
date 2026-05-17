@@ -101,6 +101,16 @@ export class OutboundResource extends BaseResource {
     return res.text();
   }
 
+  async getMdn(id: string): Promise<Buffer> {
+    const res = await this.request<Response>(
+      "GET",
+      `/outbound/documents/${encodeURIComponent(id)}/mdn`,
+      undefined,
+      { rawResponse: true },
+    );
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   /**
    * Cursor-based stream of outbound document lifecycle events.
    * Results are sorted oldest-to-newest (ascending) — a saved cursor

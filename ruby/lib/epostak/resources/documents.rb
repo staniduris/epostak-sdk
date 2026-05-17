@@ -191,6 +191,14 @@ module EPostak
         @http.request_raw(:get, "/documents/#{encode(id)}/envelope")
       end
 
+      # Download the audit evidence ZIP bundle for a document.
+      #
+      # @param id [String] Document UUID
+      # @return [String] Raw ZIP bytes
+      def evidence_bundle(id)
+        @http.request_raw(:get, "/documents/#{encode(id)}/evidence-bundle")
+      end
+
       # Send an Invoice Response (accept, reject, or query) for a received document.
       # This sends a Peppol Invoice Response message back to the supplier.
       #
@@ -364,6 +372,19 @@ module EPostak
       def outbox(limit: nil, status: nil, since: nil)
         query = { limit: limit, status: status, since: since }.compact
         @http.request(:get, "/documents/outbox", query: query)
+      end
+
+      def peppol_documents(offset: nil, limit: nil, direction: nil, doctype_key: nil, status: nil, peppol_message_id: nil, since: nil)
+        query = {
+          offset: offset,
+          limit: limit,
+          direction: direction,
+          doctypeKey: doctype_key,
+          status: status,
+          peppolMessageId: peppol_message_id,
+          since: since
+        }.compact
+        @http.request(:get, "/peppol-documents", query: query)
       end
 
       # Get all Invoice Responses received for a document (accept/reject/query from the buyer).

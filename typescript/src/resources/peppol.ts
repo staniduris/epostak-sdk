@@ -129,6 +129,13 @@ export class PeppolResource extends BaseResource {
     return this.request("GET", `/company/lookup/${encodeURIComponent(ico)}`);
   }
 
+  companySearch(params: { q: string; limit?: number }): Promise<{ results: unknown[] }> {
+    return this.request(
+      "GET",
+      `/company/search${buildQuery({ q: params.q, limit: params.limit })}`,
+    );
+  }
+
   /**
    * Storecove-style capability probe — describes what a Peppol participant
    * is able to receive over the network. Provide `documentType` to check

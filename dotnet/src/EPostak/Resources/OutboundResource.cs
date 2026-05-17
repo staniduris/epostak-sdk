@@ -69,6 +69,10 @@ public sealed class OutboundResource
     public Task<string> GetUblAsync(string id, CancellationToken ct = default)
         => _http.RequestStringAsync(HttpMethod.Get, $"/outbound/documents/{Uri.EscapeDataString(id)}/ubl", ct);
 
+    /// <summary>Download the raw AS4 MDN receipt for an outbound document.</summary>
+    public Task<byte[]> GetMdnAsync(string id, CancellationToken ct = default)
+        => _http.RequestBytesAsync(HttpMethod.Get, $"/outbound/documents/{Uri.EscapeDataString(id)}/mdn", ct);
+
     /// <summary>
     /// Stream outbound document events using cursor-based pagination.
     /// Returns a time-ordered cursor of delivery status changes and other

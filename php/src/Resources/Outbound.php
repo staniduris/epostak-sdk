@@ -101,6 +101,11 @@ class Outbound
         return $this->http->requestRaw('GET', '/outbound/documents/' . urlencode($id) . '/ubl');
     }
 
+    public function getMdn(string $id): string
+    {
+        return $this->http->requestRaw('GET', '/outbound/documents/' . urlencode($id) . '/mdn');
+    }
+
     /**
      * Stream the outbound document event log with cursor-based pagination.
      *

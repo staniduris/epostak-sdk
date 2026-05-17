@@ -196,6 +196,10 @@ public sealed class DocumentsResource
     public Task<byte[]> EnvelopeAsync(string id, CancellationToken ct = default)
         => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/envelope", ct);
 
+    /// <summary>Download the audit evidence ZIP bundle for a document.</summary>
+    public Task<byte[]> EvidenceBundleAsync(string id, CancellationToken ct = default)
+        => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/evidence-bundle", ct);
+
     /// <summary>
     /// Download the UBL XML source of a document. This is the canonical Peppol BIS 3.0
     /// representation that was sent or received over the network.
@@ -402,6 +406,28 @@ public sealed class DocumentsResource
             ("peppolMessageId", @params?.PeppolMessageId),
             ("since", @params?.Since));
         return _http.RequestAsync<OutboxListResponse>(HttpMethod.Get, $"/documents/outbox{qs}", ct);
+    }
+
+    /// <summary>List non-billing Peppol documents.</summary>
+    public Task<Dictionary<string, object?>> PeppolDocumentsAsync(
+        int? offset = null,
+        int? limit = null,
+        string? direction = null,
+        string? doctypeKey = null,
+        string? status = null,
+        string? peppolMessageId = null,
+        string? since = null,
+        CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("offset", offset?.ToString()),
+            ("limit", limit?.ToString()),
+            ("direction", direction),
+            ("doctypeKey", doctypeKey),
+            ("status", status),
+            ("peppolMessageId", peppolMessageId),
+            ("since", since));
+        return _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/peppol-documents{qs}", ct);
     }
 
     /// <summary>

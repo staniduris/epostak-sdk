@@ -32,6 +32,10 @@ module EPostak
       def get
         @http.request(:get, "/account")
       end
+
+      def license_info
+        @http.request(:get, "/licenses/info")
+      end
     end
   end
 end

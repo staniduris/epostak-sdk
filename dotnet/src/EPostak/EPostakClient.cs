@@ -83,6 +83,9 @@ public sealed class EPostakClient : IDisposable
     /// </summary>
     public OutboundResource Outbound { get; }
 
+    /// <summary>SAPI-SK 1.0 interoperable document send/receive endpoints.</summary>
+    public SapiResource Sapi { get; }
+
     /// <summary>
     /// Rate-limit information from the most recent API response received by this client.
     /// Populated from <c>X-RateLimit-Limit</c>, <c>X-RateLimit-Remaining</c>, and
@@ -153,7 +156,13 @@ public sealed class EPostakClient : IDisposable
         Integrator = new IntegratorResource(requestor);
         Inbound = new InboundResource(requestor);
         Outbound = new OutboundResource(requestor);
+        Sapi = new SapiResource(new HttpRequestor(_http, _tokenManager, StripApiV1(config.BaseUrl), config.FirmId, config.MaxRetries));
     }
+
+    private static string StripApiV1(string baseUrl)
+        => baseUrl.TrimEnd('/').EndsWith("/api/v1", StringComparison.Ordinal)
+            ? baseUrl.TrimEnd('/')[..^"/api/v1".Length]
+            : baseUrl.TrimEnd('/');
 
     /// <summary>
     /// Create a new client instance scoped to a specific firm. The new client shares the same

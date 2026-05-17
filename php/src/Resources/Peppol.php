@@ -56,6 +56,12 @@ class Peppol
         return $this->http->request('GET', '/company/lookup/' . urlencode($ico));
     }
 
+    public function companySearch(string $q, ?int $limit = null): array
+    {
+        $qs = HttpClient::buildQuery(['q' => $q, 'limit' => $limit]);
+        return $this->http->request('GET', '/company/search' . $qs);
+    }
+
     /**
      * Check a participant's advertised Peppol capabilities.
      *

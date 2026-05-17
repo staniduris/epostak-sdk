@@ -12,6 +12,7 @@ from epostak.resources.integrator import (
 from epostak.resources.outbound import OutboundResource
 from epostak.resources.peppol import PeppolDirectoryResource, PeppolResource
 from epostak.resources.reporting import ReportingResource
+from epostak.resources.sapi import SapiResource
 from epostak.resources.webhooks import WebhookQueueResource, WebhooksResource
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "PeppolDirectoryResource",
     "PeppolResource",
     "ReportingResource",
+    "SapiResource",
     "WebhookQueueResource",
     "WebhooksResource",
 ]

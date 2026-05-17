@@ -34,4 +34,9 @@ class Account
     {
         return $this->http->request('GET', '/account');
     }
+
+    public function licenseInfo(): array
+    {
+        return $this->http->request('GET', '/licenses/info');
+    }
 }

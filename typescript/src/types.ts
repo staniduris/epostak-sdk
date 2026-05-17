@@ -2434,3 +2434,58 @@ export interface OutboundEventsListResponse {
   /** `true` when more events are available. */
   has_more: boolean;
 }
+
+export interface SapiDocumentMetadata {
+  documentId: string;
+  documentTypeId: string;
+  processId: string;
+  senderParticipantId: string;
+  receiverParticipantId: string;
+  creationDateTime: string;
+  [key: string]: unknown;
+}
+
+export interface SapiSendDocumentRequest {
+  metadata: SapiDocumentMetadata;
+  payload: string;
+  payloadFormat: "XML";
+  payloadEncoding?: string;
+  checksum?: string;
+  [key: string]: unknown;
+}
+
+export interface SapiSendDocumentResponse {
+  documentId: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface SapiDocumentListParams {
+  limit?: number;
+  status?: "RECEIVED" | "ACKNOWLEDGED";
+  pageToken?: string;
+}
+
+export interface SapiDocumentListItem extends SapiDocumentMetadata {
+  status: "RECEIVED" | "ACKNOWLEDGED";
+}
+
+export interface SapiDocumentListResponse {
+  documents: SapiDocumentListItem[];
+  nextPageToken: string | null;
+}
+
+export interface SapiDocumentDetail {
+  documentId: string;
+  metadata: SapiDocumentMetadata;
+  payload: string;
+  payloadFormat: "XML";
+  [key: string]: unknown;
+}
+
+export interface SapiAcknowledgeResponse {
+  documentId: string;
+  status: "ACKNOWLEDGED";
+  acknowledgedDateTime: string;
+  [key: string]: unknown;
+}

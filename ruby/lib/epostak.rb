@@ -23,6 +23,7 @@ require_relative "epostak/resources/account"
 require_relative "epostak/resources/extract"
 require_relative "epostak/resources/inbound"
 require_relative "epostak/resources/outbound"
+require_relative "epostak/resources/sapi"
 
 # Top-level namespace for the ePošťák Ruby SDK.
 #

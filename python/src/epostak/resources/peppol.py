@@ -115,6 +115,11 @@ class PeppolResource(_BaseResource):
         """
         return self._request("GET", f"/company/lookup/{quote(ico, safe='')}")
 
+    def company_search(self, q: str, limit: Optional[int] = None) -> Dict[str, Any]:
+        """Search Slovak companies by name."""
+        params = _build_query({"q": q, "limit": limit})
+        return self._request("GET", "/company/search", params=params)
+
     def capabilities(
         self,
         scheme: str,

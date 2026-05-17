@@ -3,6 +3,8 @@ package sk.epostak.sdk.resources;
 import sk.epostak.sdk.HttpClient;
 import sk.epostak.sdk.models.Account;
 
+import java.util.Map;
+
 /**
  * Account and firm information.
  * <p>
@@ -43,5 +45,10 @@ public final class AccountResource {
      */
     public Account get() {
         return http.get("/account", Account.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> licenseInfo() {
+        return http.get("/licenses/info", Map.class);
     }
 }

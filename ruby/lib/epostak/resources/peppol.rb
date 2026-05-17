@@ -55,6 +55,10 @@ module EPostak
         @http.request(:get, "/company/lookup/#{encode(ico)}")
       end
 
+      def company_search(q:, limit: nil)
+        @http.request(:get, "/company/search", query: { q: q, limit: limit })
+      end
+
       # Check a participant's advertised Peppol capabilities.
       #
       # Verifies that a participant exists on SMP and (optionally) that

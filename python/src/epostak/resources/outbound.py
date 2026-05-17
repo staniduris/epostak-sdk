@@ -111,6 +111,11 @@ class OutboundResource(_BaseResource):
         except AttributeError:
             return str(resp)
 
+    def get_mdn(self, id: str) -> bytes:
+        """Download the raw AS4 MDN receipt for an outbound document."""
+        resp = self._request("GET", f"/outbound/documents/{quote(id, safe='')}/mdn", raw=True)
+        return resp.content
+
     def events(
         self,
         *,

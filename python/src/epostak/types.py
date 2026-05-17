@@ -13,7 +13,7 @@ also exported for use in type annotations.
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict
@@ -1229,10 +1229,7 @@ class AuditListParams(TypedDict, total=False):
 # ---------------------------------------------------------------------------
 
 
-_CursorItemT = TypeVar("_CursorItemT")
-
-
-class CursorPage(TypedDict, Generic[_CursorItemT]):
+class CursorPage(TypedDict):
     """One page of a cursor-paginated response.
 
     ``next_cursor`` is ``None`` when the feed is exhausted; otherwise
@@ -1240,7 +1237,7 @@ class CursorPage(TypedDict, Generic[_CursorItemT]):
     the following page.
     """
 
-    items: List[_CursorItemT]  # Rows in this page
+    items: List[Any]  # Rows in this page
     next_cursor: Optional[str]  # Opaque cursor or None when finished
 
 
