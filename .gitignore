@@ -10,6 +10,7 @@ target/
 *.class
 *.jar
 *.nupkg
+*.gem
 .DS_Store
 .idea/
 *.iml

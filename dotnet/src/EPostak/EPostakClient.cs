@@ -17,7 +17,7 @@ namespace EPostak;
 /// var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", ClientSecret = "sk_live_xxxxx" });
 /// var result = await client.Documents.SendAsync(new SendDocumentRequest
 /// {
-///     ReceiverPeppolId = "0192:12345678",
+///     ReceiverPeppolId = "0245:12345678",
 ///     Items = new() { new() { Description = "Service", Quantity = 1, UnitPrice = 100m, VatRate = 23m } }
 /// });
 /// </code>

@@ -463,7 +463,7 @@ except EPostakError as err:
 ## Full endpoint map
 
 | Method                                                         | HTTP   | Path                                 |
-| -------------------------------------------------------------- | ------ | ------------------------------------ |
+|-|-|-|
 | `auth.token(client_id, client_secret, ...)`                    | POST   | `/auth/token`                        |
 | `auth.renew(refresh_token)`                                    | POST   | `/auth/renew`                        |
 | `auth.revoke(token, ...)`                                      | POST   | `/auth/revoke`                       |
@@ -522,7 +522,15 @@ except EPostakError as err:
 | `account.license_info()`                                       | GET    | `/licenses/info`                     |
 | `extract.single(file, mime, name)`                             | POST   | `/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/extract/batch`                     |
+| `inbound.list(**params)`                                       | GET    | `/inbound/documents`                 |
+| `inbound.get(id)`                                              | GET    | `/inbound/documents/{id}`            |
+| `inbound.get_ubl(id)`                                          | GET    | `/inbound/documents/{id}/ubl`        |
+| `inbound.ack(id, **params)`                                    | POST   | `/inbound/documents/{id}/ack`        |
+| `outbound.list(**params)`                                      | GET    | `/outbound/documents`                |
+| `outbound.get(id)`                                             | GET    | `/outbound/documents/{id}`           |
+| `outbound.get_ubl(id)`                                         | GET    | `/outbound/documents/{id}/ubl`       |
 | `outbound.get_mdn(id)`                                         | GET    | `/outbound/documents/{id}/mdn`       |
+| `outbound.events(**params)`                                    | GET    | `/outbound/events`                   |
 | `sapi.send(body, participant_id=..., idempotency_key=...)`     | POST   | `/sapi/v1/document/send`             |
 | `sapi.receive(participant_id=..., ...)`                        | GET    | `/sapi/v1/document/receive`          |
 | `sapi.get(id, participant_id=...)`                             | GET    | `/sapi/v1/document/receive/{id}`     |

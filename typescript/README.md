@@ -23,7 +23,7 @@ Zero runtime dependencies. Requires Node.js 18+.
 - **New:** `client.lastRateLimit: { limit, remaining, resetAt: Date } | null` — updated after every request that includes `X-RateLimit-*` response headers.
 - **Improved:** `WebhookDelivery` type adds optional `idempotency_key?: string` — SHA-256 hex stable across retry attempts.
 - **Improved:** `WebhookDeliveriesParams` adds `includeResponseBody?: boolean` (opt-in response body in delivery history).
-- **Improved:** `WebhookEvent` union adds `"document.failed"` variant.
+- **Improved:** `WebhookEvent` union covers delivery-failure events via `"document.delivery_failed"`.
 - Resolved doc drifts surfaced by 2026-05-12 endpoint consistency audit.
 
 > **v3.0 — OAuth-only auth.** The SDK now auto-mints a JWT on the first
@@ -507,7 +507,7 @@ try {
 ## Full Endpoint Map
 
 | Method                                   | HTTP   | Path                                         |
-| ---------------------------------------- | ------ | -------------------------------------------- |
+|-|-|-|
 | `auth.token({ clientId, clientSecret })` | POST   | `/auth/token`                                |
 | `auth.renew({ refreshToken })`           | POST   | `/auth/renew`                                |
 | `auth.revoke({ token })`                 | POST   | `/auth/revoke`                               |
@@ -566,7 +566,15 @@ try {
 | `account.licenseInfo()`                  | GET    | `/licenses/info`                             |
 | `extract.single(file, mime, name)`       | POST   | `/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/extract/batch`                             |
+| `inbound.list(params?)`                  | GET    | `/inbound/documents`                         |
+| `inbound.get(id)`                        | GET    | `/inbound/documents/{id}`                    |
+| `inbound.getUbl(id)`                     | GET    | `/inbound/documents/{id}/ubl`                |
+| `inbound.ack(id, params?)`               | POST   | `/inbound/documents/{id}/ack`                |
+| `outbound.list(params?)`                 | GET    | `/outbound/documents`                        |
+| `outbound.get(id)`                       | GET    | `/outbound/documents/{id}`                   |
+| `outbound.getUbl(id)`                    | GET    | `/outbound/documents/{id}/ubl`               |
 | `outbound.getMdn(id)`                    | GET    | `/outbound/documents/{id}/mdn`               |
+| `outbound.events(params?)`               | GET    | `/outbound/events`                           |
 | `sapi.send(body, opts)`                  | POST   | `/sapi/v1/document/send`                     |
 | `sapi.receive(params, opts)`             | GET    | `/sapi/v1/document/receive`                  |
 | `sapi.get(id, opts)`                     | GET    | `/sapi/v1/document/receive/{id}`             |

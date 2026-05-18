@@ -82,11 +82,11 @@ All SDKs bumped to track the ePošťák webhook v1 contract shipped in
 ePošťák PR #120. Per-language versions:
 
 - **TS 3.3.0** (npm `@epostak/sdk`)
-- **Python 0.10.0** (PyPI `epostak`)
-- **Ruby 0.10.0** (RubyGems `epostak`)
-- **PHP 0.10.0** (Packagist `epostak/sdk`)
-- **.NET 0.10.0** (NuGet `EPostak`)
-- **Java 0.10.0** (Maven Central `sk.epostak:epostak-sdk`)
+- **Python 0.10.0** (source SDK `python/`)
+- **Ruby 0.10.0** (source SDK `ruby/`)
+- **PHP 0.10.0** (source SDK `php/`)
+- **.NET 0.10.0** (source SDK `dotnet/`)
+- **Java 0.10.0** (source SDK `java/`)
 
 ### Common changes across all SDKs
 

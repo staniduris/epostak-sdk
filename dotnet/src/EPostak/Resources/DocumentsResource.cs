@@ -90,7 +90,7 @@ public sealed class DocumentsResource
     /// <code>
     /// var result = await client.Documents.SendAsync(new SendDocumentRequest
     /// {
-    ///     ReceiverPeppolId = "0192:12345678",
+    ///     ReceiverPeppolId = "0245:12345678",
     ///     InvoiceNumber = "FV-2026-001",
     ///     IssueDate = "2026-04-11",
     ///     DueDate = "2026-05-11",
@@ -252,7 +252,7 @@ public sealed class DocumentsResource
     /// <code>
     /// var result = await client.Documents.ValidateAsync(new SendDocumentRequest
     /// {
-    ///     ReceiverPeppolId = "0192:12345678",
+    ///     ReceiverPeppolId = "0245:12345678",
     ///     Items = new List&lt;LineItem&gt;
     ///     {
     ///         new() { Description = "Item 1", Quantity = 1, UnitPrice = 50m, VatRate = 23m }
@@ -277,7 +277,7 @@ public sealed class DocumentsResource
     /// <code>
     /// var check = await client.Documents.PreflightAsync(new PreflightRequest
     /// {
-    ///     ReceiverPeppolId = "0192:12345678"
+    ///     ReceiverPeppolId = "0245:12345678"
     /// });
     /// if (check.Registered &amp;&amp; check.SupportsDocumentType)
     ///     Console.WriteLine("Receiver is ready to accept invoices");
@@ -318,8 +318,8 @@ public sealed class DocumentsResource
     /// <code>
     /// var response = await client.Documents.SendBatchAsync(new List&lt;BatchSendItem&gt;
     /// {
-    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0192:12345678", ... } },
-    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0192:87654321", ... },
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:12345678", ... } },
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:87654321", ... },
     ///             IdempotencyKey = "batch-002" }
     /// });
     /// Console.WriteLine($"{response.Succeeded}/{response.Total} sent");

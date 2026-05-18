@@ -639,7 +639,7 @@ try {
 | `documents->inbox->get($id)`                                 | GET    | `/documents/inbox/{id}`              |
 | `documents->inbox->acknowledge($id)`                         | POST   | `/documents/inbox/{id}/acknowledge`  |
 | `documents->inbox->listAll($params)`                         | GET    | `/documents/inbox/all`               |
-| `peppol->lookup($scheme, $id)`                               | GET    | `/peppol/participants/{scheme}/{id}` |
+| `peppol->lookup($scheme, $identifier)`                       | GET    | `/peppol/participants/{scheme}/{id}` |
 | `peppol->directory->search($params)`                         | GET    | `/peppol/directory/search`           |
 | `peppol->companyLookup($ico)`                                | GET    | `/company/lookup/{ico}`              |
 | `peppol->companySearch($q, $limit)`                          | GET    | `/company/search`                    |
@@ -647,7 +647,7 @@ try {
 | `firms->list()`                                              | GET    | `/firms`                             |
 | `firms->get($id)`                                            | GET    | `/firms/{id}`                        |
 | `firms->documents($id, $params)`                             | GET    | `/firms/{id}/documents`              |
-| `firms->registerPeppolId($id, $scheme, $id)`                 | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms->registerPeppolId($id, $scheme, $identifier)`         | POST   | `/firms/{id}/peppol-identifiers`     |
 | `firms->assign($ico)`                                        | POST   | `/firms/assign`                      |
 | `firms->assignBatch($icos)`                                  | POST   | `/firms/assign/batch`                |
 | `webhooks->create($url, $events)`                            | POST   | `/webhooks`                          |

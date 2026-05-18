@@ -11,7 +11,7 @@
     <Description>Official .NET SDK for the ePošťák API — send and receive Peppol e-invoices in Slovakia.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://epostak.sk</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/epostak/epostak-sdk-dotnet</RepositoryUrl>
+    <RepositoryUrl>https://github.com/staniduris/epostak-sdk</RepositoryUrl>
     <PackageTags>epostak;peppol;einvoice;ubl;slovakia</PackageTags>
   </PropertyGroup>
 

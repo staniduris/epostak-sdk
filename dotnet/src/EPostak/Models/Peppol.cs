@@ -31,7 +31,7 @@ public sealed class SmpParticipantCapability
 /// </summary>
 public sealed class PeppolParticipant
 {
-    /// <summary>Peppol participant identifier in "scheme:id" format (e.g. "0192:12345678").</summary>
+    /// <summary>Peppol participant identifier in "scheme:id" format (e.g. "0245:12345678").</summary>
     [JsonPropertyName("peppolId")]
     public string PeppolId { get; set; } = "";
 

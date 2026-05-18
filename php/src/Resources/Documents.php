@@ -88,8 +88,8 @@ class Documents
      *       'type' => 'invoice',
      *       'invoiceNumber' => 'INV-2026-001',
      *       'issueDate' => '2026-04-11',
-     *       'supplier' => ['peppolId' => '0192:12345678'],
-     *       'customer' => ['peppolId' => '0192:87654321'],
+     *       'supplier' => ['peppolId' => '0245:12345678'],
+     *       'customer' => ['peppolId' => '0245:87654321'],
      *       'lines' => [
      *           ['description' => 'Consulting', 'quantity' => 1, 'unitPrice' => 100.00],
      *       ],
@@ -255,7 +255,7 @@ class Documents
      * Verifies that the receiver Peppol ID is registered and can accept
      * the given document type.
      *
-     * @param string      $receiverPeppolId Receiver's Peppol participant ID (e.g. '0192:12345678').
+     * @param string      $receiverPeppolId Receiver's Peppol participant ID (e.g. '0245:12345678').
      * @param string|null $documentTypeId   Optional Peppol document type identifier to check.
      * @return array Preflight result with `canReceive` boolean and supported document types.
      * @throws EPostakError On API error.

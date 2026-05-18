@@ -4,8 +4,8 @@ All notable changes to `epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **Note:** Previous entries in this file incorrectly listed versions as
-> `3.x.x`. The actual published version on Packagist has always been `0.8.x`.
-> The version history is corrected going forward.
+> `3.x.x`. The PHP SDK now follows the source package `0.x` version line in
+> this monorepo.
 
 ## 0.10.0 — 2026-05-18
 

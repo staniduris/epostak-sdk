@@ -257,7 +257,7 @@ public sealed class Party
     [JsonPropertyName("address")]
     public PartyAddress? Address { get; set; }
 
-    /// <summary>Peppol participant identifier (e.g. "0192:12345678").</summary>
+    /// <summary>Peppol participant identifier (e.g. "0245:12345678").</summary>
     [JsonPropertyName("peppolId")]
     public string? PeppolId { get; set; }
 }
@@ -365,7 +365,7 @@ public sealed class Document
 /// </summary>
 public sealed class SendDocumentRequest
 {
-    /// <summary>Peppol identifier of the receiver (e.g. "0192:12345678"). Required.</summary>
+    /// <summary>Peppol identifier of the receiver (e.g. "0245:12345678"). Required.</summary>
     [JsonPropertyName("receiverPeppolId")]
     public required string ReceiverPeppolId { get; set; }
 
@@ -568,7 +568,7 @@ public sealed class UpdateDocumentRequest
     [JsonPropertyName("receiverCountry")]
     public string? ReceiverCountry { get; set; }
 
-    /// <summary>Peppol identifier of the receiver (e.g. "0192:12345678").</summary>
+    /// <summary>Peppol identifier of the receiver (e.g. "0245:12345678").</summary>
     [JsonPropertyName("receiverPeppolId")]
     public string? ReceiverPeppolId { get; set; }
 
@@ -1014,7 +1014,7 @@ public sealed class ValidationResult
 /// </summary>
 public sealed class PreflightRequest
 {
-    /// <summary>Peppol identifier of the receiver to check (e.g. "0192:12345678"). Required.</summary>
+    /// <summary>Peppol identifier of the receiver to check (e.g. "0245:12345678"). Required.</summary>
     [JsonPropertyName("receiverPeppolId")]
     public required string ReceiverPeppolId { get; set; }
 

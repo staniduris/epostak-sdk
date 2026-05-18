@@ -34,7 +34,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://epostak.sk"
 Documentation = "https://epostak.sk/api/docs"
-Repository = "https://github.com/epostak/epostak-sdk-python"
+Repository = "https://github.com/staniduris/epostak-sdk/tree/main/python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/epostak"]

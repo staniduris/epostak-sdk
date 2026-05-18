@@ -24,7 +24,7 @@ public sealed class FirmSummary
     [JsonPropertyName("ico")]
     public string? Ico { get; set; }
 
-    /// <summary>Primary Peppol participant identifier (e.g. "0192:12345678"). Null if not yet registered.</summary>
+    /// <summary>Primary Peppol participant identifier (e.g. "0245:12345678"). Null if not yet registered.</summary>
     [JsonPropertyName("peppolId")]
     public string? PeppolId { get; set; }
 
@@ -123,7 +123,7 @@ public sealed class FirmDocumentsParams
 /// </summary>
 public sealed class PeppolIdentifierResponse
 {
-    /// <summary>The full Peppol participant ID in "scheme:identifier" format (e.g. "0192:12345678").</summary>
+    /// <summary>The full Peppol participant ID in "scheme:identifier" format (e.g. "0245:12345678").</summary>
     [JsonPropertyName("peppolId")]
     public string PeppolId { get; set; } = "";
 
