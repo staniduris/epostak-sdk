@@ -11,7 +11,7 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 | TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.2 | `npm install @epostak/sdk` |
 | Python | [`python/`](./python/) | `epostak` | 0.10.0 | Source on GitHub |
 | PHP | [`php/`](./php/) | `epostak/sdk` | 0.10.0 | Source on GitHub |
-| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.1 | Source on GitHub |
 | Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 0.10.0 | Source on GitHub |
 | Ruby | [`ruby/`](./ruby/) | `epostak` | 0.10.0 | Source on GitHub |
 
@@ -67,7 +67,7 @@ Generate API keys in your ePošťák firm settings.
 
 ## OAuth `authorization_code` + PKCE (integrator onboarding)
 
-For integrators onboarding end-user firms from inside their own UI, every SDK ships stateless `OAuth` helpers (`generatePkce`, `buildAuthorizeUrl`, `exchangeCode`) that hit `https://epostak.sk/oauth/authorize` and `https://epostak.sk/api/oauth/token` directly — they bypass the configured base URL because the OAuth namespace lives outside `/api/v1`. Generate a fresh PKCE pair per attempt, redirect the user to `/oauth/authorize`, then exchange the returned `code` for a 15-minute access JWT and 30-day rotating refresh token. Pre-register your `redirect_uris` with `info@epostak.sk` (exact-match enforced).
+For integrators onboarding end-user firms from inside their own UI, every SDK ships stateless `OAuth` helpers (`generatePkce`, `buildAuthorizeUrl`, `exchangeCode`) that hit `https://epostak.sk/oauth/authorize` and `https://epostak.sk/api/oauth/token` directly — they bypass the configured base URL because the OAuth namespace lives outside `/api/v1`. Generate a fresh PKCE pair per attempt, redirect the user to `/oauth/authorize`, then exchange the returned `code` for a new `sk_int_*` client secret and firm metadata. Pre-register your `redirect_uris` with `info@epostak.sk` (exact-match enforced).
 
 ```typescript
 import { OAuth } from "@epostak/sdk";
@@ -80,7 +80,7 @@ const url = OAuth.buildAuthorizeUrl({
   codeChallenge,
 });
 // later, on the callback:
-const tokens = await OAuth.exchangeCode({
+const credentials = await OAuth.exchangeCode({
   code: req.query.code,
   codeVerifier,
   clientId: process.env.EPOSTAK_OAUTH_CLIENT_ID!,
@@ -89,7 +89,7 @@ const tokens = await OAuth.exchangeCode({
 });
 ```
 
-Use this when the firm has no API key with you yet. Once linked, switch to the regular `client.auth.token({ clientId, clientSecret })` (`client_credentials`) flow.
+Use this when the firm has no API key with you yet. Store the returned `client_id`, `client_secret`, and `firm_id`; use the `client_id`/`client_secret` with the regular `client.auth.token({ clientId, clientSecret })` (`client_credentials`) flow to mint JWTs for `/api/v1/*` calls.
 
 ---
 

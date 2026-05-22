@@ -49,6 +49,48 @@ public sealed class TokenResponse
 }
 
 /// <summary>
+/// Response from <c>POST /api/oauth/token</c> in the integrator
+/// <c>authorization_code</c> + PKCE onboarding flow. The returned
+/// <c>client_secret</c> is a newly issued <c>sk_int_*</c> API key bound to the
+/// consented firm. Exchange it via <c>POST /api/v1/auth/token</c> when you
+/// need a short-lived JWT for Enterprise API calls.
+/// </summary>
+public sealed class OAuthTokenResponse
+{
+    /// <summary>Client identifier to pass as <c>client_id</c> to <c>/api/v1/auth/token</c>.</summary>
+    [JsonPropertyName("client_id")]
+    public string ClientId { get; set; } = "";
+
+    /// <summary>Newly issued <c>sk_int_*</c> client secret. Store it once; it is not shown again.</summary>
+    [JsonPropertyName("client_secret")]
+    public string ClientSecret { get; set; } = "";
+
+    /// <summary>Secret family — currently always <c>"sk_int"</c>.</summary>
+    [JsonPropertyName("secret_type")]
+    public string SecretType { get; set; } = "";
+
+    /// <summary>OAuth token type marker — currently always <c>"client_secret"</c>.</summary>
+    [JsonPropertyName("token_type")]
+    public string TokenType { get; set; } = "client_secret";
+
+    /// <summary>Granted scope string for the issued integrator key.</summary>
+    [JsonPropertyName("scope")]
+    public string Scope { get; set; } = "";
+
+    /// <summary>Firm UUID that granted consent.</summary>
+    [JsonPropertyName("firm_id")]
+    public string FirmId { get; set; } = "";
+
+    /// <summary>Display name of the firm that granted consent.</summary>
+    [JsonPropertyName("firm_name")]
+    public string? FirmName { get; set; }
+
+    /// <summary>Slovak company ID (IČO) of the firm that granted consent.</summary>
+    [JsonPropertyName("firm_ico")]
+    public string? FirmIco { get; set; }
+}
+
+/// <summary>
 /// Response from <c>POST /auth/revoke</c>. Idempotent — returns 200 even on
 /// misses so this is safe to call unconditionally on logout.
 /// </summary>

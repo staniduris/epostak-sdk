@@ -39,8 +39,8 @@ namespace EPostak.Resources;
 ///     scope: "firm:read firm:manage document:send");
 /// return Redirect(url);
 ///
-/// // 3. On callback, exchange the code for a token pair.
-/// var tokens = await OAuth.ExchangeCodeAsync(
+/// // 3. On callback, exchange the code for an sk_int_* client secret.
+/// var credentials = await OAuth.ExchangeCodeAsync(
 ///     code: req.Query["code"]!,
 ///     codeVerifier: sessions[req.Query["state"]!],
 ///     clientId: Environment.GetEnvironmentVariable("EPOSTAK_OAUTH_CLIENT_ID")!,
@@ -114,12 +114,15 @@ public static class OAuth
     }
 
     /// <summary>
-    /// Exchange an authorization <c>code</c> for an access + refresh token pair
+    /// Exchange an authorization <c>code</c> for a new <c>sk_int_*</c> client secret
     /// on the OAuth token endpoint. Hits <c>${origin}/api/oauth/token</c>
     /// directly — does not route through <see cref="EPostakConfig.BaseUrl"/>.
     /// <para>
-    /// The returned access token is a 15-minute JWT; the refresh token is
-    /// 30-day rotating. Persist both server-side keyed by your firm record.
+    /// The returned client secret is not a bearer token. Store it server-side,
+    /// then pass <see cref="OAuthTokenResponse.ClientId"/> and
+    /// <see cref="OAuthTokenResponse.ClientSecret"/> to
+    /// <see cref="AuthResource.TokenAsync"/> when you need a short-lived JWT
+    /// for Enterprise API calls.
     /// </para>
     /// </summary>
     /// <param name="code">The authorization code from the callback.</param>
@@ -133,9 +136,9 @@ public static class OAuth
     /// <param name="httpClient">Optional shared <see cref="HttpClient"/>. When
     /// <c>null</c>, a transient client is created for this call.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Access + refresh token pair.</returns>
+    /// <returns>Issued integrator client secret and consented firm metadata.</returns>
     /// <exception cref="EPostakException">On non-2xx response or transport error.</exception>
-    public static async Task<TokenResponse> ExchangeCodeAsync(
+    public static async Task<OAuthTokenResponse> ExchangeCodeAsync(
         string code,
         string codeVerifier,
         string clientId,
@@ -189,10 +192,10 @@ public static class OAuth
                 }
                 if (string.IsNullOrEmpty(payload))
                 {
-                    return new TokenResponse();
+                    return new OAuthTokenResponse();
                 }
-                return JsonSerializer.Deserialize<TokenResponse>(payload, HttpRequestor.JsonOptions)
-                    ?? new TokenResponse();
+                return JsonSerializer.Deserialize<OAuthTokenResponse>(payload, HttpRequestor.JsonOptions)
+                    ?? new OAuthTokenResponse();
             }
         }
         finally

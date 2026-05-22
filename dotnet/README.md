@@ -11,10 +11,14 @@ dotnet add package EPostak
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="EPostak" Version="0.10.0" />
+<PackageReference Include="EPostak" Version="0.10.1" />
 ```
 
 ## Recent changes
+
+### v0.10.1 — 2026-05-22
+
+- `OAuth.ExchangeCodeAsync(...)` now returns `OAuthTokenResponse`, matching `POST /api/oauth/token`: the issued `sk_int_*` `client_id`/`client_secret` plus consented firm metadata. Use those credentials with `client.Auth.TokenAsync(...)` to mint short-lived JWTs for `/api/v1/*` calls.
 
 ### v0.10.0 — 2026-05-18
 

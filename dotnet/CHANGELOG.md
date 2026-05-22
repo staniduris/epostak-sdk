@@ -3,6 +3,16 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.10.1 — 2026-05-22
+
+### Fixed
+
+- `OAuth.ExchangeCodeAsync(...)` now returns `OAuthTokenResponse` instead of
+  `TokenResponse`. This matches the live `/api/oauth/token` contract, which
+  issues a new `sk_int_*` `client_id` / `client_secret` plus firm metadata.
+  The returned secret is not a bearer token; exchange it with
+  `client.Auth.TokenAsync(...)` to mint a JWT for Enterprise API calls.
+
 ## 0.10.0 — 2026-05-18
 
 ### Added
@@ -189,16 +199,15 @@ handling and documentation.
   - `OAuth.BuildAuthorizeUrl(clientId, redirectUri, codeChallenge, state, scope?, origin?)`
     — authorize URL the user is redirected to.
   - `OAuth.ExchangeCodeAsync(code, codeVerifier, clientId, clientSecret, redirectUri, origin?, httpClient?, ct?)`
-    — exchanges the returned `code` for a `TokenResponse` against
+    — exchanges the returned `code` for an `OAuthTokenResponse` against
     `${origin}/api/oauth/token`. Hits the OAuth namespace directly,
     bypassing `EPostakConfig.BaseUrl`.
 
   Use this when the firm has no API key with you yet. After
-  `ExchangeCodeAsync` succeeds, you have a 15-minute access JWT and a 30-day
-  rotating refresh token bound to the firm — store both server-side. The
-  existing `client.Auth.TokenAsync(apiKey)` (`client_credentials`) continues
-  to be the right choice once the firm is linked through other means
-  (dashboard confirm, integrator-managed plan, manual link).
+  `ExchangeCodeAsync` succeeds, store the returned `sk_int_*` client secret
+  and firm metadata server-side. Use the returned `client_id` /
+  `client_secret` with `client.Auth.TokenAsync(...)` to mint short-lived JWTs
+  for Enterprise API calls.
 
 - Required `redirect_uris` must be registered with ePošťák
   (`info@epostak.sk`) before first use — exact-match enforced, no wildcards.

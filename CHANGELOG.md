@@ -1,5 +1,14 @@
 # Changelog
 
+## [.NET OAuth token exchange fix] — 2026-05-22
+
+- Bumped .NET SDK source package to `0.10.1`.
+- Fixed `OAuth.ExchangeCodeAsync(...)` to return `OAuthTokenResponse`, matching
+  `/api/oauth/token` (`client_id`, `client_secret`, `secret_type`, `firm_id`,
+  firm metadata) instead of the JWT `TokenResponse` used by `/api/v1/auth/token`.
+- Added a .NET regression test for the OAuth authorization-code exchange
+  response shape.
+
 ## [README + changelog sync] — 2026-05-18
 
 Documentation sync for the latest GitHub and npm state.
@@ -260,9 +269,9 @@ Cross-language pass adding stateless OAuth `authorization_code` + PKCE (S256) he
 
 - **`generatePkce`** — `(codeVerifier, codeChallenge)` pair. Verifier is 32 random bytes base64url-encoded (43 chars, ≈256 bits); challenge is `base64url(SHA256(codeVerifier))`.
 - **`buildAuthorizeUrl`** — builds `${origin}/oauth/authorize?...` with `response_type=code`, `code_challenge_method=S256`, and an optional `scope`.
-- **`exchangeCode`** — POSTs `application/x-www-form-urlencoded` to `${origin}/api/oauth/token` and returns a `TokenResponse` (15-min access JWT + 30-day rotating refresh token). On non-2xx, raises the SDK's existing error type.
+- **`exchangeCode`** — POSTs `application/x-www-form-urlencoded` to `${origin}/api/oauth/token` and returns the issued `sk_int_*` client secret plus firm metadata. On non-2xx, raises the SDK's existing error type.
 
-Use this when the firm has no API key with you yet. Once linked, switch to the regular `client_credentials` flow (`client.auth.token(...)`). Default origin is `https://epostak.sk` — the helpers bypass the configured `/api/v1` base URL because the OAuth namespace lives at the bare host. `redirect_uris` must be pre-registered with ePošťák (`info@epostak.sk`); exact-match enforced, no wildcards.
+Use this when the firm has no API key with you yet. Store the returned `client_id`, `client_secret`, and `firm_id`; use the `client_id`/`client_secret` with the regular `client_credentials` flow (`client.auth.token(...)`) to mint JWTs for `/api/v1/*` calls. Default origin is `https://epostak.sk` — the helpers bypass the configured `/api/v1` base URL because the OAuth namespace lives at the bare host. `redirect_uris` must be pre-registered with ePošťák (`info@epostak.sk`); exact-match enforced, no wildcards.
 
 ### Per-language API surface
 
