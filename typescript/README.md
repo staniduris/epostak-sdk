@@ -86,10 +86,16 @@ Per Slovak PASR, only `0245:DIČ` is used. The `9950:SK...` VAT form is not supp
 const client = new EPostak({
   clientId: "sk_live_xxxxx",
   clientSecret: "sk_live_xxxxx",
-  baseUrl: "https://...", // optional, defaults to https://epostak.sk/api/v1
+  baseUrl: "https://dev.epostak.sk/api/v1", // optional test env; omit for prod
   firmId: "uuid", // optional, required for integrator keys
 });
 ```
+
+Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
+`https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
+calls, set `baseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
+`https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
+`origin: "https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
 ### OAuth `client_credentials` (automatic)
 
@@ -521,14 +527,21 @@ try {
 | `documents.send(body, opts?)`            | POST   | `/documents/send`                            |
 | `documents.sendBatch(items, opts?)`      | POST   | `/documents/send/batch`                      |
 | `documents.status(id)`                   | GET    | `/documents/{id}/status`                     |
+| `documents.statusBatch(ids)`             | POST   | `/documents/status/batch`                    |
 | `documents.evidence(id)`                 | GET    | `/documents/{id}/evidence`                   |
 | `documents.evidenceBundle(id)`           | GET    | `/documents/{id}/evidence-bundle`            |
+| `documents.envelope(id)`                 | GET    | `/documents/{id}/envelope`                   |
 | `documents.pdf(id)`                      | GET    | `/documents/{id}/pdf`                        |
 | `documents.ubl(id)`                      | GET    | `/documents/{id}/ubl`                        |
 | `documents.respond(id, body)`            | POST   | `/documents/{id}/respond`                    |
+| `documents.mark(id, state, note?)`       | POST   | `/documents/{id}/mark`                       |
 | `documents.validate(body)`               | POST   | `/documents/validate`                        |
 | `documents.preflight(body)`              | POST   | `/documents/preflight`                       |
 | `documents.convert(body)`                | POST   | `/documents/convert`                         |
+| `documents.parse(xml)`                   | POST   | `/documents/parse`                           |
+| `documents.outbox(params?)`              | GET    | `/documents/outbox`                          |
+| `documents.responses(id)`                | GET    | `/documents/{id}/responses`                  |
+| `documents.events(id, params?)`          | GET    | `/documents/{id}/events`                     |
 | `documents.peppolDocuments(params?)`     | GET    | `/peppol-documents`                          |
 | `documents.inbox.list(params?)`          | GET    | `/documents/inbox`                           |
 | `documents.inbox.get(id)`                | GET    | `/documents/inbox/{id}`                      |
@@ -539,6 +552,8 @@ try {
 | `peppol.companyLookup(ico)`              | GET    | `/company/lookup/{ico}`                      |
 | `peppol.companySearch(params)`           | GET    | `/company/search`                            |
 | `peppol.resolve(params)`                 | GET    | `/peppol/participants/resolve`               |
+| `peppol.capabilities(body)`              | POST   | `/peppol/capabilities`                       |
+| `peppol.lookupBatch(participants)`       | POST   | `/peppol/participants/batch`                 |
 | `firms.list()`                           | GET    | `/firms`                                     |
 | `firms.get(id)`                          | GET    | `/firms/{id}`                                |
 | `firms.documents(id, params?)`           | GET    | `/firms/{id}/documents`                      |
@@ -562,10 +577,15 @@ try {
 | `webhooks.queue.pullAll(params?)`        | GET    | `/webhook-queue/all`                         |
 | `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`               |
 | `reporting.statistics(params?)`          | GET    | `/reporting/statistics`                      |
+| `reporting.submissions(params?)`         | GET    | `/reporting/submissions`                     |
 | `account.get()`                          | GET    | `/account`                                   |
 | `account.licenseInfo()`                  | GET    | `/licenses/info`                             |
+| `integrator.keys.list()`                 | GET    | `/integrator/keys`                           |
+| `integrator.keys.deactivate(body)`       | DELETE | `/integrator/keys`                           |
+| `integrator.licenses.info(params?)`      | GET    | `/integrator/licenses/info`                  |
 | `extract.single(file, mime, name)`       | POST   | `/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/extract/batch`                             |
+| `EPostak.validate(xml)`                  | POST   | `https://epostak.sk/api/validate`            |
 | `inbound.list(params?)`                  | GET    | `/inbound/documents`                         |
 | `inbound.get(id)`                        | GET    | `/inbound/documents/{id}`                    |
 | `inbound.getUbl(id)`                     | GET    | `/inbound/documents/{id}/ubl`                |
@@ -580,7 +600,7 @@ try {
 | `sapi.get(id, opts)`                     | GET    | `/sapi/v1/document/receive/{id}`             |
 | `sapi.acknowledge(id, opts)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
+Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 
 ---
 

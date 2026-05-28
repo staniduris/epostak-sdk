@@ -1,6 +1,7 @@
 package sk.epostak.sdk.resources;
 
 import sk.epostak.sdk.HttpClient;
+import sk.epostak.sdk.models.ReportingSubmissionsResponse;
 import sk.epostak.sdk.models.Statistics;
 
 import java.util.LinkedHashMap;
@@ -92,5 +93,30 @@ public final class ReportingResource {
      */
     public Statistics statistics() {
         return statistics(null, null, null);
+    }
+
+    /**
+     * List EUSR/TSR reports submitted to FS SR by ePošťák as AP operator.
+     *
+     * @param limit      page size, max 100; {@code null} for server default
+     * @param offset     pagination offset; {@code null} for server default
+     * @param reportType optional {@code EUSR} or {@code TSR} filter
+     * @return paginated report submission history
+     */
+    public ReportingSubmissionsResponse submissions(Integer limit, Integer offset, String reportType) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("limit", limit);
+        params.put("offset", offset);
+        params.put("report_type", reportType);
+        return http.get("/reporting/submissions" + HttpClient.buildQuery(params), ReportingSubmissionsResponse.class);
+    }
+
+    /**
+     * List report submissions with server defaults.
+     *
+     * @return paginated report submission history
+     */
+    public ReportingSubmissionsResponse submissions() {
+        return submissions(null, null, null);
     }
 }

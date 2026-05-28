@@ -417,6 +417,23 @@ class DocumentStatusResponse(TypedDict, total=False):
     updatedAt: str  # type: ignore[misc]  # ISO 8601 last-update timestamp
 
 
+class DocumentStatusBatchResult(DocumentStatusResponse, total=False):
+    """Single result from ``POST /documents/status/batch``."""
+
+    error: Literal["not_found"]  # Returned for missing/cross-tenant IDs
+    direction: str  # "inbound" or "outbound" when found
+    peppolMessageId: Optional[str]  # Alias for the AS4 message ID
+
+
+class DocumentStatusBatchResponse(TypedDict):
+    """Response from ``POST /documents/status/batch``."""
+
+    total: int
+    found: int
+    notFound: int
+    results: List[DocumentStatusBatchResult]
+
+
 # ---------------------------------------------------------------------------
 # Document lifecycle - evidence
 # ---------------------------------------------------------------------------
@@ -836,6 +853,35 @@ class Statistics(TypedDict):
     delivery_rate: float  # 0.0–1.0 fraction delivered for sent docs
     top_recipients: List[StatisticsTopParty]  # Up to 5 top recipients (sent)
     top_senders: List[StatisticsTopParty]  # Up to 5 top senders (received)
+
+
+class ReportingSubmissionsParams(TypedDict, total=False):
+    """Optional parameters for ``client.reporting.submissions``."""
+
+    limit: int
+    offset: int
+    report_type: str  # EUSR | TSR
+
+
+class ReportingSubmission(TypedDict):
+    """One FS SR report submission record."""
+
+    id: str
+    report_type: str
+    period: Dict[str, str]
+    status: str
+    message_id: Optional[str]
+    submitted_at: Optional[str]
+    has_error: bool
+
+
+class ReportingSubmissionsResponse(TypedDict):
+    """Paginated FS SR report submission history."""
+
+    items: List[ReportingSubmission]
+    total: int
+    limit: int
+    offset: int
 
 
 # ---------------------------------------------------------------------------
@@ -1410,6 +1456,26 @@ class _IntegratorPagination(TypedDict):
     limit: int
     offset: int
     total: int
+
+
+class IntegratorKey(TypedDict):
+    id: str
+    keyPrefix: str
+    name: Optional[str]
+    scopes: List[str]
+    ipAllowlist: List[str]
+    isActive: bool
+    lastUsedAt: Optional[str]
+    createdAt: str
+
+
+class IntegratorKeysResponse(TypedDict):
+    keys: List[IntegratorKey]
+
+
+class DeactivateIntegratorKeyResponse(TypedDict):
+    success: bool
+    message: str
 
 
 class IntegratorLicenseInfo(TypedDict):

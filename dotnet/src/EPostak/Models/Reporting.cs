@@ -123,3 +123,57 @@ public sealed class Statistics
     [JsonPropertyName("top_senders")]
     public List<StatisticsTopParty> TopSenders { get; set; } = new();
 }
+
+/// <summary>Parameters for the FS SR report submission history endpoint.</summary>
+public sealed class ReportingSubmissionsParams
+{
+    /// <summary>Page size, max 100.</summary>
+    public int? Limit { get; set; }
+
+    /// <summary>Pagination offset.</summary>
+    public int? Offset { get; set; }
+
+    /// <summary>Optional report type filter (<c>EUSR</c> or <c>TSR</c>).</summary>
+    public string? ReportType { get; set; }
+}
+
+/// <summary>One EUSR/TSR report submitted to FS SR by ePošťák as AP operator.</summary>
+public sealed class ReportingSubmission
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("report_type")]
+    public string ReportType { get; set; } = "";
+
+    [JsonPropertyName("period")]
+    public Dictionary<string, string> Period { get; set; } = new();
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("message_id")]
+    public string? MessageId { get; set; }
+
+    [JsonPropertyName("submitted_at")]
+    public string? SubmittedAt { get; set; }
+
+    [JsonPropertyName("has_error")]
+    public bool HasError { get; set; }
+}
+
+/// <summary>Paginated FS SR report submission history.</summary>
+public sealed class ReportingSubmissionsResponse
+{
+    [JsonPropertyName("items")]
+    public List<ReportingSubmission> Items { get; set; } = new();
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+
+    [JsonPropertyName("offset")]
+    public int Offset { get; set; }
+}

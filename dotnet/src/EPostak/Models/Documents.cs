@@ -885,6 +885,78 @@ public sealed class DocumentStatusResponse
     public string UpdatedAt { get; set; } = "";
 }
 
+/// <summary>
+/// Single item returned by <c>POST /api/v1/documents/status/batch</c>.
+/// Missing or cross-tenant IDs are represented with <see cref="Error"/>
+/// set to <c>not_found</c>.
+/// </summary>
+public sealed class DocumentStatusBatchResult
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("documentType")]
+    public string? DocumentType { get; set; }
+
+    [JsonPropertyName("direction")]
+    public string? Direction { get; set; }
+
+    [JsonPropertyName("senderPeppolId")]
+    public string? SenderPeppolId { get; set; }
+
+    [JsonPropertyName("receiverPeppolId")]
+    public string? ReceiverPeppolId { get; set; }
+
+    [JsonPropertyName("statusHistory")]
+    public List<StatusHistoryEntry> StatusHistory { get; set; } = [];
+
+    [JsonPropertyName("validationResult")]
+    public Dictionary<string, object>? ValidationResult { get; set; }
+
+    [JsonPropertyName("deliveredAt")]
+    public string? DeliveredAt { get; set; }
+
+    [JsonPropertyName("acknowledgedAt")]
+    public string? AcknowledgedAt { get; set; }
+
+    [JsonPropertyName("invoiceResponseStatus")]
+    public InvoiceResponseCode? InvoiceResponseStatus { get; set; }
+
+    [JsonPropertyName("peppolMessageId")]
+    public string? PeppolMessageId { get; set; }
+
+    [JsonPropertyName("as4MessageId")]
+    public string? As4MessageId { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string? CreatedAt { get; set; }
+
+    [JsonPropertyName("updatedAt")]
+    public string? UpdatedAt { get; set; }
+}
+
+/// <summary>Response from <c>POST /api/v1/documents/status/batch</c>.</summary>
+public sealed class DocumentStatusBatchResponse
+{
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("found")]
+    public int Found { get; set; }
+
+    [JsonPropertyName("notFound")]
+    public int NotFound { get; set; }
+
+    [JsonPropertyName("results")]
+    public List<DocumentStatusBatchResult> Results { get; set; } = [];
+}
+
 // ---------------------------------------------------------------------------
 // Document lifecycle -- evidence
 // ---------------------------------------------------------------------------

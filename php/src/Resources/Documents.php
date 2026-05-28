@@ -132,6 +132,20 @@ class Documents
     }
 
     /**
+     * Get status for up to 100 documents in one request.
+     *
+     * @param string[] $ids Document IDs. Result order follows input order.
+     * @return array{total:int, found:int, notFound:int, results:array}
+     * @throws EPostakError On API error.
+     */
+    public function statusBatch(array $ids): array
+    {
+        return $this->http->request('POST', '/documents/status/batch', [
+            'json' => ['ids' => array_values($ids)],
+        ]);
+    }
+
+    /**
      * Get delivery evidence for a document.
      *
      * @param string $id Document UUID.

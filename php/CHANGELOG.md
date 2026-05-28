@@ -7,6 +7,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows the source package `0.x` version line in
 > this monorepo.
 
+## Unreleased
+
+### Added
+
+- Added `$client->documents->statusBatch($ids)` for `POST /documents/status/batch`.
+- Added `$client->reporting->submissions($params)` for `GET /reporting/submissions`.
+- Added `$client->integrator->keys->list()` and `deactivate(...)` for the
+  production `GET`/`DELETE /integrator/keys` surface.
+- Extended SDK README endpoint coverage and environment data for production
+  `https://epostak.sk` and test `https://dev.epostak.sk`.
+
+### Changed
+
+- Documented `https://dev.epostak.sk/api/v1` as the test environment
+  `baseUrl` override. Production remains the default.
+- Clarified that OAuth test flows use `origin => "https://dev.epostak.sk"`
+  because OAuth bypasses `baseUrl`.
+
 ## 0.10.0 — 2026-05-18
 
 ### Added

@@ -92,7 +92,7 @@ function makeClient(): EPostak {
   return new EPostak({
     clientId: "sk_live_test",
     clientSecret: "sk_live_test_secret",
-    baseUrl: "https://test.epostak.sk/api/v1",
+    baseUrl: "https://dev.epostak.sk/api/v1",
   });
 }
 
@@ -368,6 +368,98 @@ describe("client.outbound", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Current backend route coverage
+// ---------------------------------------------------------------------------
+
+describe("current backend route coverage", () => {
+  it("documents.statusBatch() posts ordered ids", async () => {
+    const client = makeClient();
+    let capturedUrl = "";
+    let capturedBody = "";
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedUrl = url;
+      capturedBody = String(init?.body ?? "");
+      return makeMockResponse({
+        total: 2,
+        found: 1,
+        notFound: 1,
+        results: [{ id: "doc-1", status: "delivered" }, { id: "doc-2", error: "not_found" }],
+      });
+    });
+
+    const result = await client.documents.statusBatch(["doc-1", "doc-2"]);
+
+    assert.ok(capturedUrl.endsWith("/documents/status/batch"), `URL ${capturedUrl} missing path`);
+    assert.deepStrictEqual(JSON.parse(capturedBody), { ids: ["doc-1", "doc-2"] });
+    assert.strictEqual(result.found, 1);
+    assert.strictEqual(result.results[1].error, "not_found");
+  });
+
+  it("reporting.submissions() calls FS SR report history endpoint", async () => {
+    const client = makeClient();
+    let capturedUrl = "";
+
+    mockFetch(async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedUrl = url;
+      return makeMockResponse({ items: [], total: 0, limit: 20, offset: 0 });
+    });
+
+    const result = await client.reporting.submissions({ limit: 20, report_type: "EUSR" });
+
+    assert.ok(capturedUrl.includes("/reporting/submissions"), `URL ${capturedUrl} missing path`);
+    assert.ok(capturedUrl.includes("limit=20"), "Missing limit param");
+    assert.ok(capturedUrl.includes("report_type=EUSR"), "Missing report_type param");
+    assert.strictEqual(result.total, 0);
+  });
+
+  it("integrator.keys exposes list/deactivate endpoints", async () => {
+    const client = makeClient();
+    const calls: Array<{ method: string | undefined; url: string; body: string }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      calls.push({ method: init?.method, url, body: String(init?.body ?? "") });
+      if (init?.method === "GET") return makeMockResponse({ keys: [] });
+      return makeMockResponse({ success: true, message: "API key deactivated." });
+    });
+
+    await client.integrator.keys.list();
+    await client.integrator.keys.deactivate({ client_id: "sk_int_prefix" });
+
+    assert.deepStrictEqual(calls.map((c) => c.method), ["GET", "DELETE"]);
+    assert.ok(calls.every((c) => c.url.endsWith("/integrator/keys")));
+    assert.deepStrictEqual(JSON.parse(calls[1].body), { client_id: "sk_int_prefix" });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // client.webhooks.test() — event as query param
 // ---------------------------------------------------------------------------
 
@@ -444,7 +536,7 @@ describe("client.lastRateLimit", () => {
     const client = new EPostak({
       clientId: "sk_test",
       clientSecret: "sk_test_secret",
-      baseUrl: "https://test.epostak.sk/api/v1",
+      baseUrl: "https://dev.epostak.sk/api/v1",
     });
     assert.strictEqual(client.lastRateLimit, null);
   });

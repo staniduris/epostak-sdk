@@ -148,6 +148,17 @@ public final class DocumentsResource {
     }
 
     /**
+     * Get status for up to 100 documents in one request. Results preserve
+     * input order; missing or cross-tenant IDs return {@code error=not_found}.
+     *
+     * @param ids document IDs to inspect
+     * @return batch status response
+     */
+    public DocumentStatusBatchResponse statusBatch(List<String> ids) {
+        return http.post("/documents/status/batch", Map.of("ids", ids), DocumentStatusBatchResponse.class);
+    }
+
+    /**
      * Get delivery evidence for a sent document, including AS4 receipt and
      * Message Level Response (MLR) data.
      *

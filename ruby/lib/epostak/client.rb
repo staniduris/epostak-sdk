@@ -61,7 +61,8 @@ module EPostak
     # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
     # @param client_secret [String] OAuth client secret.
     # @param base_url [String] Base URL for the API. Defaults to
-    #   +https://epostak.sk/api/v1+. Override for staging or local testing.
+    #   +https://epostak.sk/api/v1+. Use +https://dev.epostak.sk/api/v1+
+    #   for the test environment.
     # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when
     #   using integrator keys (+sk_int_*+). Sets the +X-Firm-Id+ header on
     #   each request.

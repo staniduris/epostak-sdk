@@ -646,6 +646,26 @@ export interface DocumentStatusResponse {
   updatedAt: string;
 }
 
+/** A single item returned by `POST /documents/status/batch`. */
+export interface DocumentStatusBatchResult extends Partial<DocumentStatusResponse> {
+  /** Document ID requested by the caller. */
+  id: string;
+  /** Present when the document does not exist or belongs to another firm. */
+  error?: "not_found";
+  /** Direction of the document when found. */
+  direction?: "inbound" | "outbound" | string;
+  /** Alias for the Peppol AS4 message ID when found. */
+  peppolMessageId?: string | null;
+}
+
+/** Response from `POST /documents/status/batch`. */
+export interface DocumentStatusBatchResponse {
+  total: number;
+  found: number;
+  notFound: number;
+  results: DocumentStatusBatchResult[];
+}
+
 // ---------------------------------------------------------------------------
 // Document lifecycle — evidence
 // ---------------------------------------------------------------------------
@@ -1476,6 +1496,35 @@ export interface Statistics {
   top_senders: StatisticsTopParty[];
 }
 
+/** Query parameters for `GET /reporting/submissions`. */
+export interface ReportingSubmissionsParams {
+  /** Page size. Max 100. Default 20. */
+  limit?: number;
+  /** Pagination offset. Default 0. */
+  offset?: number;
+  /** Optional report type filter. */
+  report_type?: "EUSR" | "TSR" | string;
+}
+
+/** One FS SR report submission record. */
+export interface ReportingSubmission {
+  id: string;
+  report_type: "EUSR" | "TSR" | string;
+  period: { from: string; to: string };
+  status: string;
+  message_id: string | null;
+  submitted_at: string | null;
+  has_error: boolean;
+}
+
+/** Paginated FS SR report submission history. */
+export interface ReportingSubmissionsResponse {
+  items: ReportingSubmission[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // ---------------------------------------------------------------------------
 // Account
 // ---------------------------------------------------------------------------
@@ -2125,6 +2174,31 @@ export interface IntegratorLicenseInfoParams {
   offset?: number;
   /** Page size for the per-firm list. Max 100. Default 50. */
   limit?: number;
+}
+
+export interface IntegratorKey {
+  id: string;
+  keyPrefix: string;
+  name: string | null;
+  scopes: string[];
+  ipAllowlist: string[];
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+export interface IntegratorKeysResponse {
+  keys: IntegratorKey[];
+}
+
+export interface DeactivateIntegratorKeyRequest {
+  keyId?: string;
+  client_id?: string;
+}
+
+export interface DeactivateIntegratorKeyResponse {
+  success: boolean;
+  message: string;
 }
 
 /** A single tier in the integrator pricing table. */

@@ -66,10 +66,16 @@ Generate keys in your ePostak firm settings or via the dashboard.
 $client = new EPostak([
     'clientId'     => 'sk_live_xxxxx',     // Required
     'clientSecret' => 'your-secret',       // Required
-    'baseUrl'      => 'https://...',       // Optional, defaults to https://epostak.sk/api/v1
+    'baseUrl'      => 'https://dev.epostak.sk/api/v1', // Optional test env; omit for prod
     'firmId'       => 'uuid',             // Optional, required for integrator keys
 ]);
 ```
+
+Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
+`https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
+calls, set `baseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
+`https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
+`origin => "https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
 ---
 
@@ -625,15 +631,23 @@ try {
 | `documents->get($id)`                                        | GET    | `/documents/{id}`                    |
 | `documents->update($id, $data)`                              | PATCH  | `/documents/{id}`                    |
 | `documents->send($body)`                                     | POST   | `/documents/send`                    |
+| `documents->sendBatch($items, $idempotencyKey)`               | POST   | `/documents/send/batch`              |
 | `documents->status($id)`                                     | GET    | `/documents/{id}/status`             |
+| `documents->statusBatch($ids)`                               | POST   | `/documents/status/batch`            |
 | `documents->evidence($id)`                                   | GET    | `/documents/{id}/evidence`           |
 | `documents->evidenceBundle($id)`                             | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents->envelope($id)`                                   | GET    | `/documents/{id}/envelope`           |
 | `documents->pdf($id)`                                        | GET    | `/documents/{id}/pdf`                |
 | `documents->ubl($id)`                                        | GET    | `/documents/{id}/ubl`                |
 | `documents->respond($id, $status, $note)`                    | POST   | `/documents/{id}/respond`            |
+| `documents->mark($id, $state, $note)`                        | POST   | `/documents/{id}/mark`               |
 | `documents->validate($body)`                                 | POST   | `/documents/validate`                |
 | `documents->preflight($receiverPeppolId)`                    | POST   | `/documents/preflight`               |
 | `documents->convert($inputFormat, $outputFormat, $document)` | POST   | `/documents/convert`                 |
+| `documents->parse($xml)`                                     | POST   | `/documents/parse`                   |
+| `documents->outbox($params)`                                 | GET    | `/documents/outbox`                  |
+| `documents->responses($id)`                                  | GET    | `/documents/{id}/responses`          |
+| `documents->events($id, $params)`                            | GET    | `/documents/{id}/events`             |
 | `documents->peppolDocuments($params)`                        | GET    | `/peppol-documents`                  |
 | `documents->inbox->list($params)`                            | GET    | `/documents/inbox`                   |
 | `documents->inbox->get($id)`                                 | GET    | `/documents/inbox/{id}`              |
@@ -644,6 +658,8 @@ try {
 | `peppol->companyLookup($ico)`                                | GET    | `/company/lookup/{ico}`              |
 | `peppol->companySearch($q, $limit)`                          | GET    | `/company/search`                    |
 | `peppol->resolve($params)`                                   | GET    | `/peppol/participants/resolve`       |
+| `peppol->capabilities($scheme, $identifier, $documentType)`  | POST   | `/peppol/capabilities`               |
+| `peppol->lookupBatch($participants)`                         | POST   | `/peppol/participants/batch`         |
 | `firms->list()`                                              | GET    | `/firms`                             |
 | `firms->get($id)`                                            | GET    | `/firms/{id}`                        |
 | `firms->documents($id, $params)`                             | GET    | `/firms/{id}/documents`              |
@@ -675,16 +691,21 @@ try {
 | `outbound->getMdn($id)`                                      | GET    | `/outbound/documents/{id}/mdn`       |
 | `outbound->events($params)`                                  | GET    | `/outbound/events`                   |
 | `reporting->statistics($params)`                             | GET    | `/reporting/statistics`              |
+| `reporting->submissions($params)`                            | GET    | `/reporting/submissions`             |
 | `account->get()`                                             | GET    | `/account`                           |
 | `account->licenseInfo()`                                     | GET    | `/licenses/info`                     |
+| `integrator->keys->list()`                                   | GET    | `/integrator/keys`                   |
+| `integrator->keys->deactivate($params)`                      | DELETE | `/integrator/keys`                   |
+| `integrator->licenses->info($params)`                        | GET    | `/integrator/licenses/info`          |
 | `extract->single($path, $mime)`                              | POST   | `/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
+| `EPostak::validate($xml)`                                    | POST   | `https://epostak.sk/api/validate`    |
 | `sapi->send($body, $participantId, $idempotencyKey)`         | POST   | `/sapi/v1/document/send`             |
 | `sapi->receive($participantId, $params)`                     | GET    | `/sapi/v1/document/receive`          |
 | `sapi->get($documentId, $participantId)`                     | GET    | `/sapi/v1/document/receive/{id}`     |
 | `sapi->acknowledge($documentId, $participantId)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
+Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 
 ---
 

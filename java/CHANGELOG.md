@@ -4,6 +4,24 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `client.documents().statusBatch(ids)` for `POST /documents/status/batch`.
+- Added `client.reporting().submissions(...)` for `GET /reporting/submissions`.
+- Added `client.integrator().keys().list()` and deactivate helpers for the
+  production `GET`/`DELETE /integrator/keys` surface.
+- Extended SDK README endpoint coverage and environment data for production
+  `https://epostak.sk` and test `https://dev.epostak.sk`.
+
+### Changed
+
+- Documented `https://dev.epostak.sk/api/v1` as the test environment
+  `baseUrl` override. Production remains the default.
+- Clarified that OAuth test flows pass `origin = "https://dev.epostak.sk"`
+  because OAuth bypasses `baseUrl`.
+
 ## 0.10.0 — 2026-05-18
 
 ### Added

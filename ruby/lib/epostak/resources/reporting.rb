@@ -41,6 +41,17 @@ module EPostak
         query = { from: from, to: to, period: period }.compact
         @http.request(:get, "/reporting/statistics", query: query)
       end
+
+      # List EUSR/TSR reports submitted to FS SR by ePošťák as AP operator.
+      #
+      # @param limit [Integer, nil] Page size, max 100
+      # @param offset [Integer, nil] Pagination offset
+      # @param report_type [String, nil] Optional +EUSR+ or +TSR+
+      # @return [Hash] Paginated report submission history
+      def submissions(limit: nil, offset: nil, report_type: nil)
+        query = { limit: limit, offset: offset, report_type: report_type }.compact
+        @http.request(:get, "/reporting/submissions", query: query)
+      end
     end
   end
 end

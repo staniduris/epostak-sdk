@@ -40,6 +40,20 @@ public sealed class ReportingResource
         return _http.RequestAsync<Statistics>(HttpMethod.Get, $"/reporting/statistics{qs}", ct);
     }
 
+    /// <summary>
+    /// List EUSR/TSR reports submitted to FS SR by ePošťák as the AP operator.
+    /// </summary>
+    /// <param name="params">Optional pagination and report-type filter.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<ReportingSubmissionsResponse> SubmissionsAsync(ReportingSubmissionsParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("limit", @params?.Limit?.ToString()),
+            ("offset", @params?.Offset?.ToString()),
+            ("report_type", @params?.ReportType));
+        return _http.RequestAsync<ReportingSubmissionsResponse>(HttpMethod.Get, $"/reporting/submissions{qs}", ct);
+    }
+
     private static string? PeriodToString(ReportingPeriod? p) => p switch
     {
         ReportingPeriod.Month => "month",

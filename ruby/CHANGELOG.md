@@ -5,6 +5,24 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
+## Unreleased
+
+### Added
+
+- Added `client.documents.status_batch(ids)` for `POST /documents/status/batch`.
+- Added `client.reporting.submissions(...)` for `GET /reporting/submissions`.
+- Added `client.integrator.keys.list` and `deactivate(...)` for the
+  production `GET`/`DELETE /integrator/keys` surface.
+- Extended SDK README endpoint coverage and environment data for production
+  `https://epostak.sk` and test `https://dev.epostak.sk`.
+
+### Changed
+
+- Documented `https://dev.epostak.sk/api/v1` as the test environment
+  `base_url` override. Production remains the default.
+- Clarified that OAuth test flows use `origin: "https://dev.epostak.sk"`
+  because OAuth bypasses `base_url`.
+
 ## 0.10.0 — 2026-05-18
 
 ### Added

@@ -41,6 +41,7 @@ export { ExtractResource } from "./resources/extract.js";
 export { AccountResource } from "./resources/account.js";
 export {
   IntegratorResource,
+  IntegratorKeysResource,
   IntegratorLicensesResource,
 } from "./resources/integrator.js";
 export { InboundResource } from "./resources/inbound.js";
@@ -92,6 +93,8 @@ export type {
   // Document lifecycle
   StatusHistoryEntry,
   DocumentStatusResponse,
+  DocumentStatusBatchResult,
+  DocumentStatusBatchResponse,
   DocumentStatusValidation,
   DocumentEvidenceResponse,
   InvoiceRespondRequest,
@@ -156,11 +159,18 @@ export type {
   StatisticsParams,
   StatisticsTopParty,
   Statistics,
+  ReportingSubmissionsParams,
+  ReportingSubmission,
+  ReportingSubmissionsResponse,
   // Account
   Account,
   // Integrator billing aggregate
   IntegratorLicenseInfo,
   IntegratorLicenseInfoParams,
+  IntegratorKey,
+  IntegratorKeysResponse,
+  DeactivateIntegratorKeyRequest,
+  DeactivateIntegratorKeyResponse,
   IntegratorPricingTier,
   IntegratorBillableUsage,
   IntegratorNonManagedUsage,

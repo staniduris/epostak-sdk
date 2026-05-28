@@ -45,7 +45,7 @@ import { EPostakError } from "../utils/errors.js";
  * ```
  */
 export class OAuth {
-  /** Default origin for ePošťák OAuth endpoints. Override for staging. */
+  /** Default origin for ePošťák OAuth endpoints. Use https://dev.epostak.sk for test. */
   static readonly DEFAULT_ORIGIN = "https://epostak.sk";
 
   /**

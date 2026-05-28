@@ -32,7 +32,7 @@ export interface EPostakConfig {
   clientSecret: string;
   /**
    * Base URL for the API. Defaults to `https://epostak.sk/api/v1`.
-   * Override for staging or local testing.
+   * Override with `https://dev.epostak.sk/api/v1` for the test environment.
    */
   baseUrl?: string;
   /**

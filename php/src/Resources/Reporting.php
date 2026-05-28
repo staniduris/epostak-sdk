@@ -56,4 +56,21 @@ class Reporting
         ]);
         return $this->http->request('GET', '/reporting/statistics' . $qs);
     }
+
+    /**
+     * List EUSR/TSR reports submitted to FS SR by ePošťák as the AP operator.
+     *
+     * @param array{limit?: int, offset?: int, report_type?: string} $params Optional filters.
+     * @return array{items: array, total: int, limit: int, offset: int}
+     * @throws EPostakError On API error.
+     */
+    public function submissions(array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'limit' => $params['limit'] ?? null,
+            'offset' => $params['offset'] ?? null,
+            'report_type' => $params['report_type'] ?? null,
+        ]);
+        return $this->http->request('GET', '/reporting/submissions' . $qs);
+    }
 }

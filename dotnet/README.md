@@ -16,6 +16,13 @@ Or add to your `.csproj`:
 
 ## Recent changes
 
+### Unreleased
+
+- `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
+- `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
+- `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
+- README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins.
+
 ### v0.10.1 — 2026-05-22
 
 - `OAuth.ExchangeCodeAsync(...)` now returns `OAuthTokenResponse`, matching `POST /api/oauth/token`: the issued `sk_int_*` `client_id`/`client_secret` plus consented firm metadata. Use those credentials with `client.Auth.TokenAsync(...)` to mint short-lived JWTs for `/api/v1/*` calls.
@@ -74,13 +81,19 @@ var client = new EPostakClient(new EPostakConfig
     // Required: OAuth client secret
     ClientSecret = "sk_live_xxxxx",
 
-    // Optional: override base URL for staging/local testing
-    BaseUrl = "https://epostak.sk/api/v1",
+    // Optional: override base URL for the test environment; omit for production
+    BaseUrl = "https://dev.epostak.sk/api/v1",
 
     // Optional: firm ID for integrator keys (sk_int_*)
     FirmId = "firm-uuid-here"
 });
 ```
+
+Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
+`https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
+calls, set `BaseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
+`https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
+`origin: "https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
 ### Integrator (multi-tenant) usage
 
@@ -133,6 +146,9 @@ var sentXml = await client.Documents.SendAsync(new SendDocumentRequest
 
 // Get delivery status
 var status = await client.Documents.StatusAsync("doc-id");
+
+// Batch status check for up to 100 documents
+var batch = await client.Documents.StatusBatchAsync(["doc-1", "doc-2"]);
 
 // Get delivery evidence (AS4 receipt, MLR, invoice response)
 var evidence = await client.Documents.EvidenceAsync("doc-id");
@@ -377,6 +393,9 @@ Console.WriteLine($"Received: {stats.Received.Total} total");
 Console.WriteLine($"Delivery rate: {stats.DeliveryRate:P1}");
 foreach (var top in stats.TopRecipients)
     Console.WriteLine($"  {top.Name} ({top.PeppolId}): {top.Count}");
+
+var submissions = await client.Reporting.SubmissionsAsync(
+    new ReportingSubmissionsParams { Limit = 20, ReportType = "EUSR" });
 ```
 
 ### Account
@@ -386,6 +405,14 @@ var account = await client.Account.GetAsync();
 Console.WriteLine($"Firm: {account.Firm.Name}");
 Console.WriteLine($"Plan: {account.Plan.Name} ({account.Plan.Status})");
 Console.WriteLine($"Usage: {account.Usage.Outbound} outbound, {account.Usage.Inbound} inbound");
+```
+
+### Integrator keys
+
+```csharp
+var keys = await client.Integrator.Keys.ListAsync();
+await client.Integrator.Keys.DeactivateAsync(clientId: "sk_int_xxxxx...abcd");
+var usage = await client.Integrator.Licenses.InfoAsync(limit: 100);
 ```
 
 ### Extract (OCR)

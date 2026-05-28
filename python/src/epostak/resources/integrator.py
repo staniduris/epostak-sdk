@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import httpx
 
 if TYPE_CHECKING:
-    from epostak.types import IntegratorLicenseInfo
+    from epostak.types import (
+        DeactivateIntegratorKeyResponse,
+        IntegratorKeysResponse,
+        IntegratorLicenseInfo,
+    )
 
 from epostak.resources.documents import _BaseResource, _build_query
 
@@ -62,6 +66,28 @@ class IntegratorLicensesResource(_BaseResource):
         return self._request("GET", "/integrator/licenses/info", params=params)
 
 
+class IntegratorKeysResource(_BaseResource):
+    """``/integrator/keys`` — integrator API key management."""
+
+    def list(self) -> IntegratorKeysResponse:
+        """List all API keys for the current integrator."""
+        return self._request("GET", "/integrator/keys")
+
+    def deactivate(
+        self,
+        *,
+        key_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+    ) -> DeactivateIntegratorKeyResponse:
+        """Deactivate an integrator API key by UUID or ``sk_int_*`` prefix."""
+        body: Dict[str, Any] = {}
+        if key_id is not None:
+            body["keyId"] = key_id
+        if client_id is not None:
+            body["client_id"] = client_id
+        return self._request("DELETE", "/integrator/keys", json=body)
+
+
 class IntegratorResource:
     """Integrator-aggregate endpoints (``sk_int_*`` only)."""
 
@@ -75,6 +101,10 @@ class IntegratorResource:
         max_retries: int = 3,
         _rate_limit_store: Optional[list] = None,
     ) -> None:
+        self.keys = IntegratorKeysResource(
+            client, base_url, token_manager, firm_id, max_retries=max_retries,
+            _rate_limit_store=_rate_limit_store,
+        )
         self.licenses = IntegratorLicensesResource(
             client, base_url, token_manager, firm_id, max_retries=max_retries,
             _rate_limit_store=_rate_limit_store,

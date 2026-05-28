@@ -1,5 +1,8 @@
 import { BaseResource, buildQuery } from "../utils/request.js";
 import type {
+  DeactivateIntegratorKeyRequest,
+  DeactivateIntegratorKeyResponse,
+  IntegratorKeysResponse,
   IntegratorLicenseInfo,
   IntegratorLicenseInfoParams,
 } from "../types.js";
@@ -13,6 +16,9 @@ import type {
  * firm context.
  */
 export class IntegratorResource extends BaseResource {
+  /** Integrator API-key management. */
+  readonly keys = new IntegratorKeysResource(this.config);
+
   /**
    * License & billing namespace.
    *
@@ -23,6 +29,21 @@ export class IntegratorResource extends BaseResource {
    * ```
    */
   readonly licenses = new IntegratorLicensesResource(this.config);
+}
+
+/** `GET/DELETE /api/v1/integrator/keys`. */
+export class IntegratorKeysResource extends BaseResource {
+  /** List all API keys for the current integrator. Requires `firms:manage`. */
+  list(): Promise<IntegratorKeysResponse> {
+    return this.request("GET", "/integrator/keys");
+  }
+
+  /**
+   * Deactivate an integrator API key by UUID (`keyId`) or `sk_int_*` prefix (`client_id`).
+   */
+  deactivate(body: DeactivateIntegratorKeyRequest): Promise<DeactivateIntegratorKeyResponse> {
+    return this.request("DELETE", "/integrator/keys", body);
+  }
 }
 
 /**

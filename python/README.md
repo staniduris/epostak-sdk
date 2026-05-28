@@ -80,11 +80,17 @@ Per Slovak PASR, only `0245:DIČ` is used. The `9950:SK...` VAT form is not supp
 client = EPostak(
     client_id="sk_live_xxxxx",
     client_secret="sk_live_xxxxx",
-    base_url="https://...",   # optional, defaults to https://epostak.sk/api/v1
+    base_url="https://dev.epostak.sk/api/v1",  # optional test env; omit for prod
     firm_id="uuid",           # optional, required for integrator keys
     max_retries=3,            # optional, exponential backoff with jitter
 )
 ```
+
+Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
+`https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
+calls, set `base_url` to `https://dev.epostak.sk/api/v1`; SAPI derives
+`https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
+`origin="https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
 ### OAuth `client_credentials` (for short-lived access tokens)
 
@@ -477,14 +483,21 @@ except EPostakError as err:
 | `documents.send(body, idempotency_key=...)`                    | POST   | `/documents/send`                    |
 | `documents.send_batch(items, idempotency_key=...)`             | POST   | `/documents/send/batch`              |
 | `documents.status(id)`                                         | GET    | `/documents/{id}/status`             |
+| `documents.status_batch(ids)`                                  | POST   | `/documents/status/batch`            |
 | `documents.evidence(id)`                                       | GET    | `/documents/{id}/evidence`           |
 | `documents.evidence_bundle(id)`                                | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents.envelope(id)`                                       | GET    | `/documents/{id}/envelope`           |
 | `documents.pdf(id)`                                            | GET    | `/documents/{id}/pdf`                |
 | `documents.ubl(id)`                                            | GET    | `/documents/{id}/ubl`                |
 | `documents.respond(id, status, note)`                          | POST   | `/documents/{id}/respond`            |
+| `documents.mark(id, state=..., note=...)`                      | POST   | `/documents/{id}/mark`               |
 | `documents.validate(body)`                                     | POST   | `/documents/validate`                |
 | `documents.preflight(receiver_peppol_id)`                      | POST   | `/documents/preflight`               |
 | `documents.convert(...)`                                       | POST   | `/documents/convert`                 |
+| `documents.parse(xml)`                                         | POST   | `/documents/parse`                   |
+| `documents.outbox(**params)`                                   | GET    | `/documents/outbox`                  |
+| `documents.responses(id)`                                      | GET    | `/documents/{id}/responses`          |
+| `documents.events(id, **params)`                               | GET    | `/documents/{id}/events`             |
 | `documents.peppol_documents(**params)`                         | GET    | `/peppol-documents`                  |
 | `documents.inbox.list(**params)`                               | GET    | `/documents/inbox`                   |
 | `documents.inbox.get(id)`                                      | GET    | `/documents/inbox/{id}`              |
@@ -495,6 +508,8 @@ except EPostakError as err:
 | `peppol.company_lookup(ico)`                                   | GET    | `/company/lookup/{ico}`              |
 | `peppol.company_search(q, limit=None)`                         | GET    | `/company/search`                    |
 | `peppol.resolve(**params)`                                     | GET    | `/peppol/participants/resolve`       |
+| `peppol.capabilities(...)`                                     | POST   | `/peppol/capabilities`               |
+| `peppol.lookup_batch(participants)`                            | POST   | `/peppol/participants/batch`         |
 | `firms.list()`                                                 | GET    | `/firms`                             |
 | `firms.get(id)`                                                | GET    | `/firms/{id}`                        |
 | `firms.documents(id, **params)`                                | GET    | `/firms/{id}/documents`              |
@@ -518,10 +533,15 @@ except EPostakError as err:
 | `webhooks.queue.pull_all(**params)`                            | GET    | `/webhook-queue/all`                 |
 | `webhooks.queue.batch_ack_all(ids)`                            | POST   | `/webhook-queue/all/batch-ack`       |
 | `reporting.statistics(period=..., from_date=..., to_date=...)` | GET    | `/reporting/statistics`              |
+| `reporting.submissions(limit=..., offset=..., report_type=...)` | GET   | `/reporting/submissions`             |
 | `account.get()`                                                | GET    | `/account`                           |
 | `account.license_info()`                                       | GET    | `/licenses/info`                     |
+| `integrator.keys.list()`                                       | GET    | `/integrator/keys`                   |
+| `integrator.keys.deactivate(key_id=..., client_id=...)`        | DELETE | `/integrator/keys`                   |
+| `integrator.licenses.info(offset=..., limit=...)`              | GET    | `/integrator/licenses/info`          |
 | `extract.single(file, mime, name)`                             | POST   | `/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/extract/batch`                     |
+| `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |
 | `inbound.list(**params)`                                       | GET    | `/inbound/documents`                 |
 | `inbound.get(id)`                                              | GET    | `/inbound/documents/{id}`            |
 | `inbound.get_ubl(id)`                                          | GET    | `/inbound/documents/{id}/ubl`        |
@@ -536,7 +556,7 @@ except EPostakError as err:
 | `sapi.get(id, participant_id=...)`                             | GET    | `/sapi/v1/document/receive/{id}`     |
 | `sapi.acknowledge(id, participant_id=...)`                     | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
 
-Enterprise paths are relative to `https://epostak.sk/api/v1`; SAPI paths are absolute under `https://epostak.sk/sapi/v1`.
+Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 
 ---
 

@@ -239,11 +239,11 @@ public sealed class EPostakClient : IDisposable
         => Validate(xml, DefaultPublicValidateUrl, ct);
 
     /// <summary>
-    /// Validate a UBL XML document against a custom validate endpoint. Useful for staging
+    /// Validate a UBL XML document against a custom validate endpoint. Useful for test
     /// or on-premise deployments.
     /// </summary>
     /// <param name="xml">UBL 2.1 XML document to validate.</param>
-    /// <param name="url">Full URL of the validate endpoint (e.g. <c>https://staging.epostak.sk/api/validate</c>).</param>
+    /// <param name="url">Full URL of the validate endpoint (e.g. <c>https://dev.epostak.sk/api/validate</c>).</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Full 3-layer Peppol BIS 3.0 validation report.</returns>
     public static async Task<ValidationReport> Validate(string xml, string url, CancellationToken ct = default)

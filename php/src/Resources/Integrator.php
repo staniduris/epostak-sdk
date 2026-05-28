@@ -18,6 +18,7 @@ use EPostak\EPostakError;
  */
 class Integrator
 {
+    public IntegratorKeys $keys;
     public IntegratorLicenses $licenses;
 
     /**
@@ -25,7 +26,43 @@ class Integrator
      */
     public function __construct(HttpClient $http)
     {
+        $this->keys = new IntegratorKeys($http);
         $this->licenses = new IntegratorLicenses($http);
+    }
+}
+
+/**
+ * `/integrator/keys` — integrator API key management.
+ */
+class IntegratorKeys
+{
+    public function __construct(private HttpClient $http)
+    {
+    }
+
+    /**
+     * List all API keys for the current integrator.
+     *
+     * @return array{keys: array}
+     * @throws EPostakError On API error.
+     */
+    public function list(): array
+    {
+        return $this->http->request('GET', '/integrator/keys');
+    }
+
+    /**
+     * Deactivate an integrator API key by UUID (`keyId`) or `sk_int_*` prefix (`client_id`).
+     *
+     * @param array{keyId?: string, client_id?: string} $params
+     * @return array{success: bool, message: string}
+     * @throws EPostakError On API error.
+     */
+    public function deactivate(array $params): array
+    {
+        return $this->http->request('DELETE', '/integrator/keys', [
+            'json' => $params,
+        ]);
     }
 }
 

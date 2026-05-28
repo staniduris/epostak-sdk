@@ -4,6 +4,12 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 
 ## Recent changes
 
+**Unreleased**
+- `client.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
+- `client.reporting.submissions(...)` covers `GET /reporting/submissions`
+- `client.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
+- README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins
+
 **v0.10.0** (2026-05-18)
 - SAPI-SK 1.0 document flow via `client.sapi`
 - Enterprise evidence downloads: `documents.evidence_bundle` and `outbound.get_mdn`
@@ -74,10 +80,16 @@ firm_a.documents.inbox.list
 ```ruby
 client = EPostak::Client.new(
   client_id: "sk_live_xxxxx", client_secret: "your_secret",
-  base_url: "https://staging.epostak.sk/api/enterprise",  # optional, override for staging
-  firm_id: "firm-uuid"                                     # optional, for integrator keys
+  base_url: "https://dev.epostak.sk/api/v1",  # optional test env; omit for prod
+  firm_id: "firm-uuid"                        # optional, for integrator keys
 )
 ```
+
+Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
+`https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
+calls, set `base_url` to `https://dev.epostak.sk/api/v1`; SAPI derives
+`https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
+`origin: "https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
 ## API Reference
 
@@ -129,6 +141,13 @@ updated = client.documents.update("doc-uuid", dueDate: "2026-05-15", note: "Upda
 ```ruby
 status = client.documents.status("doc-uuid")
 # => { "status" => "DELIVERED", "deliveredAt" => "2026-04-11T12:30:00Z", "history" => [...] }
+```
+
+#### Batch status check
+
+```ruby
+batch = client.documents.status_batch(["doc-uuid-1", "doc-uuid-2"])
+puts "#{batch['found']}/#{batch['total']} found"
 ```
 
 #### Get delivery evidence
@@ -501,6 +520,9 @@ stats = client.reporting.statistics(from: "2026-01-01", to: "2026-03-31")
 puts "Sent: #{stats['outbound']['total']}"
 puts "Received: #{stats['inbound']['total']}"
 puts "Delivery rate: #{stats['outbound']['delivered']}/#{stats['outbound']['total']}"
+
+submissions = client.reporting.submissions(limit: 20, report_type: "EUSR")
+puts submissions["total"]
 ```
 
 ---
@@ -568,6 +590,12 @@ other_client.documents.inbox.list
 # Cross-firm endpoints (no with_firm needed)
 all_docs = integrator.documents.inbox.list_all(since: "2026-04-01T00:00:00Z")
 all_events = integrator.webhooks.queue.pull_all(limit: 200)
+
+# Integrator API-key management (production supports list + deactivate)
+integrator_api = integrator.integrator
+keys = integrator_api.keys.list
+integrator_api.keys.deactivate(client_id: "sk_int_xxxxx...abcd")
+usage = integrator_api.licenses.info(limit: 100)
 ```
 
 ## Error handling

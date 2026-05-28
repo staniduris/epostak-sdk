@@ -3,6 +3,24 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `client.Documents.StatusBatchAsync(ids)` for `POST /documents/status/batch`.
+- Added `client.Reporting.SubmissionsAsync(...)` for `GET /reporting/submissions`.
+- Added `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` for
+  the production `GET`/`DELETE /integrator/keys` surface.
+- Extended SDK README endpoint coverage and environment data for production
+  `https://epostak.sk` and test `https://dev.epostak.sk`.
+
+### Changed
+
+- Documented `https://dev.epostak.sk/api/v1` as the test environment
+  `BaseUrl` override. Production remains the default.
+- Clarified that OAuth test flows pass `origin: "https://dev.epostak.sk"`
+  because OAuth bypasses `BaseUrl`.
+
 ## 0.10.1 — 2026-05-22
 
 ### Fixed

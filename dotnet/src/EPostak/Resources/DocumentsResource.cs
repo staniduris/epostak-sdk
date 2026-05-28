@@ -139,6 +139,19 @@ public sealed class DocumentsResource
         => _http.RequestAsync<DocumentStatusResponse>(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/status", ct);
 
     /// <summary>
+    /// Get status for up to 100 documents in one call. Results preserve input
+    /// order; missing or cross-tenant IDs return an item with <c>error=not_found</c>.
+    /// </summary>
+    /// <param name="ids">Document IDs to inspect.</param>
+    /// <param name="ct">Cancellation token.</param>
+    public Task<DocumentStatusBatchResponse> StatusBatchAsync(IEnumerable<string> ids, CancellationToken ct = default)
+        => _http.RequestAsync<DocumentStatusBatchResponse>(
+            HttpMethod.Post,
+            "/documents/status/batch",
+            new { ids },
+            ct);
+
+    /// <summary>
     /// Get delivery evidence for a sent document. This includes the AS4 receipt from
     /// the receiver's access point, the Message Level Response (MLR), and any
     /// invoice response (accept/reject/query) from the recipient.

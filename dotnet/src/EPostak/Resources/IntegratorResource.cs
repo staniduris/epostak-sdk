@@ -24,12 +24,40 @@ namespace EPostak.Resources;
 /// </example>
 public sealed class IntegratorResource
 {
+    /// <summary>Integrator API-key management (<c>/integrator/keys</c>).</summary>
+    public IntegratorKeysResource Keys { get; }
+
     /// <summary>License/billing aggregate views (<c>/integrator/licenses/*</c>).</summary>
     public IntegratorLicensesResource Licenses { get; }
 
     internal IntegratorResource(HttpRequestor http)
     {
+        Keys = new IntegratorKeysResource(http);
         Licenses = new IntegratorLicensesResource(http);
+    }
+}
+
+/// <summary><c>/integrator/keys</c> — integrator API-key management.</summary>
+public sealed class IntegratorKeysResource
+{
+    private readonly HttpRequestor _http;
+
+    internal IntegratorKeysResource(HttpRequestor http) => _http = http;
+
+    /// <summary>List all API keys for the current integrator.</summary>
+    public Task<IntegratorKeysResponse> ListAsync(CancellationToken ct = default)
+        => _http.RequestAsync<IntegratorKeysResponse>(HttpMethod.Get, "/integrator/keys", ct);
+
+    /// <summary>Deactivate an integrator API key by UUID or <c>sk_int_*</c> prefix.</summary>
+    public Task<DeactivateIntegratorKeyResponse> DeactivateAsync(
+        string? keyId = null,
+        string? clientId = null,
+        CancellationToken ct = default)
+    {
+        var body = new Dictionary<string, object>();
+        if (keyId is not null) body["keyId"] = keyId;
+        if (clientId is not null) body["client_id"] = clientId;
+        return _http.RequestAsync<DeactivateIntegratorKeyResponse>(HttpMethod.Delete, "/integrator/keys", body, ct);
     }
 }
 

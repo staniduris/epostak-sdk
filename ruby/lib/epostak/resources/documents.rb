@@ -130,6 +130,17 @@ module EPostak
         @http.request(:get, "/documents/#{encode(id)}/status")
       end
 
+      # Get status for up to 100 documents in one request.
+      #
+      # Results preserve input order. Missing or cross-tenant IDs return
+      # {"id"=>"...", "error"=>"not_found"}.
+      #
+      # @param ids [Array<String>] Document IDs
+      # @return [Hash] Batch status response
+      def status_batch(ids)
+        @http.request(:post, "/documents/status/batch", body: { ids: ids })
+      end
+
       # Retrieve delivery evidence for a sent document, including AS4 receipts,
       # Message Level Response (MLR), and Invoice Response from the buyer.
       #

@@ -236,3 +236,48 @@ public sealed class IntegratorLicenseInfo
     [JsonPropertyName("pagination")]
     public IntegratorLicensePagination Pagination { get; set; } = new();
 }
+
+/// <summary>One integrator API key row from <c>GET /api/v1/integrator/keys</c>.</summary>
+public sealed class IntegratorKey
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("keyPrefix")]
+    public string KeyPrefix { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("scopes")]
+    public List<string> Scopes { get; set; } = new();
+
+    [JsonPropertyName("ipAllowlist")]
+    public List<string> IpAllowlist { get; set; } = new();
+
+    [JsonPropertyName("isActive")]
+    public bool IsActive { get; set; }
+
+    [JsonPropertyName("lastUsedAt")]
+    public string? LastUsedAt { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = "";
+}
+
+/// <summary>Response from <c>GET /api/v1/integrator/keys</c>.</summary>
+public sealed class IntegratorKeysResponse
+{
+    [JsonPropertyName("keys")]
+    public List<IntegratorKey> Keys { get; set; } = new();
+}
+
+/// <summary>Response from <c>DELETE /api/v1/integrator/keys</c>.</summary>
+public sealed class DeactivateIntegratorKeyResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+}

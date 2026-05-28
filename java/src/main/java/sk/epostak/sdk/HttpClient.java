@@ -231,6 +231,20 @@ public final class HttpClient {
     }
 
     /**
+     * Perform a DELETE request with a JSON body and deserialize the response.
+     *
+     * @param <T>  the response type
+     * @param path the API path (appended to base URL)
+     * @param body the request body to serialize as JSON
+     * @param type the response class to deserialize to
+     * @return the deserialized response, or {@code null} for 204 responses
+     * @throws EPostakException if the request fails
+     */
+    public <T> T delete(String path, Object body, Class<T> type) {
+        return request("DELETE", path, body, type);
+    }
+
+    /**
      * Perform a DELETE request that returns no body (HTTP 204).
      *
      * @param path the API path (appended to base URL)

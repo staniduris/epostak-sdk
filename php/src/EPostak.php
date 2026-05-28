@@ -72,7 +72,7 @@ class EPostak
      * @param array{clientId: string, clientSecret: string, baseUrl?: string, firmId?: string, maxRetries?: int} $config Configuration array.
      *   - `clientId`     (required) OAuth client ID (`sk_live_*` or `sk_int_*`).
      *   - `clientSecret` (required) OAuth client secret.
-     *   - `baseUrl`      (optional) Override the API base URL (default: https://epostak.sk/api/v1).
+     *   - `baseUrl`      (optional) Override the API base URL (default: https://epostak.sk/api/v1; use https://dev.epostak.sk/api/v1 for test).
      *   - `firmId`       (optional) Scope all requests to this firm ID (required for `sk_int_*`).
      *   - `maxRetries`   (optional) Maximum retries on 429/5xx responses (default: 3).
      *

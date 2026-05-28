@@ -253,10 +253,10 @@ public final class EPostak {
 
     /**
      * Validate a UBL XML document against Peppol BIS 3.0 rules using a custom endpoint.
-     * Useful for staging or on-premise deployments.
+     * Useful for the test environment or on-premise deployments.
      *
      * @param xml the UBL 2.1 XML document to validate
-     * @param url full URL of the validate endpoint (e.g. {@code "https://staging.epostak.sk/api/validate"})
+     * @param url full URL of the validate endpoint (e.g. {@code "https://dev.epostak.sk/api/validate"})
      * @return the full 3-layer Peppol BIS 3.0 validation report
      * @throws EPostakException if the request fails
      */

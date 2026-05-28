@@ -50,7 +50,7 @@ namespace EPostak.Resources;
 /// </example>
 public static class OAuth
 {
-    /// <summary>Default origin for ePošťák OAuth endpoints. Override for staging.</summary>
+    /// <summary>Default origin for ePošťák OAuth endpoints. Use https://dev.epostak.sk for test.</summary>
     public const string DefaultOrigin = "https://epostak.sk";
 
     /// <summary>

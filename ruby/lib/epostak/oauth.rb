@@ -46,7 +46,7 @@ module EPostak
   #     redirect_uri: "https://your-app.com/oauth/epostak/callback"
   #   )
   module OAuth
-    # Default origin for ePošťák OAuth endpoints. Override for staging.
+    # Default origin for ePošťák OAuth endpoints. Use https://dev.epostak.sk for test.
     DEFAULT_ORIGIN = "https://epostak.sk"
 
     module_function

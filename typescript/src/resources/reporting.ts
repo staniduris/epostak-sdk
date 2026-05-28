@@ -1,5 +1,10 @@
 import { BaseResource, buildQuery } from "../utils/request.js";
-import type { StatisticsParams, Statistics } from "../types.js";
+import type {
+  ReportingSubmissionsParams,
+  ReportingSubmissionsResponse,
+  StatisticsParams,
+  Statistics,
+} from "../types.js";
 
 /**
  * Resource for retrieving document statistics and reports.
@@ -37,6 +42,20 @@ export class ReportingResource extends BaseResource {
         period: params?.period,
         from: params?.from,
         to: params?.to,
+      })}`,
+    );
+  }
+
+  /**
+   * List EUSR/TSR reports submitted to FS SR by ePošťák as the AP operator.
+   */
+  submissions(params?: ReportingSubmissionsParams): Promise<ReportingSubmissionsResponse> {
+    return this.request(
+      "GET",
+      `/reporting/submissions${buildQuery({
+        limit: params?.limit,
+        offset: params?.offset,
+        report_type: params?.report_type,
       })}`,
     );
   }

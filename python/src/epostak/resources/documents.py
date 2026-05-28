@@ -450,6 +450,15 @@ class DocumentsResource(_BaseResource):
         """
         return self._request("GET", f"/documents/{quote(id, safe='')}/status")
 
+    def status_batch(self, ids: List[str]) -> Dict[str, Any]:
+        """Get status for up to 100 documents in one call.
+
+        Results preserve the input order. Missing or cross-tenant IDs return
+        ``{"id": "...", "error": "not_found"}`` instead of failing the whole
+        request.
+        """
+        return self._request("POST", "/documents/status/batch", json={"ids": ids})
+
     def evidence(self, id: str) -> DocumentEvidenceResponse:
         """Get delivery evidence (AS4 receipt, MLR, invoice response).
 

@@ -12,12 +12,43 @@ module EPostak
     #   usage = client.integrator.licenses.info(limit: 100)
     #   puts usage["billable"]["totalCharge"], "EUR this month"
     class Integrator
+      # @return [Resources::IntegratorKeys] Integrator API-key management.
+      attr_reader :keys
+
       # @return [Resources::IntegratorLicenses] Billing aggregate views.
       attr_reader :licenses
 
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
+        @keys = IntegratorKeys.new(http)
         @licenses = IntegratorLicenses.new(http)
+      end
+    end
+
+    # +/integrator/keys+ -- integrator API-key management.
+    class IntegratorKeys
+      # @param http [EPostak::HttpClient] Internal HTTP client
+      def initialize(http)
+        @http = http
+      end
+
+      # List all API keys for the current integrator.
+      #
+      # @return [Hash] Response with +keys+
+      def list
+        @http.request(:get, "/integrator/keys")
+      end
+
+      # Deactivate an integrator API key by UUID or +sk_int_*+ prefix.
+      #
+      # @param key_id [String, nil] API key UUID
+      # @param client_id [String, nil] +sk_int_*+ key prefix/client ID
+      # @return [Hash] Success response
+      def deactivate(key_id: nil, client_id: nil)
+        body = {}
+        body[:keyId] = key_id unless key_id.nil?
+        body[:client_id] = client_id unless client_id.nil?
+        @http.request(:delete, "/integrator/keys", body: body)
       end
     end
 

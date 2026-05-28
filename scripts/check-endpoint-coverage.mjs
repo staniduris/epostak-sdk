@@ -15,12 +15,19 @@ const checks = [
   ["typescript/src/resources/account.ts", "/licenses/info"],
   ["typescript/src/resources/documents.ts", "evidenceBundle"],
   ["typescript/src/resources/documents.ts", "/evidence-bundle"],
+  ["typescript/src/resources/documents.ts", "statusBatch"],
+  ["typescript/src/resources/documents.ts", "/documents/status/batch"],
   ["typescript/src/resources/outbound.ts", "getMdn"],
   ["typescript/src/resources/outbound.ts", "/mdn"],
   ["typescript/src/resources/webhooks.ts", "mode"],
   ["typescript/src/resources/webhooks.ts", "count"],
   ["typescript/src/resources/webhooks.ts", "testRunId"],
   ["typescript/src/resources/webhooks.ts", "/webhook-dead-letter"],
+  ["typescript/src/resources/reporting.ts", "submissions"],
+  ["typescript/src/resources/reporting.ts", "/reporting/submissions"],
+  ["typescript/src/resources/integrator.ts", "keys = new IntegratorKeysResource"],
+  ["typescript/src/resources/integrator.ts", "/integrator/keys"],
+  ["typescript/src/resources/integrator.ts", "this.request(\"DELETE\", \"/integrator/keys\""],
 
   ["python/src/epostak/client.py", "self.sapi = SapiResource"],
   ["python/src/epostak/resources/sapi.py", "/sapi/v1/document/send"],
@@ -32,12 +39,19 @@ const checks = [
   ["python/src/epostak/resources/account.py", "/licenses/info"],
   ["python/src/epostak/resources/documents.py", "evidence_bundle"],
   ["python/src/epostak/resources/documents.py", "/evidence-bundle"],
+  ["python/src/epostak/resources/documents.py", "status_batch"],
+  ["python/src/epostak/resources/documents.py", "/documents/status/batch"],
   ["python/src/epostak/resources/outbound.py", "get_mdn"],
   ["python/src/epostak/resources/outbound.py", "/mdn"],
   ["python/src/epostak/resources/webhooks.py", "mode"],
   ["python/src/epostak/resources/webhooks.py", "count"],
   ["python/src/epostak/resources/webhooks.py", "testRunId"],
   ["python/src/epostak/resources/webhooks.py", "/webhook-dead-letter"],
+  ["python/src/epostak/resources/reporting.py", "submissions"],
+  ["python/src/epostak/resources/reporting.py", "/reporting/submissions"],
+  ["python/src/epostak/resources/integrator.py", "self.keys = IntegratorKeysResource"],
+  ["python/src/epostak/resources/integrator.py", "/integrator/keys"],
+  ["python/src/epostak/resources/integrator.py", "\"DELETE\", \"/integrator/keys\""],
 
   ["ruby/lib/epostak/client.rb", "@sapi"],
   ["ruby/lib/epostak/resources/sapi.rb", "/sapi/v1/document/send"],
@@ -49,12 +63,19 @@ const checks = [
   ["ruby/lib/epostak/resources/account.rb", "/licenses/info"],
   ["ruby/lib/epostak/resources/documents.rb", "evidence_bundle"],
   ["ruby/lib/epostak/resources/documents.rb", "/evidence-bundle"],
+  ["ruby/lib/epostak/resources/documents.rb", "status_batch"],
+  ["ruby/lib/epostak/resources/documents.rb", "/documents/status/batch"],
   ["ruby/lib/epostak/resources/outbound.rb", "get_mdn"],
   ["ruby/lib/epostak/resources/outbound.rb", "/mdn"],
   ["ruby/lib/epostak/resources/webhooks.rb", "mode"],
   ["ruby/lib/epostak/resources/webhooks.rb", "count"],
   ["ruby/lib/epostak/resources/webhooks.rb", "testRunId"],
   ["ruby/lib/epostak/resources/webhooks.rb", "/webhook-dead-letter"],
+  ["ruby/lib/epostak/resources/reporting.rb", "submissions"],
+  ["ruby/lib/epostak/resources/reporting.rb", "/reporting/submissions"],
+  ["ruby/lib/epostak/resources/integrator.rb", "@keys"],
+  ["ruby/lib/epostak/resources/integrator.rb", "/integrator/keys"],
+  ["ruby/lib/epostak/resources/integrator.rb", ":delete, \"/integrator/keys\""],
 
   ["php/src/EPostak.php", "public Sapi $sapi"],
   ["php/src/Resources/Sapi.php", "/sapi/v1/document/send"],
@@ -66,12 +87,19 @@ const checks = [
   ["php/src/Resources/Account.php", "/licenses/info"],
   ["php/src/Resources/Documents.php", "evidenceBundle"],
   ["php/src/Resources/Documents.php", "/evidence-bundle"],
+  ["php/src/Resources/Documents.php", "statusBatch"],
+  ["php/src/Resources/Documents.php", "/documents/status/batch"],
   ["php/src/Resources/Outbound.php", "getMdn"],
   ["php/src/Resources/Outbound.php", "/mdn"],
   ["php/src/Resources/Webhooks.php", "mode"],
   ["php/src/Resources/Webhooks.php", "count"],
   ["php/src/Resources/Webhooks.php", "testRunId"],
   ["php/src/Resources/Webhooks.php", "/webhook-dead-letter"],
+  ["php/src/Resources/Reporting.php", "submissions"],
+  ["php/src/Resources/Reporting.php", "/reporting/submissions"],
+  ["php/src/Resources/Integrator.php", "public IntegratorKeys $keys"],
+  ["php/src/Resources/Integrator.php", "/integrator/keys"],
+  ["php/src/Resources/Integrator.php", "'DELETE', '/integrator/keys'"],
 
   ["dotnet/src/EPostak/EPostakClient.cs", "public SapiResource Sapi"],
   ["dotnet/src/EPostak/Resources/SapiResource.cs", "/sapi/v1/document/send"],
@@ -83,12 +111,19 @@ const checks = [
   ["dotnet/src/EPostak/Resources/AccountResource.cs", "/licenses/info"],
   ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "EvidenceBundleAsync"],
   ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/evidence-bundle"],
+  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "StatusBatchAsync"],
+  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/documents/status/batch"],
   ["dotnet/src/EPostak/Resources/OutboundResource.cs", "GetMdnAsync"],
   ["dotnet/src/EPostak/Resources/OutboundResource.cs", "/mdn"],
   ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "Mode"],
   ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "Count"],
   ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "TestRunId"],
   ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "/webhook-dead-letter"],
+  ["dotnet/src/EPostak/Resources/ReportingResource.cs", "SubmissionsAsync"],
+  ["dotnet/src/EPostak/Resources/ReportingResource.cs", "/reporting/submissions"],
+  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "IntegratorKeysResource Keys"],
+  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "/integrator/keys"],
+  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "HttpMethod.Delete, \"/integrator/keys\""],
 
   ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final SapiResource sapi"],
   ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "/sapi/v1/document/send"],
@@ -100,12 +135,19 @@ const checks = [
   ["java/src/main/java/sk/epostak/sdk/resources/AccountResource.java", "/licenses/info"],
   ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "evidenceBundle"],
   ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/evidence-bundle"],
+  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "statusBatch"],
+  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/documents/status/batch"],
   ["java/src/main/java/sk/epostak/sdk/resources/OutboundResource.java", "getMdn"],
   ["java/src/main/java/sk/epostak/sdk/resources/OutboundResource.java", "/mdn"],
   ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "mode"],
   ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "count"],
   ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "testRunId"],
   ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "/webhook-dead-letter"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "submissions"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "/reporting/submissions"],
+  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "IntegratorKeysResource keys"],
+  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "/integrator/keys"],
+  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "http.delete(\"/integrator/keys\""],
 ];
 
 const missing = [];
@@ -127,4 +169,29 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-console.log(`Endpoint coverage OK (${checks.length} checks)`);
+const forbidden = [
+  ["typescript/src/resources/integrator.ts", "POST\", \"/integrator/keys"],
+  ["python/src/epostak/resources/integrator.py", "\"POST\", \"/integrator/keys"],
+  ["ruby/lib/epostak/resources/integrator.rb", ":post, \"/integrator/keys"],
+  ["php/src/Resources/Integrator.php", "'POST', '/integrator/keys"],
+  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "HttpMethod.Post, \"/integrator/keys"],
+  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "http.post(\"/integrator/keys"],
+];
+
+const forbiddenHits = [];
+
+for (const [relative, needle] of forbidden) {
+  const file = path.join(root, relative);
+  if (!fs.existsSync(file)) continue;
+  const text = fs.readFileSync(file, "utf8");
+  if (text.includes(needle)) {
+    forbiddenHits.push(`${relative}: forbidden ${needle}`);
+  }
+}
+
+if (forbiddenHits.length > 0) {
+  console.error(forbiddenHits.join("\n"));
+  process.exit(1);
+}
+
+console.log(`Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks)`);

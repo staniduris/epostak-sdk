@@ -12,6 +12,7 @@ import type {
   InboxAllParams,
   InboxAllResponse,
   DocumentStatusResponse,
+  DocumentStatusBatchResponse,
   DocumentEvidenceResponse,
   InvoiceRespondRequest,
   InvoiceRespondResponse,
@@ -272,6 +273,14 @@ export class DocumentsResource extends BaseResource {
    */
   status(id: string): Promise<DocumentStatusResponse> {
     return this.request("GET", `/documents/${encodeURIComponent(id)}/status`);
+  }
+
+  /**
+   * Get status for up to 100 documents in one call. Results preserve input order.
+   * Missing or cross-tenant IDs return `{ id, error: "not_found" }`.
+   */
+  statusBatch(ids: string[]): Promise<DocumentStatusBatchResponse> {
+    return this.request("POST", "/documents/status/batch", { ids });
   }
 
   /**

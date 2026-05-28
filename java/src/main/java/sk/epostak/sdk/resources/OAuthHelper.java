@@ -68,7 +68,7 @@ import java.util.Map;
  */
 public final class OAuthHelper {
 
-    /** Default origin for ePošťák OAuth endpoints. Override for staging. */
+    /** Default origin for ePošťák OAuth endpoints. Use https://dev.epostak.sk for test. */
     public static final String DEFAULT_ORIGIN = "https://epostak.sk";
 
     private static final Gson GSON = new Gson();

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from epostak.types import Statistics
+    from epostak.types import ReportingSubmissionsResponse, Statistics
 
 from epostak.resources.documents import _BaseResource, _build_query
 
@@ -51,3 +51,13 @@ class ReportingResource(_BaseResource):
         """
         params = _build_query({"from": from_date, "to": to_date, "period": period})
         return self._request("GET", "/reporting/statistics", params=params)
+
+    def submissions(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        report_type: Optional[str] = None,
+    ) -> ReportingSubmissionsResponse:
+        """List EUSR/TSR reports submitted to FS SR by ePošťák as AP operator."""
+        params = _build_query({"limit": limit, "offset": offset, "report_type": report_type})
+        return self._request("GET", "/reporting/submissions", params=params)

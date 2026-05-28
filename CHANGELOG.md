@@ -1,5 +1,19 @@
 # Changelog
 
+## [Backend route + environment sync] — 2026-05-29
+
+- Documented `https://dev.epostak.sk/api/v1` as the Enterprise API base URL
+  override for the test environment.
+- Documented matching test SAPI and OAuth origins while keeping production
+  defaults on `https://epostak.sk`.
+- Synced SDK code and README coverage with live production OpenAPI for
+  `POST /documents/status/batch`, `GET /reporting/submissions`, and
+  `GET`/`DELETE /integrator/keys`.
+- Kept `POST /integrator/keys` out of SDKs because it is not exposed in the
+  production `/api/v1` OpenAPI surface.
+- Extended the endpoint coverage checker to 133 source checks across all six
+  language SDKs.
+
 ## [.NET OAuth token exchange fix] — 2026-05-22
 
 - Bumped .NET SDK source package to `0.10.1`.

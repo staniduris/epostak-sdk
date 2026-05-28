@@ -1,6 +1,8 @@
 package sk.epostak.sdk.resources;
 
 import sk.epostak.sdk.HttpClient;
+import sk.epostak.sdk.models.DeactivateIntegratorKeyResponse;
+import sk.epostak.sdk.models.IntegratorKeysResponse;
 import sk.epostak.sdk.models.IntegratorLicenseInfo;
 
 import java.util.LinkedHashMap;
@@ -31,6 +33,7 @@ import java.util.Map;
 public final class IntegratorResource {
 
     private final IntegratorLicensesResource licenses;
+    private final IntegratorKeysResource keys;
 
     /**
      * Creates a new integrator resource.
@@ -39,6 +42,7 @@ public final class IntegratorResource {
      */
     public IntegratorResource(HttpClient http) {
         this.licenses = new IntegratorLicensesResource(http);
+        this.keys = new IntegratorKeysResource(http);
     }
 
     /**
@@ -48,6 +52,48 @@ public final class IntegratorResource {
      */
     public IntegratorLicensesResource licenses() {
         return licenses;
+    }
+
+    /**
+     * Sub-resource for {@code /integrator/keys}.
+     *
+     * @return the integrator keys resource
+     */
+    public IntegratorKeysResource keys() {
+        return keys;
+    }
+
+    /**
+     * Sub-resource for {@code GET/DELETE /api/v1/integrator/keys}.
+     */
+    public static final class IntegratorKeysResource {
+
+        private final HttpClient http;
+
+        IntegratorKeysResource(HttpClient http) {
+            this.http = http;
+        }
+
+        /**
+         * List all API keys for the current integrator.
+         */
+        public IntegratorKeysResponse list() {
+            return http.get("/integrator/keys", IntegratorKeysResponse.class);
+        }
+
+        /**
+         * Deactivate an integrator API key by UUID.
+         */
+        public DeactivateIntegratorKeyResponse deactivateByKeyId(String keyId) {
+            return http.delete("/integrator/keys", Map.of("keyId", keyId), DeactivateIntegratorKeyResponse.class);
+        }
+
+        /**
+         * Deactivate an integrator API key by {@code sk_int_*} prefix/client ID.
+         */
+        public DeactivateIntegratorKeyResponse deactivateByClientId(String clientId) {
+            return http.delete("/integrator/keys", Map.of("client_id", clientId), DeactivateIntegratorKeyResponse.class);
+        }
     }
 
     /**

@@ -31,7 +31,7 @@ public sealed class EPostakConfig
 
     /// <summary>
     /// Base URL for the API. Defaults to the production endpoint <c>https://epostak.sk/api/v1</c>.
-    /// Override this for staging environments or local development.
+    /// Use <c>https://dev.epostak.sk/api/v1</c> for the test environment.
     /// </summary>
     public string BaseUrl { get; init; } = "https://epostak.sk/api/v1";
 

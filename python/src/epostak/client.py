@@ -94,7 +94,8 @@ class EPostak:
         client_id: Your API key id (``sk_live_*`` or ``sk_int_*``).
         client_secret: Your API key secret.
         base_url: Base URL for the API. Defaults to
-            ``https://epostak.sk/api/v1``.
+            ``https://epostak.sk/api/v1``. Use
+            ``https://dev.epostak.sk/api/v1`` for the test environment.
         firm_id: Firm UUID to act on behalf of. Required when using
             integrator keys (``sk_int_*``). Each API call will include
             an ``X-Firm-Id`` header.

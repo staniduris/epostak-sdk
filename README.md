@@ -65,9 +65,27 @@ Generate API keys in your ePošťák firm settings.
 
 ---
 
+## Environments
+
+Production remains the SDK default:
+
+- Enterprise API: `https://epostak.sk/api/v1`
+- SAPI: `https://epostak.sk/sapi/v1`
+- OAuth origin: `https://epostak.sk`
+
+For the test environment, pass an explicit override:
+
+- Enterprise API: `https://dev.epostak.sk/api/v1`
+- SAPI: `https://dev.epostak.sk/sapi/v1`
+- OAuth origin: `https://dev.epostak.sk`
+
+Do not change production clients when you want to test against `dev.epostak.sk`; set the SDK's `baseUrl`/`base_url`/`BaseUrl` override only in the test configuration. SAPI is derived from the same host by stripping `/api/v1`.
+
+---
+
 ## OAuth `authorization_code` + PKCE (integrator onboarding)
 
-For integrators onboarding end-user firms from inside their own UI, every SDK ships stateless `OAuth` helpers (`generatePkce`, `buildAuthorizeUrl`, `exchangeCode`) that hit `https://epostak.sk/oauth/authorize` and `https://epostak.sk/api/oauth/token` directly — they bypass the configured base URL because the OAuth namespace lives outside `/api/v1`. Generate a fresh PKCE pair per attempt, redirect the user to `/oauth/authorize`, then exchange the returned `code` for a new `sk_int_*` client secret and firm metadata. Pre-register your `redirect_uris` with `info@epostak.sk` (exact-match enforced).
+For integrators onboarding end-user firms from inside their own UI, every SDK ships stateless `OAuth` helpers (`generatePkce`, `buildAuthorizeUrl`, `exchangeCode`) that hit `https://epostak.sk/oauth/authorize` and `https://epostak.sk/api/oauth/token` directly — they bypass the configured base URL because the OAuth namespace lives outside `/api/v1`. For test OAuth, pass `origin: "https://dev.epostak.sk"` to the helper. Generate a fresh PKCE pair per attempt, redirect the user to `/oauth/authorize`, then exchange the returned `code` for a new `sk_int_*` client secret and firm metadata. Pre-register your `redirect_uris` with `info@epostak.sk` (exact-match enforced).
 
 ```typescript
 import { OAuth } from "@epostak/sdk";
@@ -78,6 +96,7 @@ const url = OAuth.buildAuthorizeUrl({
   redirectUri: "https://your-app.com/oauth/epostak/callback",
   state: req.session.id,
   codeChallenge,
+  // origin: "https://dev.epostak.sk", // optional test environment override
 });
 // later, on the callback:
 const credentials = await OAuth.exchangeCode({
@@ -86,6 +105,7 @@ const credentials = await OAuth.exchangeCode({
   clientId: process.env.EPOSTAK_OAUTH_CLIENT_ID!,
   clientSecret: process.env.EPOSTAK_OAUTH_CLIENT_SECRET!,
   redirectUri: "https://your-app.com/oauth/epostak/callback",
+  // origin: "https://dev.epostak.sk", // optional test environment override
 });
 ```
 
@@ -97,10 +117,10 @@ Use this when the firm has no API key with you yet. Store the returned `client_i
 
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Documents** — send, get, update, status, evidence, evidence bundle ZIP, PDF, UBL, respond, validate, preflight, convert, Peppol document listing
+- **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence
-- **Peppol** — SMP lookup, directory search, company lookup/search, participant resolve, capability checks
+- **Peppol** — SMP lookup, directory search, company lookup/search, participant resolve, capability checks, batch participant lookup
 - **Firms** — list, get, documents, register Peppol ID, assign, batch assign (integrator)
 - **Webhooks** — CRUD, queued tests, delivery history, dead-letter queue replay/resolve, pull queue with single/batch acknowledge
 - **Reporting** — aggregated statistics and submissions
@@ -121,6 +141,8 @@ Use `sk_int_*` keys for multi-tenant access. Integrator-only endpoints:
 | `inbox.listAll`     | Cross-firm inbox                     |
 | `queue.pullAll`     | Cross-firm event queue               |
 | `queue.batchAckAll` | Cross-firm batch acknowledge         |
+| `integrator.keys`   | List and deactivate production integrator API keys |
+| `integrator.licenses.info` | Aggregate usage across managed firms |
 
 ---
 
