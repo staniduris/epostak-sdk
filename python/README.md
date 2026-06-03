@@ -12,8 +12,8 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 
 ### Unreleased
 
-- `client.connector` — Connector preflight, send, status, inbox list/detail, ACK, and event polling.
-- Static endpoint coverage expanded to 189 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+- `client.connector` — Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- Static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v0.10.0 — 2026-05-18
 
@@ -549,6 +549,12 @@ except EPostakError as err:
 | `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |
 | `connector.preflight(body)`                                    | POST   | `/connector/preflight`               |
 | `connector.send(body, idempotency_key=...)`                    | POST   | `/connector/send`                    |
+| `connector.stage_outbox(body)`                                 | POST   | `/connector/outbox`                  |
+| `connector.list_outbox(**params)`                              | GET    | `/connector/outbox`                  |
+| `connector.get_outbox_item(outbox_id)`                         | GET    | `/connector/outbox/{outboxId}`       |
+| `connector.send_outbox_item(outbox_id, force=...)`             | POST   | `/connector/outbox/{outboxId}/send`  |
+| `connector.send_outbox_batch(ids=..., limit=...)`              | POST   | `/connector/outbox/send`             |
+| `connector.cancel_outbox_item(outbox_id)`                      | DELETE | `/connector/outbox/{outboxId}`       |
 | `connector.status(document_id)`                                | GET    | `/connector/status/{documentId}`     |
 | `connector.inbox(**params)`                                    | GET    | `/connector/inbox`                   |
 | `connector.get_inbox_document(document_id)`                    | GET    | `/connector/inbox/{documentId}`      |

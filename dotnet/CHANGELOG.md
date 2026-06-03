@@ -7,8 +7,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Added `client.Connector` for Connector preflight, send, status, inbox
-  list/detail, ACK, and event polling.
+- Added `client.Connector` for Connector preflight, send, outbox
+  stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
+  event polling.
 - Added `client.Documents.StatusBatchAsync(ids)` for `POST /documents/status/batch`.
 - Added `client.Reporting.SubmissionsAsync(...)` for `GET /reporting/submissions`.
 - Added `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` for

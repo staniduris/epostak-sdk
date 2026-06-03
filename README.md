@@ -117,7 +117,7 @@ Use this when the firm has no API key with you yet. Store the returned `client_i
 
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Connector** — ERP workflow mode: preflight repair report, send, status, inbox list/detail, inbox ACK, and events
+- **Connector** — ERP workflow mode: preflight repair report, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
 - **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence

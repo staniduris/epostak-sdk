@@ -239,6 +239,64 @@ class ConnectorEventsResponse(TypedDict, total=False):
     nextCursor: Optional[str]
     hasMore: bool
 
+
+ConnectorOutboxStatus = Literal["ready", "blocked", "scheduled", "sending", "sent", "failed", "cancelled"]
+
+
+class ConnectorOutboxStageItem(TypedDict, total=False):
+    externalId: Optional[str]
+    idempotencyKey: Optional[str]
+    scheduledFor: Optional[str]
+    payload: ConnectorSendRequest
+
+
+class ConnectorOutboxStageRequest(TypedDict, total=False):
+    items: List[ConnectorOutboxStageItem]
+    payload: ConnectorSendRequest
+    externalId: Optional[str]
+    scheduledFor: Optional[str]
+
+
+class ConnectorOutboxItem(TypedDict, total=False):
+    outboxId: str
+    externalId: Optional[str]
+    status: ConnectorOutboxStatus
+    scheduledFor: Optional[str]
+    documentId: Optional[str]
+    ready: bool
+    repairReport: Optional[ConnectorRepairReport]
+    safeFixes: List[ConnectorSafeFix]
+    lastError: Optional[Dict[str, Any]]
+    attemptCount: int
+    sentAt: Optional[str]
+    cancelledAt: Optional[str]
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+    links: Dict[str, str]
+
+
+class ConnectorOutboxStageResponse(TypedDict, total=False):
+    total: int
+    ready: int
+    blocked: int
+    staged: int
+    items: List[ConnectorOutboxItem]
+
+
+class ConnectorOutboxListResponse(TypedDict, total=False):
+    items: List[ConnectorOutboxItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class ConnectorOutboxBatchSendResponse(TypedDict, total=False):
+    total: int
+    sent: int
+    failed: int
+    skipped: int
+    results: List[ConnectorOutboxItem]
+
 # ---------------------------------------------------------------------------
 # Line items
 # ---------------------------------------------------------------------------

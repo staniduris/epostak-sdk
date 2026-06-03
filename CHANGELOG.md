@@ -5,8 +5,11 @@
 - Added Connector workflow resources across TypeScript, Python, Ruby, PHP,
   .NET, and Java: preflight, send, status, inbox list/detail, inbox ACK, and
   events.
-- Extended endpoint coverage checker to 189 source checks across all six
-  language SDKs.
+- Added Connector outbox helpers across all six SDKs for stage now / send later
+  invoice lifecycle: stage, list, detail, single send, batch send, and cancel.
+- Extended endpoint coverage checker to 213 source checks across all six
+  language SDKs, plus guards for documented Connector outbox stage-request
+  shape.
 - Added focused Connector request-path tests for TypeScript, Python, and Ruby.
 
 ## [Backend route + environment sync] — 2026-05-29

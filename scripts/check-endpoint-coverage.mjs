@@ -37,6 +37,10 @@ const checks = [
   ["typescript/src/resources/connector.ts", "/connector/inbox/${encodeURIComponent(documentId)}"],
   ["typescript/src/resources/connector.ts", "/connector/inbox/${encodeURIComponent(documentId)}/ack"],
   ["typescript/src/resources/connector.ts", "/connector/events"],
+  ["typescript/src/resources/connector.ts", "/connector/outbox"],
+  ["typescript/src/resources/connector.ts", "/connector/outbox/${encodeURIComponent(outboxId)}"],
+  ["typescript/src/resources/connector.ts", "/connector/outbox/${encodeURIComponent(outboxId)}/send"],
+  ["typescript/src/resources/connector.ts", "/connector/outbox/send"],
 
   ["python/src/epostak/client.py", "self.sapi = SapiResource"],
   ["python/src/epostak/resources/sapi.py", "/sapi/v1/document/send"],
@@ -69,6 +73,10 @@ const checks = [
   ["python/src/epostak/resources/connector.py", "/connector/inbox/{quote(document_id, safe='')}"],
   ["python/src/epostak/resources/connector.py", "/connector/inbox/{quote(document_id, safe='')}/ack"],
   ["python/src/epostak/resources/connector.py", "/connector/events"],
+  ["python/src/epostak/resources/connector.py", "/connector/outbox"],
+  ["python/src/epostak/resources/connector.py", "/connector/outbox/{quote(outbox_id, safe='')}"],
+  ["python/src/epostak/resources/connector.py", "/connector/outbox/{quote(outbox_id, safe='')}/send"],
+  ["python/src/epostak/resources/connector.py", "/connector/outbox/send"],
 
   ["ruby/lib/epostak/client.rb", "@sapi"],
   ["ruby/lib/epostak/resources/sapi.rb", "/sapi/v1/document/send"],
@@ -101,6 +109,10 @@ const checks = [
   ["ruby/lib/epostak/resources/connector.rb", "/connector/inbox/#{encode(document_id)}"],
   ["ruby/lib/epostak/resources/connector.rb", "/connector/inbox/#{encode(document_id)}/ack"],
   ["ruby/lib/epostak/resources/connector.rb", "/connector/events"],
+  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox"],
+  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/#{encode(outbox_id)}"],
+  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/#{encode(outbox_id)}/send"],
+  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/send"],
 
   ["php/src/EPostak.php", "public Sapi $sapi"],
   ["php/src/Resources/Sapi.php", "/sapi/v1/document/send"],
@@ -133,6 +145,10 @@ const checks = [
   ["php/src/Resources/Connector.php", "/connector/inbox/' . urlencode($documentId)"],
   ["php/src/Resources/Connector.php", "/connector/inbox/' . urlencode($documentId) . '/ack"],
   ["php/src/Resources/Connector.php", "/connector/events"],
+  ["php/src/Resources/Connector.php", "/connector/outbox"],
+  ["php/src/Resources/Connector.php", "/connector/outbox/' . urlencode($outboxId)"],
+  ["php/src/Resources/Connector.php", "/connector/outbox/' . urlencode($outboxId) . '/send"],
+  ["php/src/Resources/Connector.php", "/connector/outbox/send"],
 
   ["dotnet/src/EPostak/EPostakClient.cs", "public SapiResource Sapi"],
   ["dotnet/src/EPostak/Resources/SapiResource.cs", "/sapi/v1/document/send"],
@@ -165,6 +181,10 @@ const checks = [
   ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/inbox/{Uri.EscapeDataString(documentId)}"],
   ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/inbox/{Uri.EscapeDataString(documentId)}/ack"],
   ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/events"],
+  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox"],
+  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/{Uri.EscapeDataString(outboxId)}"],
+  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/{Uri.EscapeDataString(outboxId)}/send"],
+  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/send"],
 
   ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final SapiResource sapi"],
   ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "/sapi/v1/document/send"],
@@ -198,6 +218,10 @@ const checks = [
   ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/inbox/\" + HttpClient.encode(documentId)"],
   ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/inbox/\" + HttpClient.encode(documentId) + \"/ack"],
   ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/events"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/\" + HttpClient.encode(outboxId)"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/\" + HttpClient.encode(outboxId) + \"/send"],
+  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/send"],
 ];
 
 const missing = [];
@@ -239,9 +263,54 @@ for (const [relative, needle] of forbidden) {
   }
 }
 
+const forbiddenBlocks = [
+  [
+    "typescript/src/types.ts",
+    "export interface ConnectorOutboxStageRequest",
+    "export interface ConnectorOutboxItem",
+    "idempotencyKey",
+  ],
+  [
+    "python/src/epostak/types.py",
+    "class ConnectorOutboxStageRequest",
+    "class ConnectorOutboxItem",
+    "idempotencyKey",
+  ],
+  [
+    "dotnet/src/EPostak/Models/Connector.cs",
+    "public sealed class ConnectorOutboxStageRequest",
+    "public sealed class ConnectorOutboxItem",
+    "idempotencyKey",
+  ],
+  [
+    "java/src/main/java/sk/epostak/sdk/models/ConnectorOutboxStageRequest.java",
+    "public record ConnectorOutboxStageRequest(",
+    ") {}",
+    "idempotencyKey",
+  ],
+];
+
+for (const [relative, start, end, needle] of forbiddenBlocks) {
+  const file = path.join(root, relative);
+  if (!fs.existsSync(file)) continue;
+  const text = fs.readFileSync(file, "utf8");
+  const startAt = text.indexOf(start);
+  if (startAt < 0) {
+    forbiddenHits.push(`${relative}: missing block start ${start}`);
+    continue;
+  }
+  const endAt = text.indexOf(end, startAt + start.length);
+  const block = text.slice(startAt, endAt < 0 ? undefined : endAt);
+  if (block.includes(needle)) {
+    forbiddenHits.push(`${relative}: forbidden ${needle} in ${start}`);
+  }
+}
+
 if (forbiddenHits.length > 0) {
   console.error(forbiddenHits.join("\n"));
   process.exit(1);
 }
 
-console.log(`Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks)`);
+console.log(
+  `Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks, ${forbiddenBlocks.length} forbidden block checks)`,
+);

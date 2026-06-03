@@ -18,7 +18,7 @@ Or add to your `.csproj`:
 
 ### Unreleased
 
-- `client.Connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
+- `client.Connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
 - `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
 - `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
@@ -141,6 +141,29 @@ if (preflight.Ready)
     var sent = await client.Connector.SendAsync(request, idempotencyKey: "erp-inv-2026-001");
     Console.WriteLine(sent.DocumentId);
 }
+```
+
+Stage now, send later with Connector outbox:
+
+```csharp
+var staged = await client.Connector.StageOutboxAsync(new ConnectorOutboxStageRequest
+{
+    Items = new List<ConnectorOutboxStageItem>
+    {
+        new ConnectorOutboxStageItem
+        {
+            ExternalId = "FA-2026-001",
+            Payload = new Dictionary<string, object?>
+            {
+                ["receiverPeppolId"] = "0245:12345678",
+                ["document"] = new { invoiceNumber = "FA-2026-001" }
+            }
+        }
+    }
+});
+
+await client.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
+await client.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest { Limit = 50 });
 ```
 
 ### Documents

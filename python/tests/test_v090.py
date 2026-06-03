@@ -181,6 +181,39 @@ def test_connector_status_get_and_ack_paths():
         )
 
 
+def test_connector_outbox_paths():
+    client = _make_client()
+
+    with patch.object(client.connector, "_request", return_value={"total": 1, "items": []}) as mock_req:
+        body = {"items": [{"externalId": "FA-1", "payload": {"invoiceNumber": "FA-1"}}]}
+        client.connector.stage_outbox(body)
+        mock_req.assert_called_once_with("POST", "/connector/outbox", json=body)
+
+    with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
+        client.connector.list_outbox(status="blocked", limit=10, offset=20)
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/outbox",
+            params={"status": "blocked", "limit": "10", "offset": "20"},
+        )
+
+    with patch.object(client.connector, "_request", return_value={"outboxId": "outbox-1"}) as mock_req:
+        client.connector.get_outbox_item("outbox-1")
+        mock_req.assert_called_once_with("GET", "/connector/outbox/outbox-1")
+
+    with patch.object(client.connector, "_request", return_value={"outboxId": "outbox-1"}) as mock_req:
+        client.connector.send_outbox_item("outbox-1", force=True)
+        mock_req.assert_called_once_with("POST", "/connector/outbox/outbox-1/send", json={"force": True})
+
+    with patch.object(client.connector, "_request", return_value={"results": []}) as mock_req:
+        client.connector.send_outbox_batch(ids=["outbox-1"], force=True)
+        mock_req.assert_called_once_with("POST", "/connector/outbox/send", json={"ids": ["outbox-1"], "force": True})
+
+    with patch.object(client.connector, "_request", return_value={"outboxId": "outbox-1"}) as mock_req:
+        client.connector.cancel_outbox_item("outbox-1")
+        mock_req.assert_called_once_with("DELETE", "/connector/outbox/outbox-1")
+
+
 # ---------------------------------------------------------------------------
 # InboundResource
 # ---------------------------------------------------------------------------

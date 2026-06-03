@@ -10,7 +10,7 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ### Unreleased
 
-- `$client->connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
+- `$client->connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
 
 ### v0.10.0 — 2026-05-18
 
@@ -706,6 +706,12 @@ try {
 | `EPostak::validate($xml)`                                    | POST   | `https://epostak.sk/api/validate`    |
 | `connector->preflight($body)`                                | POST   | `/connector/preflight`               |
 | `connector->send($body, $idempotencyKey)`                    | POST   | `/connector/send`                    |
+| `connector->stageOutbox($body)`                              | POST   | `/connector/outbox`                  |
+| `connector->listOutbox($params)`                             | GET    | `/connector/outbox`                  |
+| `connector->getOutboxItem($outboxId)`                        | GET    | `/connector/outbox/{outboxId}`       |
+| `connector->sendOutboxItem($outboxId, $force)`               | POST   | `/connector/outbox/{outboxId}/send`  |
+| `connector->sendOutboxBatch($body)`                          | POST   | `/connector/outbox/send`             |
+| `connector->cancelOutboxItem($outboxId)`                     | DELETE | `/connector/outbox/{outboxId}`       |
 | `connector->status($documentId)`                             | GET    | `/connector/status/{documentId}`     |
 | `connector->inbox($params)`                                  | GET    | `/connector/inbox`                   |
 | `connector->getInboxDocument($documentId)`                   | GET    | `/connector/inbox/{documentId}`      |

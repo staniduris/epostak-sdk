@@ -57,4 +57,42 @@ public sealed class ConnectorResource
             ("limit", @params?.Limit?.ToString()));
         return _http.RequestAsync<ConnectorEventsResponse>(HttpMethod.Get, $"/connector/events{qs}", ct);
     }
+
+    /// <summary>Stage one or more ERP invoices without immediate Peppol delivery.</summary>
+    public Task<ConnectorOutboxStageResponse> StageOutboxAsync(ConnectorOutboxStageRequest request, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorOutboxStageResponse>(HttpMethod.Post, "/connector/outbox", request, ct);
+
+    /// <summary>List staged Connector outbox items.</summary>
+    public Task<ConnectorOutboxListResponse> ListOutboxAsync(ConnectorOutboxListParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("status", @params?.Status),
+            ("limit", @params?.Limit?.ToString()),
+            ("offset", @params?.Offset?.ToString()));
+        return _http.RequestAsync<ConnectorOutboxListResponse>(HttpMethod.Get, $"/connector/outbox{qs}", ct);
+    }
+
+    /// <summary>Retrieve a single Connector outbox item.</summary>
+    public Task<ConnectorOutboxItem> GetOutboxItemAsync(string outboxId, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorOutboxItem>(HttpMethod.Get, $"/connector/outbox/{Uri.EscapeDataString(outboxId)}", ct);
+
+    /// <summary>Send one staged outbox item through the Connector workflow.</summary>
+    public Task<ConnectorOutboxItem> SendOutboxItemAsync(string outboxId, ConnectorOutboxSendOptions? options = null, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorOutboxItem>(
+            HttpMethod.Post,
+            $"/connector/outbox/{Uri.EscapeDataString(outboxId)}/send",
+            options ?? new ConnectorOutboxSendOptions(),
+            ct);
+
+    /// <summary>Send ready, failed, or due scheduled outbox items in a batch.</summary>
+    public Task<ConnectorOutboxBatchSendResponse> SendOutboxBatchAsync(ConnectorOutboxBatchSendRequest? request = null, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorOutboxBatchSendResponse>(
+            HttpMethod.Post,
+            "/connector/outbox/send",
+            request ?? new ConnectorOutboxBatchSendRequest(),
+            ct);
+
+    /// <summary>Cancel a staged outbox item before it is sent.</summary>
+    public Task<ConnectorOutboxItem> CancelOutboxItemAsync(string outboxId, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorOutboxItem>(HttpMethod.Delete, $"/connector/outbox/{Uri.EscapeDataString(outboxId)}", ct);
 }

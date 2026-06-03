@@ -8,8 +8,8 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ### Unreleased
 
-- **New:** `client.connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
-- **Coverage:** static endpoint coverage expanded to 189 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+- **New:** `client.connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- **Coverage:** static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v3.3.2 — 2026-05-18
 
@@ -66,6 +66,29 @@ const result = await client.documents.send({
   ],
 });
 console.log(result.documentId, result.messageId, result.payloadSha256);
+```
+
+### Connector outbox: stage now, send later
+
+```typescript
+const staged = await client.connector.outbox.stage({
+  items: [
+    {
+      externalId: "FA-2026-001",
+      scheduledFor: "2026-06-04T08:00:00Z",
+      payload: {
+        receiverPeppolId: "0245:1234567890",
+        document: {
+          invoiceNumber: "FA-2026-001",
+          items: [{ description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }],
+        },
+      },
+    },
+  ],
+});
+
+await client.connector.outbox.send(staged.items[0].outboxId);
+await client.connector.outbox.sendBatch({ limit: 50 }); // ready, failed, and due scheduled items
 ```
 
 ---
@@ -593,6 +616,12 @@ try {
 | `EPostak.validate(xml)`                  | POST   | `https://epostak.sk/api/validate`            |
 | `connector.preflight(body)`              | POST   | `/connector/preflight`                       |
 | `connector.send(body, opts?)`            | POST   | `/connector/send`                            |
+| `connector.outbox.stage(body)`           | POST   | `/connector/outbox`                          |
+| `connector.outbox.list(params?)`         | GET    | `/connector/outbox`                          |
+| `connector.outbox.get(outboxId)`         | GET    | `/connector/outbox/{outboxId}`               |
+| `connector.outbox.send(outboxId, opts?)` | POST   | `/connector/outbox/{outboxId}/send`          |
+| `connector.outbox.sendBatch(body?)`      | POST   | `/connector/outbox/send`                     |
+| `connector.outbox.cancel(outboxId)`      | DELETE | `/connector/outbox/{outboxId}`               |
 | `connector.status(documentId)`           | GET    | `/connector/status/{documentId}`             |
 | `connector.inbox(params?)`               | GET    | `/connector/inbox`                           |
 | `connector.getInboxDocument(documentId)` | GET    | `/connector/inbox/{documentId}`              |

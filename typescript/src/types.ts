@@ -273,6 +273,86 @@ export interface ConnectorEventsResponse {
   hasMore: boolean;
 }
 
+export type ConnectorOutboxStatus =
+  | "ready"
+  | "blocked"
+  | "scheduled"
+  | "sending"
+  | "sent"
+  | "failed"
+  | "cancelled";
+
+export interface ConnectorOutboxStageItem {
+  externalId?: string | null;
+  idempotencyKey?: string | null;
+  scheduledFor?: string | null;
+  payload: ConnectorSendRequest;
+}
+
+export interface ConnectorOutboxStageRequest {
+  items?: ConnectorOutboxStageItem[];
+  payload?: ConnectorSendRequest;
+  externalId?: string | null;
+  scheduledFor?: string | null;
+}
+
+export interface ConnectorOutboxItem {
+  outboxId: string;
+  externalId?: string | null;
+  status: ConnectorOutboxStatus;
+  scheduledFor?: string | null;
+  documentId?: string | null;
+  ready: boolean;
+  repairReport?: ConnectorRepairReport | null;
+  safeFixes?: ConnectorSafeFix[];
+  lastError?: Record<string, unknown> | null;
+  attemptCount?: number;
+  sentAt?: string | null;
+  cancelledAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  links?: Record<string, string>;
+}
+
+export interface ConnectorOutboxStageResponse {
+  total: number;
+  ready?: number;
+  blocked?: number;
+  staged?: number;
+  items: ConnectorOutboxItem[];
+}
+
+export interface ConnectorOutboxListParams {
+  status?: ConnectorOutboxStatus;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ConnectorOutboxListResponse {
+  items: ConnectorOutboxItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface ConnectorOutboxSendOptions {
+  force?: boolean;
+}
+
+export interface ConnectorOutboxBatchSendRequest {
+  ids?: string[];
+  limit?: number;
+  force?: boolean;
+}
+
+export interface ConnectorOutboxBatchSendResponse {
+  total: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  results: ConnectorOutboxItem[];
+}
+
 // ---------------------------------------------------------------------------
 // Line items
 // ---------------------------------------------------------------------------

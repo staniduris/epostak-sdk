@@ -9,8 +9,9 @@ earlier CHANGELOG headings used a different numbering scheme.
 
 ### Added
 
-- Added `client.connector` for Connector preflight, send, status, inbox
-  list/detail, ACK, and event polling.
+- Added `client.connector` for Connector preflight, send, outbox
+  stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
+  event polling.
 - Added `client.documents.status_batch(ids)` for `POST /documents/status/batch`.
 - Added `client.reporting.submissions(...)` for `GET /reporting/submissions`.
 - Added `client.integrator.keys.list` and `deactivate(...)` for the

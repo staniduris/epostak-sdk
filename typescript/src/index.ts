@@ -29,7 +29,7 @@ export { OAuth } from "./resources/oauth.js";
 // Resource classes (for typing and instanceof checks)
 export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
 export { AuditResource } from "./resources/audit.js";
-export { ConnectorResource } from "./resources/connector.js";
+export { ConnectorOutboxResource, ConnectorResource } from "./resources/connector.js";
 export { DocumentsResource, InboxResource } from "./resources/documents.js";
 export { FirmsResource } from "./resources/firms.js";
 export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
@@ -78,6 +78,16 @@ export type {
   ConnectorAckResponse,
   ConnectorEventsParams,
   ConnectorEventsResponse,
+  ConnectorOutboxStatus,
+  ConnectorOutboxStageItem,
+  ConnectorOutboxStageRequest,
+  ConnectorOutboxItem,
+  ConnectorOutboxStageResponse,
+  ConnectorOutboxListParams,
+  ConnectorOutboxListResponse,
+  ConnectorOutboxSendOptions,
+  ConnectorOutboxBatchSendRequest,
+  ConnectorOutboxBatchSendResponse,
   ValidateFormat,
   ReportingPeriod,
   WebhookDeliveryStatus,

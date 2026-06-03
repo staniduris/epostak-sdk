@@ -394,6 +394,73 @@ describe("client.connector", () => {
     assert.ok(captured.some((url) => url.includes("/connector/inbox/doc-1/ack")));
     assert.ok(captured.some((url) => url.includes("/connector/events?cursor=cur-1")));
   });
+
+  it("outbox stage/list/detail/send/cancel use Connector outbox paths", async () => {
+    const client = makeClient();
+    const captured: Array<{ method: string; url: string; body: string }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+
+      captured.push({
+        method: init?.method ?? "GET",
+        url,
+        body: String(init?.body ?? ""),
+      });
+
+      if (url.includes("/connector/outbox/send")) {
+        return makeMockResponse({ total: 1, sent: 1, failed: 0, skipped: 0, results: [] });
+      }
+      if (url.includes("/connector/outbox/outbox-1/send")) {
+        return makeMockResponse({ outboxId: "outbox-1", status: "sent", ready: true });
+      }
+      if (init?.method === "DELETE") {
+        return makeMockResponse({ outboxId: "outbox-1", status: "cancelled", ready: false });
+      }
+      if (url.includes("/connector/outbox/outbox-1")) {
+        return makeMockResponse({ outboxId: "outbox-1", status: "ready", ready: true });
+      }
+      if (init?.method === "POST") {
+        return makeMockResponse({
+          total: 1,
+          ready: 1,
+          blocked: 0,
+          staged: 0,
+          items: [{ outboxId: "outbox-1", status: "ready", ready: true }],
+        }, 201);
+      }
+      return makeMockResponse({ items: [], total: 0, limit: 20, offset: 0 });
+    });
+
+    await client.connector.outbox.stage({
+      items: [
+        {
+          externalId: "FA-2026-001",
+          payload: { receiverPeppolId: "0245:1234567890", invoiceNumber: "FA-2026-001" },
+        },
+      ],
+    });
+    await client.connector.outbox.list({ status: "blocked", limit: 10, offset: 20 });
+    await client.connector.outbox.get("outbox-1");
+    await client.connector.outbox.send("outbox-1", { force: true });
+    await client.connector.outbox.sendBatch({ ids: ["outbox-1"], force: true });
+    await client.connector.outbox.cancel("outbox-1");
+
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/outbox") && req.body.includes("FA-2026-001")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/outbox?status=blocked&limit=10&offset=20")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/outbox/outbox-1")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/outbox/outbox-1/send") && req.body.includes('"force":true')));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/outbox/send") && req.body.includes('"ids":["outbox-1"]')));
+    assert.ok(captured.some((req) => req.method === "DELETE" && req.url.includes("/connector/outbox/outbox-1")));
+  });
 });
 
 // ---------------------------------------------------------------------------

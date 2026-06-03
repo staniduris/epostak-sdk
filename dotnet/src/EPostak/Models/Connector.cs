@@ -225,3 +225,159 @@ public sealed class ConnectorEventsResponse
     [JsonPropertyName("hasMore")]
     public bool HasMore { get; set; }
 }
+
+/// <summary>One item accepted by <c>POST /connector/outbox</c>.</summary>
+public sealed class ConnectorOutboxStageItem
+{
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+
+    [JsonPropertyName("scheduledFor")]
+    public string? ScheduledFor { get; set; }
+
+    [JsonPropertyName("payload")]
+    public Dictionary<string, object?> Payload { get; set; } = [];
+}
+
+/// <summary>Request body for <c>POST /connector/outbox</c>.</summary>
+public sealed class ConnectorOutboxStageRequest
+{
+    [JsonPropertyName("items")]
+    public List<ConnectorOutboxStageItem>? Items { get; set; }
+
+    [JsonPropertyName("payload")]
+    public Dictionary<string, object?>? Payload { get; set; }
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("scheduledFor")]
+    public string? ScheduledFor { get; set; }
+}
+
+public sealed class ConnectorOutboxItem
+{
+    [JsonPropertyName("outboxId")]
+    public string OutboxId { get; set; } = "";
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("scheduledFor")]
+    public string? ScheduledFor { get; set; }
+
+    [JsonPropertyName("documentId")]
+    public string? DocumentId { get; set; }
+
+    [JsonPropertyName("ready")]
+    public bool Ready { get; set; }
+
+    [JsonPropertyName("repairReport")]
+    public ConnectorRepairReport? RepairReport { get; set; }
+
+    [JsonPropertyName("safeFixes")]
+    public List<ConnectorSafeFix> SafeFixes { get; set; } = [];
+
+    [JsonPropertyName("lastError")]
+    public Dictionary<string, object?>? LastError { get; set; }
+
+    [JsonPropertyName("attemptCount")]
+    public int AttemptCount { get; set; }
+
+    [JsonPropertyName("sentAt")]
+    public string? SentAt { get; set; }
+
+    [JsonPropertyName("cancelledAt")]
+    public string? CancelledAt { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string? CreatedAt { get; set; }
+
+    [JsonPropertyName("updatedAt")]
+    public string? UpdatedAt { get; set; }
+
+    [JsonPropertyName("links")]
+    public Dictionary<string, string>? Links { get; set; }
+}
+
+public sealed class ConnectorOutboxStageResponse
+{
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("ready")]
+    public int? Ready { get; set; }
+
+    [JsonPropertyName("blocked")]
+    public int? Blocked { get; set; }
+
+    [JsonPropertyName("staged")]
+    public int? Staged { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<ConnectorOutboxItem> Items { get; set; } = [];
+}
+
+public sealed class ConnectorOutboxListParams
+{
+    public string? Status { get; set; }
+    public int? Limit { get; set; }
+    public int? Offset { get; set; }
+}
+
+public sealed class ConnectorOutboxListResponse
+{
+    [JsonPropertyName("items")]
+    public List<ConnectorOutboxItem> Items { get; set; } = [];
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+
+    [JsonPropertyName("offset")]
+    public int Offset { get; set; }
+}
+
+public sealed class ConnectorOutboxSendOptions
+{
+    [JsonPropertyName("force")]
+    public bool? Force { get; set; }
+}
+
+public sealed class ConnectorOutboxBatchSendRequest
+{
+    [JsonPropertyName("ids")]
+    public List<string>? Ids { get; set; }
+
+    [JsonPropertyName("limit")]
+    public int? Limit { get; set; }
+
+    [JsonPropertyName("force")]
+    public bool? Force { get; set; }
+}
+
+public sealed class ConnectorOutboxBatchSendResponse
+{
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("sent")]
+    public int Sent { get; set; }
+
+    [JsonPropertyName("failed")]
+    public int Failed { get; set; }
+
+    [JsonPropertyName("skipped")]
+    public int Skipped { get; set; }
+
+    [JsonPropertyName("results")]
+    public List<ConnectorOutboxItem> Results { get; set; } = [];
+}

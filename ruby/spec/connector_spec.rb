@@ -88,4 +88,41 @@ RSpec.describe EPostak::Resources::Connector do
     expect(detail_stub).to have_been_requested
     expect(ack_stub).to have_been_requested
   end
+
+  it "uses Connector outbox paths" do
+    stage_stub = stub_request(:post, "#{host}/connector/outbox")
+      .with(body: /FA-1/)
+      .to_return(
+        status: 201,
+        body: { "total" => 1, "items" => [{ "outboxId" => "outbox-1", "status" => "ready" }] }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    list_stub = stub_request(:get, "#{host}/connector/outbox")
+      .with(query: hash_including("status" => "blocked", "limit" => "10", "offset" => "20"))
+      .to_return(status: 200, body: { "items" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    detail_stub = stub_request(:get, "#{host}/connector/outbox/outbox-1")
+      .to_return(status: 200, body: { "outboxId" => "outbox-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    send_stub = stub_request(:post, "#{host}/connector/outbox/outbox-1/send")
+      .with(body: { force: true }.to_json)
+      .to_return(status: 200, body: { "outboxId" => "outbox-1", "status" => "sent" }.to_json, headers: { "Content-Type" => "application/json" })
+    batch_stub = stub_request(:post, "#{host}/connector/outbox/send")
+      .with(body: { ids: ["outbox-1"], force: true }.to_json)
+      .to_return(status: 200, body: { "results" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    cancel_stub = stub_request(:delete, "#{host}/connector/outbox/outbox-1")
+      .to_return(status: 200, body: { "outboxId" => "outbox-1", "status" => "cancelled" }.to_json, headers: { "Content-Type" => "application/json" })
+
+    client.connector.stage_outbox(items: [{ externalId: "FA-1", payload: { invoiceNumber: "FA-1" } }])
+    client.connector.list_outbox(status: "blocked", limit: 10, offset: 20)
+    client.connector.get_outbox_item("outbox-1")
+    client.connector.send_outbox_item("outbox-1", force: true)
+    client.connector.send_outbox_batch(ids: ["outbox-1"], force: true)
+    client.connector.cancel_outbox_item("outbox-1")
+
+    expect(stage_stub).to have_been_requested
+    expect(list_stub).to have_been_requested
+    expect(detail_stub).to have_been_requested
+    expect(send_stub).to have_been_requested
+    expect(batch_stub).to have_been_requested
+    expect(cancel_stub).to have_been_requested
+  end
 end

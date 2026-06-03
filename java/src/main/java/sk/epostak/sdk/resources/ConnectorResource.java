@@ -137,4 +137,107 @@ public final class ConnectorResource {
     public ConnectorEventsResponse events() {
         return events(ConnectorListParams.empty());
     }
+
+    /**
+     * Stage one or more ERP invoices without immediate Peppol delivery.
+     *
+     * @param request Connector outbox staging payload
+     * @return stage response with outbox items and repair reports
+     */
+    public ConnectorOutboxStageResponse stageOutbox(ConnectorOutboxStageRequest request) {
+        return http.post("/connector/outbox", request, ConnectorOutboxStageResponse.class);
+    }
+
+    /**
+     * List staged Connector outbox items.
+     *
+     * @param params optional status/limit/offset params
+     * @return Connector outbox list page
+     */
+    public ConnectorOutboxListResponse listOutbox(ConnectorOutboxListParams params) {
+        Map<String, Object> qp = new LinkedHashMap<>();
+        if (params != null) {
+            qp.put("status", params.status());
+            qp.put("limit", params.limit());
+            qp.put("offset", params.offset());
+        }
+        return http.get("/connector/outbox" + HttpClient.buildQuery(qp), ConnectorOutboxListResponse.class);
+    }
+
+    /**
+     * List staged Connector outbox items with default params.
+     *
+     * @return Connector outbox list page
+     */
+    public ConnectorOutboxListResponse listOutbox() {
+        return listOutbox(ConnectorOutboxListParams.empty());
+    }
+
+    /**
+     * Retrieve a single Connector outbox item.
+     *
+     * @param outboxId Connector outbox item ID
+     * @return Connector outbox item
+     */
+    public ConnectorOutboxItem getOutboxItem(String outboxId) {
+        return http.get("/connector/outbox/" + HttpClient.encode(outboxId), ConnectorOutboxItem.class);
+    }
+
+    /**
+     * Send one staged outbox item through the Connector workflow.
+     *
+     * @param outboxId Connector outbox item ID
+     * @param options optional send options
+     * @return Connector outbox item
+     */
+    public ConnectorOutboxItem sendOutboxItem(String outboxId, ConnectorOutboxSendOptions options) {
+        return http.post(
+                "/connector/outbox/" + HttpClient.encode(outboxId) + "/send",
+                options == null ? ConnectorOutboxSendOptions.empty() : options,
+                ConnectorOutboxItem.class
+        );
+    }
+
+    /**
+     * Send one staged outbox item with default options.
+     *
+     * @param outboxId Connector outbox item ID
+     * @return Connector outbox item
+     */
+    public ConnectorOutboxItem sendOutboxItem(String outboxId) {
+        return sendOutboxItem(outboxId, ConnectorOutboxSendOptions.empty());
+    }
+
+    /**
+     * Send ready, failed, or due scheduled outbox items in a batch.
+     *
+     * @param request optional batch send request
+     * @return per-item batch send result
+     */
+    public ConnectorOutboxBatchSendResponse sendOutboxBatch(ConnectorOutboxBatchSendRequest request) {
+        return http.post(
+                "/connector/outbox/send",
+                request == null ? ConnectorOutboxBatchSendRequest.empty() : request,
+                ConnectorOutboxBatchSendResponse.class
+        );
+    }
+
+    /**
+     * Send ready, failed, or due scheduled outbox items in a batch.
+     *
+     * @return per-item batch send result
+     */
+    public ConnectorOutboxBatchSendResponse sendOutboxBatch() {
+        return sendOutboxBatch(ConnectorOutboxBatchSendRequest.empty());
+    }
+
+    /**
+     * Cancel a staged outbox item before it is sent.
+     *
+     * @param outboxId Connector outbox item ID
+     * @return cancelled Connector outbox item
+     */
+    public ConnectorOutboxItem cancelOutboxItem(String outboxId) {
+        return http.delete("/connector/outbox/" + HttpClient.encode(outboxId), ConnectorOutboxItem.class);
+    }
 }
