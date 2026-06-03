@@ -134,6 +134,112 @@ InboxStatus = Literal["RECEIVED", "ACKNOWLEDGED"]
 """Status filter for inbox queries: ``"RECEIVED"`` (new) or ``"ACKNOWLEDGED"`` (processed)."""
 
 # ---------------------------------------------------------------------------
+# Connector
+# ---------------------------------------------------------------------------
+
+ConnectorOutcome = Literal["ready", "ready_with_warnings", "blocked", "retry_later"]
+
+
+class ConnectorPreflightRequest(TypedDict):
+    """Request body for ``POST /connector/preflight``."""
+
+    receiverPeppolId: str
+    document: Dict[str, Any]
+
+
+class ConnectorRepairItem(TypedDict):
+    code: str
+    field: Optional[str]
+    message: str
+    category: str
+    autoFixable: bool
+
+
+class ConnectorSafeFix(TypedDict):
+    code: str
+    field: Optional[str]
+    message: str
+    applied: bool
+
+
+class ConnectorRepairReport(TypedDict):
+    summary: str
+    blocking: List[ConnectorRepairItem]
+    warnings: List[ConnectorRepairItem]
+
+
+class ConnectorPreflightResponse(TypedDict, total=False):
+    ready: bool
+    outcome: ConnectorOutcome
+    repairReport: ConnectorRepairReport
+    warnings: List[ConnectorRepairItem]
+    safeFixes: List[ConnectorSafeFix]
+    recipient: Optional[Dict[str, Any]]
+    documentProfile: Optional[Dict[str, Any]]
+    checks: Dict[str, Any]
+
+
+ConnectorSendRequest = Dict[str, Any]
+"""Arbitrary ERP document payload accepted by ``POST /connector/send``."""
+
+
+class ConnectorSendResponse(TypedDict, total=False):
+    documentId: str
+    status: str
+    outcome: str
+    links: Dict[str, Any]
+
+
+class ConnectorEvent(TypedDict, total=False):
+    id: str
+    documentId: Optional[str]
+    type: str
+    occurredAt: Optional[str]
+    status: str
+    data: Dict[str, Any]
+
+
+class ConnectorStatusResponse(TypedDict, total=False):
+    documentId: str
+    status: str
+    deliveredAt: Optional[str]
+    events: List[ConnectorEvent]
+
+
+class ConnectorInboxDocument(TypedDict, total=False):
+    documentId: str
+    status: str
+    direction: Optional[str]
+    documentType: Optional[str]
+    documentNumber: Optional[str]
+    senderPeppolId: Optional[str]
+    receiverPeppolId: Optional[str]
+    acknowledgedAt: Optional[str]
+    payload: Optional[str]
+    payloadFormat: Optional[str]
+    links: Dict[str, str]
+
+
+class ConnectorInboxListResponse(TypedDict, total=False):
+    documents: List[ConnectorInboxDocument]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class ConnectorAckResponse(TypedDict, total=False):
+    documentId: str
+    status: str
+    acknowledged: bool
+    idempotent: bool
+    acknowledgedAt: Optional[str]
+
+
+class ConnectorEventsResponse(TypedDict, total=False):
+    events: List[ConnectorEvent]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+# ---------------------------------------------------------------------------
 # Line items
 # ---------------------------------------------------------------------------
 

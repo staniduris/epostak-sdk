@@ -39,6 +39,9 @@ public sealed class EPostakClient : IDisposable
     /// <summary>OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist.</summary>
     public AuthResource Auth { get; }
 
+    /// <summary>Connector workflow for ERP send, preflight, inbox polling, ack, and events.</summary>
+    public ConnectorResource Connector { get; }
+
     /// <summary>Per-firm audit feed (cursor-paginated).</summary>
     public AuditResource Audit { get; }
 
@@ -145,6 +148,7 @@ public sealed class EPostakClient : IDisposable
         _requestor = requestor;
 
         Auth = new AuthResource(requestor, _http, config.BaseUrl);
+        Connector = new ConnectorResource(requestor);
         Audit = new AuditResource(requestor);
         Documents = new DocumentsResource(requestor);
         Firms = new FirmsResource(requestor);

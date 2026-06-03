@@ -5,6 +5,7 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 ## Recent changes
 
 **Unreleased**
+- `client.connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling
 - `client.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
 - `client.reporting.submissions(...)` covers `GET /reporting/submissions`
 - `client.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
@@ -56,6 +57,23 @@ result = client.documents.send_document(
 )
 
 puts result["documentId"]
+```
+
+Connector workflow mode for ERP teams:
+
+```ruby
+preflight = client.connector.preflight(
+  receiverPeppolId: "0245:1234567890",
+  document: { invoiceNumber: "FV-2026-042" }
+)
+
+if preflight["ready"]
+  sent = client.connector.send_document(
+    { receiverPeppolId: "0245:1234567890", document: { invoiceNumber: "FV-2026-042" } },
+    idempotency_key: "erp-fv-2026-042"
+  )
+  puts sent["documentId"]
+end
 ```
 
 ## Authentication

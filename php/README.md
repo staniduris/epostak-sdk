@@ -8,6 +8,10 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ## Recent changes
 
+### Unreleased
+
+- `$client->connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
+
 ### v0.10.0 — 2026-05-18
 
 - `$client->sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
@@ -700,6 +704,13 @@ try {
 | `extract->single($path, $mime)`                              | POST   | `/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/extract/batch`                     |
 | `EPostak::validate($xml)`                                    | POST   | `https://epostak.sk/api/validate`    |
+| `connector->preflight($body)`                                | POST   | `/connector/preflight`               |
+| `connector->send($body, $idempotencyKey)`                    | POST   | `/connector/send`                    |
+| `connector->status($documentId)`                             | GET    | `/connector/status/{documentId}`     |
+| `connector->inbox($params)`                                  | GET    | `/connector/inbox`                   |
+| `connector->getInboxDocument($documentId)`                   | GET    | `/connector/inbox/{documentId}`      |
+| `connector->ack($documentId)`                                | POST   | `/connector/inbox/{documentId}/ack`  |
+| `connector->events($params)`                                 | GET    | `/connector/events`                  |
 | `sapi->send($body, $participantId, $idempotencyKey)`         | POST   | `/sapi/v1/document/send`             |
 | `sapi->receive($participantId, $params)`                     | GET    | `/sapi/v1/document/receive`          |
 | `sapi->get($documentId, $participantId)`                     | GET    | `/sapi/v1/document/receive/{id}`     |

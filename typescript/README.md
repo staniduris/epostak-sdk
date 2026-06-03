@@ -6,6 +6,11 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Recent changes
 
+### Unreleased
+
+- **New:** `client.connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
+- **Coverage:** static endpoint coverage expanded to 189 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+
 ### v3.3.2 — 2026-05-18
 
 - **New:** `client.sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
@@ -586,6 +591,13 @@ try {
 | `extract.single(file, mime, name)`       | POST   | `/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/extract/batch`                             |
 | `EPostak.validate(xml)`                  | POST   | `https://epostak.sk/api/validate`            |
+| `connector.preflight(body)`              | POST   | `/connector/preflight`                       |
+| `connector.send(body, opts?)`            | POST   | `/connector/send`                            |
+| `connector.status(documentId)`           | GET    | `/connector/status/{documentId}`             |
+| `connector.inbox(params?)`               | GET    | `/connector/inbox`                           |
+| `connector.getInboxDocument(documentId)` | GET    | `/connector/inbox/{documentId}`              |
+| `connector.ack(documentId)`              | POST   | `/connector/inbox/{documentId}/ack`          |
+| `connector.events(params?)`              | GET    | `/connector/events`                          |
 | `inbound.list(params?)`                  | GET    | `/inbound/documents`                         |
 | `inbound.get(id)`                        | GET    | `/inbound/documents/{id}`                    |
 | `inbound.getUbl(id)`                     | GET    | `/inbound/documents/{id}/ubl`                |

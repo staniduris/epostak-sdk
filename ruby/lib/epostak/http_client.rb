@@ -60,7 +60,7 @@ module EPostak
 
       loop do
         conn = base_url ? build_connection(base_url) : @conn
-        response = conn.run_request(method, path, nil, nil) do |req|
+        response = conn.run_request(method, normalize_path(path), nil, nil) do |req|
           req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
           req.params.update(compact_params(query)) if query
           req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
@@ -97,7 +97,7 @@ module EPostak
     # @return [Hash, nil] Parsed JSON response, or nil for 204
     # @raise [EPostak::Error] On non-2xx responses or network errors
     def request_with_body(method, path, xml, content_type: "application/xml")
-      response = @conn.run_request(method, path, nil, nil) do |req|
+      response = @conn.run_request(method, normalize_path(path), nil, nil) do |req|
         req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
         req.headers["Content-Type"] = content_type
         req.body = xml
@@ -116,7 +116,7 @@ module EPostak
     # @return [String] Raw response body bytes
     # @raise [EPostak::Error] On non-2xx responses
     def request_raw(method, path)
-      response = @conn.run_request(method, path, nil, nil) do |req|
+      response = @conn.run_request(method, normalize_path(path), nil, nil) do |req|
         req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
       end
 
@@ -163,7 +163,7 @@ module EPostak
         end
       end
 
-      response = multipart_conn.post(path, payload)
+      response = multipart_conn.post(normalize_path(path), payload)
       handle_response(response)
     rescue Faraday::Error => e
       raise Error.new(0, { "error" => e.message })
@@ -199,6 +199,10 @@ module EPostak
         f.adapter Faraday.default_adapter
         f.headers["X-Firm-Id"] = @firm_id if @firm_id
       end
+    end
+
+    def normalize_path(path)
+      path.to_s.sub(%r{\A/+}, "")
     end
 
     def handle_response(response)

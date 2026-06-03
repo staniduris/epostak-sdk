@@ -6,6 +6,7 @@ import { ReportingResource } from "./resources/reporting.js";
 import { ExtractResource } from "./resources/extract.js";
 import { AccountResource } from "./resources/account.js";
 import { AuthResource } from "./resources/auth.js";
+import { ConnectorResource } from "./resources/connector.js";
 import { AuditResource } from "./resources/audit.js";
 import { IntegratorResource } from "./resources/integrator.js";
 import { InboundResource } from "./resources/inbound.js";
@@ -74,6 +75,8 @@ export class EPostak {
 
   /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
   auth: AuthResource;
+  /** Connector workflow for ERP send, preflight, inbox polling, ack, and events. */
+  connector: ConnectorResource;
   /** Per-firm audit feed (cursor-paginated). */
   audit: AuditResource;
   /** Send and receive documents via Peppol. */
@@ -146,6 +149,7 @@ export class EPostak {
     };
 
     this.auth = new AuthResource(this.clientConfig);
+    this.connector = new ConnectorResource(this.clientConfig);
     this.audit = new AuditResource(this.clientConfig);
     this.documents = new DocumentsResource(this.clientConfig);
     this.firms = new FirmsResource(this.clientConfig);

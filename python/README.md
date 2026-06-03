@@ -10,6 +10,11 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 
 ## Recent changes
 
+### Unreleased
+
+- `client.connector` — Connector preflight, send, status, inbox list/detail, ACK, and event polling.
+- Static endpoint coverage expanded to 189 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+
 ### v0.10.0 — 2026-05-18
 
 - `client.sapi` — SAPI-SK 1.0 send, receive list/detail, and acknowledge.
@@ -542,6 +547,13 @@ except EPostakError as err:
 | `extract.single(file, mime, name)`                             | POST   | `/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/extract/batch`                     |
 | `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |
+| `connector.preflight(body)`                                    | POST   | `/connector/preflight`               |
+| `connector.send(body, idempotency_key=...)`                    | POST   | `/connector/send`                    |
+| `connector.status(document_id)`                                | GET    | `/connector/status/{documentId}`     |
+| `connector.inbox(**params)`                                    | GET    | `/connector/inbox`                   |
+| `connector.get_inbox_document(document_id)`                    | GET    | `/connector/inbox/{documentId}`      |
+| `connector.ack(document_id)`                                   | POST   | `/connector/inbox/{documentId}/ack`  |
+| `connector.events(**params)`                                   | GET    | `/connector/events`                  |
 | `inbound.list(**params)`                                       | GET    | `/inbound/documents`                 |
 | `inbound.get(id)`                                              | GET    | `/inbound/documents/{id}`            |
 | `inbound.get_ubl(id)`                                          | GET    | `/inbound/documents/{id}/ubl`        |

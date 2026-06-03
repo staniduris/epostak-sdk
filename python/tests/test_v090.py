@@ -47,10 +47,12 @@ def _make_client() -> EPostak:
     http = httpx.Client()
 
     from epostak.resources.inbound import InboundResource
+    from epostak.resources.connector import ConnectorResource
     from epostak.resources.outbound import OutboundResource
     from epostak.resources.webhooks import WebhooksResource
 
     rl = client._rate_limit_store
+    client.connector = ConnectorResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
     client.inbound = InboundResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
     client.outbound = OutboundResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
     client.webhooks = WebhooksResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
@@ -115,6 +117,68 @@ def test_build_api_error_does_not_raise_for_other_422():
 def test_ubl_validation_error_is_epostak_error():
     err = UblValidationError(422, {})
     assert isinstance(err, EPostakError)
+
+
+# ---------------------------------------------------------------------------
+# ConnectorResource
+# ---------------------------------------------------------------------------
+
+def test_connector_send_calls_correct_endpoint_with_idempotency_key():
+    client = _make_client()
+    response = {"documentId": "doc-1", "status": "accepted"}
+
+    with patch.object(client.connector, "_request", return_value=response) as mock_req:
+        result = client.connector.send(
+            {"receiverPeppolId": "0245:1234567890", "document": {"invoiceNumber": "FV-1"}},
+            idempotency_key="erp-1",
+        )
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/send",
+            json={"receiverPeppolId": "0245:1234567890", "document": {"invoiceNumber": "FV-1"}},
+            extra_headers={"Idempotency-Key": "erp-1"},
+        )
+        assert result["documentId"] == "doc-1"
+
+
+def test_connector_inbox_and_events_use_cursor_params():
+    client = _make_client()
+
+    with patch.object(client.connector, "_request", return_value={"documents": [], "hasMore": False}) as mock_req:
+        client.connector.inbox(cursor="cur-1", limit=25)
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/inbox",
+            params={"cursor": "cur-1", "limit": "25"},
+        )
+
+    with patch.object(client.connector, "_request", return_value={"events": [], "hasMore": False}) as mock_req:
+        client.connector.events(limit=10)
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/events",
+            params={"limit": "10"},
+        )
+
+
+def test_connector_status_get_and_ack_paths():
+    client = _make_client()
+
+    with patch.object(client.connector, "_request", return_value={"documentId": "doc-1"}) as mock_req:
+        client.connector.status("doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/status/doc-1")
+
+    with patch.object(client.connector, "_request", return_value={"documentId": "doc-1"}) as mock_req:
+        client.connector.get_inbox_document("doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/inbox/doc-1")
+
+    with patch.object(client.connector, "_request", return_value={"acknowledged": True}) as mock_req:
+        client.connector.ack("doc-1")
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/inbox/doc-1/ack",
+            json={},
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -156,6 +156,124 @@ export type ConvertOutputFormat = "ubl" | "json";
 export type InboxStatus = "received" | "acknowledged";
 
 // ---------------------------------------------------------------------------
+// Connector
+// ---------------------------------------------------------------------------
+
+export type ConnectorOutcome =
+  | "ready"
+  | "ready_with_warnings"
+  | "blocked"
+  | "retry_later";
+
+export interface ConnectorPreflightRequest {
+  receiverPeppolId: string;
+  document: Record<string, unknown>;
+}
+
+export interface ConnectorRepairItem {
+  code: string;
+  field: string | null;
+  message: string;
+  category: string;
+  autoFixable: boolean;
+}
+
+export interface ConnectorSafeFix {
+  code: string;
+  field: string | null;
+  message: string;
+  applied: boolean;
+}
+
+export interface ConnectorRepairReport {
+  summary: string;
+  blocking: ConnectorRepairItem[];
+  warnings: ConnectorRepairItem[];
+}
+
+export interface ConnectorPreflightResponse {
+  ready: boolean;
+  outcome: ConnectorOutcome;
+  repairReport: ConnectorRepairReport;
+  warnings: ConnectorRepairItem[];
+  safeFixes: ConnectorSafeFix[];
+  recipient?: Record<string, unknown> | null;
+  documentProfile?: Record<string, unknown> | null;
+  checks?: Record<string, unknown>;
+}
+
+export interface ConnectorSendRequest {
+  [key: string]: unknown;
+}
+
+export interface ConnectorSendResponse {
+  documentId: string;
+  status: string;
+  outcome?: string;
+  links?: Record<string, unknown>;
+}
+
+export interface ConnectorEvent {
+  id: string;
+  documentId: string | null;
+  type: string;
+  occurredAt: string | null;
+  status?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface ConnectorStatusResponse {
+  documentId: string;
+  status: string;
+  deliveredAt?: string | null;
+  events?: ConnectorEvent[];
+}
+
+export interface ConnectorInboxDocument {
+  documentId: string;
+  status: string;
+  direction?: string | null;
+  documentType?: string | null;
+  documentNumber?: string | null;
+  senderPeppolId?: string | null;
+  receiverPeppolId?: string | null;
+  acknowledgedAt?: string | null;
+  payload?: string | null;
+  payloadFormat?: string | null;
+  links?: Record<string, string>;
+}
+
+export interface ConnectorInboxListParams {
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ConnectorInboxListResponse {
+  documents: ConnectorInboxDocument[];
+  nextCursor?: string | null;
+  hasMore: boolean;
+}
+
+export interface ConnectorAckResponse {
+  documentId: string;
+  status: string;
+  acknowledged: boolean;
+  idempotent?: boolean;
+  acknowledgedAt?: string | null;
+}
+
+export interface ConnectorEventsParams {
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ConnectorEventsResponse {
+  events: ConnectorEvent[];
+  nextCursor?: string | null;
+  hasMore: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Line items
 // ---------------------------------------------------------------------------
 

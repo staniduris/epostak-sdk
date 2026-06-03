@@ -17,6 +17,7 @@ import httpx
 from epostak.resources.account import AccountResource
 from epostak.resources.audit import AuditResource
 from epostak.resources.auth import AuthResource
+from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
@@ -121,6 +122,9 @@ class EPostak:
     auth: AuthResource
     """OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist."""
 
+    connector: ConnectorResource
+    """Connector workflow for ERP send, preflight, inbox polling, ack, and events."""
+
     audit: AuditResource
     """Per-firm audit feed (cursor-paginated)."""
 
@@ -194,6 +198,7 @@ class EPostak:
         rl_kw = {"_rate_limit_store": self._rate_limit_store}
         tm = self._token_manager
         self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.connector = ConnectorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.firms = FirmsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)

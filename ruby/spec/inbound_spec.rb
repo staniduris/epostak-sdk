@@ -3,11 +3,8 @@
 require "spec_helper"
 
 RSpec.describe EPostak::Resources::Inbound do
-  # The HttpClient builds Faraday with url: base_url but Faraday strips the
-  # path component when paths start with "/", so actual requests go to the
-  # scheme+host root (e.g. https://epostak.sk/inbound/documents).
   let(:base_url) { "https://epostak.sk/api/v1" }
-  let(:host)     { "https://epostak.sk" }
+  let(:host)     { "https://epostak.sk/api/v1" }
   let(:token_response) do
     { "access_token" => "test-token", "token_type" => "Bearer", "expires_in" => 3600 }.to_json
   end

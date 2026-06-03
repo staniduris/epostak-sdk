@@ -1,5 +1,14 @@
 # Changelog
 
+## [Connector SDK sync] — 2026-06-03
+
+- Added Connector workflow resources across TypeScript, Python, Ruby, PHP,
+  .NET, and Java: preflight, send, status, inbox list/detail, inbox ACK, and
+  events.
+- Extended endpoint coverage checker to 189 source checks across all six
+  language SDKs.
+- Added focused Connector request-path tests for TypeScript, Python, and Ruby.
+
 ## [Backend route + environment sync] — 2026-05-29
 
 - Documented `https://dev.epostak.sk/api/v1` as the Enterprise API base URL

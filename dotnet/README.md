@@ -18,6 +18,7 @@ Or add to your `.csproj`:
 
 ### Unreleased
 
+- `client.Connector` covers Connector preflight, send, status, inbox list/detail, ACK, and event polling.
 - `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
 - `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
@@ -117,6 +118,30 @@ var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", C
 ```
 
 ## Resources
+
+### Connector
+
+```csharp
+var preflight = await client.Connector.PreflightAsync(new ConnectorPreflightRequest
+{
+    ReceiverPeppolId = "0245:12345678",
+    Document = new Dictionary<string, object?> { ["invoiceNumber"] = "INV-2026-001" }
+});
+
+if (preflight.Ready)
+{
+    var request = new ConnectorSendRequest
+    {
+        Data =
+        {
+            ["receiverPeppolId"] = "0245:12345678",
+            ["document"] = new { invoiceNumber = "INV-2026-001" }
+        }
+    };
+    var sent = await client.Connector.SendAsync(request, idempotencyKey: "erp-inv-2026-001");
+    Console.WriteLine(sent.DocumentId);
+}
+```
 
 ### Documents
 

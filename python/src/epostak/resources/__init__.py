@@ -1,6 +1,7 @@
 """Resource modules for the ePostak SDK."""
 
 from epostak.resources.account import AccountResource
+from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource, InboxResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
@@ -17,6 +18,7 @@ from epostak.resources.webhooks import WebhookQueueResource, WebhooksResource
 
 __all__ = [
     "AccountResource",
+    "ConnectorResource",
     "DocumentsResource",
     "ExtractResource",
     "FirmsResource",

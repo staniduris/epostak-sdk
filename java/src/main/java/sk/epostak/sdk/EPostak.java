@@ -50,6 +50,7 @@ public final class EPostak {
     private final ExtractResource extract;
     private final AccountResource account;
     private final AuthResource auth;
+    private final ConnectorResource connector;
     private final AuditResource audit;
     private final IntegratorResource integrator;
     private final InboundResource inbound;
@@ -85,6 +86,7 @@ public final class EPostak {
         this.extract = new ExtractResource(httpClient);
         this.account = new AccountResource(httpClient);
         this.auth = new AuthResource(httpClient);
+        this.connector = new ConnectorResource(httpClient);
         this.audit = new AuditResource(httpClient);
         this.integrator = new IntegratorResource(httpClient);
         this.inbound = new InboundResource(httpClient);
@@ -158,6 +160,13 @@ public final class EPostak {
      * @return the auth resource
      */
     public AuthResource auth() { return auth; }
+
+    /**
+     * Connector workflow for ERP send, preflight, inbox polling, ack, and events.
+     *
+     * @return the Connector resource
+     */
+    public ConnectorResource connector() { return connector; }
 
     /**
      * Per-firm audit feed (cursor-paginated).

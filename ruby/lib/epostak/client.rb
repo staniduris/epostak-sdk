@@ -20,6 +20,10 @@ module EPostak
     #   introspection, rotation, IP allowlist
     attr_reader :auth
 
+    # @return [Resources::Connector] Connector workflow for ERP send,
+    #   preflight, inbox polling, ack, and events
+    attr_reader :connector
+
     # @return [Resources::Audit] Per-firm audit feed (cursor-paginated)
     attr_reader :audit
 
@@ -95,6 +99,7 @@ module EPostak
       @http = HttpClient.new(token_manager: @token_manager, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
       @auth       = Resources::Auth.new(@http, base_url: @base_url)
+      @connector  = Resources::Connector.new(@http)
       @audit      = Resources::Audit.new(@http)
       @documents  = Resources::Documents.new(@http)
       @firms      = Resources::Firms.new(@http)

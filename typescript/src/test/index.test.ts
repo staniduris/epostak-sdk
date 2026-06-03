@@ -16,6 +16,7 @@ import * as assert from "node:assert/strict";
 import {
   EPostak,
   UblValidationError,
+  ConnectorResource,
   InboundResource,
   OutboundResource,
 } from "../index.js";
@@ -100,7 +101,8 @@ function makeClient(): EPostak {
 // Resource type assertions (compile-time — just ensure the types are assignable)
 // ---------------------------------------------------------------------------
 
-it("InboundResource and OutboundResource are exported", () => {
+it("ConnectorResource, InboundResource and OutboundResource are exported", () => {
+  assert.ok(ConnectorResource);
   assert.ok(InboundResource);
   assert.ok(OutboundResource);
 });
@@ -307,6 +309,90 @@ describe("client.inbound", () => {
     assert.ok(capturedUrl.includes("/inbound/documents/doc-1/ack"));
     assert.ok(capturedBody.includes("erp-ref-1"));
     assert.strictEqual(result.ack.acked_at, "2026-05-12T10:01:00Z");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// client.connector.*
+// ---------------------------------------------------------------------------
+
+describe("client.connector", () => {
+  it("send() calls /connector/send with Idempotency-Key", async () => {
+    const client = makeClient();
+    let capturedUrl = "";
+    let capturedMethod = "";
+    let capturedHeader = "";
+    let capturedBody = "";
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedUrl = url;
+      capturedMethod = init?.method ?? "";
+      capturedHeader = new Headers(init?.headers).get("Idempotency-Key") ?? "";
+      capturedBody = String(init?.body ?? "");
+      return makeMockResponse({
+        documentId: "doc-1",
+        status: "accepted",
+        outcome: "accepted",
+      }, 201);
+    });
+
+    const result = await client.connector.send(
+      { receiverPeppolId: "0245:1234567890", document: { invoiceNumber: "FV-1" } },
+      { idempotencyKey: "erp-1" },
+    );
+
+    assert.ok(capturedUrl.includes("/connector/send"));
+    assert.strictEqual(capturedMethod, "POST");
+    assert.strictEqual(capturedHeader, "erp-1");
+    assert.ok(capturedBody.includes("receiverPeppolId"));
+    assert.strictEqual(result.documentId, "doc-1");
+  });
+
+  it("inbox(), getInboxDocument(), ack(), events() use Connector paths", async () => {
+    const client = makeClient();
+    const captured: string[] = [];
+
+    mockFetch(async (input) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      captured.push(url);
+      if (url.includes("/connector/inbox/doc-1/ack")) {
+        return makeMockResponse({ documentId: "doc-1", status: "processed", acknowledged: true });
+      }
+      if (url.includes("/connector/inbox/doc-1")) {
+        return makeMockResponse({ documentId: "doc-1", status: "received" });
+      }
+      if (url.includes("/connector/events")) {
+        return makeMockResponse({ events: [], nextCursor: null, hasMore: false });
+      }
+      return makeMockResponse({ documents: [], nextCursor: null, hasMore: false });
+    });
+
+    await client.connector.inbox({ limit: 25 });
+    await client.connector.getInboxDocument("doc-1");
+    await client.connector.ack("doc-1");
+    await client.connector.events({ cursor: "cur-1" });
+
+    assert.ok(captured.some((url) => url.includes("/connector/inbox?limit=25")));
+    assert.ok(captured.some((url) => url.includes("/connector/inbox/doc-1")));
+    assert.ok(captured.some((url) => url.includes("/connector/inbox/doc-1/ack")));
+    assert.ok(captured.some((url) => url.includes("/connector/events?cursor=cur-1")));
   });
 });
 
