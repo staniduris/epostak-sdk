@@ -11,6 +11,10 @@ Zero runtime dependencies. Requires Node.js 18+.
 - **New:** `client.connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
 - **Coverage:** static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
+### v3.3.3 — 2026-06-05
+
+- **Docs:** Added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
+
 ### v3.3.2 — 2026-05-18
 
 - **New:** `client.sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
@@ -68,26 +72,76 @@ const result = await client.documents.send({
 console.log(result.documentId, result.messageId, result.payloadSha256);
 ```
 
-### Connector outbox: stage now, send later
+### Connector golden path for ERP developers
+
+Use `client.connector` for the ERP workflow instead of building raw HTTP calls.
+The SDK handles OAuth token minting and refresh automatically after you create
+the client.
 
 ```typescript
+const invoice = {
+  receiverPeppolId: "0245:1234567890",
+  document: {
+    invoiceNumber: "FA-2026-001",
+    issueDate: "2026-06-04",
+    dueDate: "2026-06-18",
+    items: [{ description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }],
+  },
+};
+
+const preflight = await client.connector.preflight(invoice);
+if (!preflight.ready) {
+  console.error(preflight.repairReport.blocking);
+  throw new Error("Invoice is not ready for Peppol delivery");
+}
+
 const staged = await client.connector.outbox.stage({
   items: [
     {
       externalId: "FA-2026-001",
-      scheduledFor: "2026-06-04T08:00:00Z",
-      payload: {
-        receiverPeppolId: "0245:1234567890",
-        document: {
-          invoiceNumber: "FA-2026-001",
-          items: [{ description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }],
-        },
-      },
+      idempotencyKey: "erp-fa-2026-001",
+      payload: invoice,
     },
   ],
 });
 
-await client.connector.outbox.send(staged.items[0].outboxId);
+const sent = await client.connector.outbox.send(staged.items[0].outboxId);
+if (!sent.documentId) {
+  throw new Error("Staged invoice was not sent");
+}
+
+const status = await client.connector.status(sent.documentId);
+
+const inbox = await client.connector.inbox({ limit: 20 });
+for (const doc of inbox.documents) {
+  await client.connector.ack(doc.documentId);
+}
+
+// Evidence is shared with the Enterprise document API.
+const evidence = await client.documents.evidence(sent.documentId);
+console.log(status.status, evidence);
+```
+
+For immediate send without staging:
+
+```typescript
+const sent = await client.connector.send(invoice, {
+  idempotencyKey: "erp-fa-2026-001-send",
+});
+console.log(sent.documentId, sent.status);
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `preflight.ready === false` with blocking `repairReport` items
+- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in the typed `EPostakError`
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as `EPostakError`
+- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(documentId)`
+
+Batch workers can send queued items with:
+
+```typescript
 await client.connector.outbox.sendBatch({ limit: 50 }); // ready, failed, and due scheduled items
 ```
 

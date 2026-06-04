@@ -11,6 +11,7 @@ Requires PHP 8.1+ and Guzzle 7.
 ### Unreleased
 
 - `$client->connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
 
@@ -52,6 +53,71 @@ echo $result['documentId'];  // Document UUID
 echo $result['messageId'];   // Peppol message ID
 echo $result['status'];      // 'SENT'
 ```
+
+### Connector golden path for ERP developers
+
+Use `$client->connector` for the ERP workflow instead of building raw HTTP
+calls. The SDK handles OAuth token minting and refresh automatically after you
+create the client.
+
+```php
+$invoice = [
+    'receiverPeppolId' => '0245:1234567890',
+    'document' => [
+        'invoiceNumber' => 'FA-2026-001',
+        'issueDate' => '2026-06-04',
+        'dueDate' => '2026-06-18',
+        'items' => [
+            ['description' => 'Služby', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23],
+        ],
+    ],
+];
+
+$preflight = $client->connector->preflight($invoice);
+if (!$preflight['ready']) {
+    var_dump($preflight['repairReport']['blocking']);
+    throw new RuntimeException('Invoice is not ready for Peppol delivery');
+}
+
+$staged = $client->connector->stageOutbox([
+    'items' => [[
+        'externalId' => 'FA-2026-001',
+        'idempotencyKey' => 'erp-fa-2026-001',
+        'payload' => $invoice,
+    ]],
+]);
+
+$sent = $client->connector->sendOutboxItem($staged['items'][0]['outboxId']);
+if (empty($sent['documentId'])) {
+    throw new RuntimeException('Staged invoice was not sent');
+}
+
+$status = $client->connector->status($sent['documentId']);
+
+$inbox = $client->connector->inbox(['limit' => 20]);
+foreach ($inbox['documents'] as $doc) {
+    $client->connector->ack($doc['documentId']);
+}
+
+// Evidence is shared with the Enterprise document API.
+$evidence = $client->documents->evidence($sent['documentId']);
+echo $status['status'];
+```
+
+For immediate send without staging:
+
+```php
+$sent = $client->connector->send($invoice, 'erp-fa-2026-001-send');
+echo $sent['documentId'];
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `$preflight['ready'] === false` with blocking `repairReport` items
+- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostakError`
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
+- received invoice processing: poll `$client->connector->inbox(...)`, store the payload, then call `$client->connector->ack($documentId)`
 
 ---
 

@@ -13,6 +13,7 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 ### Unreleased
 
 - `client.connector` — Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - Static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v0.10.0 — 2026-05-18
@@ -61,6 +62,68 @@ result = client.documents.send({
 })
 print(result["documentId"], result["messageId"], result["payload_sha256"])
 ```
+
+### Connector golden path for ERP developers
+
+Use `client.connector` for the ERP workflow instead of building raw HTTP calls.
+The SDK handles OAuth token minting and refresh automatically after you create
+the client.
+
+```python
+invoice = {
+    "receiverPeppolId": "0245:1234567890",
+    "document": {
+        "invoiceNumber": "FA-2026-001",
+        "issueDate": "2026-06-04",
+        "dueDate": "2026-06-18",
+        "items": [
+            {"description": "Služby", "quantity": 1, "unitPrice": 100, "vatRate": 23},
+        ],
+    },
+}
+
+preflight = client.connector.preflight(invoice)
+if not preflight["ready"]:
+    print(preflight["repairReport"]["blocking"])
+    raise RuntimeError("Invoice is not ready for Peppol delivery")
+
+staged = client.connector.stage_outbox({
+    "items": [{
+        "externalId": "FA-2026-001",
+        "idempotencyKey": "erp-fa-2026-001",
+        "payload": invoice,
+    }],
+})
+
+sent = client.connector.send_outbox_item(staged["items"][0]["outboxId"])
+if not sent.get("documentId"):
+    raise RuntimeError("Staged invoice was not sent")
+
+status = client.connector.status(sent["documentId"])
+
+inbox = client.connector.inbox(limit=20)
+for doc in inbox["documents"]:
+    client.connector.ack(doc["documentId"])
+
+# Evidence is shared with the Enterprise document API.
+evidence = client.documents.evidence(sent["documentId"])
+print(status["status"], evidence)
+```
+
+For immediate send without staging:
+
+```python
+sent = client.connector.send(invoice, idempotency_key="erp-fa-2026-001-send")
+print(sent["documentId"], sent["status"])
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `preflight["ready"] is False` with blocking `repairReport` items
+- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in the typed API error
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
+- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(document_id)`
 
 ---
 

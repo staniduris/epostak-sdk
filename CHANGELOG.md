@@ -1,5 +1,15 @@
 # Changelog
 
+## [TypeScript npm 3.3.3 docs patch] — 2026-06-05
+
+- Bumped `@epostak/sdk` to `3.3.3` for a docs-only npm patch.
+- Added Connector golden-path docs to the published TypeScript README:
+  auth, preflight, outbox stage, send, status, inbox, ACK, and evidence via
+  `client.documents.evidence(...)`.
+- Mirrored the Connector golden-path examples across Python, PHP, .NET, Java,
+  and Ruby README files so every SDK language shows the same workflow with
+  native method names.
+
 ## [Connector SDK sync] — 2026-06-03
 
 - Added Connector workflow resources across TypeScript, Python, Ruby, PHP,

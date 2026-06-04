@@ -24,6 +24,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Clarified that OAuth test flows use `origin: "https://dev.epostak.sk"`
   because OAuth bypasses `baseUrl`.
 
+## 3.3.3 — 2026-06-05
+
+Docs-only npm patch.
+
+- Added the Connector golden path for ERP developers to the published
+  TypeScript README: auth, preflight, stage, send, status, inbox, ACK, and
+  evidence via `client.documents.evidence(...)`.
+- Added immediate `client.connector.send(...)` and common sandbox error
+  scenario examples.
+
 ## 3.3.2 — 2026-05-18
 
 Endpoint and documentation sync after publishing `@epostak/sdk@3.3.2`.

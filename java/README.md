@@ -29,6 +29,7 @@ implementation 'sk.epostak:epostak-sdk:0.10.0'
 ### Unreleased
 
 - `client.connector()` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
 
@@ -66,6 +67,94 @@ SendDocumentResponse result = client.documents().send(
 );
 System.out.println(result.documentId() + " " + result.messageId());
 ```
+
+### Connector golden path for ERP developers
+
+Use `client.connector()` for the ERP workflow instead of building raw HTTP
+calls. The SDK handles OAuth token minting and refresh automatically after you
+create the client.
+
+```java
+import java.util.List;
+import java.util.Map;
+
+Map<String, Object> invoice = Map.of(
+    "receiverPeppolId", "0245:1234567890",
+    "document", Map.of(
+        "invoiceNumber", "FA-2026-001",
+        "issueDate", "2026-06-04",
+        "dueDate", "2026-06-18",
+        "items", List.of(Map.of(
+            "description", "Služby",
+            "quantity", 1,
+            "unitPrice", 100,
+            "vatRate", 23
+        ))
+    )
+);
+
+@SuppressWarnings("unchecked")
+Map<String, Object> document = (Map<String, Object>) invoice.get("document");
+
+ConnectorPreflightResponse preflight = client.connector().preflight(
+    new ConnectorPreflightRequest("0245:1234567890", document)
+);
+if (!preflight.ready()) {
+    throw new IllegalStateException(preflight.repairReport().summary());
+}
+
+ConnectorOutboxStageResponse staged = client.connector().stageOutbox(
+    new ConnectorOutboxStageRequest(
+        List.of(new ConnectorOutboxStageItem(
+            "FA-2026-001",
+            "erp-fa-2026-001",
+            null,
+            invoice
+        )),
+        null,
+        null,
+        null
+    )
+);
+
+ConnectorOutboxItem sent = client.connector().sendOutboxItem(
+    staged.items().get(0).outboxId()
+);
+if (sent.documentId() == null) {
+    throw new IllegalStateException("Staged invoice was not sent");
+}
+
+ConnectorStatusResponse status = client.connector().status(sent.documentId());
+
+ConnectorInboxListResponse inbox = client.connector().inbox(
+    new ConnectorListParams(null, 20)
+);
+for (ConnectorInboxDocument doc : inbox.documents()) {
+    client.connector().ack(doc.documentId());
+}
+
+// Evidence is shared with the Enterprise document API.
+DocumentEvidenceResponse evidence = client.documents().evidence(sent.documentId());
+System.out.println(status.status() + " " + evidence.documentId());
+```
+
+For immediate send without staging:
+
+```java
+ConnectorSendResponse sent = client.connector().send(
+    invoice,
+    "erp-fa-2026-001-send"
+);
+System.out.println(sent.documentId() + " " + sent.status());
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `preflight.ready() == false` with blocking `repairReport` items
+- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostakException`
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
+- received invoice processing: poll `client.connector().inbox(...)`, store the payload, then call `client.connector().ack(documentId)`
 
 ---
 

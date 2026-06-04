@@ -6,6 +6,7 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 
 **Unreleased**
 - `client.connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling
+- Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence
 - `client.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
 - `client.reporting.submissions(...)` covers `GET /reporting/submissions`
 - `client.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
@@ -62,33 +63,67 @@ puts result["documentId"]
 Connector workflow mode for ERP teams:
 
 ```ruby
-preflight = client.connector.preflight(
+invoice = {
   receiverPeppolId: "0245:1234567890",
-  document: { invoiceNumber: "FV-2026-042" }
-)
+  document: {
+    invoiceNumber: "FA-2026-001",
+    issueDate: "2026-06-04",
+    dueDate: "2026-06-18",
+    items: [
+      { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }
+    ]
+  }
+}
 
-if preflight["ready"]
-  sent = client.connector.send_document(
-    { receiverPeppolId: "0245:1234567890", document: { invoiceNumber: "FV-2026-042" } },
-    idempotency_key: "erp-fv-2026-042"
-  )
-  puts sent["documentId"]
+preflight = client.connector.preflight(invoice)
+unless preflight["ready"]
+  warn preflight.dig("repairReport", "blocking").inspect
+  raise "Invoice is not ready for Peppol delivery"
 end
-```
 
-Stage now, send later with Connector outbox:
-
-```ruby
 staged = client.connector.stage_outbox(
   items: [
     {
       externalId: "FA-2026-001",
-      payload: { receiverPeppolId: "0245:1234567890", document: { invoiceNumber: "FA-2026-001" } }
+      idempotencyKey: "erp-fa-2026-001",
+      payload: invoice
     }
   ]
 )
 
-client.connector.send_outbox_item(staged["items"].first["outboxId"])
+sent = client.connector.send_outbox_item(staged["items"].first["outboxId"])
+raise "Staged invoice was not sent" if sent["documentId"].nil?
+
+status = client.connector.status(sent["documentId"])
+
+inbox = client.connector.inbox(limit: 20)
+inbox["documents"].each do |doc|
+  client.connector.ack(doc["documentId"])
+end
+
+# Evidence is shared with the Enterprise document API.
+evidence = client.documents.evidence(sent["documentId"])
+puts "#{status["status"]} #{evidence["documentId"]}"
+```
+
+For immediate send without staging:
+
+```ruby
+sent = client.connector.send_document(invoice, idempotency_key: "erp-fa-2026-001-send")
+puts "#{sent["documentId"]} #{sent["status"]}"
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `preflight["ready"] == false` with blocking `repairReport` items
+- invalid UBL or missing buyer/seller data: `preflight` or `send_document` returns validation details in `EPostak::Error`
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
+- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(document_id)`
+
+Batch workers can send queued items with:
+
+```ruby
 client.connector.send_outbox_batch(limit: 50)
 ```
 

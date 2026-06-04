@@ -8,7 +8,7 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.2 | `npm install @epostak/sdk` |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.3 | `npm install @epostak/sdk` |
 | Python | [`python/`](./python/) | `epostak` | 0.10.0 | Source on GitHub |
 | PHP | [`php/`](./php/) | `epostak/sdk` | 0.10.0 | Source on GitHub |
 | C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.1 | Source on GitHub |
@@ -39,6 +39,57 @@ const result = await client.documents.send({
   ],
 });
 ```
+
+### Connector Workflow (ERP Golden Path)
+
+For ERP integrations, prefer `client.connector` over raw HTTP. It exposes the
+golden path directly: preflight, stage, send, status, inbox, ACK, and evidence
+via `client.documents.evidence(...)`.
+
+```typescript
+const invoice = {
+  receiverPeppolId: "0245:1234567890",
+  document: {
+    invoiceNumber: "FA-2026-001",
+    issueDate: "2026-06-04",
+    dueDate: "2026-06-18",
+    items: [
+      { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 },
+    ],
+  },
+};
+
+const preflight = await client.connector.preflight(invoice);
+if (!preflight.ready) throw new Error(preflight.repairReport.summary);
+
+const staged = await client.connector.outbox.stage({
+  items: [
+    {
+      externalId: "FA-2026-001",
+      idempotencyKey: "erp-fa-2026-001",
+      payload: invoice,
+    },
+  ],
+});
+
+const sent = await client.connector.outbox.send(staged.items[0].outboxId);
+const status = sent.documentId
+  ? await client.connector.status(sent.documentId)
+  : null;
+
+const inbox = await client.connector.inbox({ limit: 20 });
+for (const doc of inbox.documents) {
+  await client.connector.ack(doc.documentId);
+}
+
+const evidence = sent.documentId
+  ? await client.documents.evidence(sent.documentId)
+  : null;
+console.log(status?.status, evidence);
+```
+
+See [`typescript/README.md`](./typescript/README.md) for the copy-paste
+Connector quickstart and common sandbox error scenarios.
 
 ---
 

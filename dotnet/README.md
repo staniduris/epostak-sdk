@@ -19,6 +19,7 @@ Or add to your `.csproj`:
 ### Unreleased
 
 - `client.Connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
 - `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
@@ -122,48 +123,95 @@ var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", C
 ### Connector
 
 ```csharp
+var invoice = new Dictionary<string, object?>
+{
+    ["receiverPeppolId"] = "0245:1234567890",
+    ["document"] = new Dictionary<string, object?>
+    {
+        ["invoiceNumber"] = "FA-2026-001",
+        ["issueDate"] = "2026-06-04",
+        ["dueDate"] = "2026-06-18",
+        ["items"] = new[]
+        {
+            new { description = "Služby", quantity = 1, unitPrice = 100, vatRate = 23 }
+        }
+    }
+};
+
 var preflight = await client.Connector.PreflightAsync(new ConnectorPreflightRequest
 {
-    ReceiverPeppolId = "0245:12345678",
-    Document = new Dictionary<string, object?> { ["invoiceNumber"] = "INV-2026-001" }
+    ReceiverPeppolId = "0245:1234567890",
+    Document = (Dictionary<string, object?>)invoice["document"]!
 });
 
-if (preflight.Ready)
+if (!preflight.Ready)
 {
-    var request = new ConnectorSendRequest
-    {
-        Data =
-        {
-            ["receiverPeppolId"] = "0245:12345678",
-            ["document"] = new { invoiceNumber = "INV-2026-001" }
-        }
-    };
-    var sent = await client.Connector.SendAsync(request, idempotencyKey: "erp-inv-2026-001");
-    Console.WriteLine(sent.DocumentId);
+    throw new InvalidOperationException(preflight.RepairReport.Summary);
 }
-```
 
-Stage now, send later with Connector outbox:
-
-```csharp
 var staged = await client.Connector.StageOutboxAsync(new ConnectorOutboxStageRequest
 {
-    Items = new List<ConnectorOutboxStageItem>
-    {
+    Items =
+    [
         new ConnectorOutboxStageItem
         {
             ExternalId = "FA-2026-001",
-            Payload = new Dictionary<string, object?>
-            {
-                ["receiverPeppolId"] = "0245:12345678",
-                ["document"] = new { invoiceNumber = "FA-2026-001" }
-            }
+            IdempotencyKey = "erp-fa-2026-001",
+            Payload = invoice
         }
-    }
+    ]
 });
 
-await client.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
-await client.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest { Limit = 50 });
+var sent = await client.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
+if (string.IsNullOrEmpty(sent.DocumentId))
+{
+    throw new InvalidOperationException("Staged invoice was not sent");
+}
+
+var status = await client.Connector.StatusAsync(sent.DocumentId);
+
+var inbox = await client.Connector.InboxAsync(new ConnectorListParams { Limit = 20 });
+foreach (var doc in inbox.Documents)
+{
+    await client.Connector.AckAsync(doc.DocumentId);
+}
+
+// Evidence is shared with the Enterprise document API.
+var evidence = await client.Documents.EvidenceAsync(sent.DocumentId);
+Console.WriteLine($"{status.Status} {evidence.DocumentId}");
+```
+
+For immediate send without staging:
+
+```csharp
+var request = new ConnectorSendRequest
+{
+    Data =
+    {
+        ["receiverPeppolId"] = invoice["receiverPeppolId"],
+        ["document"] = invoice["document"]
+    }
+};
+
+var immediate = await client.Connector.SendAsync(request, idempotencyKey: "erp-fa-2026-001-send");
+Console.WriteLine($"{immediate.DocumentId} {immediate.Status}");
+```
+
+Common sandbox scenarios to test:
+
+- nonexistent participant or unsupported document type: `preflight.Ready == false` with blocking `RepairReport` items
+- invalid UBL or missing buyer/seller data: `PreflightAsync` or `SendAsync` returns validation details in `EPostakException`
+- duplicate idempotency key: `409 idempotency_conflict`
+- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
+- received invoice processing: poll `client.Connector.InboxAsync(...)`, store the payload, then call `client.Connector.AckAsync(documentId)`
+
+Batch workers can send queued items with:
+
+```csharp
+await client.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest
+{
+    Limit = 50
+});
 ```
 
 ### Documents
