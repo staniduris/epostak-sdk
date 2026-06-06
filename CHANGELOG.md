@@ -1,5 +1,19 @@
 # Changelog
 
+## [Connector v2 SDK sync] — 2026-06-06
+
+- Added Connector v2 helpers across TypeScript, Python, Ruby, PHP, .NET, and
+  Java: Zen input, Autopilot lifecycle, reconciliation, mailbox repair/send
+  policy, sync cursors, Connector document lifecycle/UBL/evidence manifests,
+  and action execution.
+- Added typed Connector v2 models for TypeScript, Python, .NET, and Java,
+  with hash/array responses preserved for Ruby and PHP.
+- Bumped `@epostak/sdk` to `3.3.4` for the npm package source.
+- Extended endpoint coverage checker to 317 source checks across all six
+  language SDKs.
+- Updated root and per-language README/changelog files with production
+  Connector v2 method names and endpoints.
+
 ## [TypeScript npm 3.3.3 docs patch] — 2026-06-05
 
 - Bumped `@epostak/sdk` to `3.3.3` for a docs-only npm patch.

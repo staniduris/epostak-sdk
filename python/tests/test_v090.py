@@ -214,6 +214,92 @@ def test_connector_outbox_paths():
         mock_req.assert_called_once_with("DELETE", "/connector/outbox/outbox-1")
 
 
+def test_connector_autopilot_and_reconcile_paths():
+    client = _make_client()
+    body = {
+        "customerRef": "erp-customer-1",
+        "mode": "shadow",
+        "externalId": "ERP-FA-2026-001",
+        "idempotencyKey": "erp-fa-2026-001",
+        "payload": {"receiverPeppolId": "0245:1234567890", "invoiceNumber": "FA-2026-001"},
+    }
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
+        client.connector.autopilot(body)
+        mock_req.assert_called_once_with("POST", "/connector/autopilot", json=body)
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
+        client.connector.get_autopilot_run("auto-1")
+        mock_req.assert_called_once_with("GET", "/connector/autopilot/auto-1")
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
+        client.connector.send_autopilot_run("auto-1")
+        mock_req.assert_called_once_with("POST", "/connector/autopilot/auto-1/send", json={})
+
+    with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
+        client.connector.reconcile(status="exceptions", since="2026-06-01T00:00:00.000Z")
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/reconcile",
+            params={"status": "exceptions", "since": "2026-06-01T00:00:00.000Z"},
+        )
+
+
+def test_connector_managed_v2_paths():
+    client = _make_client()
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
+        body = {"customerRef": "erp-customer-1", "invoiceNumber": "FA-2026-002", "mode": "stage"}
+        client.connector.zen_input(body)
+        mock_req.assert_called_once_with("POST", "/connector/zen-input", json=body)
+
+    with patch.object(client.connector, "_request", return_value={"mailboxes": []}) as mock_req:
+        client.connector.mailboxes()
+        mock_req.assert_called_once_with("GET", "/connector/mailbox")
+
+    with patch.object(client.connector, "_request", return_value={"repaired": True}) as mock_req:
+        client.connector.repair_mailbox({"customerRef": "erp-customer-1"})
+        mock_req.assert_called_once_with("POST", "/connector/mailbox/repair", json={"customerRef": "erp-customer-1"})
+
+    with patch.object(client.connector, "_request", return_value={"mailbox": {}}) as mock_req:
+        client.connector.update_mailbox_send_policy("erp-customer-1", {"policy": "daily_batch"})
+        mock_req.assert_called_once_with(
+            "PATCH",
+            "/connector/mailbox/erp-customer-1/send-policy",
+            json={"policy": "daily_batch"},
+        )
+
+    with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
+        client.connector.sync(customer_ref="erp-customer-1", cursor="cur-1", limit=50)
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/sync",
+            params={"customerRef": "erp-customer-1", "cursor": "cur-1", "limit": "50"},
+        )
+
+    with patch.object(client.connector, "_request", return_value={"documentId": "doc-1"}) as mock_req:
+        client.connector.get_document("doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1")
+
+    raw_response = MagicMock()
+    raw_response.text = "<Invoice/>"
+    with patch.object(client.connector, "_request", return_value=raw_response) as mock_req:
+        assert client.connector.get_document_ubl("doc-1") == "<Invoice/>"
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/ubl", raw=True)
+
+    with patch.object(client.connector, "_request", return_value={"events": []}) as mock_req:
+        client.connector.get_document_evidence("doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence")
+
+    with patch.object(client.connector, "_request", return_value={"bundle": []}) as mock_req:
+        client.connector.get_document_evidence_bundle("doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence-bundle")
+
+    with patch.object(client.connector, "_request", return_value={"action": {}}) as mock_req:
+        client.connector.run_action("action-1", {"note": "send now"})
+        mock_req.assert_called_once_with("POST", "/connector/actions/action-1", json={"note": "send now"})
+
+
 # ---------------------------------------------------------------------------
 # InboundResource
 # ---------------------------------------------------------------------------

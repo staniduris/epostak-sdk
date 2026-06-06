@@ -3,13 +3,18 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 3.3.4 — 2026-06-06
 
 ### Added
 
 - Added `client.connector` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
+- Added Connector v2 helpers: `client.connector.zenInput(...)`,
+  `autopilot(...)`, `getAutopilotRun(...)`, `sendAutopilotRun(...)`,
+  `reconcile(...)`, `mailboxes()`, `repairMailbox(...)`,
+  `updateMailboxSendPolicy(...)`, `sync(...)`, Connector document/evidence
+  helpers, and `runAction(...)`.
 - Added `client.documents.statusBatch(ids)` for `POST /documents/status/batch`.
 - Added `client.reporting.submissions(params?)` for `GET /reporting/submissions`.
 - Added `client.integrator.keys.list()` and `deactivate(...)` for the

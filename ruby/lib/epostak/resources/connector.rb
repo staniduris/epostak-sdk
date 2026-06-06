@@ -133,6 +133,122 @@ module EPostak
         @http.request(:delete, "/connector/outbox/#{encode(outbox_id)}")
       end
 
+      # Start a managed Connector Autopilot lifecycle run.
+      #
+      # @param body [Hash] Autopilot request with mode, payload, and optional IDs
+      # @return [Hash] Autopilot run lifecycle response
+      def autopilot(body)
+        @http.request(:post, "/connector/autopilot", body: body)
+      end
+
+      # Normalize a loose ERP/customer payload into a Connector lifecycle run.
+      #
+      # @param body [Hash] Zen input request with customerRef and invoice/customer fields
+      # @return [Hash] Autopilot run lifecycle response
+      def zen_input(body)
+        @http.request(:post, "/connector/zen-input", body: body)
+      end
+
+      # Retrieve an Autopilot run by ID.
+      #
+      # @param autopilot_id [String] Connector Autopilot run ID
+      # @return [Hash] Autopilot run lifecycle response
+      def get_autopilot_run(autopilot_id)
+        @http.request(:get, "/connector/autopilot/#{encode(autopilot_id)}")
+      end
+
+      # Send a shadow-validated or staged Autopilot run.
+      #
+      # @param autopilot_id [String] Connector Autopilot run ID
+      # @return [Hash] Autopilot run lifecycle response
+      def send_autopilot_run(autopilot_id)
+        @http.request(:post, "/connector/autopilot/#{encode(autopilot_id)}/send", body: {}, retry_on_failure: true)
+      end
+
+      # List Connector reconciliation items for ERP state sync.
+      #
+      # @param status [String, nil] exceptions or all
+      # @param since [String, nil] ISO 8601 timestamp for incremental sync
+      # @return [Hash] Reconciliation items
+      def reconcile(status: nil, since: nil)
+        @http.request(:get, "/connector/reconcile", query: { status: status, since: since })
+      end
+
+      # List Connector-managed customer mailboxes.
+      #
+      # @return [Hash] Mailbox list response
+      def mailboxes
+        @http.request(:get, "/connector/mailbox")
+      end
+
+      # Repair Connector mailbox state for one customer or all customers.
+      #
+      # @param body [Hash] Optional request body with customerRef
+      # @return [Hash] Repair result
+      def repair_mailbox(body = {})
+        @http.request(:post, "/connector/mailbox/repair", body: body)
+      end
+
+      # Update the managed send policy for a Connector mailbox.
+      #
+      # @param customer_ref [String] Connector mailbox customer reference
+      # @param body [Hash] Send policy request with policy and optional sendAt
+      # @return [Hash] Updated mailbox response
+      def update_mailbox_send_policy(customer_ref, body)
+        @http.request(:patch, "/connector/mailbox/#{encode(customer_ref)}/send-policy", body: body)
+      end
+
+      # List Connector sync items for ERP reconciliation cursors.
+      #
+      # @param customer_ref [String, nil] Optional customer reference filter
+      # @param cursor [String, nil] Cursor from a previous sync page
+      # @param limit [Integer, nil] Page limit
+      # @return [Hash] Sync page
+      def sync(customer_ref: nil, cursor: nil, limit: nil)
+        @http.request(:get, "/connector/sync", query: { customerRef: customer_ref, cursor: cursor, limit: limit })
+      end
+
+      # Retrieve a Connector document lifecycle snapshot.
+      #
+      # @param document_id [String] Connector document ID
+      # @return [Hash] Document lifecycle snapshot
+      def get_document(document_id)
+        @http.request(:get, "/connector/documents/#{encode(document_id)}")
+      end
+
+      # Download a Connector document UBL XML body.
+      #
+      # @param document_id [String] Connector document ID
+      # @return [String] UBL XML
+      def get_document_ubl(document_id)
+        @http.request_raw(:get, "/connector/documents/#{encode(document_id)}/ubl")
+      end
+
+      # Retrieve Connector document delivery evidence.
+      #
+      # @param document_id [String] Connector document ID
+      # @return [Hash] Evidence payload
+      def get_document_evidence(document_id)
+        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence")
+      end
+
+      # Retrieve the Connector evidence bundle manifest.
+      #
+      # @param document_id [String] Connector document ID
+      # @return [Hash] Evidence bundle manifest
+      def get_document_evidence_bundle(document_id)
+        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence-bundle")
+      end
+
+      # Execute a pending Connector action.
+      #
+      # @param action_id [String] Connector action ID
+      # @param body [Hash] Optional action request body
+      # @return [Hash] Action result
+      def run_action(action_id, body = {})
+        @http.request(:post, "/connector/actions/#{encode(action_id)}", body: body, retry_on_failure: true)
+      end
+
       private
 
       def encode(value)

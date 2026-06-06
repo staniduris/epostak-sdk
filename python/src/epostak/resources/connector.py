@@ -10,9 +10,16 @@ from epostak.resources.documents import _BaseResource, _build_query, _idempotenc
 if TYPE_CHECKING:
     from epostak.types import (
         ConnectorAckResponse,
+        ConnectorActionRequest,
+        ConnectorActionResponse,
+        ConnectorAutopilotRequest,
+        ConnectorAutopilotRunResponse,
         ConnectorEventsResponse,
         ConnectorInboxDocument,
         ConnectorInboxListResponse,
+        ConnectorMailboxListResponse,
+        ConnectorMailboxRepairRequest,
+        ConnectorMailboxUpdateResponse,
         ConnectorOutboxBatchSendResponse,
         ConnectorOutboxItem,
         ConnectorOutboxListResponse,
@@ -21,9 +28,14 @@ if TYPE_CHECKING:
         ConnectorOutboxStatus,
         ConnectorPreflightRequest,
         ConnectorPreflightResponse,
+        ConnectorReconcileResponse,
+        ConnectorReconcileStatus,
         ConnectorSendRequest,
         ConnectorSendResponse,
+        ConnectorSendPolicyOptions,
         ConnectorStatusResponse,
+        ConnectorSyncResponse,
+        ConnectorZenInputRequest,
     )
 
 
@@ -141,3 +153,88 @@ class ConnectorResource(_BaseResource):
     def cancel_outbox_item(self, outbox_id: str) -> ConnectorOutboxItem:
         """Cancel a staged outbox item before it is sent."""
         return self._request("DELETE", f"/connector/outbox/{quote(outbox_id, safe='')}")
+
+    def autopilot(self, body: ConnectorAutopilotRequest) -> ConnectorAutopilotRunResponse:
+        """Start a managed Connector Autopilot lifecycle run."""
+        return self._request("POST", "/connector/autopilot", json=body)
+
+    def zen_input(self, body: ConnectorZenInputRequest) -> ConnectorAutopilotRunResponse:
+        """Normalize a loose ERP/customer payload into a Connector lifecycle run."""
+        return self._request("POST", "/connector/zen-input", json=body)
+
+    def get_autopilot_run(self, autopilot_id: str) -> ConnectorAutopilotRunResponse:
+        """Retrieve an Autopilot run by ID."""
+        return self._request("GET", f"/connector/autopilot/{quote(autopilot_id, safe='')}")
+
+    def send_autopilot_run(self, autopilot_id: str) -> ConnectorAutopilotRunResponse:
+        """Send a shadow-validated or staged Autopilot run."""
+        return self._request("POST", f"/connector/autopilot/{quote(autopilot_id, safe='')}/send", json={})
+
+    def reconcile(
+        self,
+        *,
+        status: Optional[ConnectorReconcileStatus] = None,
+        since: Optional[str] = None,
+    ) -> ConnectorReconcileResponse:
+        """List Connector reconciliation items for ERP state sync."""
+        params = _build_query({"status": status, "since": since})
+        return self._request("GET", "/connector/reconcile", params=params)
+
+    def mailboxes(self) -> ConnectorMailboxListResponse:
+        """List Connector-managed customer mailboxes."""
+        return self._request("GET", "/connector/mailbox")
+
+    def repair_mailbox(
+        self,
+        body: Optional[ConnectorMailboxRepairRequest] = None,
+    ) -> Dict[str, Any]:
+        """Repair Connector mailbox state for one customer or all customers."""
+        return self._request("POST", "/connector/mailbox/repair", json=body or {})
+
+    def update_mailbox_send_policy(
+        self,
+        customer_ref: str,
+        body: ConnectorSendPolicyOptions,
+    ) -> ConnectorMailboxUpdateResponse:
+        """Update the managed send policy for a Connector mailbox."""
+        return self._request(
+            "PATCH",
+            f"/connector/mailbox/{quote(customer_ref, safe='')}/send-policy",
+            json=body,
+        )
+
+    def sync(
+        self,
+        *,
+        customer_ref: Optional[str] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> ConnectorSyncResponse:
+        """List Connector sync items for ERP reconciliation cursors."""
+        params = _build_query({"customerRef": customer_ref, "cursor": cursor, "limit": limit})
+        return self._request("GET", "/connector/sync", params=params)
+
+    def get_document(self, document_id: str) -> Dict[str, Any]:
+        """Retrieve a Connector document lifecycle snapshot."""
+        return self._request("GET", f"/connector/documents/{quote(document_id, safe='')}")
+
+    def get_document_ubl(self, document_id: str) -> str:
+        """Download a Connector document UBL XML body."""
+        response = self._request("GET", f"/connector/documents/{quote(document_id, safe='')}/ubl", raw=True)
+        return response.text
+
+    def get_document_evidence(self, document_id: str) -> Dict[str, Any]:
+        """Retrieve Connector document delivery evidence."""
+        return self._request("GET", f"/connector/documents/{quote(document_id, safe='')}/evidence")
+
+    def get_document_evidence_bundle(self, document_id: str) -> Dict[str, Any]:
+        """Retrieve the Connector evidence bundle manifest."""
+        return self._request("GET", f"/connector/documents/{quote(document_id, safe='')}/evidence-bundle")
+
+    def run_action(
+        self,
+        action_id: str,
+        body: Optional[ConnectorActionRequest] = None,
+    ) -> ConnectorActionResponse:
+        """Execute a pending Connector action."""
+        return self._request("POST", f"/connector/actions/{quote(action_id, safe='')}", json=body or {})

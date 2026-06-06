@@ -12,9 +12,9 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 
 ### Unreleased
 
-- `client.connector` — Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- `client.connector` — Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
-- Static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+- Static endpoint coverage expanded to 317 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v0.10.0 — 2026-05-18
 
@@ -115,6 +115,22 @@ For immediate send without staging:
 ```python
 sent = client.connector.send(invoice, idempotency_key="erp-fa-2026-001-send")
 print(sent["documentId"], sent["status"])
+```
+
+Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
+ERP sync jobs one place to read exceptions:
+
+```python
+run = client.connector.autopilot({
+    "customerRef": "erp-customer-1",
+    "mode": "shadow",
+    "externalId": "FA-2026-001",
+    "idempotencyKey": "erp-fa-2026-001",
+    "payload": invoice,
+})
+sent_run = client.connector.send_autopilot_run(run["autopilotId"])
+exceptions = client.connector.reconcile(status="exceptions")
+print(sent_run["lifecycleStatus"], exceptions["total"])
 ```
 
 Common sandbox scenarios to test:
@@ -618,6 +634,20 @@ except EPostakError as err:
 | `connector.send_outbox_item(outbox_id, force=...)`             | POST   | `/connector/outbox/{outboxId}/send`  |
 | `connector.send_outbox_batch(ids=..., limit=...)`              | POST   | `/connector/outbox/send`             |
 | `connector.cancel_outbox_item(outbox_id)`                      | DELETE | `/connector/outbox/{outboxId}`       |
+| `connector.zen_input(body)`                                    | POST   | `/connector/zen-input`               |
+| `connector.autopilot(body)`                                    | POST   | `/connector/autopilot`               |
+| `connector.get_autopilot_run(autopilot_id)`                    | GET    | `/connector/autopilot/{autopilotId}` |
+| `connector.send_autopilot_run(autopilot_id)`                   | POST   | `/connector/autopilot/{autopilotId}/send` |
+| `connector.reconcile(status=..., since=...)`                   | GET    | `/connector/reconcile`               |
+| `connector.mailboxes()`                                        | GET    | `/connector/mailbox`                 |
+| `connector.repair_mailbox(body=None)`                          | POST   | `/connector/mailbox/repair`          |
+| `connector.update_mailbox_send_policy(customer_ref, body)`      | PATCH  | `/connector/mailbox/{customerRef}/send-policy` |
+| `connector.sync(customer_ref=..., cursor=..., limit=...)`       | GET    | `/connector/sync`                    |
+| `connector.get_document(document_id)`                          | GET    | `/connector/documents/{documentId}`  |
+| `connector.get_document_ubl(document_id)`                      | GET    | `/connector/documents/{documentId}/ubl` |
+| `connector.get_document_evidence(document_id)`                 | GET    | `/connector/documents/{documentId}/evidence` |
+| `connector.get_document_evidence_bundle(document_id)`          | GET    | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector.run_action(action_id, body=None)`                   | POST   | `/connector/actions/{actionId}`      |
 | `connector.status(document_id)`                                | GET    | `/connector/status/{documentId}`     |
 | `connector.inbox(**params)`                                    | GET    | `/connector/inbox`                   |
 | `connector.get_inbox_document(document_id)`                    | GET    | `/connector/inbox/{documentId}`      |

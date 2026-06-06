@@ -1,5 +1,6 @@
 package sk.epostak.sdk.resources;
 
+import com.google.gson.reflect.TypeToken;
 import sk.epostak.sdk.HttpClient;
 import sk.epostak.sdk.models.*;
 
@@ -239,5 +240,223 @@ public final class ConnectorResource {
      */
     public ConnectorOutboxItem cancelOutboxItem(String outboxId) {
         return http.delete("/connector/outbox/" + HttpClient.encode(outboxId), ConnectorOutboxItem.class);
+    }
+
+    /**
+     * Start a managed Connector Autopilot lifecycle run.
+     *
+     * @param request Autopilot request with mode, payload, and optional IDs
+     * @return Autopilot run lifecycle response
+     */
+    public ConnectorAutopilotRunResponse autopilot(ConnectorAutopilotRequest request) {
+        return http.post("/connector/autopilot", request, ConnectorAutopilotRunResponse.class);
+    }
+
+    /**
+     * Normalize a loose ERP/customer payload into a Connector lifecycle run.
+     *
+     * @param request Zen input request with customerRef and invoice/customer fields
+     * @return Autopilot run lifecycle response
+     */
+    public ConnectorAutopilotRunResponse zenInput(Map<String, Object> request) {
+        return http.post("/connector/zen-input", request, ConnectorAutopilotRunResponse.class);
+    }
+
+    /**
+     * Retrieve an Autopilot run by ID.
+     *
+     * @param autopilotId Connector Autopilot run ID
+     * @return Autopilot run lifecycle response
+     */
+    public ConnectorAutopilotRunResponse getAutopilotRun(String autopilotId) {
+        return http.get("/connector/autopilot/" + HttpClient.encode(autopilotId), ConnectorAutopilotRunResponse.class);
+    }
+
+    /**
+     * Send a shadow-validated or staged Autopilot run.
+     *
+     * @param autopilotId Connector Autopilot run ID
+     * @return Autopilot run lifecycle response
+     */
+    public ConnectorAutopilotRunResponse sendAutopilotRun(String autopilotId) {
+        return http.post(
+                "/connector/autopilot/" + HttpClient.encode(autopilotId) + "/send",
+                Map.of(),
+                ConnectorAutopilotRunResponse.class
+        );
+    }
+
+    /**
+     * List Connector reconciliation items for ERP state sync.
+     *
+     * @param params optional reconciliation filters
+     * @return reconciliation items
+     */
+    public ConnectorReconcileResponse reconcile(ConnectorReconcileParams params) {
+        Map<String, Object> qp = new LinkedHashMap<>();
+        if (params != null) {
+            qp.put("status", params.status());
+            qp.put("since", params.since());
+        }
+        return http.get("/connector/reconcile" + HttpClient.buildQuery(qp), ConnectorReconcileResponse.class);
+    }
+
+    /**
+     * List Connector reconciliation exceptions with default params.
+     *
+     * @return reconciliation items
+     */
+    public ConnectorReconcileResponse reconcile() {
+        return reconcile(ConnectorReconcileParams.empty());
+    }
+
+    /**
+     * List Connector-managed customer mailboxes.
+     *
+     * @return mailbox list response
+     */
+    public ConnectorMailboxListResponse mailboxes() {
+        return http.get("/connector/mailbox", ConnectorMailboxListResponse.class);
+    }
+
+    /**
+     * Repair Connector mailbox state for one customer or all customers.
+     *
+     * @param request optional repair request body
+     * @return repair result
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> repairMailbox(ConnectorMailboxRepairRequest request) {
+        return (Map<String, Object>) http.post(
+                "/connector/mailbox/repair",
+                request == null ? ConnectorMailboxRepairRequest.empty() : request,
+                Map.class
+        );
+    }
+
+    /**
+     * Repair Connector mailbox state for all customers.
+     *
+     * @return repair result
+     */
+    public Map<String, Object> repairMailbox() {
+        return repairMailbox(ConnectorMailboxRepairRequest.empty());
+    }
+
+    /**
+     * Update the managed send policy for a Connector mailbox.
+     *
+     * @param customerRef Connector mailbox customer reference
+     * @param request send policy request
+     * @return updated mailbox response
+     */
+    public ConnectorMailboxUpdateResponse updateMailboxSendPolicy(String customerRef, ConnectorSendPolicyOptions request) {
+        return http.patch(
+                "/connector/mailbox/" + HttpClient.encode(customerRef) + "/send-policy",
+                request,
+                ConnectorMailboxUpdateResponse.class
+        );
+    }
+
+    /**
+     * List Connector sync items for ERP reconciliation cursors.
+     *
+     * @param params optional sync filters
+     * @return sync page
+     */
+    public ConnectorSyncResponse sync(ConnectorSyncParams params) {
+        Map<String, Object> qp = new LinkedHashMap<>();
+        if (params != null) {
+            qp.put("customerRef", params.customerRef());
+            qp.put("cursor", params.cursor());
+            qp.put("limit", params.limit());
+        }
+        return http.get("/connector/sync" + HttpClient.buildQuery(qp), ConnectorSyncResponse.class);
+    }
+
+    /**
+     * List Connector sync items with default parameters.
+     *
+     * @return sync page
+     */
+    public ConnectorSyncResponse sync() {
+        return sync(ConnectorSyncParams.empty());
+    }
+
+    /**
+     * Retrieve a Connector document lifecycle snapshot.
+     *
+     * @param documentId Connector document ID
+     * @return document lifecycle snapshot
+     */
+    public Map<String, Object> getDocument(String documentId) {
+        return http.getTyped(
+                "/connector/documents/" + HttpClient.encode(documentId),
+                new TypeToken<Map<String, Object>>() {
+                }
+        );
+    }
+
+    /**
+     * Download a Connector document UBL XML body.
+     *
+     * @param documentId Connector document ID
+     * @return UBL XML
+     */
+    public String getDocumentUbl(String documentId) {
+        return http.getString("/connector/documents/" + HttpClient.encode(documentId) + "/ubl");
+    }
+
+    /**
+     * Retrieve Connector document delivery evidence.
+     *
+     * @param documentId Connector document ID
+     * @return evidence payload
+     */
+    public Map<String, Object> getDocumentEvidence(String documentId) {
+        return http.getTyped(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence",
+                new TypeToken<Map<String, Object>>() {
+                }
+        );
+    }
+
+    /**
+     * Retrieve the Connector evidence bundle manifest.
+     *
+     * @param documentId Connector document ID
+     * @return evidence bundle manifest
+     */
+    public Map<String, Object> getDocumentEvidenceBundle(String documentId) {
+        return http.getTyped(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence-bundle",
+                new TypeToken<Map<String, Object>>() {
+                }
+        );
+    }
+
+    /**
+     * Execute a pending Connector action.
+     *
+     * @param actionId Connector action ID
+     * @param request optional action request body
+     * @return action result
+     */
+    public ConnectorActionResponse runAction(String actionId, ConnectorActionRequest request) {
+        return http.post(
+                "/connector/actions/" + HttpClient.encode(actionId),
+                request == null ? ConnectorActionRequest.empty() : request,
+                ConnectorActionResponse.class
+        );
+    }
+
+    /**
+     * Execute a pending Connector action with an empty request body.
+     *
+     * @param actionId Connector action ID
+     * @return action result
+     */
+    public ConnectorActionResponse runAction(String actionId) {
+        return runAction(actionId, ConnectorActionRequest.empty());
     }
 }

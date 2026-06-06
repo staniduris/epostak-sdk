@@ -240,6 +240,135 @@ class ConnectorEventsResponse(TypedDict, total=False):
     hasMore: bool
 
 
+ConnectorAutopilotMode = Literal["shadow", "stage", "send"]
+ConnectorAutopilotLifecycleStatus = Literal[
+    "received",
+    "shadow_validated",
+    "needs_repair",
+    "staged",
+    "sending",
+    "sent",
+    "delivered",
+    "processed",
+    "retry_later",
+    "failed_external",
+    "failed_internal",
+    "cancelled",
+]
+
+
+class ConnectorAutopilotRequest(TypedDict, total=False):
+    customerRef: str
+    mode: ConnectorAutopilotMode
+    externalId: Optional[str]
+    idempotencyKey: Optional[str]
+    payload: ConnectorSendRequest
+    send: "ConnectorSendPolicyOptions"
+    options: Dict[str, Any]
+
+
+class ConnectorAutopilotRunResponse(TypedDict, total=False):
+    autopilotId: str
+    externalId: Optional[str]
+    idempotencyKey: Optional[str]
+    mode: str
+    lifecycleStatus: str
+    replayed: bool
+    preflight: Optional[Dict[str, Any]]
+    repairReport: Optional[Dict[str, Any]]
+    safeFixes: List[ConnectorSafeFix]
+    send: Optional[Dict[str, Any]]
+    status: Optional[Dict[str, Any]]
+    lastError: Optional[Dict[str, Any]]
+    documentId: Optional[str]
+    outboxId: Optional[str]
+    sentAt: Optional[str]
+    deliveredAt: Optional[str]
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+    nextActions: List[str]
+    links: Dict[str, str]
+
+
+ConnectorReconcileStatus = Literal["exceptions", "all"]
+ConnectorReconcileItemType = Literal["autopilot_run", "outbox_item", "inbox_document"]
+ConnectorReconcileOwner = Literal["sender_erp", "epostak", "receiver"]
+
+
+class ConnectorReconcileItem(TypedDict, total=False):
+    type: ConnectorReconcileItemType
+    id: str
+    externalId: Optional[str]
+    lifecycleStatus: str
+    reason: str
+    owner: ConnectorReconcileOwner
+    updatedAt: Optional[str]
+    repairReport: Optional[Dict[str, Any]]
+    lastError: Optional[Dict[str, Any]]
+    links: Dict[str, str]
+
+
+class ConnectorReconcileResponse(TypedDict, total=False):
+    status: ConnectorReconcileStatus
+    since: Optional[str]
+    generatedAt: str
+    total: int
+    items: List[ConnectorReconcileItem]
+
+
+ConnectorSendPolicy = Literal["stage_only", "immediate", "scheduled_at", "daily_batch", "paused"]
+
+
+class ConnectorSendPolicyOptions(TypedDict, total=False):
+    policy: ConnectorSendPolicy
+    sendAt: Optional[str]
+
+
+class ConnectorZenInputRequest(TypedDict, total=False):
+    customerRef: str
+    previewOnly: bool
+    mode: ConnectorAutopilotMode
+    externalId: Optional[str]
+    idempotencyKey: Optional[str]
+    invoiceNo: Optional[str]
+    invoiceNumber: Optional[str]
+    receiverPeppolId: Optional[str]
+    receiver: Dict[str, Any]
+    buyer: Dict[str, Any]
+    customer: Dict[str, Any]
+    lines: List[Dict[str, Any]]
+    items: List[Dict[str, Any]]
+    send: ConnectorSendPolicyOptions
+
+
+class ConnectorMailboxListResponse(TypedDict, total=False):
+    mailboxes: List[Dict[str, Any]]
+
+
+class ConnectorMailboxRepairRequest(TypedDict, total=False):
+    customerRef: str
+
+
+class ConnectorMailboxUpdateResponse(TypedDict, total=False):
+    mailbox: Dict[str, Any]
+
+
+class ConnectorSyncResponse(TypedDict, total=False):
+    items: List[Dict[str, Any]]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class ConnectorActionRequest(TypedDict, total=False):
+    sendAt: Optional[str]
+    status: Optional[str]
+    note: Optional[str]
+
+
+class ConnectorActionResponse(TypedDict, total=False):
+    action: Dict[str, Any]
+
+
 ConnectorOutboxStatus = Literal["ready", "blocked", "scheduled", "sending", "sent", "failed", "cancelled"]
 
 

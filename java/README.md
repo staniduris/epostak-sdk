@@ -28,7 +28,7 @@ implementation 'sk.epostak:epostak-sdk:0.10.0'
 
 ### Unreleased
 
-- `client.connector()` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- `client.connector()` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
@@ -146,6 +146,28 @@ ConnectorSendResponse sent = client.connector().send(
     "erp-fa-2026-001-send"
 );
 System.out.println(sent.documentId() + " " + sent.status());
+```
+
+Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
+ERP sync jobs one place to read exceptions:
+
+```java
+ConnectorAutopilotRunResponse run = client.connector().autopilot(
+    new ConnectorAutopilotRequest(
+        "erp-customer-1",
+        "shadow",
+        "FA-2026-001",
+        "erp-fa-2026-001",
+        invoice,
+        null,
+        null
+    )
+);
+ConnectorAutopilotRunResponse sentRun = client.connector().sendAutopilotRun(run.autopilotId());
+ConnectorReconcileResponse exceptions = client.connector().reconcile(
+    new ConnectorReconcileParams("exceptions", null)
+);
+System.out.println(sentRun.lifecycleStatus() + " " + exceptions.total());
 ```
 
 Common sandbox scenarios to test:
@@ -784,6 +806,20 @@ try {
 | `connector().sendOutboxItem(outboxId, options)` | POST | `/connector/outbox/{outboxId}/send` |
 | `connector().sendOutboxBatch(request)` | POST  | `/connector/outbox/send`             |
 | `connector().cancelOutboxItem(outboxId)` | DELETE | `/connector/outbox/{outboxId}`     |
+| `connector().zenInput(request)`        | POST   | `/connector/zen-input`               |
+| `connector().autopilot(request)`      | POST   | `/connector/autopilot`               |
+| `connector().getAutopilotRun(autopilotId)` | GET | `/connector/autopilot/{autopilotId}` |
+| `connector().sendAutopilotRun(autopilotId)` | POST | `/connector/autopilot/{autopilotId}/send` |
+| `connector().reconcile(params)`       | GET    | `/connector/reconcile`               |
+| `connector().mailboxes()`             | GET    | `/connector/mailbox`                 |
+| `connector().repairMailbox(request)`  | POST   | `/connector/mailbox/repair`          |
+| `connector().updateMailboxSendPolicy(customerRef, request)` | PATCH | `/connector/mailbox/{customerRef}/send-policy` |
+| `connector().sync(params)`            | GET    | `/connector/sync`                    |
+| `connector().getDocument(documentId)` | GET    | `/connector/documents/{documentId}`  |
+| `connector().getDocumentUbl(documentId)` | GET | `/connector/documents/{documentId}/ubl` |
+| `connector().getDocumentEvidence(documentId)` | GET | `/connector/documents/{documentId}/evidence` |
+| `connector().getDocumentEvidenceBundle(documentId)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector().runAction(actionId, request)` | POST | `/connector/actions/{actionId}`    |
 | `connector().status(documentId)`      | GET    | `/connector/status/{documentId}`     |
 | `connector().inbox(params)`           | GET    | `/connector/inbox`                   |
 | `connector().getInboxDocument(documentId)` | GET | `/connector/inbox/{documentId}`      |

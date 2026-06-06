@@ -18,7 +18,7 @@ Or add to your `.csproj`:
 
 ### Unreleased
 
-- `client.Connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
+- `client.Connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
@@ -195,6 +195,26 @@ var request = new ConnectorSendRequest
 
 var immediate = await client.Connector.SendAsync(request, idempotencyKey: "erp-fa-2026-001-send");
 Console.WriteLine($"{immediate.DocumentId} {immediate.Status}");
+```
+
+Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
+ERP sync jobs one place to read exceptions:
+
+```csharp
+var run = await client.Connector.AutopilotAsync(new ConnectorAutopilotRequest
+{
+    CustomerRef = "erp-customer-1",
+    Mode = "shadow",
+    ExternalId = "FA-2026-001",
+    IdempotencyKey = "erp-fa-2026-001",
+    Payload = invoice
+});
+var sentRun = await client.Connector.SendAutopilotRunAsync(run.AutopilotId);
+var exceptions = await client.Connector.ReconcileAsync(new ConnectorReconcileParams
+{
+    Status = "exceptions"
+});
+Console.WriteLine($"{sentRun.LifecycleStatus} {exceptions.Total}");
 ```
 
 Common sandbox scenarios to test:

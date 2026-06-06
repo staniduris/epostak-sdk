@@ -461,6 +461,125 @@ describe("client.connector", () => {
     assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/outbox/send") && req.body.includes('"ids":["outbox-1"]')));
     assert.ok(captured.some((req) => req.method === "DELETE" && req.url.includes("/connector/outbox/outbox-1")));
   });
+
+  it("autopilot lifecycle and reconcile use Connector v2 paths", async () => {
+    const client = makeClient();
+    const captured: Array<{ method: string; url: string; body: string }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+
+      captured.push({
+        method: init?.method ?? "GET",
+        url,
+        body: String(init?.body ?? ""),
+      });
+
+      if (url.includes("/connector/reconcile")) {
+        return makeMockResponse({ status: "exceptions", since: null, generatedAt: "2026-06-06T10:00:00.000Z", total: 0, items: [] });
+      }
+      return makeMockResponse({
+        autopilotId: "auto-1",
+        mode: "shadow",
+        lifecycleStatus: "shadow_validated",
+        replayed: false,
+        nextActions: ["send"],
+        links: { self: "/api/v1/connector/autopilot/auto-1" },
+      }, init?.method === "POST" && url.endsWith("/connector/autopilot") ? 201 : 200);
+    });
+
+    await client.connector.autopilot({
+      customerRef: "erp-customer-1",
+      mode: "shadow",
+      externalId: "ERP-FA-2026-001",
+      idempotencyKey: "erp-fa-2026-001",
+      payload: { receiverPeppolId: "0245:1234567890", invoiceNumber: "FA-2026-001" },
+    });
+    await client.connector.getAutopilotRun("auto-1");
+    await client.connector.sendAutopilotRun("auto-1");
+    await client.connector.reconcile({ status: "exceptions", since: "2026-06-01T00:00:00.000Z" });
+
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/autopilot") && req.body.includes('"mode":"shadow"')));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/autopilot/auto-1")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/autopilot/auto-1/send")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/reconcile?status=exceptions&since=2026-06-01T00%3A00%3A00.000Z")));
+  });
+
+  it("managed Connector v2 endpoints use current production paths", async () => {
+    const client = makeClient();
+    const captured: Array<{ method: string; url: string; body: string }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+
+      captured.push({
+        method: init?.method ?? "GET",
+        url,
+        body: String(init?.body ?? ""),
+      });
+
+      if (url.includes("/connector/documents/doc-1/ubl")) {
+        return new Response("<Invoice/>", { status: 200, headers: { "content-type": "application/xml" } });
+      }
+      if (url.includes("/connector/mailbox")) {
+        return makeMockResponse(url.includes("send-policy") ? { mailbox: { customerRef: "erp-customer-1" } } : { mailboxes: [] });
+      }
+      if (url.includes("/connector/sync")) {
+        return makeMockResponse({ items: [], nextCursor: null, hasMore: false });
+      }
+      if (url.includes("/connector/actions/action-1")) {
+        return makeMockResponse({ action: { id: "action-1" } });
+      }
+      if (url.includes("/connector/zen-input")) {
+        return makeMockResponse({ autopilotId: "auto-1", mode: "stage", lifecycleStatus: "staged" }, 201);
+      }
+      return makeMockResponse({ documentId: "doc-1" });
+    });
+
+    await client.connector.zenInput({
+      customerRef: "erp-customer-1",
+      invoiceNumber: "FA-2026-002",
+      mode: "stage",
+      send: { policy: "stage_only" },
+    });
+    await client.connector.mailboxes();
+    await client.connector.repairMailbox({ customerRef: "erp-customer-1" });
+    await client.connector.updateMailboxSendPolicy("erp-customer-1", { policy: "daily_batch" });
+    await client.connector.sync({ customerRef: "erp-customer-1", cursor: "cur-1", limit: 50 });
+    await client.connector.getDocument("doc-1");
+    const ubl = await client.connector.getDocumentUbl("doc-1");
+    await client.connector.getDocumentEvidence("doc-1");
+    await client.connector.getDocumentEvidenceBundle("doc-1");
+    await client.connector.runAction("action-1", { note: "send now" });
+
+    assert.strictEqual(ubl, "<Invoice/>");
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/zen-input") && req.body.includes("erp-customer-1")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/mailbox")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mailbox/repair") && req.body.includes("erp-customer-1")));
+    assert.ok(captured.some((req) => req.method === "PATCH" && req.url.includes("/connector/mailbox/erp-customer-1/send-policy")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/sync?customerRef=erp-customer-1&cursor=cur-1&limit=50")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/documents/doc-1")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/documents/doc-1/ubl")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/documents/doc-1/evidence")));
+    assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/documents/doc-1/evidence-bundle")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/actions/action-1") && req.body.includes("send now")));
+  });
 });
 
 // ---------------------------------------------------------------------------

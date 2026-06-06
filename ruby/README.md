@@ -5,7 +5,7 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 ## Recent changes
 
 **Unreleased**
-- `client.connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling
+- `client.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence
 - `client.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
 - `client.reporting.submissions(...)` covers `GET /reporting/submissions`
@@ -111,6 +111,22 @@ For immediate send without staging:
 ```ruby
 sent = client.connector.send_document(invoice, idempotency_key: "erp-fa-2026-001-send")
 puts "#{sent["documentId"]} #{sent["status"]}"
+```
+
+Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
+ERP sync jobs one place to read exceptions:
+
+```ruby
+run = client.connector.autopilot(
+  customerRef: "erp-customer-1",
+  mode: "shadow",
+  externalId: "FA-2026-001",
+  idempotencyKey: "erp-fa-2026-001",
+  payload: invoice
+)
+sent_run = client.connector.send_autopilot_run(run["autopilotId"])
+exceptions = client.connector.reconcile(status: "exceptions")
+puts "#{sent_run["lifecycleStatus"]} #{exceptions["total"]}"
 ```
 
 Common sandbox scenarios to test:

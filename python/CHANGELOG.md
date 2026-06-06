@@ -10,6 +10,11 @@ file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - Added `client.connector` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
+- Added Connector v2 helpers: `client.connector.zen_input(...)`,
+  `autopilot(...)`, `get_autopilot_run(...)`, `send_autopilot_run(...)`,
+  `reconcile(...)`, `mailboxes()`, `repair_mailbox(...)`,
+  `update_mailbox_send_policy(...)`, `sync(...)`, Connector document/evidence
+  helpers, and `run_action(...)`.
 - Added `client.documents.status_batch(ids)` for `POST /documents/status/batch`.
 - Added `client.reporting.submissions(...)` for `GET /reporting/submissions`.
 - Added `client.integrator.keys.list()` and `deactivate(...)` for the

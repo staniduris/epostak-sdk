@@ -11,6 +11,10 @@ All notable changes to the official ePošťák Java SDK
 - Added `client.connector()` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
+- Added Connector v2 helpers: `zenInput(...)`, `autopilot(...)`,
+  `getAutopilotRun(...)`, `sendAutopilotRun(...)`, `reconcile(...)`,
+  `mailboxes()`, `repairMailbox(...)`, `updateMailboxSendPolicy(...)`,
+  `sync(...)`, Connector document/evidence helpers, and `runAction(...)`.
 - Added `client.documents().statusBatch(ids)` for `POST /documents/status/batch`.
 - Added `client.reporting().submissions(...)` for `GET /reporting/submissions`.
 - Added `client.integrator().keys().list()` and deactivate helpers for the

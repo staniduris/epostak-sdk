@@ -226,6 +226,266 @@ public sealed class ConnectorEventsResponse
     public bool HasMore { get; set; }
 }
 
+/// <summary>Request body for <c>POST /connector/autopilot</c>.</summary>
+public sealed class ConnectorAutopilotRequest
+{
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = "shadow";
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+
+    [JsonPropertyName("payload")]
+    public Dictionary<string, object?> Payload { get; set; } = [];
+
+    [JsonPropertyName("send")]
+    public ConnectorSendPolicyOptions? Send { get; set; }
+
+    [JsonPropertyName("options")]
+    public Dictionary<string, object?>? Options { get; set; }
+}
+
+public sealed class ConnectorAutopilotRunResponse
+{
+    [JsonPropertyName("autopilotId")]
+    public string AutopilotId { get; set; } = "";
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = "";
+
+    [JsonPropertyName("lifecycleStatus")]
+    public string LifecycleStatus { get; set; } = "";
+
+    [JsonPropertyName("replayed")]
+    public bool Replayed { get; set; }
+
+    [JsonPropertyName("preflight")]
+    public Dictionary<string, object?>? Preflight { get; set; }
+
+    [JsonPropertyName("repairReport")]
+    public Dictionary<string, object?>? RepairReport { get; set; }
+
+    [JsonPropertyName("safeFixes")]
+    public List<ConnectorSafeFix> SafeFixes { get; set; } = [];
+
+    [JsonPropertyName("send")]
+    public Dictionary<string, object?>? Send { get; set; }
+
+    [JsonPropertyName("status")]
+    public Dictionary<string, object?>? Status { get; set; }
+
+    [JsonPropertyName("lastError")]
+    public Dictionary<string, object?>? LastError { get; set; }
+
+    [JsonPropertyName("documentId")]
+    public string? DocumentId { get; set; }
+
+    [JsonPropertyName("outboxId")]
+    public string? OutboxId { get; set; }
+
+    [JsonPropertyName("sentAt")]
+    public string? SentAt { get; set; }
+
+    [JsonPropertyName("deliveredAt")]
+    public string? DeliveredAt { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string? CreatedAt { get; set; }
+
+    [JsonPropertyName("updatedAt")]
+    public string? UpdatedAt { get; set; }
+
+    [JsonPropertyName("nextActions")]
+    public List<string> NextActions { get; set; } = [];
+
+    [JsonPropertyName("links")]
+    public Dictionary<string, string>? Links { get; set; }
+}
+
+public sealed class ConnectorReconcileParams
+{
+    public string? Status { get; set; }
+    public string? Since { get; set; }
+}
+
+public sealed class ConnectorReconcileItem
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("lifecycleStatus")]
+    public string LifecycleStatus { get; set; } = "";
+
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "";
+
+    [JsonPropertyName("owner")]
+    public string Owner { get; set; } = "";
+
+    [JsonPropertyName("updatedAt")]
+    public string? UpdatedAt { get; set; }
+
+    [JsonPropertyName("repairReport")]
+    public Dictionary<string, object?>? RepairReport { get; set; }
+
+    [JsonPropertyName("lastError")]
+    public Dictionary<string, object?>? LastError { get; set; }
+
+    [JsonPropertyName("links")]
+    public Dictionary<string, string>? Links { get; set; }
+}
+
+public sealed class ConnectorReconcileResponse
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("since")]
+    public string? Since { get; set; }
+
+    [JsonPropertyName("generatedAt")]
+    public string GeneratedAt { get; set; } = "";
+
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<ConnectorReconcileItem> Items { get; set; } = [];
+}
+
+public sealed class ConnectorSendPolicyOptions
+{
+    [JsonPropertyName("policy")]
+    public string Policy { get; set; } = "";
+
+    [JsonPropertyName("sendAt")]
+    public string? SendAt { get; set; }
+}
+
+public sealed class ConnectorZenInputRequest
+{
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("previewOnly")]
+    public bool? PreviewOnly { get; set; }
+
+    [JsonPropertyName("mode")]
+    public string? Mode { get; set; }
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+
+    [JsonPropertyName("invoiceNo")]
+    public string? InvoiceNo { get; set; }
+
+    [JsonPropertyName("invoiceNumber")]
+    public string? InvoiceNumber { get; set; }
+
+    [JsonPropertyName("receiverPeppolId")]
+    public string? ReceiverPeppolId { get; set; }
+
+    [JsonPropertyName("receiver")]
+    public Dictionary<string, object?>? Receiver { get; set; }
+
+    [JsonPropertyName("buyer")]
+    public Dictionary<string, object?>? Buyer { get; set; }
+
+    [JsonPropertyName("customer")]
+    public Dictionary<string, object?>? Customer { get; set; }
+
+    [JsonPropertyName("lines")]
+    public List<Dictionary<string, object?>>? Lines { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<Dictionary<string, object?>>? Items { get; set; }
+
+    [JsonPropertyName("send")]
+    public ConnectorSendPolicyOptions? Send { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, object?> Extra { get; set; } = [];
+}
+
+public sealed class ConnectorMailboxListResponse
+{
+    [JsonPropertyName("mailboxes")]
+    public List<Dictionary<string, object?>> Mailboxes { get; set; } = [];
+}
+
+public sealed class ConnectorMailboxRepairRequest
+{
+    [JsonPropertyName("customerRef")]
+    public string? CustomerRef { get; set; }
+}
+
+public sealed class ConnectorMailboxUpdateResponse
+{
+    [JsonPropertyName("mailbox")]
+    public Dictionary<string, object?> Mailbox { get; set; } = [];
+}
+
+public sealed class ConnectorSyncParams
+{
+    public string? CustomerRef { get; set; }
+    public string? Cursor { get; set; }
+    public int? Limit { get; set; }
+}
+
+public sealed class ConnectorSyncResponse
+{
+    [JsonPropertyName("items")]
+    public List<Dictionary<string, object?>> Items { get; set; } = [];
+
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; set; }
+}
+
+public sealed class ConnectorActionRequest
+{
+    [JsonPropertyName("sendAt")]
+    public string? SendAt { get; set; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, object?> Extra { get; set; } = [];
+}
+
+public sealed class ConnectorActionResponse
+{
+    [JsonPropertyName("action")]
+    public Dictionary<string, object?> Action { get; set; } = [];
+}
+
 /// <summary>One item accepted by <c>POST /connector/outbox</c>.</summary>
 public sealed class ConnectorOutboxStageItem
 {

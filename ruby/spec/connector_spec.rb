@@ -125,4 +125,88 @@ RSpec.describe EPostak::Resources::Connector do
     expect(batch_stub).to have_been_requested
     expect(cancel_stub).to have_been_requested
   end
+
+  it "uses Connector Autopilot and reconcile paths" do
+    autopilot_stub = stub_request(:post, "#{host}/connector/autopilot")
+      .with(body: /ERP-FA-2026-001/)
+      .to_return(
+        status: 201,
+        body: { "autopilotId" => "auto-1", "mode" => "shadow", "lifecycleStatus" => "shadow_validated" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+    detail_stub = stub_request(:get, "#{host}/connector/autopilot/auto-1")
+      .to_return(status: 200, body: { "autopilotId" => "auto-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    send_stub = stub_request(:post, "#{host}/connector/autopilot/auto-1/send")
+      .with(body: "{}")
+      .to_return(status: 200, body: { "autopilotId" => "auto-1", "lifecycleStatus" => "sent" }.to_json, headers: { "Content-Type" => "application/json" })
+    reconcile_stub = stub_request(:get, "#{host}/connector/reconcile")
+      .with(query: hash_including("status" => "exceptions", "since" => "2026-06-01T00:00:00.000Z"))
+      .to_return(status: 200, body: { "status" => "exceptions", "items" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+
+    client.connector.autopilot(
+      customerRef: "erp-customer-1",
+      mode: "shadow",
+      externalId: "ERP-FA-2026-001",
+      idempotencyKey: "erp-fa-2026-001",
+      payload: { receiverPeppolId: "0245:1234567890", invoiceNumber: "FA-2026-001" },
+    )
+    client.connector.get_autopilot_run("auto-1")
+    client.connector.send_autopilot_run("auto-1")
+    client.connector.reconcile(status: "exceptions", since: "2026-06-01T00:00:00.000Z")
+
+    expect(autopilot_stub).to have_been_requested
+    expect(detail_stub).to have_been_requested
+    expect(send_stub).to have_been_requested
+    expect(reconcile_stub).to have_been_requested
+  end
+
+  it "uses managed Connector v2 paths" do
+    zen_stub = stub_request(:post, "#{host}/connector/zen-input")
+      .with(body: /erp-customer-1/)
+      .to_return(status: 201, body: { "autopilotId" => "auto-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    mailboxes_stub = stub_request(:get, "#{host}/connector/mailbox")
+      .to_return(status: 200, body: { "mailboxes" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    repair_stub = stub_request(:post, "#{host}/connector/mailbox/repair")
+      .with(body: /erp-customer-1/)
+      .to_return(status: 200, body: { "repaired" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    policy_stub = stub_request(:patch, "#{host}/connector/mailbox/erp-customer-1/send-policy")
+      .with(body: /daily_batch/)
+      .to_return(status: 200, body: { "mailbox" => {} }.to_json, headers: { "Content-Type" => "application/json" })
+    sync_stub = stub_request(:get, "#{host}/connector/sync")
+      .with(query: hash_including("customerRef" => "erp-customer-1", "cursor" => "cur-1", "limit" => "50"))
+      .to_return(status: 200, body: { "items" => [], "hasMore" => false }.to_json, headers: { "Content-Type" => "application/json" })
+    document_stub = stub_request(:get, "#{host}/connector/documents/doc-1")
+      .to_return(status: 200, body: { "documentId" => "doc-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    ubl_stub = stub_request(:get, "#{host}/connector/documents/doc-1/ubl")
+      .to_return(status: 200, body: "<Invoice/>", headers: { "Content-Type" => "application/xml" })
+    evidence_stub = stub_request(:get, "#{host}/connector/documents/doc-1/evidence")
+      .to_return(status: 200, body: { "events" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    bundle_stub = stub_request(:get, "#{host}/connector/documents/doc-1/evidence-bundle")
+      .to_return(status: 200, body: { "bundle" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    action_stub = stub_request(:post, "#{host}/connector/actions/action-1")
+      .with(body: /send now/)
+      .to_return(status: 200, body: { "action" => {} }.to_json, headers: { "Content-Type" => "application/json" })
+
+    client.connector.zen_input(customerRef: "erp-customer-1", invoiceNumber: "FA-2026-002", mode: "stage")
+    client.connector.mailboxes
+    client.connector.repair_mailbox(customerRef: "erp-customer-1")
+    client.connector.update_mailbox_send_policy("erp-customer-1", policy: "daily_batch")
+    client.connector.sync(customer_ref: "erp-customer-1", cursor: "cur-1", limit: 50)
+    client.connector.get_document("doc-1")
+    expect(client.connector.get_document_ubl("doc-1")).to eq("<Invoice/>")
+    client.connector.get_document_evidence("doc-1")
+    client.connector.get_document_evidence_bundle("doc-1")
+    client.connector.run_action("action-1", note: "send now")
+
+    expect(zen_stub).to have_been_requested
+    expect(mailboxes_stub).to have_been_requested
+    expect(repair_stub).to have_been_requested
+    expect(policy_stub).to have_been_requested
+    expect(sync_stub).to have_been_requested
+    expect(document_stub).to have_been_requested
+    expect(ubl_stub).to have_been_requested
+    expect(evidence_stub).to have_been_requested
+    expect(bundle_stub).to have_been_requested
+    expect(action_stub).to have_been_requested
+  end
 end

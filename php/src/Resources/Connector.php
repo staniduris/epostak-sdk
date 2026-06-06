@@ -210,4 +210,194 @@ class Connector
     {
         return $this->http->request('DELETE', '/connector/outbox/' . urlencode($outboxId));
     }
+
+    /**
+     * Start a managed Connector Autopilot lifecycle run.
+     *
+     * @param array $body Autopilot request with mode, payload, and optional IDs.
+     * @return array Autopilot run lifecycle response.
+     * @throws EPostakError On API error.
+     */
+    public function autopilot(array $body): array
+    {
+        return $this->http->request('POST', '/connector/autopilot', [
+            'json' => $body,
+        ]);
+    }
+
+    /**
+     * Normalize a loose ERP/customer payload into a Connector lifecycle run.
+     *
+     * @param array $body Zen input request with customerRef and invoice/customer fields.
+     * @return array Autopilot run lifecycle response.
+     * @throws EPostakError On API error.
+     */
+    public function zenInput(array $body): array
+    {
+        return $this->http->request('POST', '/connector/zen-input', [
+            'json' => $body,
+        ]);
+    }
+
+    /**
+     * Retrieve an Autopilot run by ID.
+     *
+     * @param string $autopilotId Connector Autopilot run ID.
+     * @return array Autopilot run lifecycle response.
+     * @throws EPostakError On API error.
+     */
+    public function getAutopilotRun(string $autopilotId): array
+    {
+        return $this->http->request('GET', '/connector/autopilot/' . urlencode($autopilotId));
+    }
+
+    /**
+     * Send a shadow-validated or staged Autopilot run.
+     *
+     * @param string $autopilotId Connector Autopilot run ID.
+     * @return array Autopilot run lifecycle response.
+     * @throws EPostakError On API error.
+     */
+    public function sendAutopilotRun(string $autopilotId): array
+    {
+        return $this->http->request('POST', '/connector/autopilot/' . urlencode($autopilotId) . '/send', [
+            'json' => (object) [],
+        ]);
+    }
+
+    /**
+     * List Connector reconciliation items for ERP state sync.
+     *
+     * @param array{status?: string, since?: string} $params Optional reconciliation params.
+     * @return array Reconciliation items.
+     * @throws EPostakError On API error.
+     */
+    public function reconcile(array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'status' => $params['status'] ?? null,
+            'since' => $params['since'] ?? null,
+        ]);
+        return $this->http->request('GET', '/connector/reconcile' . $qs);
+    }
+
+    /**
+     * List Connector-managed customer mailboxes.
+     *
+     * @return array Mailbox list response.
+     * @throws EPostakError On API error.
+     */
+    public function mailboxes(): array
+    {
+        return $this->http->request('GET', '/connector/mailbox');
+    }
+
+    /**
+     * Repair Connector mailbox state for one customer or all customers.
+     *
+     * @param array{customerRef?: string} $body Optional repair request body.
+     * @return array Repair result.
+     * @throws EPostakError On API error.
+     */
+    public function repairMailbox(array $body = []): array
+    {
+        return $this->http->request('POST', '/connector/mailbox/repair', [
+            'json' => $body === [] ? (object) [] : $body,
+        ]);
+    }
+
+    /**
+     * Update the managed send policy for a Connector mailbox.
+     *
+     * @param string $customerRef Connector mailbox customer reference.
+     * @param array{policy: string, sendAt?: string} $body Send policy request.
+     * @return array Updated mailbox response.
+     * @throws EPostakError On API error.
+     */
+    public function updateMailboxSendPolicy(string $customerRef, array $body): array
+    {
+        return $this->http->request('PATCH', '/connector/mailbox/' . urlencode($customerRef) . '/send-policy', [
+            'json' => $body,
+        ]);
+    }
+
+    /**
+     * List Connector sync items for ERP reconciliation cursors.
+     *
+     * @param array{customerRef?: string, cursor?: string, limit?: int} $params Optional sync params.
+     * @return array Sync page.
+     * @throws EPostakError On API error.
+     */
+    public function sync(array $params = []): array
+    {
+        $qs = HttpClient::buildQuery([
+            'customerRef' => $params['customerRef'] ?? null,
+            'cursor' => $params['cursor'] ?? null,
+            'limit' => $params['limit'] ?? null,
+        ]);
+        return $this->http->request('GET', '/connector/sync' . $qs);
+    }
+
+    /**
+     * Retrieve a Connector document lifecycle snapshot.
+     *
+     * @param string $documentId Connector document ID.
+     * @return array Document lifecycle snapshot.
+     * @throws EPostakError On API error.
+     */
+    public function getDocument(string $documentId): array
+    {
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId));
+    }
+
+    /**
+     * Download a Connector document UBL XML body.
+     *
+     * @param string $documentId Connector document ID.
+     * @return string UBL XML.
+     * @throws EPostakError On API error.
+     */
+    public function getDocumentUbl(string $documentId): string
+    {
+        return $this->http->requestRaw('GET', '/connector/documents/' . urlencode($documentId) . '/ubl');
+    }
+
+    /**
+     * Retrieve Connector document delivery evidence.
+     *
+     * @param string $documentId Connector document ID.
+     * @return array Evidence payload.
+     * @throws EPostakError On API error.
+     */
+    public function getDocumentEvidence(string $documentId): array
+    {
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence');
+    }
+
+    /**
+     * Retrieve the Connector evidence bundle manifest.
+     *
+     * @param string $documentId Connector document ID.
+     * @return array Evidence bundle manifest.
+     * @throws EPostakError On API error.
+     */
+    public function getDocumentEvidenceBundle(string $documentId): array
+    {
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence-bundle');
+    }
+
+    /**
+     * Execute a pending Connector action.
+     *
+     * @param string $actionId Connector action ID.
+     * @param array{sendAt?: string, status?: string, note?: string} $body Optional action request body.
+     * @return array Action result.
+     * @throws EPostakError On API error.
+     */
+    public function runAction(string $actionId, array $body = []): array
+    {
+        return $this->http->request('POST', '/connector/actions/' . urlencode($actionId), [
+            'json' => $body === [] ? (object) [] : $body,
+        ]);
+    }
 }

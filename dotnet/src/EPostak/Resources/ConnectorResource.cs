@@ -95,4 +95,83 @@ public sealed class ConnectorResource
     /// <summary>Cancel a staged outbox item before it is sent.</summary>
     public Task<ConnectorOutboxItem> CancelOutboxItemAsync(string outboxId, CancellationToken ct = default)
         => _http.RequestAsync<ConnectorOutboxItem>(HttpMethod.Delete, $"/connector/outbox/{Uri.EscapeDataString(outboxId)}", ct);
+
+    /// <summary>Start a managed Connector Autopilot lifecycle run.</summary>
+    public Task<ConnectorAutopilotRunResponse> AutopilotAsync(ConnectorAutopilotRequest request, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/autopilot", request, ct);
+
+    /// <summary>Normalize a loose ERP/customer payload into a Connector lifecycle run.</summary>
+    public Task<ConnectorAutopilotRunResponse> ZenInputAsync(ConnectorZenInputRequest request, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/zen-input", request, ct);
+
+    /// <summary>Retrieve an Autopilot run by ID.</summary>
+    public Task<ConnectorAutopilotRunResponse> GetAutopilotRunAsync(string autopilotId, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Get, $"/connector/autopilot/{Uri.EscapeDataString(autopilotId)}", ct);
+
+    /// <summary>Send a shadow-validated or staged Autopilot run.</summary>
+    public Task<ConnectorAutopilotRunResponse> SendAutopilotRunAsync(string autopilotId, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(
+            HttpMethod.Post,
+            $"/connector/autopilot/{Uri.EscapeDataString(autopilotId)}/send",
+            new { },
+            ct);
+
+    /// <summary>List Connector reconciliation items for ERP state sync.</summary>
+    public Task<ConnectorReconcileResponse> ReconcileAsync(ConnectorReconcileParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("status", @params?.Status),
+            ("since", @params?.Since));
+        return _http.RequestAsync<ConnectorReconcileResponse>(HttpMethod.Get, $"/connector/reconcile{qs}", ct);
+    }
+
+    /// <summary>List Connector-managed customer mailboxes.</summary>
+    public Task<ConnectorMailboxListResponse> MailboxesAsync(CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorMailboxListResponse>(HttpMethod.Get, "/connector/mailbox", ct);
+
+    /// <summary>Repair Connector mailbox state for one customer or all customers.</summary>
+    public Task<Dictionary<string, object?>> RepairMailboxAsync(ConnectorMailboxRepairRequest? request = null, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, "/connector/mailbox/repair", request ?? new ConnectorMailboxRepairRequest(), ct);
+
+    /// <summary>Update the managed send policy for a Connector mailbox.</summary>
+    public Task<ConnectorMailboxUpdateResponse> UpdateMailboxSendPolicyAsync(string customerRef, ConnectorSendPolicyOptions request, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorMailboxUpdateResponse>(
+            HttpMethod.Patch,
+            $"/connector/mailbox/{Uri.EscapeDataString(customerRef)}/send-policy",
+            request,
+            ct);
+
+    /// <summary>List Connector sync items for ERP reconciliation cursors.</summary>
+    public Task<ConnectorSyncResponse> SyncAsync(ConnectorSyncParams? @params = null, CancellationToken ct = default)
+    {
+        var qs = HttpRequestor.BuildQuery(
+            ("customerRef", @params?.CustomerRef),
+            ("cursor", @params?.Cursor),
+            ("limit", @params?.Limit?.ToString()));
+        return _http.RequestAsync<ConnectorSyncResponse>(HttpMethod.Get, $"/connector/sync{qs}", ct);
+    }
+
+    /// <summary>Retrieve a Connector document lifecycle snapshot.</summary>
+    public Task<Dictionary<string, object?>> GetDocumentAsync(string documentId, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}", ct);
+
+    /// <summary>Download a Connector document UBL XML body.</summary>
+    public Task<string> GetDocumentUblAsync(string documentId, CancellationToken ct = default)
+        => _http.RequestStringAsync(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/ubl", ct);
+
+    /// <summary>Retrieve Connector document delivery evidence.</summary>
+    public Task<Dictionary<string, object?>> GetDocumentEvidenceAsync(string documentId, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence", ct);
+
+    /// <summary>Retrieve the Connector evidence bundle manifest.</summary>
+    public Task<Dictionary<string, object?>> GetDocumentEvidenceBundleAsync(string documentId, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence-bundle", ct);
+
+    /// <summary>Execute a pending Connector action.</summary>
+    public Task<ConnectorActionResponse> RunActionAsync(string actionId, ConnectorActionRequest? request = null, CancellationToken ct = default)
+        => _http.RequestAsync<ConnectorActionResponse>(
+            HttpMethod.Post,
+            $"/connector/actions/{Uri.EscapeDataString(actionId)}",
+            request ?? new ConnectorActionRequest(),
+            ct);
 }

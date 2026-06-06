@@ -8,7 +8,7 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.3 | `npm install @epostak/sdk` |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.4 | `npm install @epostak/sdk` |
 | Python | [`python/`](./python/) | `epostak` | 0.10.0 | Source on GitHub |
 | PHP | [`php/`](./php/) | `epostak/sdk` | 0.10.0 | Source on GitHub |
 | C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.1 | Source on GitHub |
@@ -43,8 +43,9 @@ const result = await client.documents.send({
 ### Connector Workflow (ERP Golden Path)
 
 For ERP integrations, prefer `client.connector` over raw HTTP. It exposes the
-golden path directly: preflight, stage, send, status, inbox, ACK, and evidence
-via `client.documents.evidence(...)`.
+golden path directly: preflight, Autopilot, stage, send, status, inbox, ACK,
+reconcile, mailbox policy, sync, Connector document evidence, and action
+execution.
 
 ```typescript
 const invoice = {
@@ -61,6 +62,15 @@ const invoice = {
 
 const preflight = await client.connector.preflight(invoice);
 if (!preflight.ready) throw new Error(preflight.repairReport.summary);
+
+const autopilot = await client.connector.autopilot({
+  customerRef: "erp-customer-1",
+  mode: "shadow",
+  externalId: "FA-2026-001",
+  idempotencyKey: "erp-fa-2026-001",
+  payload: invoice,
+});
+const exceptions = await client.connector.reconcile({ status: "exceptions" });
 
 const staged = await client.connector.outbox.stage({
   items: [
@@ -86,6 +96,7 @@ const evidence = sent.documentId
   ? await client.documents.evidence(sent.documentId)
   : null;
 console.log(status?.status, evidence);
+console.log(autopilot.lifecycleStatus, exceptions.total);
 ```
 
 See [`typescript/README.md`](./typescript/README.md) for the copy-paste
@@ -168,7 +179,7 @@ Use this when the firm has no API key with you yet. Store the returned `client_i
 
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Connector** — ERP workflow mode: preflight repair report, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
+- **Connector** — ERP workflow mode: preflight repair report, Zen input, Autopilot lifecycle, reconciliation exceptions, mailbox repair/send policy, sync cursors, Connector document lifecycle/UBL/evidence manifests, action execution, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
 - **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence

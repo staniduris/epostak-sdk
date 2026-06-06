@@ -2,11 +2,18 @@ import { BaseResource, buildQuery } from "../utils/request.js";
 import type { ClientConfig } from "../utils/request.js";
 import type {
   ConnectorAckResponse,
+  ConnectorActionRequest,
+  ConnectorActionResponse,
+  ConnectorAutopilotRequest,
+  ConnectorAutopilotRunResponse,
   ConnectorEventsParams,
   ConnectorEventsResponse,
   ConnectorInboxDocument,
   ConnectorInboxListParams,
   ConnectorInboxListResponse,
+  ConnectorMailboxListResponse,
+  ConnectorMailboxRepairRequest,
+  ConnectorMailboxUpdateResponse,
   ConnectorOutboxBatchSendRequest,
   ConnectorOutboxBatchSendResponse,
   ConnectorOutboxItem,
@@ -17,9 +24,15 @@ import type {
   ConnectorOutboxStageResponse,
   ConnectorPreflightRequest,
   ConnectorPreflightResponse,
+  ConnectorReconcileParams,
+  ConnectorReconcileResponse,
   ConnectorSendRequest,
   ConnectorSendResponse,
+  ConnectorSendPolicyOptions,
   ConnectorStatusResponse,
+  ConnectorSyncParams,
+  ConnectorSyncResponse,
+  ConnectorZenInputRequest,
 } from "../types.js";
 
 /**
@@ -190,6 +203,159 @@ export class ConnectorResource extends BaseResource {
         cursor: params?.cursor,
         limit: params?.limit,
       })}`,
+    );
+  }
+
+  /**
+   * Start a managed Connector Autopilot lifecycle run.
+   */
+  autopilot(
+    body: ConnectorAutopilotRequest,
+  ): Promise<ConnectorAutopilotRunResponse> {
+    return this.request("POST", "/connector/autopilot", body);
+  }
+
+  /**
+   * Normalize a loose ERP/customer payload into a Connector lifecycle run.
+   */
+  zenInput(body: ConnectorZenInputRequest): Promise<ConnectorAutopilotRunResponse> {
+    return this.request("POST", "/connector/zen-input", body);
+  }
+
+  /**
+   * Retrieve an Autopilot run by ID.
+   */
+  getAutopilotRun(autopilotId: string): Promise<ConnectorAutopilotRunResponse> {
+    return this.request(
+      "GET",
+      `/connector/autopilot/${encodeURIComponent(autopilotId)}`,
+    );
+  }
+
+  /**
+   * Send a shadow-validated or staged Autopilot run.
+   */
+  sendAutopilotRun(autopilotId: string): Promise<ConnectorAutopilotRunResponse> {
+    return this.request(
+      "POST",
+      `/connector/autopilot/${encodeURIComponent(autopilotId)}/send`,
+      {},
+      { retry: true },
+    );
+  }
+
+  /**
+   * List Connector reconciliation items for ERP state sync.
+   */
+  reconcile(params?: ConnectorReconcileParams): Promise<ConnectorReconcileResponse> {
+    return this.request(
+      "GET",
+      `/connector/reconcile${buildQuery({
+        status: params?.status,
+        since: params?.since,
+      })}`,
+    );
+  }
+
+  /**
+   * List Connector-managed customer mailboxes.
+   */
+  mailboxes(): Promise<ConnectorMailboxListResponse> {
+    return this.request("GET", "/connector/mailbox");
+  }
+
+  /**
+   * Repair Connector mailbox state for one customer or all customers.
+   */
+  repairMailbox(
+    body: ConnectorMailboxRepairRequest = {},
+  ): Promise<Record<string, unknown>> {
+    return this.request("POST", "/connector/mailbox/repair", body);
+  }
+
+  /**
+   * Update the managed send policy for a Connector mailbox.
+   */
+  updateMailboxSendPolicy(
+    customerRef: string,
+    body: ConnectorSendPolicyOptions,
+  ): Promise<ConnectorMailboxUpdateResponse> {
+    return this.request(
+      "PATCH",
+      `/connector/mailbox/${encodeURIComponent(customerRef)}/send-policy`,
+      body,
+    );
+  }
+
+  /**
+   * List Connector sync items for ERP reconciliation cursors.
+   */
+  sync(params?: ConnectorSyncParams): Promise<ConnectorSyncResponse> {
+    return this.request(
+      "GET",
+      `/connector/sync${buildQuery({
+        customerRef: params?.customerRef,
+        cursor: params?.cursor,
+        limit: params?.limit,
+      })}`,
+    );
+  }
+
+  /**
+   * Retrieve a Connector document lifecycle snapshot.
+   */
+  getDocument(documentId: string): Promise<Record<string, unknown>> {
+    return this.request(
+      "GET",
+      `/connector/documents/${encodeURIComponent(documentId)}`,
+    );
+  }
+
+  /**
+   * Download a Connector document UBL XML body.
+   */
+  async getDocumentUbl(documentId: string): Promise<string> {
+    const res = await this.request<Response>(
+      "GET",
+      `/connector/documents/${encodeURIComponent(documentId)}/ubl`,
+      undefined,
+      { rawResponse: true },
+    );
+    return res.text();
+  }
+
+  /**
+   * Retrieve Connector document delivery evidence.
+   */
+  getDocumentEvidence(documentId: string): Promise<Record<string, unknown>> {
+    return this.request(
+      "GET",
+      `/connector/documents/${encodeURIComponent(documentId)}/evidence`,
+    );
+  }
+
+  /**
+   * Retrieve the Connector evidence bundle manifest.
+   */
+  getDocumentEvidenceBundle(documentId: string): Promise<Record<string, unknown>> {
+    return this.request(
+      "GET",
+      `/connector/documents/${encodeURIComponent(documentId)}/evidence-bundle`,
+    );
+  }
+
+  /**
+   * Execute a pending Connector action.
+   */
+  runAction(
+    actionId: string,
+    body: ConnectorActionRequest = {},
+  ): Promise<ConnectorActionResponse> {
+    return this.request(
+      "POST",
+      `/connector/actions/${encodeURIComponent(actionId)}`,
+      body,
+      { retry: true },
     );
   }
 }

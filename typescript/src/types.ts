@@ -273,6 +273,155 @@ export interface ConnectorEventsResponse {
   hasMore: boolean;
 }
 
+export type ConnectorAutopilotMode = "shadow" | "stage" | "send";
+
+export type ConnectorAutopilotLifecycleStatus =
+  | "received"
+  | "shadow_validated"
+  | "needs_repair"
+  | "staged"
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "processed"
+  | "retry_later"
+  | "failed_external"
+  | "failed_internal"
+  | "cancelled";
+
+export interface ConnectorAutopilotRequest {
+  customerRef?: string;
+  mode: ConnectorAutopilotMode;
+  externalId?: string | null;
+  idempotencyKey?: string | null;
+  payload: ConnectorSendRequest;
+  send?: ConnectorSendPolicyOptions;
+  options?: Record<string, unknown>;
+}
+
+export interface ConnectorAutopilotRunResponse {
+  autopilotId: string;
+  externalId?: string | null;
+  idempotencyKey?: string | null;
+  mode: ConnectorAutopilotMode | string;
+  lifecycleStatus: ConnectorAutopilotLifecycleStatus | string;
+  replayed?: boolean;
+  preflight?: ConnectorPreflightResponse | Record<string, unknown> | null;
+  repairReport?: ConnectorRepairReport | Record<string, unknown> | null;
+  safeFixes?: ConnectorSafeFix[];
+  send?: ConnectorSendResponse | Record<string, unknown> | null;
+  status?: ConnectorStatusResponse | Record<string, unknown> | null;
+  lastError?: Record<string, unknown> | null;
+  documentId?: string | null;
+  outboxId?: string | null;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  nextActions?: string[];
+  links?: Record<string, string>;
+}
+
+export type ConnectorReconcileStatus = "exceptions" | "all";
+
+export type ConnectorReconcileItemType =
+  | "autopilot_run"
+  | "outbox_item"
+  | "inbox_document";
+
+export type ConnectorReconcileOwner = "sender_erp" | "epostak" | "receiver";
+
+export interface ConnectorReconcileParams {
+  status?: ConnectorReconcileStatus;
+  since?: string;
+}
+
+export interface ConnectorReconcileItem {
+  type: ConnectorReconcileItemType;
+  id: string;
+  externalId: string | null;
+  lifecycleStatus: ConnectorAutopilotLifecycleStatus | ConnectorOutboxStatus | string;
+  reason: string;
+  owner: ConnectorReconcileOwner;
+  updatedAt: string | null;
+  repairReport?: ConnectorRepairReport | Record<string, unknown> | null;
+  lastError?: Record<string, unknown> | null;
+  links: Record<string, string>;
+}
+
+export interface ConnectorReconcileResponse {
+  status: ConnectorReconcileStatus;
+  since: string | null;
+  generatedAt: string;
+  total: number;
+  items: ConnectorReconcileItem[];
+}
+
+export type ConnectorSendPolicy =
+  | "stage_only"
+  | "immediate"
+  | "scheduled_at"
+  | "daily_batch"
+  | "paused";
+
+export interface ConnectorSendPolicyOptions {
+  policy: ConnectorSendPolicy | string;
+  sendAt?: string | null;
+}
+
+export interface ConnectorZenInputRequest {
+  customerRef: string;
+  previewOnly?: boolean;
+  mode?: ConnectorAutopilotMode;
+  externalId?: string | null;
+  idempotencyKey?: string | null;
+  invoiceNo?: string | null;
+  invoiceNumber?: string | null;
+  receiverPeppolId?: string | null;
+  receiver?: Record<string, unknown>;
+  buyer?: Record<string, unknown>;
+  customer?: Record<string, unknown>;
+  lines?: Array<Record<string, unknown>>;
+  items?: Array<Record<string, unknown>>;
+  send?: ConnectorSendPolicyOptions;
+  [key: string]: unknown;
+}
+
+export interface ConnectorMailboxListResponse {
+  mailboxes: Array<Record<string, unknown>>;
+}
+
+export interface ConnectorMailboxRepairRequest {
+  customerRef?: string;
+}
+
+export interface ConnectorMailboxUpdateResponse {
+  mailbox: Record<string, unknown>;
+}
+
+export interface ConnectorSyncParams {
+  customerRef?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ConnectorSyncResponse {
+  items: Array<Record<string, unknown>>;
+  nextCursor?: string | null;
+  hasMore: boolean;
+}
+
+export interface ConnectorActionRequest {
+  sendAt?: string | null;
+  status?: string | null;
+  note?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ConnectorActionResponse {
+  action: Record<string, unknown>;
+}
+
 export type ConnectorOutboxStatus =
   | "ready"
   | "blocked"

@@ -6,10 +6,10 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Recent changes
 
-### Unreleased
+### v3.3.4 — 2026-06-06
 
-- **New:** `client.connector` covers Connector preflight, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and event polling.
-- **Coverage:** static endpoint coverage expanded to 213 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
+- **New:** `client.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- **Coverage:** static endpoint coverage expanded to 317 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v3.3.3 — 2026-06-05
 
@@ -129,6 +129,22 @@ const sent = await client.connector.send(invoice, {
   idempotencyKey: "erp-fa-2026-001-send",
 });
 console.log(sent.documentId, sent.status);
+```
+
+Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
+ERP sync jobs one place to read exceptions:
+
+```typescript
+const run = await client.connector.autopilot({
+  customerRef: "erp-customer-1",
+  mode: "shadow",
+  externalId: "FA-2026-001",
+  idempotencyKey: "erp-fa-2026-001",
+  payload: invoice,
+});
+const sentRun = await client.connector.sendAutopilotRun(run.autopilotId);
+const exceptions = await client.connector.reconcile({ status: "exceptions" });
+console.log(sentRun.lifecycleStatus, exceptions.total);
 ```
 
 Common sandbox scenarios to test:
@@ -676,6 +692,20 @@ try {
 | `connector.outbox.send(outboxId, opts?)` | POST   | `/connector/outbox/{outboxId}/send`          |
 | `connector.outbox.sendBatch(body?)`      | POST   | `/connector/outbox/send`                     |
 | `connector.outbox.cancel(outboxId)`      | DELETE | `/connector/outbox/{outboxId}`               |
+| `connector.zenInput(body)`               | POST   | `/connector/zen-input`                       |
+| `connector.autopilot(body)`              | POST   | `/connector/autopilot`                       |
+| `connector.getAutopilotRun(autopilotId)` | GET    | `/connector/autopilot/{autopilotId}`         |
+| `connector.sendAutopilotRun(autopilotId)` | POST  | `/connector/autopilot/{autopilotId}/send`    |
+| `connector.reconcile(params?)`           | GET    | `/connector/reconcile`                       |
+| `connector.mailboxes()`                  | GET    | `/connector/mailbox`                         |
+| `connector.repairMailbox(body?)`         | POST   | `/connector/mailbox/repair`                  |
+| `connector.updateMailboxSendPolicy(customerRef, body)` | PATCH | `/connector/mailbox/{customerRef}/send-policy` |
+| `connector.sync(params?)`                | GET    | `/connector/sync`                            |
+| `connector.getDocument(documentId)`      | GET    | `/connector/documents/{documentId}`          |
+| `connector.getDocumentUbl(documentId)`   | GET    | `/connector/documents/{documentId}/ubl`      |
+| `connector.getDocumentEvidence(documentId)` | GET | `/connector/documents/{documentId}/evidence` |
+| `connector.getDocumentEvidenceBundle(documentId)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector.runAction(actionId, body?)`   | POST   | `/connector/actions/{actionId}`              |
 | `connector.status(documentId)`           | GET    | `/connector/status/{documentId}`             |
 | `connector.inbox(params?)`               | GET    | `/connector/inbox`                           |
 | `connector.getInboxDocument(documentId)` | GET    | `/connector/inbox/{documentId}`              |
