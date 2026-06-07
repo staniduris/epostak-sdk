@@ -112,8 +112,9 @@ export class ConnectorOutboxResource extends BaseResource {
 /**
  * Connector workflow endpoints for ERP teams.
  *
- * Connector is a polling-first workflow over the Enterprise API. It uses the
- * same credentials, firm scoping, and documentId as the full Enterprise API.
+ * Connector is a polling-first workflow over the Enterprise API. Legacy
+ * Connector calls use firm scoping; Connector V2 calls resolve firms by
+ * customerRef and run at integrator scope.
  */
 export class ConnectorResource extends BaseResource {
   /** Stage now, send later lifecycle for outbound ERP invoices. */
@@ -212,14 +213,18 @@ export class ConnectorResource extends BaseResource {
   autopilot(
     body: ConnectorAutopilotRequest,
   ): Promise<ConnectorAutopilotRunResponse> {
-    return this.request("POST", "/connector/autopilot", body);
+    return this.request("POST", "/connector/autopilot", body, {
+      omitFirmId: true,
+    });
   }
 
   /**
    * Normalize a loose ERP/customer payload into a Connector lifecycle run.
    */
   zenInput(body: ConnectorZenInputRequest): Promise<ConnectorAutopilotRunResponse> {
-    return this.request("POST", "/connector/zen-input", body);
+    return this.request("POST", "/connector/zen-input", body, {
+      omitFirmId: true,
+    });
   }
 
   /**
@@ -229,6 +234,8 @@ export class ConnectorResource extends BaseResource {
     return this.request(
       "GET",
       `/connector/autopilot/${encodeURIComponent(autopilotId)}`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -240,7 +247,7 @@ export class ConnectorResource extends BaseResource {
       "POST",
       `/connector/autopilot/${encodeURIComponent(autopilotId)}/send`,
       {},
-      { retry: true },
+      { omitFirmId: true, retry: true },
     );
   }
 
@@ -254,6 +261,8 @@ export class ConnectorResource extends BaseResource {
         status: params?.status,
         since: params?.since,
       })}`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -261,7 +270,9 @@ export class ConnectorResource extends BaseResource {
    * List Connector-managed customer mailboxes.
    */
   mailboxes(): Promise<ConnectorMailboxListResponse> {
-    return this.request("GET", "/connector/mailbox");
+    return this.request("GET", "/connector/mailbox", undefined, {
+      omitFirmId: true,
+    });
   }
 
   /**
@@ -270,7 +281,9 @@ export class ConnectorResource extends BaseResource {
   repairMailbox(
     body: ConnectorMailboxRepairRequest = {},
   ): Promise<Record<string, unknown>> {
-    return this.request("POST", "/connector/mailbox/repair", body);
+    return this.request("POST", "/connector/mailbox/repair", body, {
+      omitFirmId: true,
+    });
   }
 
   /**
@@ -284,6 +297,7 @@ export class ConnectorResource extends BaseResource {
       "PATCH",
       `/connector/mailbox/${encodeURIComponent(customerRef)}/send-policy`,
       body,
+      { omitFirmId: true },
     );
   }
 
@@ -298,6 +312,8 @@ export class ConnectorResource extends BaseResource {
         cursor: params?.cursor,
         limit: params?.limit,
       })}`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -308,6 +324,8 @@ export class ConnectorResource extends BaseResource {
     return this.request(
       "GET",
       `/connector/documents/${encodeURIComponent(documentId)}`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -319,7 +337,7 @@ export class ConnectorResource extends BaseResource {
       "GET",
       `/connector/documents/${encodeURIComponent(documentId)}/ubl`,
       undefined,
-      { rawResponse: true },
+      { omitFirmId: true, rawResponse: true },
     );
     return res.text();
   }
@@ -331,6 +349,8 @@ export class ConnectorResource extends BaseResource {
     return this.request(
       "GET",
       `/connector/documents/${encodeURIComponent(documentId)}/evidence`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -341,6 +361,8 @@ export class ConnectorResource extends BaseResource {
     return this.request(
       "GET",
       `/connector/documents/${encodeURIComponent(documentId)}/evidence-bundle`,
+      undefined,
+      { omitFirmId: true },
     );
   }
 
@@ -355,7 +377,7 @@ export class ConnectorResource extends BaseResource {
       "POST",
       `/connector/actions/${encodeURIComponent(actionId)}`,
       body,
-      { retry: true },
+      { omitFirmId: true, retry: true },
     );
   }
 }

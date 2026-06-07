@@ -63,9 +63,9 @@ internal sealed class HttpRequestor
     /// <param name="path">API path appended to the base URL (e.g. "/documents").</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The deserialized API response.</returns>
-    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, CancellationToken ct)
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, CancellationToken ct, bool omitFirmId = false)
     {
-        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
 
@@ -86,16 +86,16 @@ internal sealed class HttpRequestor
     /// <param name="body">Request body object, serialized to JSON with snake_case naming.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The deserialized API response.</returns>
-    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, CancellationToken ct)
-        => await RequestAsync<T>(method, path, body, idempotencyKey: null, ct).ConfigureAwait(false);
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, CancellationToken ct, bool omitFirmId = false)
+        => await RequestAsync<T>(method, path, body, idempotencyKey: null, ct, omitFirmId).ConfigureAwait(false);
 
     /// <summary>
     /// Send a request with a JSON body and an optional <c>Idempotency-Key</c> header,
     /// then deserialize the JSON response.
     /// </summary>
-    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, CancellationToken ct)
+    internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, CancellationToken ct, bool omitFirmId = false)
     {
-        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(idempotencyKey))
             request.Headers.Add("Idempotency-Key", idempotencyKey);
         var json = JsonSerializer.Serialize(body, JsonOptions);
@@ -200,9 +200,9 @@ internal sealed class HttpRequestor
     /// <param name="path">API path appended to the base URL.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The raw response body string.</returns>
-    internal async Task<string> RequestStringAsync(HttpMethod method, string path, CancellationToken ct)
+    internal async Task<string> RequestStringAsync(HttpMethod method, string path, CancellationToken ct, bool omitFirmId = false)
     {
-        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
         using var response = await SendRawAsync(request, ct).ConfigureAwait(false);
         return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
@@ -210,12 +210,12 @@ internal sealed class HttpRequestor
     /// <summary>
     /// Build an authenticated HTTP request with a JWT Bearer token and optional X-Firm-Id header.
     /// </summary>
-    private async Task<HttpRequestMessage> BuildRequestAsync(HttpMethod method, string path, CancellationToken ct = default)
+    private async Task<HttpRequestMessage> BuildRequestAsync(HttpMethod method, string path, CancellationToken ct = default, bool omitFirmId = false)
     {
         var token = await _tokenManager.GetAccessTokenAsync(ct).ConfigureAwait(false);
         var request = new HttpRequestMessage(method, $"{_baseUrl}{path}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        if (_firmId is not null)
+        if (_firmId is not null && !omitFirmId)
             request.Headers.Add("X-Firm-Id", _firmId);
         return request;
     }

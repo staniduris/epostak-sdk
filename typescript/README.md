@@ -185,9 +185,12 @@ const client = new EPostak({
   clientId: "sk_live_xxxxx",
   clientSecret: "sk_live_xxxxx",
   baseUrl: "https://dev.epostak.sk/api/v1", // optional test env; omit for prod
-  firmId: "uuid", // optional, required for integrator keys
 });
 ```
+
+Connector V2 integrator calls do not need `firmId`; pass your ERP customer key
+as `customerRef` on Connector requests. Use `firmId` or `client.withFirm(...)`
+only for legacy Enterprise API calls that still target one firm directly.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -547,6 +550,11 @@ const batch = await client.extract.batch([
 ---
 
 ## Integrator Mode
+
+Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls
+(`autopilot`, `zenInput`, mailbox, sync, Connector documents, actions) stay
+integrator-scoped and resolve the managed firm from `customerRef`, so the SDK
+does not send `X-Firm-Id` for those methods even if this client has `firmId`.
 
 ```typescript
 // Option 1: firmId in constructor

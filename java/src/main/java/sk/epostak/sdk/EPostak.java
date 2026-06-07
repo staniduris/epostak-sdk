@@ -395,9 +395,9 @@ public final class EPostak {
         }
 
         /**
-         * Set the firm UUID to act on behalf of.
-         * Required when using integrator keys ({@code sk_int_*}).
-         * Each API call will include the {@code X-Firm-Id} header.
+         * Set the firm UUID for legacy firm-scoped calls.
+         * Connector V2 resolves the managed firm from customerRef and omits
+         * the {@code X-Firm-Id} header.
          *
          * @param firmId the firm UUID
          * @return this builder

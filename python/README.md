@@ -165,10 +165,14 @@ client = EPostak(
     client_id="sk_live_xxxxx",
     client_secret="sk_live_xxxxx",
     base_url="https://dev.epostak.sk/api/v1",  # optional test env; omit for prod
-    firm_id="uuid",           # optional, required for integrator keys
+    firm_id="uuid",           # optional, for legacy firm-scoped calls
     max_retries=3,            # optional, exponential backoff with jitter
 )
 ```
+
+Connector V2 integrator calls do not need `firm_id`; pass your ERP customer key
+as `customerRef` on Connector requests. Use `firm_id` or `with_firm(...)` only
+for legacy Enterprise API calls that target one firm directly.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -497,6 +501,11 @@ batch = client.extract.batch([
 ---
 
 ## Integrator mode
+
+Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls
+(`autopilot`, `zen_input`, mailbox, sync, Connector documents, actions) stay
+integrator-scoped and resolve the managed firm from `customerRef`, so the SDK
+does not send `X-Firm-Id` for those methods even if this client has `firm_id`.
 
 ```python
 # Option 1: firm_id in constructor

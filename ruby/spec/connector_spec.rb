@@ -18,6 +18,23 @@ RSpec.describe EPostak::Resources::Connector do
     EPostak::Client.new(client_id: "sk_live_test", client_secret: "secret", base_url: base_url)
   end
 
+  let(:firm_scoped_client) do
+    EPostak::Client.new(client_id: "sk_live_test", client_secret: "secret", base_url: base_url, firm_id: "firm-1")
+  end
+
+  def firm_header(request)
+    pair = request.headers.find { |key, _value| key.casecmp("X-Firm-Id").zero? }
+    pair && pair.last
+  end
+
+  def expect_without_firm_header(method, url)
+    expect(WebMock).to have_requested(method, url).with { |request| firm_header(request).nil? }
+  end
+
+  def expect_with_firm_header(method, url)
+    expect(WebMock).to have_requested(method, url).with { |request| firm_header(request) == "firm-1" }
+  end
+
   it "posts Connector send with Idempotency-Key" do
     stub = stub_request(:post, "#{host}/connector/send")
       .with(headers: { "Idempotency-Key" => "erp-1" })
@@ -34,6 +51,92 @@ RSpec.describe EPostak::Resources::Connector do
 
     expect(stub).to have_been_requested
     expect(result["documentId"]).to eq("doc-1")
+  end
+
+  it "omits X-Firm-Id on managed Connector v2 calls even when client is firm-scoped" do
+    stub_request(:post, "#{host}/connector/zen-input")
+      .to_return(status: 201, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/autopilot")
+      .to_return(status: 201, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/autopilot/auto-1")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/autopilot/auto-1/send")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/reconcile")
+      .with(query: hash_including("status" => "exceptions"))
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/mailbox")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/mailbox/repair")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:patch, "#{host}/connector/mailbox/erp-customer-1/send-policy")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/sync")
+      .with(query: hash_including("customerRef" => "erp-customer-1", "limit" => "50"))
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/documents/doc-1")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/documents/doc-1/ubl")
+      .to_return(status: 200, body: "<Invoice/>", headers: { "Content-Type" => "application/xml" })
+    stub_request(:get, "#{host}/connector/documents/doc-1/evidence")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/documents/doc-1/evidence-bundle")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/actions/action-1")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+
+    firm_scoped_client.connector.zen_input(customerRef: "erp-customer-1")
+    firm_scoped_client.connector.autopilot(customerRef: "erp-customer-1")
+    firm_scoped_client.connector.get_autopilot_run("auto-1")
+    firm_scoped_client.connector.send_autopilot_run("auto-1")
+    firm_scoped_client.connector.reconcile(status: "exceptions")
+    firm_scoped_client.connector.mailboxes
+    firm_scoped_client.connector.repair_mailbox(customerRef: "erp-customer-1")
+    firm_scoped_client.connector.update_mailbox_send_policy("erp-customer-1", policy: "daily_batch")
+    firm_scoped_client.connector.sync(customer_ref: "erp-customer-1", limit: 50)
+    firm_scoped_client.connector.get_document("doc-1")
+    firm_scoped_client.connector.get_document_ubl("doc-1")
+    firm_scoped_client.connector.get_document_evidence("doc-1")
+    firm_scoped_client.connector.get_document_evidence_bundle("doc-1")
+    firm_scoped_client.connector.run_action("action-1", note: "send now")
+
+    expect_without_firm_header(:post, "#{host}/connector/zen-input")
+    expect_without_firm_header(:post, "#{host}/connector/autopilot")
+    expect_without_firm_header(:get, "#{host}/connector/autopilot/auto-1")
+    expect_without_firm_header(:post, "#{host}/connector/autopilot/auto-1/send")
+    expect_without_firm_header(:get, "#{host}/connector/reconcile")
+    expect_without_firm_header(:get, "#{host}/connector/mailbox")
+    expect_without_firm_header(:post, "#{host}/connector/mailbox/repair")
+    expect_without_firm_header(:patch, "#{host}/connector/mailbox/erp-customer-1/send-policy")
+    expect_without_firm_header(:get, "#{host}/connector/sync")
+    expect_without_firm_header(:get, "#{host}/connector/documents/doc-1")
+    expect_without_firm_header(:get, "#{host}/connector/documents/doc-1/ubl")
+    expect_without_firm_header(:get, "#{host}/connector/documents/doc-1/evidence")
+    expect_without_firm_header(:get, "#{host}/connector/documents/doc-1/evidence-bundle")
+    expect_without_firm_header(:post, "#{host}/connector/actions/action-1")
+  end
+
+  it "keeps X-Firm-Id on legacy Connector calls for firm-scoped clients" do
+    stub_request(:post, "#{host}/connector/preflight")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/send")
+      .to_return(status: 201, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/inbox")
+      .with(query: hash_including("limit" => "20"))
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "#{host}/connector/events")
+      .with(query: hash_including("limit" => "20"))
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+
+    firm_scoped_client.connector.preflight(invoiceNumber: "FA-1")
+    firm_scoped_client.connector.send_document(invoiceNumber: "FA-1")
+    firm_scoped_client.connector.inbox(limit: 20)
+    firm_scoped_client.connector.events(limit: 20)
+
+    expect_with_firm_header(:post, "#{host}/connector/preflight")
+    expect_with_firm_header(:post, "#{host}/connector/send")
+    expect_with_firm_header(:get, "#{host}/connector/inbox")
+    expect_with_firm_header(:get, "#{host}/connector/events")
   end
 
   it "lists Connector inbox and events with cursor params" do

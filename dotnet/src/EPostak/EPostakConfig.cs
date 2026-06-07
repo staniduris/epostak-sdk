@@ -36,9 +36,8 @@ public sealed class EPostakConfig
     public string BaseUrl { get; init; } = "https://epostak.sk/api/v1";
 
     /// <summary>
-    /// Firm UUID to act on behalf of. When set, every API request includes an <c>X-Firm-Id</c> header
-    /// so the server knows which client firm the operation targets. Required for integrator keys
-    /// (<c>sk_int_*</c>) on most endpoints. Ignored for direct keys (<c>sk_live_*</c>).
+    /// Firm UUID for legacy firm-scoped calls. Connector V2 resolves the managed firm from
+    /// <c>CustomerRef</c> and omits <c>X-Firm-Id</c> even when this is set.
     /// </summary>
     public string? FirmId { get; init; }
 

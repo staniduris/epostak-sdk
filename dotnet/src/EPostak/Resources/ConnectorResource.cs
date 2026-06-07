@@ -98,15 +98,15 @@ public sealed class ConnectorResource
 
     /// <summary>Start a managed Connector Autopilot lifecycle run.</summary>
     public Task<ConnectorAutopilotRunResponse> AutopilotAsync(ConnectorAutopilotRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/autopilot", request, ct);
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/autopilot", request, ct, omitFirmId: true);
 
     /// <summary>Normalize a loose ERP/customer payload into a Connector lifecycle run.</summary>
     public Task<ConnectorAutopilotRunResponse> ZenInputAsync(ConnectorZenInputRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/zen-input", request, ct);
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/zen-input", request, ct, omitFirmId: true);
 
     /// <summary>Retrieve an Autopilot run by ID.</summary>
     public Task<ConnectorAutopilotRunResponse> GetAutopilotRunAsync(string autopilotId, CancellationToken ct = default)
-        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Get, $"/connector/autopilot/{Uri.EscapeDataString(autopilotId)}", ct);
+        => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Get, $"/connector/autopilot/{Uri.EscapeDataString(autopilotId)}", ct, omitFirmId: true);
 
     /// <summary>Send a shadow-validated or staged Autopilot run.</summary>
     public Task<ConnectorAutopilotRunResponse> SendAutopilotRunAsync(string autopilotId, CancellationToken ct = default)
@@ -114,7 +114,8 @@ public sealed class ConnectorResource
             HttpMethod.Post,
             $"/connector/autopilot/{Uri.EscapeDataString(autopilotId)}/send",
             new { },
-            ct);
+            ct,
+            omitFirmId: true);
 
     /// <summary>List Connector reconciliation items for ERP state sync.</summary>
     public Task<ConnectorReconcileResponse> ReconcileAsync(ConnectorReconcileParams? @params = null, CancellationToken ct = default)
@@ -122,16 +123,16 @@ public sealed class ConnectorResource
         var qs = HttpRequestor.BuildQuery(
             ("status", @params?.Status),
             ("since", @params?.Since));
-        return _http.RequestAsync<ConnectorReconcileResponse>(HttpMethod.Get, $"/connector/reconcile{qs}", ct);
+        return _http.RequestAsync<ConnectorReconcileResponse>(HttpMethod.Get, $"/connector/reconcile{qs}", ct, omitFirmId: true);
     }
 
     /// <summary>List Connector-managed customer mailboxes.</summary>
     public Task<ConnectorMailboxListResponse> MailboxesAsync(CancellationToken ct = default)
-        => _http.RequestAsync<ConnectorMailboxListResponse>(HttpMethod.Get, "/connector/mailbox", ct);
+        => _http.RequestAsync<ConnectorMailboxListResponse>(HttpMethod.Get, "/connector/mailbox", ct, omitFirmId: true);
 
     /// <summary>Repair Connector mailbox state for one customer or all customers.</summary>
     public Task<Dictionary<string, object?>> RepairMailboxAsync(ConnectorMailboxRepairRequest? request = null, CancellationToken ct = default)
-        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, "/connector/mailbox/repair", request ?? new ConnectorMailboxRepairRequest(), ct);
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, "/connector/mailbox/repair", request ?? new ConnectorMailboxRepairRequest(), ct, omitFirmId: true);
 
     /// <summary>Update the managed send policy for a Connector mailbox.</summary>
     public Task<ConnectorMailboxUpdateResponse> UpdateMailboxSendPolicyAsync(string customerRef, ConnectorSendPolicyOptions request, CancellationToken ct = default)
@@ -139,7 +140,8 @@ public sealed class ConnectorResource
             HttpMethod.Patch,
             $"/connector/mailbox/{Uri.EscapeDataString(customerRef)}/send-policy",
             request,
-            ct);
+            ct,
+            omitFirmId: true);
 
     /// <summary>List Connector sync items for ERP reconciliation cursors.</summary>
     public Task<ConnectorSyncResponse> SyncAsync(ConnectorSyncParams? @params = null, CancellationToken ct = default)
@@ -148,24 +150,24 @@ public sealed class ConnectorResource
             ("customerRef", @params?.CustomerRef),
             ("cursor", @params?.Cursor),
             ("limit", @params?.Limit?.ToString()));
-        return _http.RequestAsync<ConnectorSyncResponse>(HttpMethod.Get, $"/connector/sync{qs}", ct);
+        return _http.RequestAsync<ConnectorSyncResponse>(HttpMethod.Get, $"/connector/sync{qs}", ct, omitFirmId: true);
     }
 
     /// <summary>Retrieve a Connector document lifecycle snapshot.</summary>
     public Task<Dictionary<string, object?>> GetDocumentAsync(string documentId, CancellationToken ct = default)
-        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}", ct);
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}", ct, omitFirmId: true);
 
     /// <summary>Download a Connector document UBL XML body.</summary>
     public Task<string> GetDocumentUblAsync(string documentId, CancellationToken ct = default)
-        => _http.RequestStringAsync(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/ubl", ct);
+        => _http.RequestStringAsync(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/ubl", ct, omitFirmId: true);
 
     /// <summary>Retrieve Connector document delivery evidence.</summary>
     public Task<Dictionary<string, object?>> GetDocumentEvidenceAsync(string documentId, CancellationToken ct = default)
-        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence", ct);
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence", ct, omitFirmId: true);
 
     /// <summary>Retrieve the Connector evidence bundle manifest.</summary>
     public Task<Dictionary<string, object?>> GetDocumentEvidenceBundleAsync(string documentId, CancellationToken ct = default)
-        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence-bundle", ct);
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence-bundle", ct, omitFirmId: true);
 
     /// <summary>Execute a pending Connector action.</summary>
     public Task<ConnectorActionResponse> RunActionAsync(string actionId, ConnectorActionRequest? request = null, CancellationToken ct = default)
@@ -173,5 +175,6 @@ public sealed class ConnectorResource
             HttpMethod.Post,
             $"/connector/actions/{Uri.EscapeDataString(actionId)}",
             request ?? new ConnectorActionRequest(),
-            ct);
+            ct,
+            omitFirmId: true);
 }

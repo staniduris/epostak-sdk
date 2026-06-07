@@ -94,12 +94,15 @@ class HttpClient
      */
     public function request(string $method, string $path, array $options = []): ?array
     {
+        $omitFirmId = (bool) ($options['omitFirmId'] ?? false);
+        unset($options['omitFirmId']);
+
         $headers = [
             'Authorization' => 'Bearer ' . $this->tokenManager->getAccessToken(),
             'Accept' => 'application/json',
         ];
 
-        if ($this->firmId !== null) {
+        if ($this->firmId !== null && !$omitFirmId) {
             $headers['X-Firm-Id'] = $this->firmId;
         }
 
@@ -203,13 +206,13 @@ class HttpClient
      * @return string Raw response body bytes.
      * @throws EPostakError On HTTP 4xx/5xx responses or network errors.
      */
-    public function requestRaw(string $method, string $path): string
+    public function requestRaw(string $method, string $path, bool $omitFirmId = false): string
     {
         $headers = [
             'Authorization' => 'Bearer ' . $this->tokenManager->getAccessToken(),
         ];
 
-        if ($this->firmId !== null) {
+        if ($this->firmId !== null && !$omitFirmId) {
             $headers['X-Firm-Id'] = $this->firmId;
         }
 

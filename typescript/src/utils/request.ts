@@ -31,6 +31,8 @@ const DEFAULT_RETRYABLE_METHODS = new Set(["GET", "DELETE"]);
 export interface RequestOptions {
   /** Extra headers to merge into the request. */
   headers?: Record<string, string>;
+  /** Do not send the global `X-Firm-Id` header for integrator-scoped endpoints. */
+  omitFirmId?: boolean;
   /** Return the raw `Response` instead of parsing JSON. */
   rawResponse?: boolean;
   /** Allow retries even for non-idempotent methods (POST/PATCH/PUT). */
@@ -171,7 +173,7 @@ export async function request<T>(
     ...options?.headers,
   };
 
-  if (firmId) {
+  if (firmId && options?.omitFirmId !== true) {
     headers["X-Firm-Id"] = firmId;
   }
 

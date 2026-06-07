@@ -10,8 +10,8 @@ use EPostak\EPostakError;
 /**
  * Connector workflow endpoints for ERP teams.
  *
- * Connector is a polling-first workflow over the Enterprise API. It uses the
- * same credentials, firm scoping, and documentId as the full Enterprise API.
+ * Legacy Connector calls use firm scoping. Connector V2 calls resolve the
+ * managed firm from customerRef and omit X-Firm-Id.
  */
 class Connector
 {
@@ -222,6 +222,7 @@ class Connector
     {
         return $this->http->request('POST', '/connector/autopilot', [
             'json' => $body,
+            'omitFirmId' => true,
         ]);
     }
 
@@ -236,6 +237,7 @@ class Connector
     {
         return $this->http->request('POST', '/connector/zen-input', [
             'json' => $body,
+            'omitFirmId' => true,
         ]);
     }
 
@@ -248,7 +250,9 @@ class Connector
      */
     public function getAutopilotRun(string $autopilotId): array
     {
-        return $this->http->request('GET', '/connector/autopilot/' . urlencode($autopilotId));
+        return $this->http->request('GET', '/connector/autopilot/' . urlencode($autopilotId), [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -262,6 +266,7 @@ class Connector
     {
         return $this->http->request('POST', '/connector/autopilot/' . urlencode($autopilotId) . '/send', [
             'json' => (object) [],
+            'omitFirmId' => true,
         ]);
     }
 
@@ -278,7 +283,9 @@ class Connector
             'status' => $params['status'] ?? null,
             'since' => $params['since'] ?? null,
         ]);
-        return $this->http->request('GET', '/connector/reconcile' . $qs);
+        return $this->http->request('GET', '/connector/reconcile' . $qs, [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -289,7 +296,9 @@ class Connector
      */
     public function mailboxes(): array
     {
-        return $this->http->request('GET', '/connector/mailbox');
+        return $this->http->request('GET', '/connector/mailbox', [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -303,6 +312,7 @@ class Connector
     {
         return $this->http->request('POST', '/connector/mailbox/repair', [
             'json' => $body === [] ? (object) [] : $body,
+            'omitFirmId' => true,
         ]);
     }
 
@@ -318,6 +328,7 @@ class Connector
     {
         return $this->http->request('PATCH', '/connector/mailbox/' . urlencode($customerRef) . '/send-policy', [
             'json' => $body,
+            'omitFirmId' => true,
         ]);
     }
 
@@ -335,7 +346,9 @@ class Connector
             'cursor' => $params['cursor'] ?? null,
             'limit' => $params['limit'] ?? null,
         ]);
-        return $this->http->request('GET', '/connector/sync' . $qs);
+        return $this->http->request('GET', '/connector/sync' . $qs, [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -347,7 +360,9 @@ class Connector
      */
     public function getDocument(string $documentId): array
     {
-        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId));
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId), [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -359,7 +374,7 @@ class Connector
      */
     public function getDocumentUbl(string $documentId): string
     {
-        return $this->http->requestRaw('GET', '/connector/documents/' . urlencode($documentId) . '/ubl');
+        return $this->http->requestRaw('GET', '/connector/documents/' . urlencode($documentId) . '/ubl', true);
     }
 
     /**
@@ -371,7 +386,9 @@ class Connector
      */
     public function getDocumentEvidence(string $documentId): array
     {
-        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence');
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence', [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -383,7 +400,9 @@ class Connector
      */
     public function getDocumentEvidenceBundle(string $documentId): array
     {
-        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence-bundle');
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/evidence-bundle', [
+            'omitFirmId' => true,
+        ]);
     }
 
     /**
@@ -398,6 +417,7 @@ class Connector
     {
         return $this->http->request('POST', '/connector/actions/' . urlencode($actionId), [
             'json' => $body === [] ? (object) [] : $body,
+            'omitFirmId' => true,
         ]);
     }
 }

@@ -47,6 +47,11 @@ golden path directly: preflight, Autopilot, stage, send, status, inbox, ACK,
 reconcile, mailbox policy, sync, Connector document evidence, and action
 execution.
 
+Connector V2 calls such as Autopilot, Zen input, mailbox, sync, Connector
+documents, and actions use the integrator token plus `customerRef`; they do not
+need `X-Firm-Id`. Legacy Connector calls such as preflight, send, outbox,
+status, inbox, and events remain firm-scoped.
+
 ```typescript
 const invoice = {
   receiverPeppolId: "0245:1234567890",

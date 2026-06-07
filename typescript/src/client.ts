@@ -37,8 +37,8 @@ export interface EPostakConfig {
    */
   baseUrl?: string;
   /**
-   * Firm UUID to act on behalf of. Required when using integrator keys
-   * (`sk_int_*`). Each API call will include `X-Firm-Id` header.
+   * Firm UUID for legacy firm-scoped calls. Connector V2 methods resolve the
+   * managed firm from `customerRef` and omit `X-Firm-Id`.
    */
   firmId?: string;
   /**
@@ -166,7 +166,8 @@ export class EPostak {
 
   /**
    * Create a new client instance scoped to a specific firm.
-   * Shares the same token manager (JWT is reused), only adds X-Firm-Id.
+   * Shares the same token manager (JWT is reused), only adds X-Firm-Id for
+   * legacy firm-scoped calls. Connector V2 methods still omit it.
    *
    * @param firmId - The firm UUID to scope subsequent requests to
    * @returns A new `EPostak` client with the `X-Firm-Id` header set

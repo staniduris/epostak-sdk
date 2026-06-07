@@ -19,6 +19,7 @@ Or add to your `.csproj`:
 ### Unreleased
 
 - `client.Connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- Connector V2 calls such as Autopilot, Zen input, mailbox, sync, Connector documents, and actions use the integrator token plus `CustomerRef`; the SDK omits `X-Firm-Id` for those methods even when `FirmId` is configured. Legacy Connector calls such as preflight, send, outbox, status, inbox, and events remain firm-scoped.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.

@@ -411,11 +411,42 @@ for (const [relative, start, end, needle] of forbiddenBlocks) {
   }
 }
 
+const occurrenceChecks = [
+  ["typescript/src/utils/request.ts", "omitFirmId", 2],
+  ["typescript/src/resources/connector.ts", "omitFirmId: true", 14],
+  ["python/src/epostak/resources/documents.py", "omit_firm_id", 3],
+  ["python/src/epostak/resources/connector.py", "omit_firm_id=True", 14],
+  ["php/src/HttpClient.php", "$omitFirmId", 4],
+  ["php/src/Resources/Connector.php", "'omitFirmId' => true", 13],
+  ["php/src/Resources/Connector.php", "requestRaw('GET', '/connector/documents/' . urlencode($documentId) . '/ubl', true)", 1],
+  ["ruby/lib/epostak/http_client.rb", "omit_firm_id", 4],
+  ["ruby/lib/epostak/resources/connector.rb", "omit_firm_id: true", 14],
+  ["dotnet/src/EPostak/HttpRequestor.cs", "omitFirmId", 9],
+  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "omitFirmId: true", 14],
+  ["java/src/main/java/sk/epostak/sdk/HttpClient.java", "NoFirm", 5],
+  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "NoFirm", 14],
+];
+
+for (const [relative, needle, minCount] of occurrenceChecks) {
+  const file = path.join(root, relative);
+  if (!fs.existsSync(file)) {
+    forbiddenHits.push(`${relative}: file missing for occurrence check`);
+    continue;
+  }
+  const text = fs.readFileSync(file, "utf8");
+  const count = text.split(needle).length - 1;
+  if (count < minCount) {
+    forbiddenHits.push(
+      `${relative}: expected at least ${minCount} occurrences of ${needle}, found ${count}`,
+    );
+  }
+}
+
 if (forbiddenHits.length > 0) {
   console.error(forbiddenHits.join("\n"));
   process.exit(1);
 }
 
 console.log(
-  `Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks, ${forbiddenBlocks.length} forbidden block checks)`,
+  `Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks, ${forbiddenBlocks.length} forbidden block checks, ${occurrenceChecks.length} occurrence checks)`,
 );

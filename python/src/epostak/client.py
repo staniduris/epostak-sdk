@@ -97,9 +97,9 @@ class EPostak:
         base_url: Base URL for the API. Defaults to
             ``https://epostak.sk/api/v1``. Use
             ``https://dev.epostak.sk/api/v1`` for the test environment.
-        firm_id: Firm UUID to act on behalf of. Required when using
-            integrator keys (``sk_int_*``). Each API call will include
-            an ``X-Firm-Id`` header.
+        firm_id: Firm UUID for legacy firm-scoped calls. Connector V2 methods
+            resolve the managed firm from ``customerRef`` and omit
+            ``X-Firm-Id``.
         max_retries: Maximum number of retry attempts for failed requests
             (default 3). Retries use exponential backoff with jitter and
             apply to GET/DELETE requests that receive HTTP 429 or 5xx
@@ -243,7 +243,8 @@ class EPostak:
             firm_id: The firm UUID to scope subsequent requests to.
 
         Returns:
-            A new ``EPostak`` instance with the ``X-Firm-Id`` header set.
+            A new ``EPostak`` instance with the ``X-Firm-Id`` header set for
+            legacy firm-scoped calls. Connector V2 methods still omit it.
 
         Example::
 

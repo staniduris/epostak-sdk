@@ -67,9 +67,9 @@ module EPostak
     # @param base_url [String] Base URL for the API. Defaults to
     #   +https://epostak.sk/api/v1+. Use +https://dev.epostak.sk/api/v1+
     #   for the test environment.
-    # @param firm_id [String, nil] Firm UUID to act on behalf of. Required when
-    #   using integrator keys (+sk_int_*+). Sets the +X-Firm-Id+ header on
-    #   each request.
+    # @param firm_id [String, nil] Firm UUID for legacy firm-scoped calls.
+    #   Connector V2 resolves the managed firm from customerRef and omits
+    #   +X-Firm-Id+.
     # @param max_retries [Integer] Maximum retries on 429/5xx responses
     #   (default: 3).
     # @param token_manager [EPostak::TokenManager, nil] Shared token manager
@@ -120,7 +120,8 @@ module EPostak
     # client firms without rebuilding the entire configuration.
     #
     # @param firm_id [String] The firm UUID to scope subsequent requests to
-    # @return [EPostak::Client] A new client with the +X-Firm-Id+ header set
+    # @return [EPostak::Client] A new client with +X-Firm-Id+ for legacy
+    #   firm-scoped calls. Connector V2 methods still omit it.
     #
     # @example
     #   integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "secret")

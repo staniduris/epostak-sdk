@@ -131,6 +131,10 @@ public final class HttpClient {
         return request("GET", path, null, type);
     }
 
+    public <T> T getNoFirm(String path, Class<T> type) {
+        return request("GET", path, null, type, Map.of(), true);
+    }
+
     /**
      * Perform a GET request and deserialize the response using a Gson
      * {@link TypeToken}. Use this when the response type is generic
@@ -148,6 +152,10 @@ public final class HttpClient {
         return requestTyped("GET", path, null, typeToken, Map.of());
     }
 
+    public <T> T getTypedNoFirm(String path, TypeToken<T> typeToken) {
+        return requestTyped("GET", path, null, typeToken, Map.of(), true);
+    }
+
     /**
      * Perform a POST request with a JSON body and deserialize the response.
      *
@@ -160,6 +168,10 @@ public final class HttpClient {
      */
     public <T> T post(String path, Object body, Class<T> type) {
         return request("POST", path, body, type);
+    }
+
+    public <T> T postNoFirm(String path, Object body, Class<T> type) {
+        return request("POST", path, body, type, Map.of(), true);
     }
 
     public <T> T getWithHeaders(String path, Class<T> type, Map<String, String> headers) {
@@ -201,6 +213,10 @@ public final class HttpClient {
      */
     public <T> T patch(String path, Object body, Class<T> type) {
         return request("PATCH", path, body, type);
+    }
+
+    public <T> T patchNoFirm(String path, Object body, Class<T> type) {
+        return request("PATCH", path, body, type, Map.of(), true);
     }
 
     /**
@@ -387,12 +403,20 @@ public final class HttpClient {
      * @throws EPostakException if the request fails
      */
     public String getString(String path) {
+        return getString(path, false);
+    }
+
+    public String getStringNoFirm(String path) {
+        return getString(path, true);
+    }
+
+    private String getString(String path, boolean omitFirmId) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))
                 .timeout(TIMEOUT)
                 .header("Authorization", "Bearer " + tokenManager.getAccessToken())
                 .GET();
-        if (firmId != null) {
+        if (firmId != null && !omitFirmId) {
             builder.header("X-Firm-Id", firmId);
         }
 
@@ -442,7 +466,11 @@ public final class HttpClient {
     }
 
     private <T> T request(String method, String path, Object body, Class<T> type, Map<String, String> extraHeaders) {
-        return requestTyped(method, path, body, TypeToken.get(type), extraHeaders);
+        return request(method, path, body, type, extraHeaders, false);
+    }
+
+    private <T> T request(String method, String path, Object body, Class<T> type, Map<String, String> extraHeaders, boolean omitFirmId) {
+        return requestTyped(method, path, body, TypeToken.get(type), extraHeaders, omitFirmId);
     }
 
     @SuppressWarnings("unchecked")
@@ -452,6 +480,18 @@ public final class HttpClient {
             Object body,
             TypeToken<T> typeToken,
             Map<String, String> extraHeaders
+    ) {
+        return requestTyped(method, path, body, typeToken, extraHeaders, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T requestTyped(
+            String method,
+            String path,
+            Object body,
+            TypeToken<T> typeToken,
+            Map<String, String> extraHeaders,
+            boolean omitFirmId
     ) {
         HttpRequest.BodyPublisher publisher = (body != null)
                 ? HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8)
@@ -466,7 +506,7 @@ public final class HttpClient {
         if (body != null) {
             builder.header("Content-Type", "application/json");
         }
-        if (firmId != null) {
+        if (firmId != null && !omitFirmId) {
             builder.header("X-Firm-Id", firmId);
         }
         for (Map.Entry<String, String> e : extraHeaders.entrySet()) {

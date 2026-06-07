@@ -249,7 +249,7 @@ public final class ConnectorResource {
      * @return Autopilot run lifecycle response
      */
     public ConnectorAutopilotRunResponse autopilot(ConnectorAutopilotRequest request) {
-        return http.post("/connector/autopilot", request, ConnectorAutopilotRunResponse.class);
+        return http.postNoFirm("/connector/autopilot", request, ConnectorAutopilotRunResponse.class);
     }
 
     /**
@@ -259,7 +259,7 @@ public final class ConnectorResource {
      * @return Autopilot run lifecycle response
      */
     public ConnectorAutopilotRunResponse zenInput(Map<String, Object> request) {
-        return http.post("/connector/zen-input", request, ConnectorAutopilotRunResponse.class);
+        return http.postNoFirm("/connector/zen-input", request, ConnectorAutopilotRunResponse.class);
     }
 
     /**
@@ -269,7 +269,7 @@ public final class ConnectorResource {
      * @return Autopilot run lifecycle response
      */
     public ConnectorAutopilotRunResponse getAutopilotRun(String autopilotId) {
-        return http.get("/connector/autopilot/" + HttpClient.encode(autopilotId), ConnectorAutopilotRunResponse.class);
+        return http.getNoFirm("/connector/autopilot/" + HttpClient.encode(autopilotId), ConnectorAutopilotRunResponse.class);
     }
 
     /**
@@ -279,7 +279,7 @@ public final class ConnectorResource {
      * @return Autopilot run lifecycle response
      */
     public ConnectorAutopilotRunResponse sendAutopilotRun(String autopilotId) {
-        return http.post(
+        return http.postNoFirm(
                 "/connector/autopilot/" + HttpClient.encode(autopilotId) + "/send",
                 Map.of(),
                 ConnectorAutopilotRunResponse.class
@@ -298,7 +298,7 @@ public final class ConnectorResource {
             qp.put("status", params.status());
             qp.put("since", params.since());
         }
-        return http.get("/connector/reconcile" + HttpClient.buildQuery(qp), ConnectorReconcileResponse.class);
+        return http.getNoFirm("/connector/reconcile" + HttpClient.buildQuery(qp), ConnectorReconcileResponse.class);
     }
 
     /**
@@ -316,7 +316,7 @@ public final class ConnectorResource {
      * @return mailbox list response
      */
     public ConnectorMailboxListResponse mailboxes() {
-        return http.get("/connector/mailbox", ConnectorMailboxListResponse.class);
+        return http.getNoFirm("/connector/mailbox", ConnectorMailboxListResponse.class);
     }
 
     /**
@@ -327,7 +327,7 @@ public final class ConnectorResource {
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> repairMailbox(ConnectorMailboxRepairRequest request) {
-        return (Map<String, Object>) http.post(
+        return (Map<String, Object>) http.postNoFirm(
                 "/connector/mailbox/repair",
                 request == null ? ConnectorMailboxRepairRequest.empty() : request,
                 Map.class
@@ -351,7 +351,7 @@ public final class ConnectorResource {
      * @return updated mailbox response
      */
     public ConnectorMailboxUpdateResponse updateMailboxSendPolicy(String customerRef, ConnectorSendPolicyOptions request) {
-        return http.patch(
+        return http.patchNoFirm(
                 "/connector/mailbox/" + HttpClient.encode(customerRef) + "/send-policy",
                 request,
                 ConnectorMailboxUpdateResponse.class
@@ -371,7 +371,7 @@ public final class ConnectorResource {
             qp.put("cursor", params.cursor());
             qp.put("limit", params.limit());
         }
-        return http.get("/connector/sync" + HttpClient.buildQuery(qp), ConnectorSyncResponse.class);
+        return http.getNoFirm("/connector/sync" + HttpClient.buildQuery(qp), ConnectorSyncResponse.class);
     }
 
     /**
@@ -390,7 +390,7 @@ public final class ConnectorResource {
      * @return document lifecycle snapshot
      */
     public Map<String, Object> getDocument(String documentId) {
-        return http.getTyped(
+        return http.getTypedNoFirm(
                 "/connector/documents/" + HttpClient.encode(documentId),
                 new TypeToken<Map<String, Object>>() {
                 }
@@ -404,7 +404,7 @@ public final class ConnectorResource {
      * @return UBL XML
      */
     public String getDocumentUbl(String documentId) {
-        return http.getString("/connector/documents/" + HttpClient.encode(documentId) + "/ubl");
+        return http.getStringNoFirm("/connector/documents/" + HttpClient.encode(documentId) + "/ubl");
     }
 
     /**
@@ -414,7 +414,7 @@ public final class ConnectorResource {
      * @return evidence payload
      */
     public Map<String, Object> getDocumentEvidence(String documentId) {
-        return http.getTyped(
+        return http.getTypedNoFirm(
                 "/connector/documents/" + HttpClient.encode(documentId) + "/evidence",
                 new TypeToken<Map<String, Object>>() {
                 }
@@ -428,7 +428,7 @@ public final class ConnectorResource {
      * @return evidence bundle manifest
      */
     public Map<String, Object> getDocumentEvidenceBundle(String documentId) {
-        return http.getTyped(
+        return http.getTypedNoFirm(
                 "/connector/documents/" + HttpClient.encode(documentId) + "/evidence-bundle",
                 new TypeToken<Map<String, Object>>() {
                 }
@@ -443,7 +443,7 @@ public final class ConnectorResource {
      * @return action result
      */
     public ConnectorActionResponse runAction(String actionId, ConnectorActionRequest request) {
-        return http.post(
+        return http.postNoFirm(
                 "/connector/actions/" + HttpClient.encode(actionId),
                 request == null ? ConnectorActionRequest.empty() : request,
                 ConnectorActionResponse.class

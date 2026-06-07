@@ -74,7 +74,7 @@ after(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeClient(): EPostak {
+function makeClient(config: { firmId?: string } = {}): EPostak {
   // Use a pre-minted bearer token so no auth request is made.
   // We mock the token endpoint to return a token immediately.
   mockFetch(async (input) => {
@@ -94,6 +94,7 @@ function makeClient(): EPostak {
     clientId: "sk_live_test",
     clientSecret: "sk_live_test_secret",
     baseUrl: "https://dev.epostak.sk/api/v1",
+    ...config,
   });
 }
 
@@ -355,6 +356,78 @@ describe("client.connector", () => {
     assert.strictEqual(capturedHeader, "erp-1");
     assert.ok(capturedBody.includes("receiverPeppolId"));
     assert.strictEqual(result.documentId, "doc-1");
+  });
+
+  it("omits X-Firm-Id on Connector v2 calls from a firm-scoped client", async () => {
+    const client = makeClient({ firmId: "firm-uuid" });
+    const captured: Array<{ url: string; firmId: string | null }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+
+      captured.push({
+        url,
+        firmId: new Headers(init?.headers).get("X-Firm-Id"),
+      });
+
+      if (url.includes("/connector/documents/doc-1/ubl")) {
+        return new Response("<Invoice/>", { status: 200 });
+      }
+      if (url.includes("/connector/send")) {
+        return makeMockResponse({ documentId: "doc-1", status: "accepted" }, 201);
+      }
+      if (url.includes("/connector/mailbox")) {
+        return makeMockResponse(url.includes("send-policy") ? { mailbox: {} } : { mailboxes: [] });
+      }
+      if (url.includes("/connector/sync")) {
+        return makeMockResponse({ items: [], nextCursor: null, hasMore: false });
+      }
+      if (url.includes("/connector/actions/action-1")) {
+        return makeMockResponse({ action: { id: "action-1" } });
+      }
+      if (url.includes("/connector/reconcile")) {
+        return makeMockResponse({ items: [], total: 0 });
+      }
+      return makeMockResponse({ autopilotId: "auto-1", lifecycleStatus: "staged" });
+    });
+
+    await client.connector.send({ document: { invoiceNumber: "FA-1" } });
+    await client.connector.autopilot({
+      customerRef: "erp-customer-1",
+      mode: "stage",
+      payload: { invoiceNumber: "FA-1" },
+    });
+    await client.connector.zenInput({ customerRef: "erp-customer-1", invoiceNumber: "FA-1" });
+    await client.connector.getAutopilotRun("auto-1");
+    await client.connector.sendAutopilotRun("auto-1");
+    await client.connector.reconcile();
+    await client.connector.mailboxes();
+    await client.connector.repairMailbox({ customerRef: "erp-customer-1" });
+    await client.connector.updateMailboxSendPolicy("erp-customer-1", { policy: "stage_only" });
+    await client.connector.sync({ customerRef: "erp-customer-1" });
+    await client.connector.getDocument("doc-1");
+    await client.connector.getDocumentUbl("doc-1");
+    await client.connector.getDocumentEvidence("doc-1");
+    await client.connector.getDocumentEvidenceBundle("doc-1");
+    await client.connector.runAction("action-1", { note: "retry" });
+
+    const legacy = captured.find((req) => req.url.includes("/connector/send"));
+    assert.strictEqual(legacy?.firmId, "firm-uuid");
+
+    const v2Requests = captured.filter((req) => !req.url.includes("/connector/send"));
+    assert.ok(v2Requests.length > 0);
+    assert.deepStrictEqual(
+      v2Requests.map((req) => [req.url, req.firmId]),
+      v2Requests.map((req) => [req.url, null]),
+    );
   });
 
   it("inbox(), getInboxDocument(), ack(), events() use Connector paths", async () => {

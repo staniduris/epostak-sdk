@@ -49,7 +49,7 @@ module EPostak
     #   non-idempotent methods (POST/PATCH/PUT) become retryable.
     # @return [Hash, nil] Parsed JSON response, or nil for 204 responses
     # @raise [EPostak::Error] On non-2xx responses or network errors
-    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil, headers: nil, base_url: nil)
+    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil, headers: nil, base_url: nil, omit_firm_id: false)
       retryable =
         if retry_on_failure.nil?
           RETRYABLE_METHODS.include?(method)
@@ -62,6 +62,7 @@ module EPostak
         conn = base_url ? build_connection(base_url) : @conn
         response = conn.run_request(method, normalize_path(path), nil, nil) do |req|
           req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
+          req.headers.delete("X-Firm-Id") if omit_firm_id
           req.params.update(compact_params(query)) if query
           req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
           req.headers.update(headers) if headers
@@ -115,9 +116,10 @@ module EPostak
     # @param path [String] API endpoint path
     # @return [String] Raw response body bytes
     # @raise [EPostak::Error] On non-2xx responses
-    def request_raw(method, path)
+    def request_raw(method, path, omit_firm_id: false)
       response = @conn.run_request(method, normalize_path(path), nil, nil) do |req|
         req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
+        req.headers.delete("X-Firm-Id") if omit_firm_id
       end
 
       capture_rate_limit(response.headers)

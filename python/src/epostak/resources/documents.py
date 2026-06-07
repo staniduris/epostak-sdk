@@ -102,10 +102,10 @@ class _BaseResource:
         # last parsed rate-limit info across all resource instances.
         self._rate_limit_store: List[Any] = _rate_limit_store if _rate_limit_store is not None else []
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self, *, omit_firm_id: bool = False) -> Dict[str, str]:
         token = self._token_manager.get_access_token()
         headers: Dict[str, str] = {"Authorization": f"Bearer {token}"}
-        if self._firm_id:
+        if self._firm_id and not omit_firm_id:
             headers["X-Firm-Id"] = self._firm_id
         return headers
 
@@ -143,13 +143,14 @@ class _BaseResource:
         raw: bool = False,
         content: Any = None,
         extra_headers: Optional[Dict[str, str]] = None,
+        omit_firm_id: bool = False,
     ) -> Any:
         from epostak.errors import EPostakError, build_api_error
 
         url = f"{self._base_url}{path}"
         last_exc: Optional[EPostakError] = None
 
-        merged_headers = self._headers()
+        merged_headers = self._headers(omit_firm_id=omit_firm_id)
         if extra_headers:
             merged_headers.update(extra_headers)
 

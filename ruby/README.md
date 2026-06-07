@@ -148,7 +148,7 @@ client.connector.send_outbox_batch(limit: 50)
 The SDK supports two types of API keys:
 
 - **Direct keys** (`sk_live_*`) — single firm, all requests scoped to your firm
-- **Integrator keys** (`sk_int_*`) — multi-tenant, use `with_firm` or `X-Firm-Id` to act on behalf of client firms
+- **Integrator keys** (`sk_int_*`) — multi-tenant; Connector V2 uses `customerRef`, while legacy firm-scoped calls use `with_firm` or `X-Firm-Id`
 
 ```ruby
 # Direct key
@@ -166,9 +166,13 @@ firm_a.documents.inbox.list
 client = EPostak::Client.new(
   client_id: "sk_live_xxxxx", client_secret: "your_secret",
   base_url: "https://dev.epostak.sk/api/v1",  # optional test env; omit for prod
-  firm_id: "firm-uuid"                        # optional, for integrator keys
+  firm_id: "firm-uuid"                        # optional, for legacy firm-scoped calls
 )
 ```
+
+Connector V2 integrator calls do not need `firm_id`; pass your ERP customer key
+as `customerRef` on Connector requests. The SDK omits `X-Firm-Id` for those
+methods even when the client has `firm_id`.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -662,6 +666,8 @@ integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "your
 firms = integrator.firms.list
 
 # Work with a specific firm
+# Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls stay
+# integrator-scoped and resolve the managed firm from customerRef.
 firm_client = integrator.with_firm("firm-a-uuid")
 firm_client.documents.send_document(
   receiverPeppolId: "0245:1234567890",

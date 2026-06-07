@@ -6,9 +6,8 @@ module EPostak
   module Resources
     # Connector workflow endpoints for ERP teams.
     #
-    # Connector is a polling-first workflow over the Enterprise API. It uses
-    # the same credentials, firm scoping, and documentId as the full
-    # Enterprise API.
+    # Legacy Connector calls use firm scoping. Connector V2 calls resolve the
+    # managed firm from customerRef and omit X-Firm-Id.
     class Connector
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
@@ -138,7 +137,7 @@ module EPostak
       # @param body [Hash] Autopilot request with mode, payload, and optional IDs
       # @return [Hash] Autopilot run lifecycle response
       def autopilot(body)
-        @http.request(:post, "/connector/autopilot", body: body)
+        @http.request(:post, "/connector/autopilot", body: body, omit_firm_id: true)
       end
 
       # Normalize a loose ERP/customer payload into a Connector lifecycle run.
@@ -146,7 +145,7 @@ module EPostak
       # @param body [Hash] Zen input request with customerRef and invoice/customer fields
       # @return [Hash] Autopilot run lifecycle response
       def zen_input(body)
-        @http.request(:post, "/connector/zen-input", body: body)
+        @http.request(:post, "/connector/zen-input", body: body, omit_firm_id: true)
       end
 
       # Retrieve an Autopilot run by ID.
@@ -154,7 +153,7 @@ module EPostak
       # @param autopilot_id [String] Connector Autopilot run ID
       # @return [Hash] Autopilot run lifecycle response
       def get_autopilot_run(autopilot_id)
-        @http.request(:get, "/connector/autopilot/#{encode(autopilot_id)}")
+        @http.request(:get, "/connector/autopilot/#{encode(autopilot_id)}", omit_firm_id: true)
       end
 
       # Send a shadow-validated or staged Autopilot run.
@@ -162,7 +161,7 @@ module EPostak
       # @param autopilot_id [String] Connector Autopilot run ID
       # @return [Hash] Autopilot run lifecycle response
       def send_autopilot_run(autopilot_id)
-        @http.request(:post, "/connector/autopilot/#{encode(autopilot_id)}/send", body: {}, retry_on_failure: true)
+        @http.request(:post, "/connector/autopilot/#{encode(autopilot_id)}/send", body: {}, retry_on_failure: true, omit_firm_id: true)
       end
 
       # List Connector reconciliation items for ERP state sync.
@@ -171,14 +170,14 @@ module EPostak
       # @param since [String, nil] ISO 8601 timestamp for incremental sync
       # @return [Hash] Reconciliation items
       def reconcile(status: nil, since: nil)
-        @http.request(:get, "/connector/reconcile", query: { status: status, since: since })
+        @http.request(:get, "/connector/reconcile", query: { status: status, since: since }, omit_firm_id: true)
       end
 
       # List Connector-managed customer mailboxes.
       #
       # @return [Hash] Mailbox list response
       def mailboxes
-        @http.request(:get, "/connector/mailbox")
+        @http.request(:get, "/connector/mailbox", omit_firm_id: true)
       end
 
       # Repair Connector mailbox state for one customer or all customers.
@@ -186,7 +185,7 @@ module EPostak
       # @param body [Hash] Optional request body with customerRef
       # @return [Hash] Repair result
       def repair_mailbox(body = {})
-        @http.request(:post, "/connector/mailbox/repair", body: body)
+        @http.request(:post, "/connector/mailbox/repair", body: body, omit_firm_id: true)
       end
 
       # Update the managed send policy for a Connector mailbox.
@@ -195,7 +194,7 @@ module EPostak
       # @param body [Hash] Send policy request with policy and optional sendAt
       # @return [Hash] Updated mailbox response
       def update_mailbox_send_policy(customer_ref, body)
-        @http.request(:patch, "/connector/mailbox/#{encode(customer_ref)}/send-policy", body: body)
+        @http.request(:patch, "/connector/mailbox/#{encode(customer_ref)}/send-policy", body: body, omit_firm_id: true)
       end
 
       # List Connector sync items for ERP reconciliation cursors.
@@ -205,7 +204,7 @@ module EPostak
       # @param limit [Integer, nil] Page limit
       # @return [Hash] Sync page
       def sync(customer_ref: nil, cursor: nil, limit: nil)
-        @http.request(:get, "/connector/sync", query: { customerRef: customer_ref, cursor: cursor, limit: limit })
+        @http.request(:get, "/connector/sync", query: { customerRef: customer_ref, cursor: cursor, limit: limit }, omit_firm_id: true)
       end
 
       # Retrieve a Connector document lifecycle snapshot.
@@ -213,7 +212,7 @@ module EPostak
       # @param document_id [String] Connector document ID
       # @return [Hash] Document lifecycle snapshot
       def get_document(document_id)
-        @http.request(:get, "/connector/documents/#{encode(document_id)}")
+        @http.request(:get, "/connector/documents/#{encode(document_id)}", omit_firm_id: true)
       end
 
       # Download a Connector document UBL XML body.
@@ -221,7 +220,7 @@ module EPostak
       # @param document_id [String] Connector document ID
       # @return [String] UBL XML
       def get_document_ubl(document_id)
-        @http.request_raw(:get, "/connector/documents/#{encode(document_id)}/ubl")
+        @http.request_raw(:get, "/connector/documents/#{encode(document_id)}/ubl", omit_firm_id: true)
       end
 
       # Retrieve Connector document delivery evidence.
@@ -229,7 +228,7 @@ module EPostak
       # @param document_id [String] Connector document ID
       # @return [Hash] Evidence payload
       def get_document_evidence(document_id)
-        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence")
+        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence", omit_firm_id: true)
       end
 
       # Retrieve the Connector evidence bundle manifest.
@@ -237,7 +236,7 @@ module EPostak
       # @param document_id [String] Connector document ID
       # @return [Hash] Evidence bundle manifest
       def get_document_evidence_bundle(document_id)
-        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence-bundle")
+        @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence-bundle", omit_firm_id: true)
       end
 
       # Execute a pending Connector action.
@@ -246,7 +245,7 @@ module EPostak
       # @param body [Hash] Optional action request body
       # @return [Hash] Action result
       def run_action(action_id, body = {})
-        @http.request(:post, "/connector/actions/#{encode(action_id)}", body: body, retry_on_failure: true)
+        @http.request(:post, "/connector/actions/#{encode(action_id)}", body: body, retry_on_failure: true, omit_firm_id: true)
       end
 
       private

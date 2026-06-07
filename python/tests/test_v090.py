@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -57,6 +57,26 @@ def _make_client() -> EPostak:
     client.outbound = OutboundResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
     client.webhooks = WebhooksResource(http, "https://epostak.sk/api/v1", tm, None, _rate_limit_store=rl)
     return client
+
+
+def _make_firm_scoped_connector():
+    """Return a ConnectorResource wired to a mocked HTTP client with firm scope."""
+    from epostak.resources.connector import ConnectorResource
+
+    http = MagicMock()
+    tm = MagicMock()
+    tm.get_access_token.return_value = "test-token"
+    connector = ConnectorResource(http, "https://epostak.sk/api/v1", tm, "firm-1", max_retries=0)
+
+    response = MagicMock()
+    response.status_code = 200
+    response.is_success = True
+    response.headers = {}
+    response.json.return_value = {"ok": True}
+    response.text = "<Invoice/>"
+    http.request.return_value = response
+
+    return connector, http
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +142,55 @@ def test_ubl_validation_error_is_epostak_error():
 # ---------------------------------------------------------------------------
 # ConnectorResource
 # ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda c: c.zen_input({"customerRef": "erp-customer-1"}), id="zen-input"),
+        pytest.param(lambda c: c.autopilot({"customerRef": "erp-customer-1"}), id="autopilot"),
+        pytest.param(lambda c: c.get_autopilot_run("auto-1"), id="get-autopilot"),
+        pytest.param(lambda c: c.send_autopilot_run("auto-1"), id="send-autopilot"),
+        pytest.param(lambda c: c.reconcile(status="exceptions"), id="reconcile"),
+        pytest.param(lambda c: c.mailboxes(), id="mailbox"),
+        pytest.param(lambda c: c.repair_mailbox({"customerRef": "erp-customer-1"}), id="repair-mailbox"),
+        pytest.param(
+            lambda c: c.update_mailbox_send_policy("erp-customer-1", {"policy": "daily_batch"}),
+            id="send-policy",
+        ),
+        pytest.param(lambda c: c.sync(customer_ref="erp-customer-1", limit=50), id="sync"),
+        pytest.param(lambda c: c.get_document("doc-1"), id="document"),
+        pytest.param(lambda c: c.get_document_ubl("doc-1"), id="document-ubl"),
+        pytest.param(lambda c: c.get_document_evidence("doc-1"), id="document-evidence"),
+        pytest.param(lambda c: c.get_document_evidence_bundle("doc-1"), id="document-evidence-bundle"),
+        pytest.param(lambda c: c.run_action("action-1", {"note": "send now"}), id="action"),
+    ],
+)
+def test_connector_v2_omits_global_firm_id_header(call: Callable[[Any], Any]):
+    connector, http = _make_firm_scoped_connector()
+
+    call(connector)
+
+    sent_headers = http.request.call_args.kwargs["headers"]
+    assert "X-Firm-Id" not in sent_headers
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda c: c.preflight({"invoiceNumber": "FA-1"}), id="preflight"),
+        pytest.param(lambda c: c.send({"invoiceNumber": "FA-1"}), id="send"),
+        pytest.param(lambda c: c.inbox(limit=20), id="inbox"),
+        pytest.param(lambda c: c.events(limit=20), id="events"),
+    ],
+)
+def test_connector_legacy_keeps_global_firm_id_header(call: Callable[[Any], Any]):
+    connector, http = _make_firm_scoped_connector()
+
+    call(connector)
+
+    sent_headers = http.request.call_args.kwargs["headers"]
+    assert sent_headers["X-Firm-Id"] == "firm-1"
+
 
 def test_connector_send_calls_correct_endpoint_with_idempotency_key():
     client = _make_client()
@@ -226,15 +295,15 @@ def test_connector_autopilot_and_reconcile_paths():
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
         client.connector.autopilot(body)
-        mock_req.assert_called_once_with("POST", "/connector/autopilot", json=body)
+        mock_req.assert_called_once_with("POST", "/connector/autopilot", json=body, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
         client.connector.get_autopilot_run("auto-1")
-        mock_req.assert_called_once_with("GET", "/connector/autopilot/auto-1")
+        mock_req.assert_called_once_with("GET", "/connector/autopilot/auto-1", omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
         client.connector.send_autopilot_run("auto-1")
-        mock_req.assert_called_once_with("POST", "/connector/autopilot/auto-1/send", json={})
+        mock_req.assert_called_once_with("POST", "/connector/autopilot/auto-1/send", json={}, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
         client.connector.reconcile(status="exceptions", since="2026-06-01T00:00:00.000Z")
@@ -242,6 +311,7 @@ def test_connector_autopilot_and_reconcile_paths():
             "GET",
             "/connector/reconcile",
             params={"status": "exceptions", "since": "2026-06-01T00:00:00.000Z"},
+            omit_firm_id=True,
         )
 
 
@@ -251,15 +321,20 @@ def test_connector_managed_v2_paths():
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
         body = {"customerRef": "erp-customer-1", "invoiceNumber": "FA-2026-002", "mode": "stage"}
         client.connector.zen_input(body)
-        mock_req.assert_called_once_with("POST", "/connector/zen-input", json=body)
+        mock_req.assert_called_once_with("POST", "/connector/zen-input", json=body, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"mailboxes": []}) as mock_req:
         client.connector.mailboxes()
-        mock_req.assert_called_once_with("GET", "/connector/mailbox")
+        mock_req.assert_called_once_with("GET", "/connector/mailbox", omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"repaired": True}) as mock_req:
         client.connector.repair_mailbox({"customerRef": "erp-customer-1"})
-        mock_req.assert_called_once_with("POST", "/connector/mailbox/repair", json={"customerRef": "erp-customer-1"})
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/mailbox/repair",
+            json={"customerRef": "erp-customer-1"},
+            omit_firm_id=True,
+        )
 
     with patch.object(client.connector, "_request", return_value={"mailbox": {}}) as mock_req:
         client.connector.update_mailbox_send_policy("erp-customer-1", {"policy": "daily_batch"})
@@ -267,6 +342,7 @@ def test_connector_managed_v2_paths():
             "PATCH",
             "/connector/mailbox/erp-customer-1/send-policy",
             json={"policy": "daily_batch"},
+            omit_firm_id=True,
         )
 
     with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
@@ -275,29 +351,35 @@ def test_connector_managed_v2_paths():
             "GET",
             "/connector/sync",
             params={"customerRef": "erp-customer-1", "cursor": "cur-1", "limit": "50"},
+            omit_firm_id=True,
         )
 
     with patch.object(client.connector, "_request", return_value={"documentId": "doc-1"}) as mock_req:
         client.connector.get_document("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1", omit_firm_id=True)
 
     raw_response = MagicMock()
     raw_response.text = "<Invoice/>"
     with patch.object(client.connector, "_request", return_value=raw_response) as mock_req:
         assert client.connector.get_document_ubl("doc-1") == "<Invoice/>"
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/ubl", raw=True)
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/ubl", raw=True, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"events": []}) as mock_req:
         client.connector.get_document_evidence("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence", omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"bundle": []}) as mock_req:
         client.connector.get_document_evidence_bundle("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence-bundle")
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence-bundle", omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"action": {}}) as mock_req:
         client.connector.run_action("action-1", {"note": "send now"})
-        mock_req.assert_called_once_with("POST", "/connector/actions/action-1", json={"note": "send now"})
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/actions/action-1",
+            json={"note": "send now"},
+            omit_firm_id=True,
+        )
 
 
 # ---------------------------------------------------------------------------
