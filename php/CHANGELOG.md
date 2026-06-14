@@ -7,10 +7,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows the source package `0.x` version line in
 > this monorepo.
 
-## Unreleased
+## 1.0.0 — 2026-06-14
 
 ### Added
 
+- Added `$client->enterprise` as the documented namespace for Enterprise
+  `/api/v1/*` workflows.
+- Added `$client->sapi->participants->for($id)->documents` for
+  participant-scoped SAPI-SK document flows.
+- Added `$client->enterprise->connector->customers->for($customerRef)` for
+  managed-customer Connector calls that inject `customerRef` and omit
+  `X-Firm-Id`.
 - Added `$client->connector` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
@@ -32,6 +39,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `baseUrl` override. Production remains the default.
 - Clarified that OAuth test flows use `origin => "https://dev.epostak.sk"`
   because OAuth bypasses `baseUrl`.
+- Updated README and migration guide for the workflow-first public API.
 
 ## 0.10.0 — 2026-05-18
 

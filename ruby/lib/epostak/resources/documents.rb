@@ -71,7 +71,7 @@ module EPostak
       # 261/389), the customer party (which is the authenticated firm) is
       # rewritten instead.
       #
-      # Note: named +send_document+ because +send+ is a reserved method in Ruby.
+      # +send_document+ remains for compatibility; +send+ is the workflow-first alias.
       #
       # @param body [Hash] Invoice data as JSON fields or raw UBL XML
       # @param idempotency_key [String, nil] Optional client-chosen
@@ -115,6 +115,10 @@ module EPostak
       #   )
       def send_document(body, idempotency_key: nil)
         @http.request(:post, "/documents/send", body: body, idempotency_key: idempotency_key)
+      end
+
+      def send(body, idempotency_key: nil)
+        send_document(body, idempotency_key: idempotency_key)
       end
 
       # Get the current delivery status and full status history of a document.

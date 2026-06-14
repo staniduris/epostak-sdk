@@ -11,7 +11,61 @@ export interface SapiSendOptions extends SapiParticipantOptions {
   idempotencyKey: string;
 }
 
+export class SapiParticipantDocumentsResource {
+  constructor(
+    private readonly sapi: SapiResource,
+    private readonly participantId: string,
+  ) {}
+
+  send(
+    body: SapiSendDocumentRequest,
+    options: { idempotencyKey: string },
+  ): Promise<SapiSendDocumentResponse> {
+    return this.sapi.send(body, {
+      participantId: this.participantId,
+      idempotencyKey: options.idempotencyKey,
+    });
+  }
+
+  receive(
+    params: SapiDocumentListParams = {},
+  ): Promise<SapiDocumentListResponse> {
+    return this.sapi.receive(params, { participantId: this.participantId });
+  }
+
+  get(documentId: string): Promise<SapiDocumentDetail> {
+    return this.sapi.get(documentId, { participantId: this.participantId });
+  }
+
+  acknowledge(documentId: string): Promise<SapiAcknowledgeResponse> {
+    return this.sapi.acknowledge(documentId, { participantId: this.participantId });
+  }
+}
+
+export class SapiParticipantResource {
+  readonly documents: SapiParticipantDocumentsResource;
+
+  constructor(sapi: SapiResource, participantId: string) {
+    this.documents = new SapiParticipantDocumentsResource(sapi, participantId);
+  }
+}
+
+export class SapiParticipantsResource {
+  constructor(private readonly sapi: SapiResource) {}
+
+  for(participantId: string): SapiParticipantResource {
+    return new SapiParticipantResource(this.sapi, participantId);
+  }
+}
+
 export class SapiResource extends BaseResource {
+  readonly participants: SapiParticipantsResource;
+
+  constructor(config: import("../utils/request.js").ClientConfig) {
+    super(config);
+    this.participants = new SapiParticipantsResource(this);
+  }
+
   private get sapiBaseUrl(): string {
     return this.config.baseUrl.replace(/\/api\/v1\/?$/, "");
   }

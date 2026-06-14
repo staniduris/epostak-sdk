@@ -6,19 +6,40 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ---
 
+## Major release API shape
+
+PHP `1.0.0` is a breaking workflow-first release:
+
+- Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
+- Enterprise ERP/integrator flow: `$client->enterprise->connector->customers->for("erp-customer")->submitDocument(...)`
+- SAPI-SK interoperable flow: `$client->sapi->participants->for("0245:1234567890")->documents->send(...)`
+
+Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
+
+---
+
 ## Recent changes
 
-### Unreleased
+### v1.0.0 — 2026-06-14
 
-- `$client->connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- `$client->enterprise` is the documented namespace for Documents, Inbox, Pull
+  APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
+  Audit, and Integrator surfaces.
+- `$client->sapi->participants->for($participantId)->documents` requires
+  participant scoping before SAPI document send/receive/get/acknowledge.
+- `$client->enterprise->connector->customers->for($customerRef)` injects
+  `customerRef` and keeps `X-Firm-Id` off customer-managed Connector calls.
+- `$client->enterprise->connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
 
 - `$client->sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
-- `$client->webhooks->test($id, ['count' => 250, 'mode' => 'queued'])` supports direct and queued webhook tests.
-- `$client->webhooks->deadLetters()`, `replayDeadLetter($id)`, and `resolveDeadLetter($id, $reason)` cover webhook DLQ operations.
-- `$client->peppol->resolve([...])` resolves ERP identifiers to Peppol participant + routing capability.
+- `$client->enterprise->webhooks->test($id, ['count' => 250, 'mode' => 'queued'])` supports direct and queued webhook tests.
+- `$client->enterprise->webhooks->deadLetters()`, `replayDeadLetter($id)`, and `resolveDeadLetter($id, $reason)` cover webhook DLQ operations.
+- `$client->enterprise->peppol->resolve([...])` resolves ERP identifiers to Peppol participant + routing capability.
 - Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
 
 ---
@@ -39,7 +60,7 @@ use EPostak\EPostak;
 $client = new EPostak(['clientId' => 'sk_live_xxxxx', 'clientSecret' => 'your-client-secret']);
 
 // Send an invoice
-$result = $client->documents->send([
+$result = $client->enterprise->documents->send([
     'receiverPeppolId' => '0245:1234567890',
     'invoiceNumber' => 'FV-2026-001',
     'issueDate' => '2026-04-04',
@@ -56,7 +77,7 @@ echo $result['status'];      // 'SENT'
 
 ### Connector golden path for ERP developers
 
-Use `$client->connector` for the ERP workflow instead of building raw HTTP
+Use `$client->enterprise->connector` for the ERP workflow instead of building raw HTTP
 calls. The SDK handles OAuth token minting and refresh automatically after you
 create the client.
 
@@ -73,13 +94,13 @@ $invoice = [
     ],
 ];
 
-$preflight = $client->connector->preflight($invoice);
+$preflight = $client->enterprise->connector->preflight($invoice);
 if (!$preflight['ready']) {
     var_dump($preflight['repairReport']['blocking']);
     throw new RuntimeException('Invoice is not ready for Peppol delivery');
 }
 
-$staged = $client->connector->stageOutbox([
+$staged = $client->enterprise->connector->stageOutbox([
     'items' => [[
         'externalId' => 'FA-2026-001',
         'idempotencyKey' => 'erp-fa-2026-001',
@@ -87,27 +108,27 @@ $staged = $client->connector->stageOutbox([
     ]],
 ]);
 
-$sent = $client->connector->sendOutboxItem($staged['items'][0]['outboxId']);
+$sent = $client->enterprise->connector->sendOutboxItem($staged['items'][0]['outboxId']);
 if (empty($sent['documentId'])) {
     throw new RuntimeException('Staged invoice was not sent');
 }
 
-$status = $client->connector->status($sent['documentId']);
+$status = $client->enterprise->connector->status($sent['documentId']);
 
-$inbox = $client->connector->inbox(['limit' => 20]);
+$inbox = $client->enterprise->connector->inbox(['limit' => 20]);
 foreach ($inbox['documents'] as $doc) {
-    $client->connector->ack($doc['documentId']);
+    $client->enterprise->connector->ack($doc['documentId']);
 }
 
 // Evidence is shared with the Enterprise document API.
-$evidence = $client->documents->evidence($sent['documentId']);
+$evidence = $client->enterprise->documents->evidence($sent['documentId']);
 echo $status['status'];
 ```
 
 For immediate send without staging:
 
 ```php
-$sent = $client->connector->send($invoice, 'erp-fa-2026-001-send');
+$sent = $client->enterprise->connector->send($invoice, 'erp-fa-2026-001-send');
 echo $sent['documentId'];
 ```
 
@@ -115,16 +136,29 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```php
-$run = $client->connector->autopilot([
+$run = $client->enterprise->connector->autopilot([
     'customerRef' => 'erp-customer-1',
     'mode' => 'shadow',
     'externalId' => 'FA-2026-001',
     'idempotencyKey' => 'erp-fa-2026-001',
     'payload' => $invoice,
 ]);
-$sentRun = $client->connector->sendAutopilotRun($run['autopilotId']);
-$exceptions = $client->connector->reconcile(['status' => 'exceptions']);
+$sentRun = $client->enterprise->connector->sendAutopilotRun($run['autopilotId']);
+$exceptions = $client->enterprise->connector->reconcile(['status' => 'exceptions']);
 echo $sentRun['lifecycleStatus'] . ' ' . $exceptions['total'];
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```php
+$customer = $client->enterprise->connector->customers->for('erp-customer-1');
+$run = $customer->submitDocument([
+    'externalId' => 'FA-2026-001',
+    'idempotencyKey' => 'erp-fa-2026-001',
+    'payload' => $invoice,
+]);
+echo $run['autopilotId'];
 ```
 
 Common sandbox scenarios to test:
@@ -133,7 +167,27 @@ Common sandbox scenarios to test:
 - invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostakError`
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `$client->connector->inbox(...)`, store the payload, then call `$client->connector->ack($documentId)`
+- received invoice processing: poll `$client->enterprise->connector->inbox(...)`, store the payload, then call `$client->enterprise->connector->ack($documentId)`
+
+---
+
+## SAPI-SK participant flow
+
+```php
+$participant = $client->sapi->participants->for('0245:1234567890');
+$participant->documents->send([
+    'metadata' => [
+        'documentId' => 'FA-2026-001',
+        'documentTypeId' => 'invoice',
+        'processId' => 'billing',
+        'senderParticipantId' => '0245:1234567890',
+        'receiverParticipantId' => '0245:0987654321',
+        'creationDateTime' => '2026-06-14T10:00:00Z',
+    ],
+    'payload' => '<Invoice/>',
+    'payloadFormat' => 'XML',
+], 'sapi-fa-2026-001');
+```
 
 ---
 
@@ -178,7 +232,7 @@ calls, set `baseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
 **JSON mode** -- structured data, UBL XML is auto-generated:
 
 ```php
-$result = $client->documents->send([
+$result = $client->enterprise->documents->send([
     'receiverPeppolId' => '0245:1234567890',
     'receiverName' => 'Firma s.r.o.',
     'receiverIco' => '12345678',
@@ -198,7 +252,7 @@ $result = $client->documents->send([
 **XML mode** -- send a pre-built UBL XML document:
 
 ```php
-$result = $client->documents->send([
+$result = $client->enterprise->documents->send([
     'receiverPeppolId' => '0245:1234567890',
     'xml' => '<?xml version="1.0" encoding="UTF-8"?>...',
 ]);
@@ -207,7 +261,7 @@ $result = $client->documents->send([
 #### `documents->get($id)` -- Get a document by ID
 
 ```php
-$doc = $client->documents->get('doc-uuid');
+$doc = $client->enterprise->documents->get('doc-uuid');
 // => ['id', 'number', 'status', 'direction', 'docType', 'issueDate', ...]
 ```
 
@@ -216,7 +270,7 @@ $doc = $client->documents->get('doc-uuid');
 Only documents with status `draft` can be updated. All fields are optional.
 
 ```php
-$updated = $client->documents->update('doc-uuid', [
+$updated = $client->enterprise->documents->update('doc-uuid', [
     'invoiceNumber' => 'FV-2026-002',
     'dueDate' => '2026-05-01',
     'items' => [['description' => 'Development', 'quantity' => 20, 'unitPrice' => 75, 'vatRate' => 23]],
@@ -226,34 +280,34 @@ $updated = $client->documents->update('doc-uuid', [
 #### `documents->status($id)` -- Full status with history
 
 ```php
-$status = $client->documents->status('doc-uuid');
+$status = $client->enterprise->documents->status('doc-uuid');
 // => ['id', 'status', 'statusHistory' => [['status', 'timestamp', 'detail']], ...]
 ```
 
 #### `documents->evidence($id)` -- Delivery evidence
 
 ```php
-$evidence = $client->documents->evidence('doc-uuid');
+$evidence = $client->enterprise->documents->evidence('doc-uuid');
 // => ['documentId', 'as4Receipt', 'mlrDocument', 'invoiceResponse', 'deliveredAt', 'sentAt']
 ```
 
 #### `documents->pdf($id)` -- Download PDF as raw bytes
 
 ```php
-$pdf = $client->documents->pdf('doc-uuid');
+$pdf = $client->enterprise->documents->pdf('doc-uuid');
 file_put_contents('invoice.pdf', $pdf);
 ```
 
 #### `documents->ubl($id)` -- Download UBL XML as string
 
 ```php
-$ubl = $client->documents->ubl('doc-uuid');
+$ubl = $client->enterprise->documents->ubl('doc-uuid');
 ```
 
 #### `documents->respond($id, $status, $note)` -- Send invoice response
 
 ```php
-$response = $client->documents->respond('doc-uuid', 'AP', 'Invoice accepted');
+$response = $client->enterprise->documents->respond('doc-uuid', 'AP', 'Invoice accepted');
 // $status: 'AP' = accepted, 'RE' = rejected, 'UQ' = under query
 // => ['documentId', 'responseStatus', 'respondedAt']
 ```
@@ -261,7 +315,7 @@ $response = $client->documents->respond('doc-uuid', 'AP', 'Invoice accepted');
 #### `documents->validate($body)` -- Validate without sending
 
 ```php
-$validation = $client->documents->validate([
+$validation = $client->enterprise->documents->validate([
     'receiverPeppolId' => '0245:1234567890',
     'items' => [['description' => 'Test', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23]],
 ]);
@@ -271,7 +325,7 @@ $validation = $client->documents->validate([
 #### `documents->preflight($receiverPeppolId, $documentTypeId)` -- Check receiver capability
 
 ```php
-$check = $client->documents->preflight('0245:1234567890');
+$check = $client->enterprise->documents->preflight('0245:1234567890');
 // => ['receiverPeppolId', 'registered', 'supportsDocumentType', 'smpUrl']
 ```
 
@@ -279,11 +333,11 @@ $check = $client->documents->preflight('0245:1234567890');
 
 ```php
 // JSON to UBL
-$result = $client->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+$result = $client->enterprise->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
 echo $result['document']; // UBL XML string
 
 // UBL to JSON
-$result = $client->documents->convert('ubl', 'json', '<Invoice xmlns="...">...</Invoice>');
+$result = $client->enterprise->documents->convert('ubl', 'json', '<Invoice xmlns="...">...</Invoice>');
 print_r($result['document']); // associative array
 // $result['output_format'], $result['warnings']
 ```
@@ -292,12 +346,12 @@ print_r($result['document']); // associative array
 
 ### Inbox
 
-Access via `$client->documents->inbox`.
+Access via `$client->enterprise->documents->inbox`.
 
 #### `documents->inbox->list($params)` -- List received documents
 
 ```php
-$inbox = $client->documents->inbox->list([
+$inbox = $client->enterprise->documents->inbox->list([
     'limit' => 20,            // 1-100, default 20
     'offset' => 0,
     'status' => 'RECEIVED',   // 'RECEIVED' | 'ACKNOWLEDGED'
@@ -309,7 +363,7 @@ $inbox = $client->documents->inbox->list([
 #### `documents->inbox->get($id)` -- Full detail with UBL XML
 
 ```php
-$detail = $client->documents->inbox->get('doc-uuid');
+$detail = $client->enterprise->documents->inbox->get('doc-uuid');
 // $detail['document'] -- InboxDocument
 // $detail['payload']  -- UBL XML string or null
 ```
@@ -317,14 +371,14 @@ $detail = $client->documents->inbox->get('doc-uuid');
 #### `documents->inbox->acknowledge($id)` -- Mark as processed
 
 ```php
-$ack = $client->documents->inbox->acknowledge('doc-uuid');
+$ack = $client->enterprise->documents->inbox->acknowledge('doc-uuid');
 // => ['documentId', 'status' => 'ACKNOWLEDGED', 'acknowledgedAt']
 ```
 
 #### `documents->inbox->listAll($params)` -- Cross-firm inbox (integrator)
 
 ```php
-$all = $client->documents->inbox->listAll([
+$all = $client->enterprise->documents->inbox->listAll([
     'limit' => 50,
     'status' => 'RECEIVED',
     'firm_id' => 'specific-firm-uuid',  // Optional filter
@@ -339,14 +393,14 @@ $all = $client->documents->inbox->listAll([
 #### `peppol->lookup($scheme, $identifier)` -- SMP participant lookup
 
 ```php
-$participant = $client->peppol->lookup('0245', '12345678');
+$participant = $client->enterprise->peppol->lookup('0245', '12345678');
 // => ['peppolId', 'name', 'country', 'capabilities' => [...]]
 ```
 
 #### `peppol->directory->search($params)` -- Business Card directory
 
 ```php
-$results = $client->peppol->directory->search([
+$results = $client->enterprise->peppol->directory->search([
     'q' => 'Telekom',
     'country' => 'SK',
     'page' => 0,
@@ -358,12 +412,12 @@ $results = $client->peppol->directory->search([
 #### `peppol->companyLookup($ico)` -- Slovak company lookup
 
 ```php
-$company = $client->peppol->companyLookup('12345678');
+$company = $client->enterprise->peppol->companyLookup('12345678');
 // => ['ico', 'name', 'dic', 'icDph', 'address', 'peppolId']
 
-$matches = $client->peppol->companySearch('Demo', 10);
+$matches = $client->enterprise->peppol->companySearch('Demo', 10);
 
-$resolved = $client->peppol->resolve([
+$resolved = $client->enterprise->peppol->resolve([
     'ico' => '12345678',
     'documentTypeId' => 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...',
 ]);
@@ -376,21 +430,21 @@ $resolved = $client->peppol->resolve([
 #### `firms->list()` -- List all accessible firms
 
 ```php
-$firms = $client->firms->list();
+$firms = $client->enterprise->firms->list();
 // => ['firms' => [['id', 'name', 'ico', 'peppolId', 'peppolStatus'], ...]]
 ```
 
 #### `firms->get($id)` -- Firm detail
 
 ```php
-$firm = $client->firms->get('firm-uuid');
+$firm = $client->enterprise->firms->get('firm-uuid');
 // => ['id', 'name', 'ico', 'peppolId', 'peppolStatus', 'dic', 'icDph', 'address', ...]
 ```
 
 #### `firms->documents($id, $params)` -- List firm documents
 
 ```php
-$docs = $client->firms->documents('firm-uuid', [
+$docs = $client->enterprise->firms->documents('firm-uuid', [
     'limit' => 20,
     'direction' => 'inbound',  // 'inbound' | 'outbound'
 ]);
@@ -399,21 +453,21 @@ $docs = $client->firms->documents('firm-uuid', [
 #### `firms->registerPeppolId($id, $scheme, $identifier)` -- Register Peppol ID
 
 ```php
-$result = $client->firms->registerPeppolId('firm-uuid', '0245', '12345678');
+$result = $client->enterprise->firms->registerPeppolId('firm-uuid', '0245', '12345678');
 // => ['peppolId', 'scheme', 'identifier', 'registeredAt']
 ```
 
 #### `firms->assign($ico)` -- Assign firm to integrator
 
 ```php
-$result = $client->firms->assign('12345678');
+$result = $client->enterprise->firms->assign('12345678');
 // => ['firm' => ['id', 'name', 'ico', ...], 'status' => 'active']
 ```
 
 #### `firms->assignBatch($icos)` -- Batch assign firms (max 50)
 
 ```php
-$result = $client->firms->assignBatch(['12345678', '87654321', '11223344']);
+$result = $client->enterprise->firms->assignBatch(['12345678', '87654321', '11223344']);
 // => ['results' => [['ico', 'firm' => ..., 'status' => ..., 'error' => ...], ...]]
 ```
 
@@ -424,7 +478,7 @@ $result = $client->firms->assignBatch(['12345678', '87654321', '11223344']);
 #### `webhooks->create($url, $events)` -- Register a webhook
 
 ```php
-$webhook = $client->webhooks->create(
+$webhook = $client->enterprise->webhooks->create(
     'https://example.com/webhook',
     ['document.received', 'document.sent']
 );
@@ -434,37 +488,37 @@ $webhook = $client->webhooks->create(
 #### `webhooks->list()` -- List webhooks
 
 ```php
-$webhooks = $client->webhooks->list();
+$webhooks = $client->enterprise->webhooks->list();
 ```
 
 #### `webhooks->get($id)` -- Webhook detail with deliveries
 
 ```php
-$detail = $client->webhooks->get('webhook-uuid');
+$detail = $client->enterprise->webhooks->get('webhook-uuid');
 // => [...webhook, 'deliveries' => [...]]
 
-$queued = $client->webhooks->test('webhook-uuid', [
+$queued = $client->enterprise->webhooks->test('webhook-uuid', [
     'event' => 'document.received',
     'count' => 250,
     'mode' => 'queued',
 ]);
 
-$deliveries = $client->webhooks->deliveries('webhook-uuid', [
+$deliveries = $client->enterprise->webhooks->deliveries('webhook-uuid', [
     'testRunId' => $queued['testRunId'],
     'includeResponseBody' => true,
 ]);
 
-$dlq = $client->webhooks->deadLetters(['includeResponseBody' => true]);
+$dlq = $client->enterprise->webhooks->deadLetters(['includeResponseBody' => true]);
 foreach ($dlq['items'] as $failed) {
-    $client->webhooks->replayDeadLetter($failed['id']);
-    // or: $client->webhooks->resolveDeadLetter($failed['id'], 'Handled in ERP');
+    $client->enterprise->webhooks->replayDeadLetter($failed['id']);
+    // or: $client->enterprise->webhooks->resolveDeadLetter($failed['id'], 'Handled in ERP');
 }
 ```
 
 #### `webhooks->update($id, $data)` -- Update webhook
 
 ```php
-$client->webhooks->update('webhook-uuid', [
+$client->enterprise->webhooks->update('webhook-uuid', [
     'url' => 'https://example.com/new-webhook',
     'events' => ['document.received'],
     'isActive' => true,
@@ -474,7 +528,7 @@ $client->webhooks->update('webhook-uuid', [
 #### `webhooks->delete($id)` -- Delete webhook
 
 ```php
-$client->webhooks->delete('webhook-uuid');
+$client->enterprise->webhooks->delete('webhook-uuid');
 ```
 
 #### Verifying webhook signatures
@@ -537,12 +591,12 @@ The signature contract is **unchanged** — `WebhookSignature::verify()` continu
 
 ### Webhook Pull Queue
 
-Alternative to push webhooks -- poll for events. Access via `$client->webhooks->queue`.
+Alternative to push webhooks -- poll for events. Access via `$client->enterprise->webhooks->queue`.
 
 #### `webhooks->queue->pull($params)` -- Fetch pending events
 
 ```php
-$queue = $client->webhooks->queue->pull([
+$queue = $client->enterprise->webhooks->queue->pull([
     'limit' => 50,                          // 1-100, default 20
     'event_type' => 'document.received',    // Optional filter
 ]);
@@ -557,7 +611,7 @@ foreach ($queue['items'] as $item) {
 #### `webhooks->queue->ack($eventId)` -- Acknowledge single event
 
 ```php
-$client->webhooks->queue->ack('event-uuid');
+$client->enterprise->webhooks->queue->ack('event-uuid');
 // Returns null (HTTP 204)
 ```
 
@@ -565,14 +619,14 @@ $client->webhooks->queue->ack('event-uuid');
 
 ```php
 $ids = array_column($queue['items'], 'id');
-$client->webhooks->queue->batchAck($ids);
+$client->enterprise->webhooks->queue->batchAck($ids);
 // Returns null (HTTP 204)
 ```
 
 #### `webhooks->queue->pullAll($params)` -- Cross-firm queue (integrator)
 
 ```php
-$queue = $client->webhooks->queue->pullAll([
+$queue = $client->enterprise->webhooks->queue->pullAll([
     'limit' => 200,   // 1-500, default 100
     'since' => '2026-04-01T00:00:00Z',
 ]);
@@ -587,7 +641,7 @@ foreach ($queue['events'] as $event) {
 
 ```php
 $ids = array_column($queue['events'], 'event_id');
-$result = $client->webhooks->queue->batchAckAll($ids);
+$result = $client->enterprise->webhooks->queue->batchAckAll($ids);
 echo $result['acknowledged'];  // number of events acknowledged
 ```
 
@@ -598,7 +652,7 @@ echo $result['acknowledged'];  // number of events acknowledged
 #### `reporting->statistics($params)` -- Aggregated stats
 
 ```php
-$stats = $client->reporting->statistics([
+$stats = $client->enterprise->reporting->statistics([
     'from' => '2026-01-01',
     'to' => '2026-03-31',
 ]);
@@ -614,7 +668,7 @@ $stats = $client->reporting->statistics([
 #### `account->get()` -- Account info
 
 ```php
-$account = $client->account->get();
+$account = $client->enterprise->account->get();
 // => ['firm' => ['name', 'ico', 'peppolId', 'peppolStatus'],
 //     'plan' => ['name', 'status'],
 //     'usage' => ['outbound', 'inbound']]
@@ -629,7 +683,7 @@ Requires Enterprise plan.
 #### `extract->single($filePath, $mimeType, $fileName)` -- Single file
 
 ```php
-$result = $client->extract->single(
+$result = $client->enterprise->extract->single(
     '/path/to/invoice.pdf',
     'application/pdf',
     'invoice.pdf'    // Optional, defaults to basename
@@ -642,7 +696,7 @@ Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`
 #### `extract->batch($files)` -- Batch extraction (up to 10 files)
 
 ```php
-$result = $client->extract->batch([
+$result = $client->enterprise->extract->batch([
     ['filePath' => '/path/to/inv1.pdf', 'mimeType' => 'application/pdf', 'fileName' => 'inv1.pdf'],
     ['filePath' => '/path/to/inv2.png', 'mimeType' => 'image/png'],
 ]);
@@ -693,7 +747,7 @@ use EPostak\EPostak;
 use EPostak\EPostakError;
 
 try {
-    $client->documents->send([...]);
+    $client->enterprise->documents->send([...]);
 } catch (EPostakError $e) {
     echo $e->getStatus();     // HTTP status code (0 for network errors)
     echo $e->getErrorCode();  // Machine-readable code, e.g. 'VALIDATION_FAILED'
@@ -820,10 +874,10 @@ try {
 | `connector->getInboxDocument($documentId)`                   | GET    | `/connector/inbox/{documentId}`      |
 | `connector->ack($documentId)`                                | POST   | `/connector/inbox/{documentId}/ack`  |
 | `connector->events($params)`                                 | GET    | `/connector/events`                  |
-| `sapi->send($body, $participantId, $idempotencyKey)`         | POST   | `/sapi/v1/document/send`             |
-| `sapi->receive($participantId, $params)`                     | GET    | `/sapi/v1/document/receive`          |
-| `sapi->get($documentId, $participantId)`                     | GET    | `/sapi/v1/document/receive/{id}`     |
-| `sapi->acknowledge($documentId, $participantId)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
+| `sapi->participants->for($id)->documents->send($body, $key)` | POST | `/sapi/v1/document/send` |
+| `sapi->participants->for($id)->documents->receive($params)` | GET | `/sapi/v1/document/receive` |
+| `sapi->participants->for($id)->documents->get($documentId)` | GET | `/sapi/v1/document/receive/{id}` |
+| `sapi->participants->for($id)->documents->acknowledge($documentId)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
 
 Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 
@@ -833,7 +887,7 @@ Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test En
 
 ### 0.9.0 — 2026-05-12
 
-- **Pull API** — `$client->inbound` and `$client->outbound` resources for
+- **Pull API** — `$client->enterprise->pull->inbound` and `$client->enterprise->pull->outbound` resources for
   the new cursor-paginated Pull API endpoints (`/inbound/documents` and
   `/outbound/documents`). Includes `ack()` with `client_reference` support
   and `outbound->events()` for the cross-document event stream.

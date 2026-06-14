@@ -15,11 +15,20 @@ use EPostak\EPostakError;
  */
 class Connector
 {
+    public ConnectorCustomers $customers;
+
     /**
      * @param HttpClient $http Shared HTTP transport instance.
      */
     public function __construct(private HttpClient $http)
     {
+        $this->customers = new ConnectorCustomers($this);
+    }
+
+    public function submitDocument(array $body): array
+    {
+        $body['mode'] ??= 'stage';
+        return $this->autopilot($body);
     }
 
     /**
@@ -419,5 +428,108 @@ class Connector
             'json' => $body === [] ? (object) [] : $body,
             'omitFirmId' => true,
         ]);
+    }
+}
+
+function connector_with_customer_ref(string $customerRef, array $body): array
+{
+    if (isset($body['customerRef']) && $body['customerRef'] !== $customerRef) {
+        throw new \InvalidArgumentException('Connector customerRef conflicts with scoped customer');
+    }
+    $body['customerRef'] = $customerRef;
+    return $body;
+}
+
+class ConnectorCustomers
+{
+    public function __construct(private Connector $connector)
+    {
+    }
+
+    public function for(string $customerRef): ConnectorCustomer
+    {
+        return new ConnectorCustomer($this->connector, $customerRef);
+    }
+}
+
+class ConnectorCustomer
+{
+    public ConnectorCustomerDocuments $documents;
+    public ConnectorCustomerMailbox $mailbox;
+
+    public function __construct(
+        private Connector $connector,
+        private string $customerRef
+    ) {
+        $this->documents = new ConnectorCustomerDocuments($connector);
+        $this->mailbox = new ConnectorCustomerMailbox($connector, $customerRef);
+    }
+
+    public function submitDocument(array $body): array
+    {
+        $body = connector_with_customer_ref($this->customerRef, $body);
+        $body['mode'] ??= 'stage';
+        return $this->connector->autopilot($body);
+    }
+
+    public function autopilot(array $body): array
+    {
+        return $this->connector->autopilot(connector_with_customer_ref($this->customerRef, $body));
+    }
+
+    public function zenInput(array $body): array
+    {
+        return $this->connector->zenInput(connector_with_customer_ref($this->customerRef, $body));
+    }
+
+    public function sync(array $params = []): array
+    {
+        return $this->connector->sync(connector_with_customer_ref($this->customerRef, $params));
+    }
+}
+
+class ConnectorCustomerDocuments
+{
+    public function __construct(private Connector $connector)
+    {
+    }
+
+    public function get(string $documentId): array
+    {
+        return $this->connector->getDocument($documentId);
+    }
+
+    public function ubl(string $documentId): string
+    {
+        return $this->connector->getDocumentUbl($documentId);
+    }
+
+    public function evidence(string $documentId): array
+    {
+        return $this->connector->getDocumentEvidence($documentId);
+    }
+
+    public function evidenceBundle(string $documentId): array
+    {
+        return $this->connector->getDocumentEvidenceBundle($documentId);
+    }
+}
+
+class ConnectorCustomerMailbox
+{
+    public function __construct(
+        private Connector $connector,
+        private string $customerRef
+    ) {
+    }
+
+    public function repair(): array
+    {
+        return $this->connector->repairMailbox(['customerRef' => $this->customerRef]);
+    }
+
+    public function updateSendPolicy(array $body): array
+    {
+        return $this->connector->updateMailboxSendPolicy($this->customerRef, $body);
     }
 }

@@ -4,10 +4,17 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 1.0.0 — 2026-06-14
 
 ### Added
 
+- Added `client.enterprise()` as the documented namespace for Enterprise
+  `/api/v1/*` workflows.
+- Added `client.sapi().participants().forParticipant(id).documents()` for
+  participant-scoped SAPI-SK document flows.
+- Added `client.enterprise().connector().customers().forCustomer(customerRef)`
+  for managed-customer Connector calls that inject `customerRef` and omit
+  `X-Firm-Id`.
 - Added `client.connector()` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
@@ -28,6 +35,7 @@ All notable changes to the official ePošťák Java SDK
   `baseUrl` override. Production remains the default.
 - Clarified that OAuth test flows pass `origin = "https://dev.epostak.sk"`
   because OAuth bypasses `baseUrl`.
+- Updated README and migration guide for the workflow-first public API.
 
 ## 0.10.0 — 2026-05-18
 

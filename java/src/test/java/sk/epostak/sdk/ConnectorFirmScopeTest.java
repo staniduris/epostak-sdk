@@ -11,6 +11,7 @@ import sk.epostak.sdk.models.ConnectorMailboxRepairRequest;
 import sk.epostak.sdk.models.ConnectorPreflightRequest;
 import sk.epostak.sdk.models.ConnectorReconcileParams;
 import sk.epostak.sdk.models.ConnectorSendPolicyOptions;
+import sk.epostak.sdk.models.ConnectorSubmitDocumentRequest;
 import sk.epostak.sdk.models.ConnectorSyncParams;
 
 import java.io.IOException;
@@ -51,6 +52,57 @@ final class ConnectorFirmScopeTest {
 
             CapturedRequest request = singleApiRequest(server);
             assertEquals("firm-123", request.firmId());
+        }
+    }
+
+    @Test
+    void majorReleaseEnterpriseNamespaceExposesFullPlatformResources() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            assertEquals(client.documents(), client.enterprise().documents());
+            assertEquals(client.documents().inbox(), client.enterprise().inbox());
+            assertEquals(client.inbound(), client.enterprise().pull().inbound());
+            assertEquals(client.outbound(), client.enterprise().pull().outbound());
+            assertEquals(client.connector(), client.enterprise().connector());
+            assertEquals(client.webhooks(), client.enterprise().webhooks());
+        }
+    }
+
+    @Test
+    void customerScopedConnectorSubmitDocumentOmitsFirmIdAndDefaultsToStage() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.enterprise().connector().customers().forCustomer("erp-customer-1").submitDocument(
+                    new ConnectorSubmitDocumentRequest(
+                            "FA-1",
+                            "erp-fa-1",
+                            Map.of("invoiceNumber", "FA-1")
+                    )
+            );
+
+            CapturedRequest request = singleApiRequest(server);
+            assertEquals("/api/v1/connector/autopilot", request.path());
+            assertEquals(null, request.firmId());
+            assertEquals(true, request.body().contains("\"customerRef\":\"erp-customer-1\""));
+            assertEquals(true, request.body().contains("\"mode\":\"stage\""));
+        }
+    }
+
+    @Test
+    void sapiParticipantDocumentsSendUsesSapiBaseAndParticipantHeader() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.sapi().participants().forParticipant("0245:1234567890")
+                    .documents()
+                    .send(Map.of("xml", "<Invoice/>"), "sapi-fa-1");
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals("/sapi/v1/document/send", request.path());
+            assertEquals("0245:1234567890", request.participantId());
+            assertEquals("sapi-fa-1", request.idempotencyKey());
         }
     }
 
@@ -98,6 +150,14 @@ final class ConnectorFirmScopeTest {
         return apiRequests.get(0);
     }
 
+    private static CapturedRequest singleNonAuthRequest(CaptureServer server) {
+        List<CapturedRequest> apiRequests = server.requests().stream()
+                .filter(request -> !request.path().equals("/sapi/v1/auth/token"))
+                .toList();
+        assertEquals(1, apiRequests.size());
+        return apiRequests.get(0);
+    }
+
     private record NamedCall(String name, ConnectorCall call) {
         void invoke(EPostak client) {
             call.invoke(client);
@@ -109,7 +169,14 @@ final class ConnectorFirmScopeTest {
         void invoke(EPostak client);
     }
 
-    private record CapturedRequest(String method, String path, String firmId) {}
+    private record CapturedRequest(
+            String method,
+            String path,
+            String firmId,
+            String participantId,
+            String idempotencyKey,
+            String body
+    ) {}
 
     private static final class CaptureServer implements AutoCloseable {
         private final HttpServer server;
@@ -136,14 +203,17 @@ final class ConnectorFirmScopeTest {
         }
 
         private void handle(HttpExchange exchange) throws IOException {
-            exchange.getRequestBody().readAllBytes();
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
 
             String path = exchange.getRequestURI().getPath();
             Headers headers = exchange.getRequestHeaders();
             requests.add(new CapturedRequest(
                     exchange.getRequestMethod(),
                     path,
-                    headers.getFirst("X-Firm-Id")
+                    headers.getFirst("X-Firm-Id"),
+                    headers.getFirst("X-Peppol-Participant-Id"),
+                    headers.getFirst("Idempotency-Key"),
+                    body
             ));
 
             if (path.equals("/sapi/v1/auth/token")) {

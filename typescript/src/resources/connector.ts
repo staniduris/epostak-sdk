@@ -32,6 +32,7 @@ import type {
   ConnectorStatusResponse,
   ConnectorSyncParams,
   ConnectorSyncResponse,
+  ConnectorSubmitDocumentRequest,
   ConnectorZenInputRequest,
 } from "../types.js";
 
@@ -109,6 +110,103 @@ export class ConnectorOutboxResource extends BaseResource {
   }
 }
 
+function withCustomerRef<T extends { customerRef?: string }>(
+  customerRef: string,
+  body: T,
+): T & { customerRef: string } {
+  if (body.customerRef && body.customerRef !== customerRef) {
+    throw new Error("Connector customerRef conflicts with scoped customer");
+  }
+  return { ...body, customerRef };
+}
+
+export class ConnectorCustomerDocumentsResource {
+  constructor(private readonly parent: ConnectorResource) {}
+
+  get(documentId: string): Promise<Record<string, unknown>> {
+    return this.parent.getDocument(documentId);
+  }
+
+  ubl(documentId: string): Promise<string> {
+    return this.parent.getDocumentUbl(documentId);
+  }
+
+  evidence(documentId: string): Promise<Record<string, unknown>> {
+    return this.parent.getDocumentEvidence(documentId);
+  }
+
+  evidenceBundle(documentId: string): Promise<Record<string, unknown>> {
+    return this.parent.getDocumentEvidenceBundle(documentId);
+  }
+}
+
+export class ConnectorCustomerMailboxResource {
+  constructor(
+    private readonly parent: ConnectorResource,
+    private readonly customerRef: string,
+  ) {}
+
+  repair(): Promise<Record<string, unknown>> {
+    return this.parent.repairMailbox({ customerRef: this.customerRef });
+  }
+
+  updateSendPolicy(
+    body: ConnectorSendPolicyOptions,
+  ): Promise<ConnectorMailboxUpdateResponse> {
+    return this.parent.updateMailboxSendPolicy(this.customerRef, body);
+  }
+}
+
+export class ConnectorCustomerResource {
+  readonly documents: ConnectorCustomerDocumentsResource;
+  readonly mailbox: ConnectorCustomerMailboxResource;
+
+  constructor(
+    private readonly parent: ConnectorResource,
+    private readonly customerRef: string,
+  ) {
+    this.documents = new ConnectorCustomerDocumentsResource(parent);
+    this.mailbox = new ConnectorCustomerMailboxResource(parent, customerRef);
+  }
+
+  submitDocument(
+    body: ConnectorSubmitDocumentRequest,
+  ): Promise<ConnectorAutopilotRunResponse> {
+    return this.parent.autopilot(
+      withCustomerRef(this.customerRef, {
+        ...body,
+        mode: body.mode ?? "stage",
+      }),
+    );
+  }
+
+  autopilot(
+    body: Omit<ConnectorAutopilotRequest, "customerRef"> & { customerRef?: string },
+  ): Promise<ConnectorAutopilotRunResponse> {
+    return this.parent.autopilot(withCustomerRef(this.customerRef, body));
+  }
+
+  zenInput(
+    body: Omit<ConnectorZenInputRequest, "customerRef"> & { customerRef?: string },
+  ): Promise<ConnectorAutopilotRunResponse> {
+    return this.parent.zenInput(withCustomerRef(this.customerRef, body));
+  }
+
+  sync(
+    params?: Omit<ConnectorSyncParams, "customerRef"> & { customerRef?: string },
+  ): Promise<ConnectorSyncResponse> {
+    return this.parent.sync(withCustomerRef(this.customerRef, params ?? {}));
+  }
+}
+
+export class ConnectorCustomersResource {
+  constructor(private readonly parent: ConnectorResource) {}
+
+  for(customerRef: string): ConnectorCustomerResource {
+    return new ConnectorCustomerResource(this.parent, customerRef);
+  }
+}
+
 /**
  * Connector workflow endpoints for ERP teams.
  *
@@ -119,10 +217,13 @@ export class ConnectorOutboxResource extends BaseResource {
 export class ConnectorResource extends BaseResource {
   /** Stage now, send later lifecycle for outbound ERP invoices. */
   readonly outbox: ConnectorOutboxResource;
+  /** Customer-scoped Connector workflow for integrator-managed firms. */
+  readonly customers: ConnectorCustomersResource;
 
   constructor(config: ClientConfig) {
     super(config);
     this.outbox = new ConnectorOutboxResource(config);
+    this.customers = new ConnectorCustomersResource(this);
   }
 
   /**

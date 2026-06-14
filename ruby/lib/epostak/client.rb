@@ -60,6 +60,9 @@ module EPostak
     # @return [Resources::Sapi] SAPI-SK 1.0 interoperable document endpoints
     attr_reader :sapi
 
+    # @return [Resources::Enterprise] Workflow-first Enterprise API namespace
+    attr_reader :enterprise
+
     # Create a new ePošťák API client.
     #
     # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
@@ -112,6 +115,7 @@ module EPostak
       @inbound    = Resources::Inbound.new(@http)
       @outbound   = Resources::Outbound.new(@http)
       @sapi       = Resources::Sapi.new(@http, base_url: @base_url)
+      @enterprise = Resources::Enterprise.new(self)
     end
 
     # Create a new client instance scoped to a specific firm.

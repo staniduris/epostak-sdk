@@ -3,10 +3,17 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 1.0.0 — 2026-06-14
 
 ### Added
 
+- Added `client.Enterprise` as the documented namespace for Enterprise
+  `/api/v1/*` workflows.
+- Added `client.Sapi.Participants.For(id).Documents` for participant-scoped
+  SAPI-SK document flows.
+- Added `client.Enterprise.Connector.Customers.For(customerRef)` for
+  managed-customer Connector calls that inject `CustomerRef` and omit
+  `X-Firm-Id`.
 - Added `client.Connector` for Connector preflight, send, outbox
   stage/list/detail/send/batch/cancel, status, inbox list/detail, ACK, and
   event polling.
@@ -28,6 +35,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `BaseUrl` override. Production remains the default.
 - Clarified that OAuth test flows pass `origin: "https://dev.epostak.sk"`
   because OAuth bypasses `BaseUrl`.
+- Updated README and migration guide for the workflow-first public API.
 
 ## 0.10.1 — 2026-05-22
 

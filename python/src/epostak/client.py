@@ -19,6 +19,7 @@ from epostak.resources.audit import AuditResource
 from epostak.resources.auth import AuthResource
 from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource
+from epostak.resources.enterprise import EnterpriseResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
 from epostak.resources.inbound import InboundResource
@@ -122,6 +123,9 @@ class EPostak:
     auth: AuthResource
     """OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist."""
 
+    enterprise: EnterpriseResource
+    """Workflow-first Enterprise API namespace for ``/api/v1/*`` resources."""
+
     connector: ConnectorResource
     """Connector workflow for ERP send, preflight, inbox polling, ack, and events."""
 
@@ -211,6 +215,7 @@ class EPostak:
         self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.sapi = SapiResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.enterprise = EnterpriseResource(self)
 
     @property
     def last_rate_limit(self) -> "Optional[dict]":

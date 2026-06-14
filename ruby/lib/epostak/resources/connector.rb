@@ -12,6 +12,13 @@ module EPostak
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
         @http = http
+        @customers = ConnectorCustomers.new(self)
+      end
+
+      attr_reader :customers
+
+      def submit_document(body)
+        autopilot(body.merge(mode: body[:mode] || body["mode"] || "stage"))
       end
 
       # Validate receiver reachability and payload readiness before send.
@@ -252,6 +259,88 @@ module EPostak
 
       def encode(value)
         ERB::Util.url_encode(value)
+      end
+    end
+
+    def self.connector_with_customer_ref(customer_ref, body)
+      current = body[:customerRef] || body["customerRef"]
+      raise ArgumentError, "Connector customerRef conflicts with scoped customer" if current && current != customer_ref
+
+      body.merge(customerRef: customer_ref)
+    end
+
+    class ConnectorCustomers
+      def initialize(connector)
+        @connector = connector
+      end
+
+      def for_customer(customer_ref)
+        ConnectorCustomer.new(@connector, customer_ref)
+      end
+    end
+
+    class ConnectorCustomer
+      attr_reader :documents, :mailbox
+
+      def initialize(connector, customer_ref)
+        @connector = connector
+        @customer_ref = customer_ref
+        @documents = ConnectorCustomerDocuments.new(connector)
+        @mailbox = ConnectorCustomerMailbox.new(connector, customer_ref)
+      end
+
+      def submit_document(body)
+        scoped = Resources.connector_with_customer_ref(@customer_ref, body)
+        @connector.autopilot(scoped.merge(mode: scoped[:mode] || scoped["mode"] || "stage"))
+      end
+
+      def autopilot(body)
+        @connector.autopilot(Resources.connector_with_customer_ref(@customer_ref, body))
+      end
+
+      def zen_input(body)
+        @connector.zen_input(Resources.connector_with_customer_ref(@customer_ref, body))
+      end
+
+      def sync(cursor: nil, limit: nil)
+        @connector.sync(customer_ref: @customer_ref, cursor: cursor, limit: limit)
+      end
+    end
+
+    class ConnectorCustomerDocuments
+      def initialize(connector)
+        @connector = connector
+      end
+
+      def get(document_id)
+        @connector.get_document(document_id)
+      end
+
+      def ubl(document_id)
+        @connector.get_document_ubl(document_id)
+      end
+
+      def evidence(document_id)
+        @connector.get_document_evidence(document_id)
+      end
+
+      def evidence_bundle(document_id)
+        @connector.get_document_evidence_bundle(document_id)
+      end
+    end
+
+    class ConnectorCustomerMailbox
+      def initialize(connector, customer_ref)
+        @connector = connector
+        @customer_ref = customer_ref
+      end
+
+      def repair
+        @connector.repair_mailbox(customerRef: @customer_ref)
+      end
+
+      def update_send_policy(body)
+        @connector.update_mailbox_send_policy(@customer_ref, body)
       end
     end
   end

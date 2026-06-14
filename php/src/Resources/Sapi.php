@@ -12,6 +12,7 @@ use EPostak\HttpClient;
 class Sapi
 {
     private HttpClient $http;
+    public SapiParticipants $participants;
 
     public function __construct(HttpClient $http)
     {
@@ -22,6 +23,7 @@ class Sapi
             $http->getFirmId(),
             $http->getMaxRetries()
         );
+        $this->participants = new SapiParticipants($this);
     }
 
     public function send(array $body, string $participantId, string $idempotencyKey): array
@@ -59,5 +61,56 @@ class Sapi
         return $this->http->request('POST', '/sapi/v1/document/receive/' . urlencode($documentId) . '/acknowledge', [
             'headers' => ['X-Peppol-Participant-Id' => $participantId],
         ]);
+    }
+}
+
+class SapiParticipants
+{
+    public function __construct(private Sapi $sapi)
+    {
+    }
+
+    public function for(string $participantId): SapiParticipant
+    {
+        return new SapiParticipant($this->sapi, $participantId);
+    }
+}
+
+class SapiParticipant
+{
+    public SapiParticipantDocuments $documents;
+
+    public function __construct(Sapi $sapi, string $participantId)
+    {
+        $this->documents = new SapiParticipantDocuments($sapi, $participantId);
+    }
+}
+
+class SapiParticipantDocuments
+{
+    public function __construct(
+        private Sapi $sapi,
+        private string $participantId
+    ) {
+    }
+
+    public function send(array $body, string $idempotencyKey): array
+    {
+        return $this->sapi->send($body, $this->participantId, $idempotencyKey);
+    }
+
+    public function receive(array $params = []): array
+    {
+        return $this->sapi->receive($this->participantId, $params);
+    }
+
+    public function get(string $documentId): array
+    {
+        return $this->sapi->get($documentId, $this->participantId);
+    }
+
+    public function acknowledge(string $documentId): array
+    {
+        return $this->sapi->acknowledge($documentId, $this->participantId);
     }
 }

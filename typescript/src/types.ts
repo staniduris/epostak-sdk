@@ -299,6 +299,16 @@ export interface ConnectorAutopilotRequest {
   options?: Record<string, unknown>;
 }
 
+export interface ConnectorSubmitDocumentRequest {
+  customerRef?: string;
+  mode?: ConnectorAutopilotMode;
+  externalId?: string | null;
+  idempotencyKey?: string | null;
+  payload: ConnectorSendRequest;
+  send?: ConnectorSendPolicyOptions;
+  options?: Record<string, unknown>;
+}
+
 export interface ConnectorAutopilotRunResponse {
   autopilotId: string;
   externalId?: string | null;

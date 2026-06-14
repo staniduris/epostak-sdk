@@ -9,6 +9,7 @@ use EPostak\Resources\Auth;
 use EPostak\Resources\Audit;
 use EPostak\Resources\Connector;
 use EPostak\Resources\Documents;
+use EPostak\Resources\Enterprise;
 use EPostak\Resources\Firms;
 use EPostak\Resources\Inbound;
 use EPostak\Resources\Integrator;
@@ -40,6 +41,7 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Account $account Account and firm information
  * @property-read Integrator $integrator Integrator-aggregate endpoints (sk_int_* keys)
  * @property-read Sapi $sapi SAPI-SK 1.0 interoperable document endpoints
+ * @property-read Enterprise $enterprise Workflow-first Enterprise API namespace
  */
 class EPostak
 {
@@ -66,6 +68,7 @@ class EPostak
     public Account $account;
     public Integrator $integrator;
     public Sapi $sapi;
+    public Enterprise $enterprise;
 
     private HttpClient $http;
 
@@ -126,6 +129,21 @@ class EPostak
         $this->account = new Account($this->http);
         $this->integrator = new Integrator($this->http);
         $this->sapi = new Sapi($this->http);
+        $this->enterprise = new Enterprise(
+            $this->auth,
+            $this->audit,
+            $this->documents,
+            $this->firms,
+            $this->peppol,
+            $this->webhooks,
+            $this->reporting,
+            $this->extract,
+            $this->account,
+            $this->integrator,
+            $this->connector,
+            $this->inbound,
+            $this->outbound
+        );
     }
 
     /**

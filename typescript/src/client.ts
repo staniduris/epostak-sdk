@@ -12,6 +12,7 @@ import { IntegratorResource } from "./resources/integrator.js";
 import { InboundResource } from "./resources/inbound.js";
 import { OutboundResource } from "./resources/outbound.js";
 import { SapiResource } from "./resources/sapi.js";
+import { EnterpriseResource } from "./resources/enterprise.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport, RateLimitState } from "./types.js";
 import { EPostakError, buildApiError } from "./utils/errors.js";
@@ -75,6 +76,8 @@ export class EPostak {
 
   /** OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist. */
   auth: AuthResource;
+  /** Workflow-first Enterprise API namespace for `/api/v1/*` resources. */
+  enterprise: EnterpriseResource;
   /** Connector workflow for ERP send, preflight, inbox polling, ack, and events. */
   connector: ConnectorResource;
   /** Per-firm audit feed (cursor-paginated). */
@@ -162,6 +165,21 @@ export class EPostak {
     this.inbound = new InboundResource(this.clientConfig);
     this.outbound = new OutboundResource(this.clientConfig);
     this.sapi = new SapiResource(this.clientConfig);
+    this.enterprise = new EnterpriseResource({
+      auth: this.auth,
+      audit: this.audit,
+      documents: this.documents,
+      firms: this.firms,
+      peppol: this.peppol,
+      webhooks: this.webhooks,
+      reporting: this.reporting,
+      extract: this.extract,
+      account: this.account,
+      integrator: this.integrator,
+      connector: this.connector,
+      inbound: this.inbound,
+      outbound: this.outbound,
+    });
   }
 
   /**

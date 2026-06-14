@@ -46,6 +46,16 @@ class ConnectorResource(_BaseResource):
     managed firm from ``customerRef`` and omit ``X-Firm-Id``.
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.customers = ConnectorCustomersResource(self)
+
+    def submit_document(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
+        """Submit an ERP document through the durable Connector lifecycle."""
+        payload = dict(body)
+        payload.setdefault("mode", "stage")
+        return self.autopilot(payload)  # type: ignore[arg-type]
+
     def preflight(self, body: ConnectorPreflightRequest) -> ConnectorPreflightResponse:
         """Validate receiver reachability and payload readiness before send."""
         return self._request("POST", "/connector/preflight", json=body)
@@ -260,3 +270,70 @@ class ConnectorResource(_BaseResource):
             json=body or {},
             omit_firm_id=True,
         )
+
+
+def _with_customer_ref(customer_ref: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    if body.get("customerRef") not in (None, customer_ref):
+        raise ValueError("Connector customerRef conflicts with scoped customer")
+    scoped = dict(body)
+    scoped["customerRef"] = customer_ref
+    return scoped
+
+
+class ConnectorCustomerDocumentsResource:
+    def __init__(self, parent: ConnectorResource) -> None:
+        self._parent = parent
+
+    def get(self, document_id: str) -> Dict[str, Any]:
+        return self._parent.get_document(document_id)
+
+    def ubl(self, document_id: str) -> str:
+        return self._parent.get_document_ubl(document_id)
+
+    def evidence(self, document_id: str) -> Dict[str, Any]:
+        return self._parent.get_document_evidence(document_id)
+
+    def evidence_bundle(self, document_id: str) -> Dict[str, Any]:
+        return self._parent.get_document_evidence_bundle(document_id)
+
+
+class ConnectorCustomerMailboxResource:
+    def __init__(self, parent: ConnectorResource, customer_ref: str) -> None:
+        self._parent = parent
+        self._customer_ref = customer_ref
+
+    def repair(self) -> Dict[str, Any]:
+        return self._parent.repair_mailbox({"customerRef": self._customer_ref})
+
+    def update_send_policy(self, body: ConnectorSendPolicyOptions) -> ConnectorMailboxUpdateResponse:
+        return self._parent.update_mailbox_send_policy(self._customer_ref, body)
+
+
+class ConnectorCustomerResource:
+    def __init__(self, parent: ConnectorResource, customer_ref: str) -> None:
+        self._parent = parent
+        self._customer_ref = customer_ref
+        self.documents = ConnectorCustomerDocumentsResource(parent)
+        self.mailbox = ConnectorCustomerMailboxResource(parent, customer_ref)
+
+    def submit_document(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
+        payload = _with_customer_ref(self._customer_ref, body)
+        payload.setdefault("mode", "stage")
+        return self._parent.autopilot(payload)  # type: ignore[arg-type]
+
+    def autopilot(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
+        return self._parent.autopilot(_with_customer_ref(self._customer_ref, body))  # type: ignore[arg-type]
+
+    def zen_input(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
+        return self._parent.zen_input(_with_customer_ref(self._customer_ref, body))  # type: ignore[arg-type]
+
+    def sync(self, **params: Any) -> ConnectorSyncResponse:
+        return self._parent.sync(customer_ref=self._customer_ref, **params)
+
+
+class ConnectorCustomersResource:
+    def __init__(self, parent: ConnectorResource) -> None:
+        self._parent = parent
+
+    def for_customer(self, customer_ref: str) -> ConnectorCustomerResource:
+        return ConnectorCustomerResource(self._parent, customer_ref)

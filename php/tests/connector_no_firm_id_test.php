@@ -45,6 +45,7 @@ namespace EPostak\Tests {
     require_once __DIR__ . '/../src/TokenManager.php';
     require_once __DIR__ . '/../src/HttpClient.php';
     require_once __DIR__ . '/../src/Resources/Connector.php';
+    require_once __DIR__ . '/../src/Resources/Sapi.php';
 
     final class StaticTokenManager extends TokenManager
     {
@@ -187,6 +188,30 @@ namespace EPostak\Tests {
     assertRequest(fn() => $connector->send(['invoiceNumber' => 'FA-1']), 'POST', 'connector/send', true);
     assertRequest(fn() => $connector->inbox(['limit' => 20]), 'GET', 'connector/inbox?limit=20', true);
     assertRequest(fn() => $connector->events(['limit' => 20]), 'GET', 'connector/events?limit=20', true);
+
+    assertRequest(
+        fn() => $connector->customers->for('erp-customer-1')->submitDocument([
+            'externalId' => 'FA-1',
+            'idempotencyKey' => 'erp-fa-1',
+            'payload' => ['invoiceNumber' => 'FA-1'],
+        ]),
+        'POST',
+        'connector/autopilot',
+        false
+    );
+    $body = Client::$requests[0]['options']['json'] ?? [];
+    assertTrue(($body['customerRef'] ?? null) === 'erp-customer-1', 'Expected customerRef to be injected.');
+    assertTrue(($body['mode'] ?? null) === 'stage', 'Expected submitDocument to default to stage mode.');
+
+    $sapi = new \EPostak\Resources\Sapi(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
+    Client::$requests = [];
+    $sapi->participants->for('0245:1234567890')->documents->send(['xml' => '<Invoice/>'], 'sapi-fa-1');
+    $request = oneRequest();
+    assertTrue($request['method'] === 'POST', 'Expected SAPI send to POST.');
+    assertTrue($request['path'] === 'sapi/v1/document/send', "Expected SAPI send path, got {$request['path']}.");
+    $headers = $request['options']['headers'] ?? [];
+    assertTrue(($headers['X-Peppol-Participant-Id'] ?? null) === '0245:1234567890', 'Expected SAPI participant header.');
+    assertTrue(($headers['Idempotency-Key'] ?? null) === 'sapi-fa-1', 'Expected SAPI idempotency header.');
 
     echo "connector_no_firm_id_test passed" . PHP_EOL;
 }

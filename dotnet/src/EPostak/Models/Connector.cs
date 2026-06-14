@@ -15,8 +15,35 @@ public sealed class ConnectorPreflightRequest
 /// <summary>Request body for <c>POST /connector/send</c>.</summary>
 public sealed class ConnectorSendRequest
 {
+    [JsonPropertyName("document")]
+    public Dictionary<string, object?>? Document { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, object?> Data { get; set; } = [];
+}
+
+public sealed class ConnectorSubmitDocumentRequest
+{
+    [JsonPropertyName("customerRef")]
+    public string? CustomerRef { get; set; }
+
+    [JsonPropertyName("mode")]
+    public string? Mode { get; set; }
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("idempotencyKey")]
+    public string? IdempotencyKey { get; set; }
+
+    [JsonPropertyName("payload")]
+    public object? Payload { get; set; }
+
+    [JsonPropertyName("send")]
+    public ConnectorSendPolicyOptions? Send { get; set; }
+
+    [JsonPropertyName("options")]
+    public Dictionary<string, object?>? Options { get; set; }
 }
 
 public sealed class ConnectorRepairItem

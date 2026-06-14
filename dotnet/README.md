@@ -11,31 +11,50 @@ dotnet add package EPostak
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="EPostak" Version="0.10.1" />
+<PackageReference Include="EPostak" Version="1.0.0" />
 ```
+
+## Major release API shape
+
+.NET `1.0.0` is a breaking workflow-first release:
+
+- Enterprise direct firm flow: `client.Enterprise.Documents.SendAsync(...)`
+- Enterprise ERP/integrator flow: `client.Enterprise.Connector.Customers.For("erp-customer").SubmitDocumentAsync(...)`
+- SAPI-SK interoperable flow: `client.Sapi.Participants.For("0245:1234567890").Documents.SendAsync(...)`
+
+Enterprise `FirmId` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `CustomerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-### Unreleased
+### v1.0.0 — 2026-06-14
 
-- `client.Connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- `client.Enterprise` is the documented namespace for Documents, Inbox, Pull
+  APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
+  Audit, and Integrator surfaces.
+- `client.Sapi.Participants.For(participantId).Documents` requires participant
+  scoping before SAPI document send/receive/get/acknowledge.
+- `client.Enterprise.Connector.Customers.For(customerRef)` injects
+  `CustomerRef` and keeps `X-Firm-Id` off customer-managed Connector calls.
+- `client.Enterprise.Connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Connector V2 calls such as Autopilot, Zen input, mailbox, sync, Connector documents, and actions use the integrator token plus `CustomerRef`; the SDK omits `X-Firm-Id` for those methods even when `FirmId` is configured. Legacy Connector calls such as preflight, send, outbox, status, inbox, and events remain firm-scoped.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
-- `client.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
-- `client.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
-- `client.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
+- `client.Enterprise.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
+- `client.Enterprise.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
+- `client.Enterprise.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
 - README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins.
 
 ### v0.10.1 — 2026-05-22
 
-- `OAuth.ExchangeCodeAsync(...)` now returns `OAuthTokenResponse`, matching `POST /api/oauth/token`: the issued `sk_int_*` `client_id`/`client_secret` plus consented firm metadata. Use those credentials with `client.Auth.TokenAsync(...)` to mint short-lived JWTs for `/api/v1/*` calls.
+- `OAuth.ExchangeCodeAsync(...)` now returns `OAuthTokenResponse`, matching `POST /api/oauth/token`: the issued `sk_int_*` `client_id`/`client_secret` plus consented firm metadata. Use those credentials with `client.Enterprise.Auth.TokenAsync(...)` to mint short-lived JWTs for `/api/v1/*` calls.
 
 ### v0.10.0 — 2026-05-18
 
-- `client.Sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
-- `client.Webhooks.TestAsync(id, new WebhookTestParams { Count = 250, Mode = "queued" })` supports direct and queued webhook tests.
-- `client.Webhooks.DeadLettersAsync()`, `ReplayDeadLetterAsync(id)`, and `ResolveDeadLetterAsync(id, reason)` cover webhook DLQ operations.
-- `client.Peppol.ResolveAsync(...)` resolves ERP identifiers to Peppol participant + routing capability.
+- `client.Sapi.Participants.For(id).Documents` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- `client.Enterprise.Webhooks.TestAsync(id, new WebhookTestParams { Count = 250, Mode = "queued" })` supports direct and queued webhook tests.
+- `client.Enterprise.Webhooks.DeadLettersAsync()`, `ReplayDeadLetterAsync(id)`, and `ResolveDeadLetterAsync(id, reason)` cover webhook DLQ operations.
+- `client.Enterprise.Peppol.ResolveAsync(...)` resolves ERP identifiers to Peppol participant + routing capability.
 - Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
 
 ## Quick start
@@ -51,7 +70,7 @@ var client = new EPostakClient(new EPostakConfig
 });
 
 // Send an invoice
-var result = await client.Documents.SendAsync(new SendDocumentRequest
+var result = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
     InvoiceNumber = "INV-2026-001",
@@ -107,7 +126,7 @@ var client = new EPostakClient(new EPostakConfig { ClientId = "sk_int_xxxxx", Cl
 
 // Create a firm-scoped client (shares the underlying HttpClient)
 var firmClient = client.WithFirm("firm-uuid-here");
-var inbox = await firmClient.Documents.Inbox.ListAsync();
+var inbox = await firmClient.Enterprise.Documents.Inbox.ListAsync();
 ```
 
 ### Shared HttpClient
@@ -139,7 +158,7 @@ var invoice = new Dictionary<string, object?>
     }
 };
 
-var preflight = await client.Connector.PreflightAsync(new ConnectorPreflightRequest
+var preflight = await client.Enterprise.Connector.PreflightAsync(new ConnectorPreflightRequest
 {
     ReceiverPeppolId = "0245:1234567890",
     Document = (Dictionary<string, object?>)invoice["document"]!
@@ -150,7 +169,7 @@ if (!preflight.Ready)
     throw new InvalidOperationException(preflight.RepairReport.Summary);
 }
 
-var staged = await client.Connector.StageOutboxAsync(new ConnectorOutboxStageRequest
+var staged = await client.Enterprise.Connector.StageOutboxAsync(new ConnectorOutboxStageRequest
 {
     Items =
     [
@@ -163,22 +182,22 @@ var staged = await client.Connector.StageOutboxAsync(new ConnectorOutboxStageReq
     ]
 });
 
-var sent = await client.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
+var sent = await client.Enterprise.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
 if (string.IsNullOrEmpty(sent.DocumentId))
 {
     throw new InvalidOperationException("Staged invoice was not sent");
 }
 
-var status = await client.Connector.StatusAsync(sent.DocumentId);
+var status = await client.Enterprise.Connector.StatusAsync(sent.DocumentId);
 
-var inbox = await client.Connector.InboxAsync(new ConnectorListParams { Limit = 20 });
+var inbox = await client.Enterprise.Connector.InboxAsync(new ConnectorListParams { Limit = 20 });
 foreach (var doc in inbox.Documents)
 {
-    await client.Connector.AckAsync(doc.DocumentId);
+    await client.Enterprise.Connector.AckAsync(doc.DocumentId);
 }
 
 // Evidence is shared with the Enterprise document API.
-var evidence = await client.Documents.EvidenceAsync(sent.DocumentId);
+var evidence = await client.Enterprise.Documents.EvidenceAsync(sent.DocumentId);
 Console.WriteLine($"{status.Status} {evidence.DocumentId}");
 ```
 
@@ -194,7 +213,7 @@ var request = new ConnectorSendRequest
     }
 };
 
-var immediate = await client.Connector.SendAsync(request, idempotencyKey: "erp-fa-2026-001-send");
+var immediate = await client.Enterprise.Connector.SendAsync(request, idempotencyKey: "erp-fa-2026-001-send");
 Console.WriteLine($"{immediate.DocumentId} {immediate.Status}");
 ```
 
@@ -202,7 +221,7 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```csharp
-var run = await client.Connector.AutopilotAsync(new ConnectorAutopilotRequest
+var run = await client.Enterprise.Connector.AutopilotAsync(new ConnectorAutopilotRequest
 {
     CustomerRef = "erp-customer-1",
     Mode = "shadow",
@@ -210,12 +229,26 @@ var run = await client.Connector.AutopilotAsync(new ConnectorAutopilotRequest
     IdempotencyKey = "erp-fa-2026-001",
     Payload = invoice
 });
-var sentRun = await client.Connector.SendAutopilotRunAsync(run.AutopilotId);
-var exceptions = await client.Connector.ReconcileAsync(new ConnectorReconcileParams
+var sentRun = await client.Enterprise.Connector.SendAutopilotRunAsync(run.AutopilotId);
+var exceptions = await client.Enterprise.Connector.ReconcileAsync(new ConnectorReconcileParams
 {
     Status = "exceptions"
 });
 Console.WriteLine($"{sentRun.LifecycleStatus} {exceptions.Total}");
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```csharp
+var customerRun = await client.Enterprise.Connector.Customers.For("erp-customer-1")
+    .SubmitDocumentAsync(new ConnectorSubmitDocumentRequest
+    {
+        ExternalId = "FA-2026-001",
+        IdempotencyKey = "erp-fa-2026-001",
+        Payload = invoice
+    });
+Console.WriteLine(customerRun.AutopilotId);
 ```
 
 Common sandbox scenarios to test:
@@ -224,81 +257,104 @@ Common sandbox scenarios to test:
 - invalid UBL or missing buyer/seller data: `PreflightAsync` or `SendAsync` returns validation details in `EPostakException`
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.Connector.InboxAsync(...)`, store the payload, then call `client.Connector.AckAsync(documentId)`
+- received invoice processing: poll `client.Enterprise.Connector.InboxAsync(...)`, store the payload, then call `client.Enterprise.Connector.AckAsync(documentId)`
 
 Batch workers can send queued items with:
 
 ```csharp
-await client.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest
+await client.Enterprise.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest
 {
     Limit = 50
 });
+```
+
+### SAPI-SK participant flow
+
+```csharp
+var sapiDocument = new Dictionary<string, object?>
+{
+    ["metadata"] = new Dictionary<string, object?>
+    {
+        ["documentId"] = "FA-2026-001",
+        ["documentTypeId"] = "invoice",
+        ["processId"] = "billing",
+        ["senderParticipantId"] = "0245:1234567890",
+        ["receiverParticipantId"] = "0245:0987654321",
+        ["creationDateTime"] = "2026-06-14T10:00:00Z"
+    },
+    ["payload"] = "<Invoice/>",
+    ["payloadFormat"] = "XML"
+};
+
+await client.Sapi.Participants.For("0245:1234567890")
+    .Documents
+    .SendAsync(sapiDocument, "sapi-fa-2026-001");
 ```
 
 ### Documents
 
 ```csharp
 // Get a document
-var doc = await client.Documents.GetAsync("doc-id");
+var doc = await client.Enterprise.Documents.GetAsync("doc-id");
 
 // Update a draft
-var updated = await client.Documents.UpdateAsync("doc-id", new UpdateDocumentRequest
+var updated = await client.Enterprise.Documents.UpdateAsync("doc-id", new UpdateDocumentRequest
 {
     InvoiceNumber = "INV-2026-002"
 });
 
 // Send a document
-var sent = await client.Documents.SendAsync(new SendDocumentRequest
+var sent = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
     Items = [ new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
 });
 
 // Send raw UBL XML
-var sentXml = await client.Documents.SendAsync(new SendDocumentRequest
+var sentXml = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
     Xml = "<Invoice xmlns='urn:oasis:names:specification:ubl:schema:xsd:Invoice-2'>...</Invoice>"
 });
 
 // Get delivery status
-var status = await client.Documents.StatusAsync("doc-id");
+var status = await client.Enterprise.Documents.StatusAsync("doc-id");
 
 // Batch status check for up to 100 documents
-var batch = await client.Documents.StatusBatchAsync(["doc-1", "doc-2"]);
+var batch = await client.Enterprise.Documents.StatusBatchAsync(["doc-1", "doc-2"]);
 
 // Get delivery evidence (AS4 receipt, MLR, invoice response)
-var evidence = await client.Documents.EvidenceAsync("doc-id");
+var evidence = await client.Enterprise.Documents.EvidenceAsync("doc-id");
 
 // Download PDF
-byte[] pdf = await client.Documents.PdfAsync("doc-id");
+byte[] pdf = await client.Enterprise.Documents.PdfAsync("doc-id");
 File.WriteAllBytes("invoice.pdf", pdf);
 
 // Download UBL XML
-string ubl = await client.Documents.UblAsync("doc-id");
+string ubl = await client.Enterprise.Documents.UblAsync("doc-id");
 
 // Respond to a received document
-var response = await client.Documents.RespondAsync("doc-id", new InvoiceRespondRequest
+var response = await client.Enterprise.Documents.RespondAsync("doc-id", new InvoiceRespondRequest
 {
     Status = InvoiceResponseCode.AP,
     Note = "Invoice accepted"
 });
 
 // Validate without sending
-var validation = await client.Documents.ValidateAsync(new SendDocumentRequest
+var validation = await client.Enterprise.Documents.ValidateAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
     Items = [ new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
 });
 
 // Preflight check (can receiver accept this document type?)
-var preflight = await client.Documents.PreflightAsync(new PreflightRequest
+var preflight = await client.Enterprise.Documents.PreflightAsync(new PreflightRequest
 {
     ReceiverPeppolId = "0245:12345678"
 });
 
 // Convert between JSON and UBL
-var converted = await client.Documents.ConvertAsync(new ConvertRequest
+var converted = await client.Enterprise.Documents.ConvertAsync(new ConvertRequest
 {
     InputFormat = ConvertInputFormat.Ubl,
     OutputFormat = ConvertOutputFormat.Json,
@@ -310,21 +366,21 @@ var converted = await client.Documents.ConvertAsync(new ConvertRequest
 
 ```csharp
 // List inbox documents
-var inbox = await client.Documents.Inbox.ListAsync(new InboxListParams
+var inbox = await client.Enterprise.Documents.Inbox.ListAsync(new InboxListParams
 {
     Limit = 20,
     Status = InboxStatus.RECEIVED
 });
 
 // Get a single inbox document with UBL payload
-var detail = await client.Documents.Inbox.GetAsync("doc-id");
+var detail = await client.Enterprise.Documents.Inbox.GetAsync("doc-id");
 Console.WriteLine(detail.Payload); // UBL XML
 
 // Acknowledge receipt
-var ack = await client.Documents.Inbox.AcknowledgeAsync("doc-id");
+var ack = await client.Enterprise.Documents.Inbox.AcknowledgeAsync("doc-id");
 
 // List across all firms (integrator only)
-var all = await client.Documents.Inbox.ListAllAsync(new InboxAllParams
+var all = await client.Enterprise.Documents.Inbox.ListAllAsync(new InboxAllParams
 {
     Limit = 50,
     FirmId = "specific-firm-id" // optional filter
@@ -335,11 +391,11 @@ var all = await client.Documents.Inbox.ListAllAsync(new InboxAllParams
 
 ```csharp
 // SMP lookup
-var participant = await client.Peppol.LookupAsync("0245", "12345678");
+var participant = await client.Enterprise.Peppol.LookupAsync("0245", "12345678");
 Console.WriteLine($"Name: {participant.Name}, Capabilities: {participant.Capabilities.Count}");
 
 // Directory search
-var results = await client.Peppol.Directory.SearchAsync(new DirectorySearchParams
+var results = await client.Enterprise.Peppol.Directory.SearchAsync(new DirectorySearchParams
 {
     Q = "Bratislava",
     Country = "SK",
@@ -347,12 +403,12 @@ var results = await client.Peppol.Directory.SearchAsync(new DirectorySearchParam
 });
 
 // Company lookup by ICO
-var company = await client.Peppol.CompanyLookupAsync("12345678");
+var company = await client.Enterprise.Peppol.CompanyLookupAsync("12345678");
 Console.WriteLine($"{company.Name}, DIC: {company.Dic}");
 
-var matches = await client.Peppol.CompanySearchAsync("Demo", limit: 10);
+var matches = await client.Enterprise.Peppol.CompanySearchAsync("Demo", limit: 10);
 
-var resolved = await client.Peppol.ResolveAsync(new Dictionary<string, string?>
+var resolved = await client.Enterprise.Peppol.ResolveAsync(new Dictionary<string, string?>
 {
     ["ico"] = "12345678",
     ["documentTypeId"] = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
@@ -363,33 +419,33 @@ var resolved = await client.Peppol.ResolveAsync(new Dictionary<string, string?>
 
 ```csharp
 // List firms
-var firms = await client.Firms.ListAsync();
+var firms = await client.Enterprise.Firms.ListAsync();
 
 // Get firm details
-var firm = await client.Firms.GetAsync("firm-id");
+var firm = await client.Enterprise.Firms.GetAsync("firm-id");
 
 // List firm documents
-var docs = await client.Firms.DocumentsAsync("firm-id", new FirmDocumentsParams
+var docs = await client.Enterprise.Firms.DocumentsAsync("firm-id", new FirmDocumentsParams
 {
     Limit = 20,
     Direction = DocumentDirection.Inbound
 });
 
 // Register Peppol ID
-var peppolId = await client.Firms.RegisterPeppolIdAsync("firm-id", "0245", "12345678");
+var peppolId = await client.Enterprise.Firms.RegisterPeppolIdAsync("firm-id", "0245", "12345678");
 
 // Assign firm by ICO (integrator)
-var assigned = await client.Firms.AssignAsync("12345678");
+var assigned = await client.Enterprise.Firms.AssignAsync("12345678");
 
 // Batch assign (integrator, max 50)
-var batch = await client.Firms.AssignBatchAsync(["12345678", "87654321"]);
+var batch = await client.Enterprise.Firms.AssignBatchAsync(["12345678", "87654321"]);
 ```
 
 ### Webhooks
 
 ```csharp
 // Create a webhook
-var webhook = await client.Webhooks.CreateAsync(new CreateWebhookRequest
+var webhook = await client.Enterprise.Webhooks.CreateAsync(new CreateWebhookRequest
 {
     Url = "https://example.com/webhook",
     Events = [WebhookEvents.DocumentReceived, WebhookEvents.DocumentSent]
@@ -397,36 +453,36 @@ var webhook = await client.Webhooks.CreateAsync(new CreateWebhookRequest
 Console.WriteLine($"Secret: {webhook.Secret}"); // save this for signature verification
 
 // List webhooks
-var webhooks = await client.Webhooks.ListAsync();
+var webhooks = await client.Enterprise.Webhooks.ListAsync();
 
 // Get webhook with deliveries
-var detail = await client.Webhooks.GetAsync("webhook-id");
+var detail = await client.Enterprise.Webhooks.GetAsync("webhook-id");
 
 // Update webhook
-var updated = await client.Webhooks.UpdateAsync("webhook-id", new UpdateWebhookRequest
+var updated = await client.Enterprise.Webhooks.UpdateAsync("webhook-id", new UpdateWebhookRequest
 {
     IsActive = false
 });
 
 // Delete webhook
-await client.Webhooks.DeleteAsync("webhook-id");
+await client.Enterprise.Webhooks.DeleteAsync("webhook-id");
 
-var queued = await client.Webhooks.TestAsync("webhook-id", new WebhookTestParams
+var queued = await client.Enterprise.Webhooks.TestAsync("webhook-id", new WebhookTestParams
 {
     Event = WebhookEvent.DocumentReceived,
     Count = 250,
     Mode = "queued"
 });
 
-var deliveries = await client.Webhooks.DeliveriesAsync("webhook-id", new WebhookDeliveriesParams
+var deliveries = await client.Enterprise.Webhooks.DeliveriesAsync("webhook-id", new WebhookDeliveriesParams
 {
     TestRunId = queued.TestRunId,
     IncludeResponseBody = true
 });
 
-var dlq = await client.Webhooks.DeadLettersAsync(includeResponseBody: true);
-await client.Webhooks.ReplayDeadLetterAsync("delivery-id");
-await client.Webhooks.ResolveDeadLetterAsync("delivery-id", "Handled in ERP");
+var dlq = await client.Enterprise.Webhooks.DeadLettersAsync(includeResponseBody: true);
+await client.Enterprise.Webhooks.ReplayDeadLetterAsync("delivery-id");
+await client.Enterprise.Webhooks.ResolveDeadLetterAsync("delivery-id", "Handled in ERP");
 ```
 
 #### Dedup + retry headers (server v1.1 — 2026-05-12)
@@ -466,7 +522,7 @@ The signature contract is **unchanged** (HMAC-SHA256 over `${timestamp}.${body}`
 
 ```csharp
 // Pull events
-var events = await client.Webhooks.Queue.PullAsync(new WebhookQueueParams
+var events = await client.Enterprise.Webhooks.Queue.PullAsync(new WebhookQueueParams
 {
     Limit = 50,
     EventType = WebhookEvents.DocumentReceived
@@ -478,21 +534,21 @@ foreach (var item in events.Items)
     // Process the event...
 
     // Acknowledge it
-    await client.Webhooks.Queue.AckAsync(item.Id);
+    await client.Enterprise.Webhooks.Queue.AckAsync(item.Id);
 }
 
 // Batch acknowledge
-await client.Webhooks.Queue.BatchAckAsync(events.Items.Select(e => e.Id));
+await client.Enterprise.Webhooks.Queue.BatchAckAsync(events.Items.Select(e => e.Id));
 
 // Pull across all firms (integrator)
-var allEvents = await client.Webhooks.Queue.PullAllAsync(new WebhookQueueAllParams
+var allEvents = await client.Enterprise.Webhooks.Queue.PullAllAsync(new WebhookQueueAllParams
 {
     Limit = 100,
     Since = "2026-04-01T00:00:00Z"
 });
 
 // Batch ack all (integrator)
-var result = await client.Webhooks.Queue.BatchAckAllAsync(
+var result = await client.Enterprise.Webhooks.Queue.BatchAckAllAsync(
     allEvents.Events.Select(e => e.EventId));
 Console.WriteLine($"Acknowledged: {result.Acknowledged}");
 ```
@@ -500,7 +556,7 @@ Console.WriteLine($"Acknowledged: {result.Acknowledged}");
 ### Reporting
 
 ```csharp
-var stats = await client.Reporting.StatisticsAsync(new StatisticsParams
+var stats = await client.Enterprise.Reporting.StatisticsAsync(new StatisticsParams
 {
     Period = ReportingPeriod.Month
 });
@@ -511,14 +567,14 @@ Console.WriteLine($"Delivery rate: {stats.DeliveryRate:P1}");
 foreach (var top in stats.TopRecipients)
     Console.WriteLine($"  {top.Name} ({top.PeppolId}): {top.Count}");
 
-var submissions = await client.Reporting.SubmissionsAsync(
+var submissions = await client.Enterprise.Reporting.SubmissionsAsync(
     new ReportingSubmissionsParams { Limit = 20, ReportType = "EUSR" });
 ```
 
 ### Account
 
 ```csharp
-var account = await client.Account.GetAsync();
+var account = await client.Enterprise.Account.GetAsync();
 Console.WriteLine($"Firm: {account.Firm.Name}");
 Console.WriteLine($"Plan: {account.Plan.Name} ({account.Plan.Status})");
 Console.WriteLine($"Usage: {account.Usage.Outbound} outbound, {account.Usage.Inbound} inbound");
@@ -527,9 +583,9 @@ Console.WriteLine($"Usage: {account.Usage.Outbound} outbound, {account.Usage.Inb
 ### Integrator keys
 
 ```csharp
-var keys = await client.Integrator.Keys.ListAsync();
-await client.Integrator.Keys.DeactivateAsync(clientId: "sk_int_xxxxx...abcd");
-var usage = await client.Integrator.Licenses.InfoAsync(limit: 100);
+var keys = await client.Enterprise.Integrator.Keys.ListAsync();
+await client.Enterprise.Integrator.Keys.DeactivateAsync(clientId: "sk_int_xxxxx...abcd");
+var usage = await client.Enterprise.Integrator.Licenses.InfoAsync(limit: 100);
 ```
 
 ### Extract (OCR)
@@ -537,12 +593,12 @@ var usage = await client.Integrator.Licenses.InfoAsync(limit: 100);
 ```csharp
 // Extract from a single file
 using var stream = File.OpenRead("invoice.pdf");
-var extracted = await client.Extract.SingleAsync(stream, "application/pdf", "invoice.pdf");
+var extracted = await client.Enterprise.Extract.SingleAsync(stream, "application/pdf", "invoice.pdf");
 Console.WriteLine($"Confidence: {extracted.Confidence}");
 Console.WriteLine($"UBL: {extracted.UblXml}");
 
 // Batch extraction
-var batchResult = await client.Extract.BatchAsync(
+var batchResult = await client.Enterprise.Extract.BatchAsync(
 [
     new ExtractFile { Stream = File.OpenRead("inv1.pdf"), MimeType = "application/pdf", FileName = "inv1.pdf" },
     new ExtractFile { Stream = File.OpenRead("inv2.png"), MimeType = "image/png", FileName = "inv2.png" }
@@ -558,7 +614,7 @@ All API errors throw `EPostakException`:
 ```csharp
 try
 {
-    await client.Documents.GetAsync("nonexistent");
+    await client.Enterprise.Documents.GetAsync("nonexistent");
 }
 catch (EPostakException ex)
 {
@@ -577,7 +633,7 @@ All async methods accept an optional `CancellationToken`:
 
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-var doc = await client.Documents.GetAsync("doc-id", cts.Token);
+var doc = await client.Enterprise.Documents.GetAsync("doc-id", cts.Token);
 ```
 
 ## License

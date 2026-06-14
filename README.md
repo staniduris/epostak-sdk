@@ -4,22 +4,37 @@ Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/en
 
 ---
 
+## Major Release
+
+This release makes the public API workflow-first across all SDK languages.
+Enterprise `/api/v1/*` calls live under `enterprise`; SAPI-SK `/sapi/v1/*`
+calls stay separate and require a participant scope before document
+operations.
+
+- Enterprise direct firm flow: `client.enterprise.documents.send(...)`
+- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for(...).submitDocument(...)`
+- SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
+
+TypeScript is `4.0.0`. Python, PHP, Ruby, Java, and .NET are `1.0.0`.
+
+---
+
 ## Available SDKs
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 3.3.4 | `npm install @epostak/sdk` |
-| Python | [`python/`](./python/) | `epostak` | 0.10.0 | Source on GitHub |
-| PHP | [`php/`](./php/) | `epostak/sdk` | 0.10.0 | Source on GitHub |
-| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 0.10.1 | Source on GitHub |
-| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 0.10.0 | Source on GitHub |
-| Ruby | [`ruby/`](./ruby/) | `epostak` | 0.10.0 | Source on GitHub |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.0.0 | `npm install @epostak/sdk` |
+| Python | [`python/`](./python/) | `epostak` | 1.0.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 1.0.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.0.0 | Source on GitHub |
+| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.0.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.0.0 | Source on GitHub |
 
 TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
 
 ---
 
-## Quick Start (TypeScript)
+## Enterprise Direct Firm Flow
 
 ```typescript
 import { EPostak } from "@epostak/sdk";
@@ -29,7 +44,7 @@ const client = new EPostak({
   clientSecret: "sk_live_xxxxx",
 });
 
-const result = await client.documents.send({
+const result = await client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   invoiceNumber: "FV-2026-001",
   issueDate: "2026-04-04",
@@ -40,9 +55,9 @@ const result = await client.documents.send({
 });
 ```
 
-### Connector Workflow (ERP Golden Path)
+## Enterprise ERP/Integrator Flow
 
-For ERP integrations, prefer `client.connector` over raw HTTP. It exposes the
+For ERP integrations, prefer `client.enterprise.connector` over raw HTTP. It exposes the
 golden path directly: preflight, Autopilot, stage, send, status, inbox, ACK,
 reconcile, mailbox policy, sync, Connector document evidence, and action
 execution.
@@ -65,19 +80,19 @@ const invoice = {
   },
 };
 
-const preflight = await client.connector.preflight(invoice);
+const preflight = await client.enterprise.connector.preflight(invoice);
 if (!preflight.ready) throw new Error(preflight.repairReport.summary);
 
-const autopilot = await client.connector.autopilot({
-  customerRef: "erp-customer-1",
+const customer = client.enterprise.connector.customers.for("erp-customer-1");
+const autopilot = await customer.submitDocument({
   mode: "shadow",
   externalId: "FA-2026-001",
   idempotencyKey: "erp-fa-2026-001",
   payload: invoice,
 });
-const exceptions = await client.connector.reconcile({ status: "exceptions" });
+const exceptions = await client.enterprise.connector.reconcile({ status: "exceptions" });
 
-const staged = await client.connector.outbox.stage({
+const staged = await client.enterprise.connector.outbox.stage({
   items: [
     {
       externalId: "FA-2026-001",
@@ -87,25 +102,51 @@ const staged = await client.connector.outbox.stage({
   ],
 });
 
-const sent = await client.connector.outbox.send(staged.items[0].outboxId);
+const sent = await client.enterprise.connector.outbox.send(staged.items[0].outboxId);
 const status = sent.documentId
-  ? await client.connector.status(sent.documentId)
+  ? await client.enterprise.connector.status(sent.documentId)
   : null;
 
-const inbox = await client.connector.inbox({ limit: 20 });
+const inbox = await client.enterprise.connector.inbox({ limit: 20 });
 for (const doc of inbox.documents) {
-  await client.connector.ack(doc.documentId);
+  await client.enterprise.connector.ack(doc.documentId);
 }
 
 const evidence = sent.documentId
-  ? await client.documents.evidence(sent.documentId)
+  ? await client.enterprise.documents.evidence(sent.documentId)
   : null;
 console.log(status?.status, evidence);
 console.log(autopilot.lifecycleStatus, exceptions.total);
 ```
 
+## SAPI-SK Interoperable Flow
+
+SAPI calls use the same configured host but a separate `/sapi/v1` base path.
+Document operations require a Peppol participant scope, which the SDK sends as
+`X-Peppol-Participant-Id`.
+
+```typescript
+const sapi = client.sapi.participants.for("0245:1234567890");
+
+await sapi.documents.send(
+  {
+    metadata: {
+      documentId: "FA-2026-001",
+      documentTypeId: "invoice",
+      processId: "billing",
+      senderParticipantId: "0245:1234567890",
+      receiverParticipantId: "0245:0987654321",
+      creationDateTime: "2026-06-14T10:00:00Z",
+    },
+    payload: "<Invoice/>",
+    payloadFormat: "XML",
+  },
+  { idempotencyKey: "sapi-fa-2026-001" },
+);
+```
+
 See [`typescript/README.md`](./typescript/README.md) for the copy-paste
-Connector quickstart and common sandbox error scenarios.
+examples and common sandbox error scenarios.
 
 ---
 
@@ -176,7 +217,9 @@ const credentials = await OAuth.exchangeCode({
 });
 ```
 
-Use this when the firm has no API key with you yet. Store the returned `client_id`, `client_secret`, and `firm_id`; use the `client_id`/`client_secret` with the regular `client.auth.token({ clientId, clientSecret })` (`client_credentials`) flow to mint JWTs for `/api/v1/*` calls.
+Use this when the firm has no API key with you yet. Store the returned `client_id`, `client_secret`, and `firm_id`; use the `client_id`/`client_secret` with the regular `client.enterprise.auth.token({ clientId, clientSecret })` (`client_credentials`) flow to mint JWTs for `/api/v1/*` calls.
+
+See [MIGRATION.md](./MIGRATION.md) for the old top-level naming to workflow-first namespace mapping.
 
 ---
 

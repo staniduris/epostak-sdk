@@ -16,6 +16,7 @@ import java.util.Map;
 public final class ConnectorResource {
 
     private final HttpClient http;
+    private final ConnectorCustomersResource customers;
 
     /**
      * Creates a new Connector resource.
@@ -24,6 +25,18 @@ public final class ConnectorResource {
      */
     public ConnectorResource(HttpClient http) {
         this.http = http;
+        this.customers = new ConnectorCustomersResource(this);
+    }
+
+    public ConnectorCustomersResource customers() {
+        return customers;
+    }
+
+    public ConnectorAutopilotRunResponse submitDocument(ConnectorSubmitDocumentRequest request) {
+        if (request.mode() == null) {
+            request.mode("stage");
+        }
+        return http.postNoFirm("/connector/autopilot", request.toMap(), ConnectorAutopilotRunResponse.class);
     }
 
     /**

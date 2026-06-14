@@ -4,21 +4,40 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v0.10.0** — SAPI document flow, evidence bundle/MDN downloads,
-> webhook queued tests + dead-letter queue, Peppol participant resolve,
-> license info, and endpoint coverage sync. See [CHANGELOG.md](./CHANGELOG.md).
+> **v1.0.0** — breaking workflow-first release. Enterprise `/api/v1/*`
+> resources are documented under `client.enterprise`; SAPI-SK document
+> operations require `client.sapi.participants.for_participant(...)`.
+> See [CHANGELOG.md](./CHANGELOG.md) and [../MIGRATION.md](../MIGRATION.md).
+
+## Major release API shape
+
+- Enterprise direct firm flow: `client.enterprise.documents.send(...)`
+- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
+
+Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-### Unreleased
+### v1.0.0 — 2026-06-14
 
-- `client.connector` — Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- `client.enterprise` — workflow-first namespace for Documents, Inbox, Pull
+  APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
+  Audit, and Integrator surfaces.
+- `client.sapi.participants.for_participant(participant_id).documents` —
+  participant-scoped SAPI document send/receive/get/acknowledge.
+- `client.enterprise.connector.customers.for_customer(customer_ref)` —
+  customer-scoped Connector helper that injects `customerRef` and omits
+  `X-Firm-Id`.
+- `client.enterprise.connector` — Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - Static endpoint coverage expanded to 317 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v0.10.0 — 2026-05-18
 
-- `client.sapi` — SAPI-SK 1.0 send, receive list/detail, and acknowledge.
+- `client.sapi.participants.for_participant(id).documents` — SAPI-SK 1.0 send, receive list/detail, and acknowledge.
 - `webhooks.test(id, event=None, count=None, mode=None)` — direct and queued webhook tests.
 - `webhooks.deliveries(..., test_run_id=..., include_response_body=True)` — queued-test polling and response-body debugging.
 - `webhooks.dead_letters()`, `replay_dead_letter(id)`, `resolve_dead_letter(id, reason=None)`.
@@ -27,8 +46,8 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 
 ### v0.9.0 — 2026-05-12
 
-- `client.inbound` — Pull API for received documents: `list`, `get`, `get_ubl`, `ack`.
-- `client.outbound` — Pull API for sent documents: `list`, `get`, `get_ubl`, `events`.
+- `client.enterprise.pull.inbound` — Pull API for received documents: `list`, `get`, `get_ubl`, `ack`.
+- `client.enterprise.pull.outbound` — Pull API for sent documents: `list`, `get`, `get_ubl`, `events`.
 - `UblValidationError` — raised on 422 `UBL_VALIDATION_ERROR`; exposes `.rule` (e.g. `"BR-06"`). `UBL_RULES` constant tuple of the 7 known rule codes.
 - `client.last_rate_limit` — `{"limit", "remaining", "reset_at"}` from `X-RateLimit-*` headers.
 - `WebhookDelivery.idempotency_key` optional field.
@@ -51,7 +70,7 @@ from epostak import EPostak
 
 client = EPostak(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
 
-result = client.documents.send({
+result = client.enterprise.documents.send({
     "receiverPeppolId": "0245:1234567890",
     "invoiceNumber": "FV-2026-001",
     "issueDate": "2026-04-04",
@@ -65,7 +84,7 @@ print(result["documentId"], result["messageId"], result["payload_sha256"])
 
 ### Connector golden path for ERP developers
 
-Use `client.connector` for the ERP workflow instead of building raw HTTP calls.
+Use `client.enterprise.connector` for the ERP workflow instead of building raw HTTP calls.
 The SDK handles OAuth token minting and refresh automatically after you create
 the client.
 
@@ -82,12 +101,12 @@ invoice = {
     },
 }
 
-preflight = client.connector.preflight(invoice)
+preflight = client.enterprise.connector.preflight(invoice)
 if not preflight["ready"]:
     print(preflight["repairReport"]["blocking"])
     raise RuntimeError("Invoice is not ready for Peppol delivery")
 
-staged = client.connector.stage_outbox({
+staged = client.enterprise.connector.stage_outbox({
     "items": [{
         "externalId": "FA-2026-001",
         "idempotencyKey": "erp-fa-2026-001",
@@ -95,25 +114,25 @@ staged = client.connector.stage_outbox({
     }],
 })
 
-sent = client.connector.send_outbox_item(staged["items"][0]["outboxId"])
+sent = client.enterprise.connector.send_outbox_item(staged["items"][0]["outboxId"])
 if not sent.get("documentId"):
     raise RuntimeError("Staged invoice was not sent")
 
-status = client.connector.status(sent["documentId"])
+status = client.enterprise.connector.status(sent["documentId"])
 
-inbox = client.connector.inbox(limit=20)
+inbox = client.enterprise.connector.inbox(limit=20)
 for doc in inbox["documents"]:
-    client.connector.ack(doc["documentId"])
+    client.enterprise.connector.ack(doc["documentId"])
 
 # Evidence is shared with the Enterprise document API.
-evidence = client.documents.evidence(sent["documentId"])
+evidence = client.enterprise.documents.evidence(sent["documentId"])
 print(status["status"], evidence)
 ```
 
 For immediate send without staging:
 
 ```python
-sent = client.connector.send(invoice, idempotency_key="erp-fa-2026-001-send")
+sent = client.enterprise.connector.send(invoice, idempotency_key="erp-fa-2026-001-send")
 print(sent["documentId"], sent["status"])
 ```
 
@@ -121,16 +140,29 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```python
-run = client.connector.autopilot({
+run = client.enterprise.connector.autopilot({
     "customerRef": "erp-customer-1",
     "mode": "shadow",
     "externalId": "FA-2026-001",
     "idempotencyKey": "erp-fa-2026-001",
     "payload": invoice,
 })
-sent_run = client.connector.send_autopilot_run(run["autopilotId"])
-exceptions = client.connector.reconcile(status="exceptions")
+sent_run = client.enterprise.connector.send_autopilot_run(run["autopilotId"])
+exceptions = client.enterprise.connector.reconcile(status="exceptions")
 print(sent_run["lifecycleStatus"], exceptions["total"])
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```python
+customer = client.enterprise.connector.customers.for_customer("erp-customer-1")
+run = customer.submit_document({
+    "externalId": "FA-2026-001",
+    "idempotencyKey": "erp-fa-2026-001",
+    "payload": invoice,
+})
+print(run["autopilotId"])
 ```
 
 Common sandbox scenarios to test:
@@ -139,7 +171,27 @@ Common sandbox scenarios to test:
 - invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in the typed API error
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(document_id)`
+- received invoice processing: poll `client.enterprise.connector.inbox(...)`, store the payload, then call `client.enterprise.connector.ack(document_id)`
+
+---
+
+## SAPI-SK participant flow
+
+```python
+participant = client.sapi.participants.for_participant("0245:1234567890")
+participant.documents.send({
+    "metadata": {
+        "documentId": "FA-2026-001",
+        "documentTypeId": "invoice",
+        "processId": "billing",
+        "senderParticipantId": "0245:1234567890",
+        "receiverParticipantId": "0245:0987654321",
+        "creationDateTime": "2026-06-14T10:00:00Z",
+    },
+    "payload": "<Invoice/>",
+    "payloadFormat": "XML",
+}, idempotency_key="sapi-fa-2026-001")
+```
 
 ---
 
@@ -187,17 +239,17 @@ rotating refresh token. Use this when you want to hand a token to a
 worker fleet without distributing the long-lived key itself.
 
 ```python
-tokens = client.auth.token(
+tokens = client.enterprise.auth.token(
     client_id="sk_live_xxxxx",
     client_secret="sk_live_xxxxx",
 )
 print(tokens["access_token"], tokens["expires_in"])  # 900s
 
 # Before the access token expires:
-renewed = client.auth.renew(refresh_token=tokens["refresh_token"])
+renewed = client.enterprise.auth.renew(refresh_token=tokens["refresh_token"])
 
 # On logout / key rotation:
-client.auth.revoke(
+client.enterprise.auth.revoke(
     token=tokens["refresh_token"],
     token_type_hint="refresh_token",
 )
@@ -206,14 +258,14 @@ client.auth.revoke(
 ### Key introspection, rotation, IP allowlist
 
 ```python
-status = client.auth.status()
+status = client.enterprise.auth.status()
 print(status["key"]["prefix"], status["plan"]["name"], status["firm"]["peppolStatus"])
 
-rotated = client.auth.rotate_secret()  # sk_live_* only
+rotated = client.enterprise.auth.rotate_secret()  # sk_live_* only
 print(rotated["key"])  # store immediately — only returned once
 
-client.auth.ip_allowlist.update(["192.168.1.0/24", "203.0.113.42"])
-print(client.auth.ip_allowlist.get()["ip_allowlist"])
+client.enterprise.auth.ip_allowlist.update(["192.168.1.0/24", "203.0.113.42"])
+print(client.enterprise.auth.ip_allowlist.get()["ip_allowlist"])
 ```
 
 ---
@@ -224,7 +276,7 @@ print(client.auth.ip_allowlist.get()["ip_allowlist"])
 
 ```python
 # Send a document (JSON mode — UBL auto-generated)
-result = client.documents.send(
+result = client.enterprise.documents.send(
     {
         "receiverPeppolId": "0245:1234567890",
         "receiverName": "Firma s.r.o.",
@@ -240,38 +292,38 @@ result = client.documents.send(
 )
 
 # Send pre-built UBL XML
-client.documents.send({
+client.enterprise.documents.send({
     "receiverPeppolId": "0245:1234567890",
     "xml": '<?xml version="1.0"?>...',
 })
 
 # Get document by ID
-doc = client.documents.get("doc-uuid")
+doc = client.enterprise.documents.get("doc-uuid")
 
 # Update a draft
-client.documents.update("doc-uuid", invoiceNumber="FV-2026-002", dueDate="2026-05-01")
+client.enterprise.documents.update("doc-uuid", invoiceNumber="FV-2026-002", dueDate="2026-05-01")
 
 # Status with full history
-status = client.documents.status("doc-uuid")
+status = client.enterprise.documents.status("doc-uuid")
 
 # Delivery evidence (AS4, MLR, invoice response)
-evidence = client.documents.evidence("doc-uuid")
+evidence = client.enterprise.documents.evidence("doc-uuid")
 
 # Download PDF / UBL XML
-pdf = client.documents.pdf("doc-uuid")
-ubl = client.documents.ubl("doc-uuid")
+pdf = client.enterprise.documents.pdf("doc-uuid")
+ubl = client.enterprise.documents.ubl("doc-uuid")
 
 # Respond to received invoice (AP=accept, RE=reject, UQ=query)
-client.documents.respond("doc-uuid", status="AP", note="Akceptované")
+client.enterprise.documents.respond("doc-uuid", status="AP", note="Akceptované")
 
 # Validate without sending
-validation = client.documents.validate({"receiverPeppolId": "0245:1234567890", "items": [...]})
+validation = client.enterprise.documents.validate({"receiverPeppolId": "0245:1234567890", "items": [...]})
 
 # Check receiver capability
-check = client.documents.preflight("0245:1234567890")
+check = client.enterprise.documents.preflight("0245:1234567890")
 
 # Convert between JSON and UBL
-converted = client.documents.convert(
+converted = client.enterprise.documents.convert(
     input_format="json",
     output_format="ubl",
     document={"invoiceNumber": "FV-001", "items": [...]},
@@ -282,21 +334,21 @@ converted = client.documents.convert(
 
 ```python
 # List received documents
-inbox = client.documents.inbox.list(
+inbox = client.enterprise.documents.inbox.list(
     limit=20,
     status="RECEIVED",
     since="2026-04-01T00:00:00Z",
 )
 
 # Get full detail with UBL XML payload
-detail = client.documents.inbox.get("doc-uuid")
+detail = client.enterprise.documents.inbox.get("doc-uuid")
 print(detail["document"], detail["payload"])
 
 # Acknowledge (mark as processed)
-client.documents.inbox.acknowledge("doc-uuid")
+client.enterprise.documents.inbox.acknowledge("doc-uuid")
 
 # Cross-firm inbox (integrator only)
-all_docs = client.documents.inbox.list_all(limit=50, firm_id="firm-uuid")
+all_docs = client.enterprise.documents.inbox.list_all(limit=50, firm_id="firm-uuid")
 ```
 
 ### Audit (per-firm security feed)
@@ -306,7 +358,7 @@ Cursor-paginated walk over `(occurred_at DESC, id DESC)`.
 ```python
 cursor = None
 while True:
-    page = client.audit.list(
+    page = client.enterprise.audit.list(
         event="jwt.issued",
         since="2026-04-01T00:00:00Z",
         cursor=cursor,
@@ -322,15 +374,15 @@ while True:
 ### Peppol
 
 ```python
-participant = client.peppol.lookup("0245", "1234567890")
+participant = client.enterprise.peppol.lookup("0245", "1234567890")
 
-results = client.peppol.directory.search(q="Telekom", country="SK")
+results = client.enterprise.peppol.directory.search(q="Telekom", country="SK")
 
-company = client.peppol.company_lookup("12345678")
+company = client.enterprise.peppol.company_lookup("12345678")
 
-matches = client.peppol.company_search("Demo", limit=10)
+matches = client.enterprise.peppol.company_search("Demo", limit=10)
 
-resolved = client.peppol.resolve(
+resolved = client.enterprise.peppol.resolve(
     ico="12345678",
     document_type_id="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...",
 )
@@ -339,51 +391,51 @@ resolved = client.peppol.resolve(
 ### Firms (integrator)
 
 ```python
-firms = client.firms.list()
-firm = client.firms.get("firm-uuid")
-docs = client.firms.documents("firm-uuid", limit=20, direction="inbound")
-client.firms.register_peppol_id("firm-uuid", scheme="0245", identifier="1234567890")
+firms = client.enterprise.firms.list()
+firm = client.enterprise.firms.get("firm-uuid")
+docs = client.enterprise.firms.documents("firm-uuid", limit=20, direction="inbound")
+client.enterprise.firms.register_peppol_id("firm-uuid", scheme="0245", identifier="1234567890")
 
 # Assign firm by ICO
-client.firms.assign(ico="12345678")
-client.firms.assign_batch(icos=["12345678", "87654321"])
+client.enterprise.firms.assign(ico="12345678")
+client.enterprise.firms.assign_batch(icos=["12345678", "87654321"])
 ```
 
 ### Webhooks
 
 ```python
 # Create webhook (store secret for HMAC verification!)
-webhook = client.webhooks.create(
+webhook = client.enterprise.webhooks.create(
     url="https://example.com/webhook",
     events=["document.received", "document.sent"],
     idempotency_key="create-prod-webhook",
 )
 
-webhooks = client.webhooks.list()
-detail = client.webhooks.get(webhook["id"])
-client.webhooks.update(webhook["id"], is_active=False)
-client.webhooks.delete(webhook["id"])
+webhooks = client.enterprise.webhooks.list()
+detail = client.enterprise.webhooks.get(webhook["id"])
+client.enterprise.webhooks.update(webhook["id"], is_active=False)
+client.enterprise.webhooks.delete(webhook["id"])
 
 # Rotate the signing secret (issues a fresh one, invalidates the old).
-rotated = client.webhooks.rotate_secret(webhook["id"])
+rotated = client.enterprise.webhooks.rotate_secret(webhook["id"])
 print(rotated["secret"])
 
-queued = client.webhooks.test(
+queued = client.enterprise.webhooks.test(
     webhook["id"],
     event="document.received",
     count=250,
     mode="queued",
 )
-deliveries = client.webhooks.deliveries(
+deliveries = client.enterprise.webhooks.deliveries(
     webhook["id"],
     test_run_id=queued["testRunId"],
     include_response_body=True,
 )
 
-dlq = client.webhooks.dead_letters(include_response_body=True)
+dlq = client.enterprise.webhooks.dead_letters(include_response_body=True)
 for failed in dlq["items"]:
-    client.webhooks.replay_dead_letter(failed["id"])
-    # or: client.webhooks.resolve_dead_letter(failed["id"], reason="Handled in ERP")
+    client.enterprise.webhooks.replay_dead_letter(failed["id"])
+    # or: client.enterprise.webhooks.resolve_dead_letter(failed["id"], reason="Handled in ERP")
 ```
 
 #### Verifying a delivery
@@ -445,28 +497,28 @@ The signature contract is **unchanged** — `verify_webhook_signature` continues
 ### Webhook pull queue
 
 ```python
-queue = client.webhooks.queue.pull(limit=50)
+queue = client.enterprise.webhooks.queue.pull(limit=50)
 for item in queue["items"]:
     print(item["event_id"], item["event"], item["payload"])
-    client.webhooks.queue.ack(item["event_id"])
+    client.enterprise.webhooks.queue.ack(item["event_id"])
 
 if queue["has_more"]:
     # more events waiting — pull again
     pass
 
 # Batch acknowledge
-client.webhooks.queue.batch_ack([e["event_id"] for e in queue["items"]])
+client.enterprise.webhooks.queue.batch_ack([e["event_id"] for e in queue["items"]])
 
 # Cross-firm (integrator)
-all_events = client.webhooks.queue.pull_all(limit=200)
-client.webhooks.queue.batch_ack_all([e["event_id"] for e in all_events["items"]])
+all_events = client.enterprise.webhooks.queue.pull_all(limit=200)
+client.enterprise.webhooks.queue.batch_ack_all([e["event_id"] for e in all_events["items"]])
 ```
 
 ### Reporting
 
 ```python
 # Convenience period selector
-stats = client.reporting.statistics(period="month")
+stats = client.enterprise.reporting.statistics(period="month")
 print(stats["sent"]["total"], stats["sent"]["by_type"])
 print(stats["received"]["total"], stats["received"]["by_type"])
 print(stats["delivery_rate"])  # e.g. 0.987
@@ -474,13 +526,13 @@ print(stats["top_recipients"])  # up to 5
 print(stats["top_senders"])
 
 # Or an explicit window
-client.reporting.statistics(from_date="2026-01-01", to_date="2026-03-31")
+client.enterprise.reporting.statistics(from_date="2026-01-01", to_date="2026-03-31")
 ```
 
 ### Account
 
 ```python
-account = client.account.get()
+account = client.enterprise.account.get()
 print(account["firm"]["name"], account["plan"]["name"])
 ```
 
@@ -489,10 +541,10 @@ print(account["firm"]["name"], account["plan"]["name"])
 ```python
 # Single file
 with open("invoice.pdf", "rb") as f:
-    result = client.extract.single(f.read(), "application/pdf", "invoice.pdf")
+    result = client.enterprise.extract.single(f.read(), "application/pdf", "invoice.pdf")
 
 # Batch (up to 10 files, server-side)
-batch = client.extract.batch([
+batch = client.enterprise.extract.batch([
     {"file": pdf_bytes, "mime_type": "application/pdf", "file_name": "inv1.pdf"},
     {"file": img_bytes, "mime_type": "image/png", "file_name": "inv2.png"},
 ])
@@ -532,7 +584,7 @@ envelope and RFC 7807 `application/problem+json`.
 from epostak import EPostak, EPostakError
 
 try:
-    client.documents.send({...})
+    client.enterprise.documents.send({...})
 except EPostakError as err:
     print(err.status)         # HTTP status (0 for network errors)
     print(err.code)           # e.g. 'VALIDATION_FAILED'
@@ -671,10 +723,10 @@ except EPostakError as err:
 | `outbound.get_ubl(id)`                                         | GET    | `/outbound/documents/{id}/ubl`       |
 | `outbound.get_mdn(id)`                                         | GET    | `/outbound/documents/{id}/mdn`       |
 | `outbound.events(**params)`                                    | GET    | `/outbound/events`                   |
-| `sapi.send(body, participant_id=..., idempotency_key=...)`     | POST   | `/sapi/v1/document/send`             |
-| `sapi.receive(participant_id=..., ...)`                        | GET    | `/sapi/v1/document/receive`          |
-| `sapi.get(id, participant_id=...)`                             | GET    | `/sapi/v1/document/receive/{id}`     |
-| `sapi.acknowledge(id, participant_id=...)`                     | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
+| `sapi.participants.for_participant(id).documents.send(body, idempotency_key=...)` | POST | `/sapi/v1/document/send` |
+| `sapi.participants.for_participant(id).documents.receive(...)` | GET | `/sapi/v1/document/receive` |
+| `sapi.participants.for_participant(id).documents.get(document_id)` | GET | `/sapi/v1/document/receive/{id}` |
+| `sapi.participants.for_participant(id).documents.acknowledge(document_id)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
 
 Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 

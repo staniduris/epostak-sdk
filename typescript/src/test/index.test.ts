@@ -655,6 +655,99 @@ describe("client.connector", () => {
   });
 });
 
+describe("major release workflow namespaces", () => {
+  it("exposes Enterprise resources under client.enterprise", () => {
+    const client = makeClient();
+
+    assert.strictEqual(client.enterprise.documents, client.documents);
+    assert.strictEqual(client.enterprise.inbox, client.documents.inbox);
+    assert.strictEqual(client.enterprise.pull.inbound, client.inbound);
+    assert.strictEqual(client.enterprise.pull.outbound, client.outbound);
+    assert.strictEqual(client.enterprise.connector, client.connector);
+    assert.strictEqual(client.enterprise.webhooks, client.webhooks);
+  });
+
+  it("submits customer-scoped Connector documents without X-Firm-Id", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    let capturedBody = "";
+    let capturedFirmId: string | null = "not-called";
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      assert.ok(url.endsWith("/connector/autopilot"), `Unexpected URL ${url}`);
+      capturedBody = String(init?.body);
+      capturedFirmId = new Headers(init?.headers).get("X-Firm-Id");
+      return makeMockResponse({ autopilotId: "auto-1", lifecycleStatus: "staged" }, 201);
+    });
+
+    await client.enterprise.connector.customers.for("erp-customer-1").submitDocument({
+      externalId: "FA-1",
+      idempotencyKey: "erp-fa-1",
+      payload: { invoiceNumber: "FA-1" },
+    });
+
+    assert.strictEqual(capturedFirmId, null);
+    assert.ok(capturedBody.includes('"customerRef":"erp-customer-1"'));
+    assert.ok(capturedBody.includes('"mode":"stage"'));
+    assert.ok(capturedBody.includes('"externalId":"FA-1"'));
+  });
+
+  it("scopes SAPI document calls by participant and SAPI base URL", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    let capturedUrl = "";
+    let capturedParticipant: string | null = null;
+    let capturedIdempotency: string | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedUrl = url;
+      const headers = new Headers(init?.headers);
+      capturedParticipant = headers.get("X-Peppol-Participant-Id");
+      capturedIdempotency = headers.get("Idempotency-Key");
+      return makeMockResponse({ documentId: "sapi-1", status: "accepted" }, 201);
+    });
+
+    await client.sapi.participants.for("0245:1234567890").documents.send(
+      {
+        metadata: {
+          documentId: "sapi-fa-1",
+          documentTypeId: "invoice",
+          processId: "billing",
+          senderParticipantId: "0245:1234567890",
+          receiverParticipantId: "0245:0987654321",
+          creationDateTime: "2026-06-14T10:00:00Z",
+        },
+        payload: "<Invoice/>",
+        payloadFormat: "XML",
+      },
+      { idempotencyKey: "sapi-fa-1" },
+    );
+
+    assert.strictEqual(
+      capturedUrl,
+      "https://dev.epostak.sk/sapi/v1/document/send",
+    );
+    assert.strictEqual(capturedParticipant, "0245:1234567890");
+    assert.strictEqual(capturedIdempotency, "sapi-fa-1");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // client.outbound.*
 // ---------------------------------------------------------------------------

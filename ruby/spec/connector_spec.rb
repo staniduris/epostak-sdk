@@ -53,6 +53,67 @@ RSpec.describe EPostak::Resources::Connector do
     expect(result["documentId"]).to eq("doc-1")
   end
 
+  it "exposes Enterprise resources under client.enterprise" do
+    expect(client.enterprise.documents).to equal(client.documents)
+    expect(client.enterprise.inbox).to equal(client.documents.inbox)
+    expect(client.enterprise.pull.inbound).to equal(client.inbound)
+    expect(client.enterprise.pull.outbound).to equal(client.outbound)
+    expect(client.enterprise.connector).to equal(client.connector)
+    expect(client.enterprise.webhooks).to equal(client.webhooks)
+  end
+
+  it "submits customer-scoped Connector documents without X-Firm-Id" do
+    stub = stub_request(:post, "#{host}/connector/autopilot")
+      .with { |request|
+        firm_header(request).nil? &&
+          request.body.include?('"customerRef":"erp-customer-1"') &&
+          request.body.include?('"mode":"stage"')
+      }
+      .to_return(
+        status: 201,
+        body: { "autopilotId" => "auto-1", "lifecycleStatus" => "staged" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    firm_scoped_client.enterprise.connector.customers.for_customer("erp-customer-1").submit_document(
+      externalId: "FA-1",
+      idempotencyKey: "erp-fa-1",
+      payload: { invoiceNumber: "FA-1" },
+    )
+
+    expect(stub).to have_been_requested
+  end
+
+  it "scopes Connector customer sync with Ruby keyword names" do
+    stub = stub_request(:get, "#{host}/connector/sync")
+      .with(query: hash_including("customerRef" => "erp-customer-1", "limit" => "50"))
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+
+    firm_scoped_client.enterprise.connector.customers.for_customer("erp-customer-1").sync(limit: 50)
+
+    expect(stub).to have_been_requested
+  end
+
+  it "scopes SAPI document calls through participant documents" do
+    stub = stub_request(:post, "https://epostak.sk/sapi/v1/document/send")
+      .with(headers: {
+        "X-Peppol-Participant-Id" => "0245:1234567890",
+        "Idempotency-Key" => "sapi-fa-1",
+      })
+      .to_return(
+        status: 201,
+        body: { "documentId" => "sapi-1", "status" => "accepted" }.to_json,
+        headers: { "Content-Type" => "application/json" },
+      )
+
+    client.sapi.participants.for_participant("0245:1234567890").documents.send(
+      { xml: "<Invoice/>" },
+      idempotency_key: "sapi-fa-1",
+    )
+
+    expect(stub).to have_been_requested
+  end
+
   it "omits X-Firm-Id on managed Connector v2 calls even when client is firm-scoped" do
     stub_request(:post, "#{host}/connector/zen-input")
       .to_return(status: 201, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })

@@ -382,6 +382,76 @@ def test_connector_managed_v2_paths():
         )
 
 
+def test_major_enterprise_namespace_exposes_full_platform_resources():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+
+    assert client.enterprise.documents is client.documents
+    assert client.enterprise.inbox is client.documents.inbox
+    assert client.enterprise.pull.inbound is client.inbound
+    assert client.enterprise.pull.outbound is client.outbound
+    assert client.enterprise.connector is client.connector
+    assert client.enterprise.webhooks is client.webhooks
+
+
+def test_major_connector_customer_submit_document_defaults_to_stage_without_firm_id():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
+        client.enterprise.connector.customers.for_customer("erp-customer-1").submit_document(
+            {
+                "externalId": "FA-1",
+                "idempotencyKey": "erp-fa-1",
+                "payload": {"invoiceNumber": "FA-1"},
+            }
+        )
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/autopilot",
+            json={
+                "externalId": "FA-1",
+                "idempotencyKey": "erp-fa-1",
+                "payload": {"invoiceNumber": "FA-1"},
+                "customerRef": "erp-customer-1",
+                "mode": "stage",
+            },
+            omit_firm_id=True,
+        )
+
+
+def test_major_sapi_participant_documents_send_sets_required_headers():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+
+    with patch.object(client.sapi, "_request", return_value={"documentId": "sapi-1"}) as mock_req:
+        client.sapi.participants.for_participant("0245:1234567890").documents.send(
+            {"xml": "<Invoice/>"},
+            idempotency_key="sapi-fa-1",
+        )
+        mock_req.assert_called_once_with(
+            "POST",
+            "/sapi/v1/document/send",
+            json={"xml": "<Invoice/>"},
+            extra_headers={
+                "X-Peppol-Participant-Id": "0245:1234567890",
+                "Idempotency-Key": "sapi-fa-1",
+            },
+        )
+
+
 # ---------------------------------------------------------------------------
 # InboundResource
 # ---------------------------------------------------------------------------

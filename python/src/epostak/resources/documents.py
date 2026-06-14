@@ -324,9 +324,24 @@ class DocumentsResource(_BaseResource):
         firm_id: Optional[str],
         *,
         max_retries: int = 3,
+        _rate_limit_store: Optional[List[Any]] = None,
     ) -> None:
-        super().__init__(client, base_url, token_manager, firm_id, max_retries=max_retries)
-        self.inbox = InboxResource(client, base_url, token_manager, firm_id, max_retries=max_retries)
+        super().__init__(
+            client,
+            base_url,
+            token_manager,
+            firm_id,
+            max_retries=max_retries,
+            _rate_limit_store=_rate_limit_store,
+        )
+        self.inbox = InboxResource(
+            client,
+            base_url,
+            token_manager,
+            firm_id,
+            max_retries=max_retries,
+            _rate_limit_store=self._rate_limit_store,
+        )
 
     def get(self, id: str) -> Document:
         """Get a document by ID.

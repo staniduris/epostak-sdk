@@ -9,9 +9,15 @@ import java.util.Map;
 public final class SapiResource {
 
     private final HttpClient http;
+    private final SapiParticipantsResource participants;
 
     public SapiResource(HttpClient http) {
         this.http = http;
+        this.participants = new SapiParticipantsResource(this);
+    }
+
+    public SapiParticipantsResource participants() {
+        return participants;
     }
 
     @SuppressWarnings("unchecked")

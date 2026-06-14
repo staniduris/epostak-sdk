@@ -56,6 +56,7 @@ public final class EPostak {
     private final InboundResource inbound;
     private final OutboundResource outbound;
     private final SapiResource sapi;
+    private final EnterpriseResource enterprise;
 
     /** Maximum number of retries on 429/5xx. */
     private final int maxRetries;
@@ -92,6 +93,7 @@ public final class EPostak {
         this.inbound = new InboundResource(httpClient);
         this.outbound = new OutboundResource(httpClient);
         this.sapi = new SapiResource(new HttpClient(stripApiV1(this.baseUrl), this.tokenManager, this.firmId, this.maxRetries));
+        this.enterprise = new EnterpriseResource(this);
     }
 
     /**
@@ -209,6 +211,13 @@ public final class EPostak {
      * @return the SAPI resource
      */
     public SapiResource sapi() { return sapi; }
+
+    /**
+     * Workflow-first Enterprise API namespace.
+     *
+     * @return grouped Enterprise API resources
+     */
+    public EnterpriseResource enterprise() { return enterprise; }
 
     private static String stripApiV1(String baseUrl) {
         String stripped = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;

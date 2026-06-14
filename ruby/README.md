@@ -2,18 +2,37 @@
 
 Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and receive e-invoices via the Slovak Peppol network.
 
+## Major release API shape
+
+Ruby `1.0.0` is a breaking workflow-first release:
+
+- Enterprise direct firm flow: `client.enterprise.documents.send(...)`
+- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
+
+Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
+
 ## Recent changes
 
-**Unreleased**
-- `client.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling
+**v1.0.0** (2026-06-14)
+- `client.enterprise` is the documented namespace for Documents, Inbox, Pull
+  APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
+  Audit, and Integrator surfaces
+- `client.sapi.participants.for_participant(participant_id).documents` requires
+  participant scoping before SAPI document send/receive/get/acknowledge
+- `client.enterprise.connector.customers.for_customer(customer_ref)` injects
+  `customerRef` and keeps `X-Firm-Id` off customer-managed Connector calls
+- `client.enterprise.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence
-- `client.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
-- `client.reporting.submissions(...)` covers `GET /reporting/submissions`
-- `client.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
+- `client.enterprise.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
+- `client.enterprise.reporting.submissions(...)` covers `GET /reporting/submissions`
+- `client.enterprise.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
 - README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins
 
 **v0.10.0** (2026-05-18)
-- SAPI-SK 1.0 document flow via `client.sapi`
+- SAPI-SK 1.0 document flow via `client.sapi.participants.for_participant(id).documents`
 - Enterprise evidence downloads: `documents.evidence_bundle` and `outbound.get_mdn`
 - Peppol additions: `company_search` and `resolve`
 - Webhook queued tests: `webhooks.test(id, count:, mode:)`
@@ -21,7 +40,7 @@ Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and rec
 - License and Peppol document listing helpers
 
 **v0.9.0** (2026-05-12)
-- Pull API: `client.inbound` (list/get/get_ubl/ack) and `client.outbound` (list/get/get_ubl/events)
+- Pull API: `client.enterprise.pull.inbound` (list/get/get_ubl/ack) and `client.enterprise.pull.outbound` (list/get/get_ubl/events)
 - `EPostak::UblValidationError` raised on 422 UBL_VALIDATION_ERROR with `.rule` attr
 - `client.last_rate_limit` exposes limit/remaining/reset_at after first request
 - `webhooks.test` now forwards `event:` kwarg to the server
@@ -49,7 +68,7 @@ require "epostak"
 client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_secret")
 
 # Send an invoice
-result = client.documents.send_document(
+result = client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
   invoiceNumber: "FV-2026-042",
   items: [
@@ -75,13 +94,13 @@ invoice = {
   }
 }
 
-preflight = client.connector.preflight(invoice)
+preflight = client.enterprise.connector.preflight(invoice)
 unless preflight["ready"]
   warn preflight.dig("repairReport", "blocking").inspect
   raise "Invoice is not ready for Peppol delivery"
 end
 
-staged = client.connector.stage_outbox(
+staged = client.enterprise.connector.stage_outbox(
   items: [
     {
       externalId: "FA-2026-001",
@@ -91,25 +110,25 @@ staged = client.connector.stage_outbox(
   ]
 )
 
-sent = client.connector.send_outbox_item(staged["items"].first["outboxId"])
+sent = client.enterprise.connector.send_outbox_item(staged["items"].first["outboxId"])
 raise "Staged invoice was not sent" if sent["documentId"].nil?
 
-status = client.connector.status(sent["documentId"])
+status = client.enterprise.connector.status(sent["documentId"])
 
-inbox = client.connector.inbox(limit: 20)
+inbox = client.enterprise.connector.inbox(limit: 20)
 inbox["documents"].each do |doc|
-  client.connector.ack(doc["documentId"])
+  client.enterprise.connector.ack(doc["documentId"])
 end
 
 # Evidence is shared with the Enterprise document API.
-evidence = client.documents.evidence(sent["documentId"])
+evidence = client.enterprise.documents.evidence(sent["documentId"])
 puts "#{status["status"]} #{evidence["documentId"]}"
 ```
 
 For immediate send without staging:
 
 ```ruby
-sent = client.connector.send_document(invoice, idempotency_key: "erp-fa-2026-001-send")
+sent = client.enterprise.connector.send_document(invoice, idempotency_key: "erp-fa-2026-001-send")
 puts "#{sent["documentId"]} #{sent["status"]}"
 ```
 
@@ -117,30 +136,64 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```ruby
-run = client.connector.autopilot(
+run = client.enterprise.connector.autopilot(
   customerRef: "erp-customer-1",
   mode: "shadow",
   externalId: "FA-2026-001",
   idempotencyKey: "erp-fa-2026-001",
   payload: invoice
 )
-sent_run = client.connector.send_autopilot_run(run["autopilotId"])
-exceptions = client.connector.reconcile(status: "exceptions")
+sent_run = client.enterprise.connector.send_autopilot_run(run["autopilotId"])
+exceptions = client.enterprise.connector.reconcile(status: "exceptions")
 puts "#{sent_run["lifecycleStatus"]} #{exceptions["total"]}"
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```ruby
+customer = client.enterprise.connector.customers.for_customer("erp-customer-1")
+run = customer.submit_document(
+  externalId: "FA-2026-001",
+  idempotencyKey: "erp-fa-2026-001",
+  payload: invoice
+)
+puts run["autopilotId"]
 ```
 
 Common sandbox scenarios to test:
 
 - nonexistent participant or unsupported document type: `preflight["ready"] == false` with blocking `repairReport` items
-- invalid UBL or missing buyer/seller data: `preflight` or `send_document` returns validation details in `EPostak::Error`
+- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostak::Error`
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(document_id)`
+- received invoice processing: poll `client.enterprise.connector.inbox(...)`, store the payload, then call `client.enterprise.connector.ack(document_id)`
 
 Batch workers can send queued items with:
 
 ```ruby
-client.connector.send_outbox_batch(limit: 50)
+client.enterprise.connector.send_outbox_batch(limit: 50)
+```
+
+## SAPI-SK participant flow
+
+```ruby
+participant = client.sapi.participants.for_participant("0245:1234567890")
+participant.documents.send(
+  {
+    metadata: {
+      documentId: "FA-2026-001",
+      documentTypeId: "invoice",
+      processId: "billing",
+      senderParticipantId: "0245:1234567890",
+      receiverParticipantId: "0245:0987654321",
+      creationDateTime: "2026-06-14T10:00:00Z"
+    },
+    payload: "<Invoice/>",
+    payloadFormat: "XML"
+  },
+  idempotency_key: "sapi-fa-2026-001"
+)
 ```
 
 ## Authentication
@@ -157,7 +210,7 @@ client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_se
 # Integrator key — scope to a specific firm
 integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "your_secret")
 firm_a = integrator.with_firm("firm-a-uuid")
-firm_a.documents.inbox.list
+firm_a.enterprise.documents.inbox.list
 ```
 
 ## Configuration
@@ -191,7 +244,7 @@ All methods return parsed JSON as Ruby hashes with string keys.
 #### Send a document
 
 ```ruby
-result = client.documents.send_document(
+result = client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
   invoiceNumber: "FV-2026-042",
   issueDate: "2026-04-11",
@@ -206,7 +259,7 @@ result = client.documents.send_document(
 Send with raw UBL XML:
 
 ```ruby
-result = client.documents.send_document(
+result = client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
   xml: '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">...</Invoice>'
 )
@@ -215,48 +268,48 @@ result = client.documents.send_document(
 #### Get a document
 
 ```ruby
-doc = client.documents.get("doc-uuid")
+doc = client.enterprise.documents.get("doc-uuid")
 # => { "id" => "...", "totals" => { "withVat" => 1230.0 }, ... }
 ```
 
 #### Update a draft
 
 ```ruby
-updated = client.documents.update("doc-uuid", dueDate: "2026-05-15", note: "Updated terms")
+updated = client.enterprise.documents.update("doc-uuid", dueDate: "2026-05-15", note: "Updated terms")
 ```
 
 #### Check delivery status
 
 ```ruby
-status = client.documents.status("doc-uuid")
+status = client.enterprise.documents.status("doc-uuid")
 # => { "status" => "DELIVERED", "deliveredAt" => "2026-04-11T12:30:00Z", "history" => [...] }
 ```
 
 #### Batch status check
 
 ```ruby
-batch = client.documents.status_batch(["doc-uuid-1", "doc-uuid-2"])
+batch = client.enterprise.documents.status_batch(["doc-uuid-1", "doc-uuid-2"])
 puts "#{batch['found']}/#{batch['total']} found"
 ```
 
 #### Get delivery evidence
 
 ```ruby
-evidence = client.documents.evidence("doc-uuid")
+evidence = client.enterprise.documents.evidence("doc-uuid")
 # => { "as4Receipt" => {...}, "mlr" => {...}, "invoiceResponse" => {...} }
 ```
 
 #### Download PDF
 
 ```ruby
-pdf_bytes = client.documents.pdf("doc-uuid")
+pdf_bytes = client.enterprise.documents.pdf("doc-uuid")
 File.binwrite("invoice.pdf", pdf_bytes)
 ```
 
 #### Download UBL XML
 
 ```ruby
-xml = client.documents.ubl("doc-uuid")
+xml = client.enterprise.documents.ubl("doc-uuid")
 # => '<?xml version="1.0"?><Invoice ...>...</Invoice>'
 ```
 
@@ -264,10 +317,10 @@ xml = client.documents.ubl("doc-uuid")
 
 ```ruby
 # Accept
-client.documents.respond("doc-uuid", status: "AP")
+client.enterprise.documents.respond("doc-uuid", status: "AP")
 
 # Reject with a reason
-client.documents.respond("doc-uuid", status: "RE", note: "Incorrect VAT rate applied")
+client.enterprise.documents.respond("doc-uuid", status: "RE", note: "Incorrect VAT rate applied")
 ```
 
 Response status codes: `AP` (accepted), `RE` (rejected), `UQ` (under query).
@@ -275,7 +328,7 @@ Response status codes: `AP` (accepted), `RE` (rejected), `UQ` (under query).
 #### Validate without sending
 
 ```ruby
-result = client.documents.validate(
+result = client.enterprise.documents.validate(
   receiverPeppolId: "0245:1234567890",
   items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }]
 )
@@ -285,7 +338,7 @@ result = client.documents.validate(
 #### Preflight check
 
 ```ruby
-check = client.documents.preflight(receiver_peppol_id: "0245:1234567890")
+check = client.enterprise.documents.preflight(receiver_peppol_id: "0245:1234567890")
 # => { "registered" => true, "capabilities" => [...] }
 ```
 
@@ -293,7 +346,7 @@ check = client.documents.preflight(receiver_peppol_id: "0245:1234567890")
 
 ```ruby
 # JSON to UBL
-result = client.documents.convert(
+result = client.enterprise.documents.convert(
   input_format: "json",
   output_format: "ubl",
   document: { invoiceNumber: "FV-001", items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }] }
@@ -301,7 +354,7 @@ result = client.documents.convert(
 puts result["document"] # => UBL XML string
 
 # UBL to JSON
-result = client.documents.convert(
+result = client.enterprise.documents.convert(
   input_format: "ubl",
   output_format: "json",
   document: "<Invoice>...</Invoice>"
@@ -313,12 +366,12 @@ puts result["document"] # => parsed invoice hash
 
 ### Inbox
 
-Accessed via `client.documents.inbox`.
+Accessed via `client.enterprise.documents.inbox`.
 
 #### List inbox documents
 
 ```ruby
-response = client.documents.inbox.list(status: "RECEIVED", limit: 50)
+response = client.enterprise.documents.inbox.list(status: "RECEIVED", limit: 50)
 response["documents"].each do |doc|
   puts "#{doc['id']}: #{doc['senderName']}"
 end
@@ -327,21 +380,21 @@ end
 #### Get a single inbox document
 
 ```ruby
-result = client.documents.inbox.get("doc-uuid")
+result = client.enterprise.documents.inbox.get("doc-uuid")
 puts result["payload"] # => UBL XML string
 ```
 
 #### Acknowledge a document
 
 ```ruby
-ack = client.documents.inbox.acknowledge("doc-uuid")
+ack = client.enterprise.documents.inbox.acknowledge("doc-uuid")
 puts ack["acknowledgedAt"] # => "2026-04-11T12:00:00Z"
 ```
 
 #### List all inbox documents (integrator)
 
 ```ruby
-response = client.documents.inbox.list_all(
+response = client.enterprise.documents.inbox.list_all(
   since: "2026-04-01T00:00:00Z",
   status: "RECEIVED"
 )
@@ -354,21 +407,21 @@ response = client.documents.inbox.list_all(
 #### List firms
 
 ```ruby
-response = client.firms.list
+response = client.enterprise.firms.list
 response["firms"].each { |f| puts "#{f['name']} (#{f['peppolStatus']})" }
 ```
 
 #### Get firm details
 
 ```ruby
-firm = client.firms.get("firm-uuid")
+firm = client.enterprise.firms.get("firm-uuid")
 puts firm["icDph"] # => "SK2020123456"
 ```
 
 #### List firm documents
 
 ```ruby
-response = client.firms.documents("firm-uuid", direction: "inbound", limit: 100)
+response = client.enterprise.firms.documents("firm-uuid", direction: "inbound", limit: 100)
 ```
 
 #### Register a Peppol identifier
@@ -376,7 +429,7 @@ response = client.firms.documents("firm-uuid", direction: "inbound", limit: 100)
 Slovak Peppol ID format: `0245:DIC` (e.g. `0245:1234567890`). Per Slovak PASR, only the `0245` scheme is used — the `9950:SK...` VAT form is not supported.
 
 ```ruby
-result = client.firms.register_peppol_id("firm-uuid",
+result = client.enterprise.firms.register_peppol_id("firm-uuid",
   scheme: "0245",
   identifier: "1234567890"
 )
@@ -386,14 +439,14 @@ puts result["peppolId"] # => "0245:1234567890"
 #### Assign a firm by ICO
 
 ```ruby
-result = client.firms.assign(ico: "12345678")
+result = client.enterprise.firms.assign(ico: "12345678")
 puts result["firm"]["id"]
 ```
 
 #### Batch assign firms
 
 ```ruby
-result = client.firms.assign_batch(icos: ["12345678", "87654321", "11223344"])
+result = client.enterprise.firms.assign_batch(icos: ["12345678", "87654321", "11223344"])
 result["results"].each do |r|
   if r["error"]
     puts "#{r['ico']}: #{r['message']}"
@@ -410,7 +463,7 @@ end
 #### SMP lookup
 
 ```ruby
-participant = client.peppol.lookup("0245", "1234567890")
+participant = client.enterprise.peppol.lookup("0245", "1234567890")
 participant["capabilities"].each do |cap|
   puts cap["documentTypeId"]
 end
@@ -419,7 +472,7 @@ end
 #### Directory search
 
 ```ruby
-results = client.peppol.directory.search(q: "consulting", country: "SK", page_size: 50)
+results = client.enterprise.peppol.directory.search(q: "consulting", country: "SK", page_size: 50)
 puts "Found #{results['total']} participants"
 results["results"].each { |r| puts r["name"] }
 ```
@@ -427,13 +480,13 @@ results["results"].each { |r| puts r["name"] }
 #### Company lookup by ICO
 
 ```ruby
-company = client.peppol.company_lookup("12345678")
+company = client.enterprise.peppol.company_lookup("12345678")
 puts company["name"]     # => "ACME s.r.o."
 puts company["peppolId"] # => "0245:1234567890" or nil
 
-matches = client.peppol.company_search(q: "Demo", limit: 10)
+matches = client.enterprise.peppol.company_search(q: "Demo", limit: 10)
 
-resolved = client.peppol.resolve(
+resolved = client.enterprise.peppol.resolve(
   ico: "12345678",
   document_type_id: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
 )
@@ -446,29 +499,29 @@ resolved = client.peppol.resolve(
 #### Create a webhook
 
 ```ruby
-webhook = client.webhooks.create(
+webhook = client.enterprise.webhooks.create(
   url: "https://example.com/webhooks/epostak",
   events: ["document.received", "document.sent"]
 )
 puts webhook["secret"] # Store this for HMAC-SHA256 verification!
 
-queued = client.webhooks.test(
+queued = client.enterprise.webhooks.test(
   webhook["id"],
   event: "document.received",
   count: 250,
   mode: "queued"
 )
 
-deliveries = client.webhooks.deliveries(
+deliveries = client.enterprise.webhooks.deliveries(
   webhook["id"],
   test_run_id: queued["testRunId"],
   includeResponseBody: true
 )
 
-dlq = client.webhooks.dead_letters(includeResponseBody: true)
+dlq = client.enterprise.webhooks.dead_letters(includeResponseBody: true)
 dlq["items"].each do |failed|
-  client.webhooks.replay_dead_letter(failed["id"])
-  # or: client.webhooks.resolve_dead_letter(failed["id"], reason: "Handled in ERP")
+  client.enterprise.webhooks.replay_dead_letter(failed["id"])
+  # or: client.enterprise.webhooks.resolve_dead_letter(failed["id"], reason: "Handled in ERP")
 end
 ```
 
@@ -524,14 +577,14 @@ The signature contract is **unchanged** — `EPostak.verify_webhook_signature` c
 #### List webhooks
 
 ```ruby
-response = client.webhooks.list
+response = client.enterprise.webhooks.list
 response["data"].each { |w| puts "#{w['url']} (active: #{w['isActive']})" }
 ```
 
 #### Get webhook details
 
 ```ruby
-webhook = client.webhooks.get("webhook-uuid")
+webhook = client.enterprise.webhooks.get("webhook-uuid")
 failed = webhook["deliveries"].select { |d| d["status"] == "failed" }
 ```
 
@@ -539,28 +592,28 @@ failed = webhook["deliveries"].select { |d| d["status"] == "failed" }
 
 ```ruby
 # Pause
-client.webhooks.update("webhook-uuid", isActive: false)
+client.enterprise.webhooks.update("webhook-uuid", isActive: false)
 
 # Change URL
-client.webhooks.update("webhook-uuid", url: "https://new-url.com/webhooks")
+client.enterprise.webhooks.update("webhook-uuid", url: "https://new-url.com/webhooks")
 ```
 
 #### Delete a webhook
 
 ```ruby
-client.webhooks.delete("webhook-uuid")
+client.enterprise.webhooks.delete("webhook-uuid")
 ```
 
 ---
 
 ### Webhook Queue (Pull-based)
 
-Accessed via `client.webhooks.queue`. An alternative to push webhooks for environments that cannot receive inbound HTTPS requests.
+Accessed via `client.enterprise.webhooks.queue`. An alternative to push webhooks for environments that cannot receive inbound HTTPS requests.
 
 #### Pull events
 
 ```ruby
-response = client.webhooks.queue.pull(limit: 50, event_type: "document.received")
+response = client.enterprise.webhooks.queue.pull(limit: 50, event_type: "document.received")
 response["items"].each do |item|
   puts "#{item['type']}: #{item['payload']}"
 end
@@ -569,32 +622,32 @@ end
 #### Acknowledge a single event
 
 ```ruby
-client.webhooks.queue.ack("event-uuid")
+client.enterprise.webhooks.queue.ack("event-uuid")
 # => nil (HTTP 204)
 ```
 
 #### Batch acknowledge events
 
 ```ruby
-response = client.webhooks.queue.pull(limit: 50)
+response = client.enterprise.webhooks.queue.pull(limit: 50)
 ids = response["items"].map { |i| i["event_id"] }
-client.webhooks.queue.batch_ack(ids)
+client.enterprise.webhooks.queue.batch_ack(ids)
 # => nil (HTTP 204)
 ```
 
 #### Pull all events (integrator)
 
 ```ruby
-response = client.webhooks.queue.pull_all(since: "2026-04-11T00:00:00Z", limit: 200)
+response = client.enterprise.webhooks.queue.pull_all(since: "2026-04-11T00:00:00Z", limit: 200)
 response["items"].each { |e| puts "#{e['firm_id']}: #{e['event']}" }
 ```
 
 #### Batch acknowledge all (integrator)
 
 ```ruby
-response = client.webhooks.queue.pull_all(limit: 100)
+response = client.enterprise.webhooks.queue.pull_all(limit: 100)
 ids = response["items"].map { |e| e["event_id"] }
-result = client.webhooks.queue.batch_ack_all(ids)
+result = client.enterprise.webhooks.queue.batch_ack_all(ids)
 puts "Acknowledged: #{result['acknowledged']}"
 ```
 
@@ -605,12 +658,12 @@ puts "Acknowledged: #{result['acknowledged']}"
 #### Get statistics
 
 ```ruby
-stats = client.reporting.statistics(from: "2026-01-01", to: "2026-03-31")
+stats = client.enterprise.reporting.statistics(from: "2026-01-01", to: "2026-03-31")
 puts "Sent: #{stats['outbound']['total']}"
 puts "Received: #{stats['inbound']['total']}"
 puts "Delivery rate: #{stats['outbound']['delivered']}/#{stats['outbound']['total']}"
 
-submissions = client.reporting.submissions(limit: 20, report_type: "EUSR")
+submissions = client.enterprise.reporting.submissions(limit: 20, report_type: "EUSR")
 puts submissions["total"]
 ```
 
@@ -621,7 +674,7 @@ puts submissions["total"]
 #### Get account info
 
 ```ruby
-account = client.account.get
+account = client.enterprise.account.get
 puts "Plan: #{account['plan']['name']} (#{account['plan']['status']})"
 puts "Usage: #{account['usage']['outbound']} sent, #{account['usage']['inbound']} received"
 ```
@@ -634,19 +687,19 @@ puts "Usage: #{account['usage']['outbound']} sent, #{account['usage']['inbound']
 
 ```ruby
 # From a file path
-result = client.extract.single("invoice.pdf", "application/pdf", file_name: "invoice.pdf")
+result = client.enterprise.extract.single("invoice.pdf", "application/pdf", file_name: "invoice.pdf")
 puts result["confidence"] # => 0.95
 puts result["ubl_xml"]   # => Generated UBL XML
 
 # From an IO object
 io = File.open("scan.png", "rb")
-result = client.extract.single(io, "image/png", file_name: "scan.png")
+result = client.enterprise.extract.single(io, "image/png", file_name: "scan.png")
 ```
 
 #### Extract from multiple files
 
 ```ruby
-result = client.extract.batch([
+result = client.enterprise.extract.batch([
   { file: "invoice1.pdf", mime_type: "application/pdf", file_name: "invoice1.pdf" },
   { file: "invoice2.pdf", mime_type: "application/pdf", file_name: "invoice2.pdf" }
 ])
@@ -669,14 +722,14 @@ firms = integrator.firms.list
 # Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls stay
 # integrator-scoped and resolve the managed firm from customerRef.
 firm_client = integrator.with_firm("firm-a-uuid")
-firm_client.documents.send_document(
+firm_client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
   items: [{ description: "Service", quantity: 1, unitPrice: 500, vatRate: 23 }]
 )
 
 # Switch to another firm
 other_client = integrator.with_firm("firm-b-uuid")
-other_client.documents.inbox.list
+other_client.enterprise.documents.inbox.list
 
 # Cross-firm endpoints (no with_firm needed)
 all_docs = integrator.documents.inbox.list_all(since: "2026-04-01T00:00:00Z")
@@ -695,7 +748,7 @@ All API errors raise `EPostak::Error` with the HTTP status, error code, and deta
 
 ```ruby
 begin
-  client.documents.send_document(body)
+  client.enterprise.documents.send(body)
 rescue EPostak::Error => e
   puts "HTTP #{e.status}: #{e.message}"
   puts "Code: #{e.code}" if e.code           # e.g. "VALIDATION_ERROR"

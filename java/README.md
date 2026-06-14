@@ -14,29 +14,49 @@ Java 17+. Single dependency: Gson. Uses `java.net.http.HttpClient` (built-in sin
 <dependency>
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>0.10.0</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'sk.epostak:epostak-sdk:0.10.0'
+implementation 'sk.epostak:epostak-sdk:1.0.0'
 ```
+
+## Major release API shape
+
+Java `1.0.0` is a breaking workflow-first release:
+
+- Enterprise direct firm flow: `client.enterprise().documents().send(...)`
+- Enterprise ERP/integrator flow: `client.enterprise().connector().customers().forCustomer("erp-customer").submitDocument(...)`
+- SAPI-SK interoperable flow: `client.sapi().participants().forParticipant("0245:1234567890").documents().send(...)`
+
+Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-### Unreleased
+### v1.0.0 — 2026-06-14
 
-- `client.connector()` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- `client.enterprise()` is the documented namespace for Documents, Inbox, Pull
+  APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
+  Audit, and Integrator surfaces.
+- `client.sapi().participants().forParticipant(participantId).documents()`
+  requires participant scoping before SAPI document send/receive/get/acknowledge.
+- `client.enterprise().connector().customers().forCustomer(customerRef)`
+  injects `customerRef` and keeps `X-Firm-Id` off customer-managed Connector
+  calls.
+- `client.enterprise().connector()` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
 
-- `client.sapi()` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
-- `client.webhooks().test(id, new WebhookTestParams().count(250).mode("queued"))` supports direct and queued webhook tests.
-- `client.webhooks().deadLetters(...)`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, reason)` cover webhook DLQ operations.
-- `client.peppol().resolve(...)` resolves ERP identifiers to Peppol participant + routing capability.
+- `client.sapi().participants().forParticipant(id).documents()` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- `client.enterprise().webhooks().test(id, new WebhookTestParams().count(250).mode("queued"))` supports direct and queued webhook tests.
+- `client.enterprise().webhooks().deadLetters(...)`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, reason)` cover webhook DLQ operations.
+- `client.enterprise().peppol().resolve(...)` resolves ERP identifiers to Peppol participant + routing capability.
 - Added evidence bundle, outbound MDN, company search, Peppol document listing, and license info helpers.
 
 ---
@@ -55,7 +75,7 @@ EPostak client = EPostak.builder()
     .build();
 
 // Send an invoice
-SendDocumentResponse result = client.documents().send(
+SendDocumentResponse result = client.enterprise().documents().send(
     SendDocumentRequest.builder("0245:1234567890")
         .invoiceNumber("FV-2026-001")
         .issueDate("2026-04-04")
@@ -70,7 +90,7 @@ System.out.println(result.documentId() + " " + result.messageId());
 
 ### Connector golden path for ERP developers
 
-Use `client.connector()` for the ERP workflow instead of building raw HTTP
+Use `client.enterprise().connector()` for the ERP workflow instead of building raw HTTP
 calls. The SDK handles OAuth token minting and refresh automatically after you
 create the client.
 
@@ -96,14 +116,14 @@ Map<String, Object> invoice = Map.of(
 @SuppressWarnings("unchecked")
 Map<String, Object> document = (Map<String, Object>) invoice.get("document");
 
-ConnectorPreflightResponse preflight = client.connector().preflight(
+ConnectorPreflightResponse preflight = client.enterprise().connector().preflight(
     new ConnectorPreflightRequest("0245:1234567890", document)
 );
 if (!preflight.ready()) {
     throw new IllegalStateException(preflight.repairReport().summary());
 }
 
-ConnectorOutboxStageResponse staged = client.connector().stageOutbox(
+ConnectorOutboxStageResponse staged = client.enterprise().connector().stageOutbox(
     new ConnectorOutboxStageRequest(
         List.of(new ConnectorOutboxStageItem(
             "FA-2026-001",
@@ -117,31 +137,31 @@ ConnectorOutboxStageResponse staged = client.connector().stageOutbox(
     )
 );
 
-ConnectorOutboxItem sent = client.connector().sendOutboxItem(
+ConnectorOutboxItem sent = client.enterprise().connector().sendOutboxItem(
     staged.items().get(0).outboxId()
 );
 if (sent.documentId() == null) {
     throw new IllegalStateException("Staged invoice was not sent");
 }
 
-ConnectorStatusResponse status = client.connector().status(sent.documentId());
+ConnectorStatusResponse status = client.enterprise().connector().status(sent.documentId());
 
-ConnectorInboxListResponse inbox = client.connector().inbox(
+ConnectorInboxListResponse inbox = client.enterprise().connector().inbox(
     new ConnectorListParams(null, 20)
 );
 for (ConnectorInboxDocument doc : inbox.documents()) {
-    client.connector().ack(doc.documentId());
+    client.enterprise().connector().ack(doc.documentId());
 }
 
 // Evidence is shared with the Enterprise document API.
-DocumentEvidenceResponse evidence = client.documents().evidence(sent.documentId());
+DocumentEvidenceResponse evidence = client.enterprise().documents().evidence(sent.documentId());
 System.out.println(status.status() + " " + evidence.documentId());
 ```
 
 For immediate send without staging:
 
 ```java
-ConnectorSendResponse sent = client.connector().send(
+ConnectorSendResponse sent = client.enterprise().connector().send(
     invoice,
     "erp-fa-2026-001-send"
 );
@@ -152,7 +172,7 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```java
-ConnectorAutopilotRunResponse run = client.connector().autopilot(
+ConnectorAutopilotRunResponse run = client.enterprise().connector().autopilot(
     new ConnectorAutopilotRequest(
         "erp-customer-1",
         "shadow",
@@ -163,11 +183,27 @@ ConnectorAutopilotRunResponse run = client.connector().autopilot(
         null
     )
 );
-ConnectorAutopilotRunResponse sentRun = client.connector().sendAutopilotRun(run.autopilotId());
-ConnectorReconcileResponse exceptions = client.connector().reconcile(
+ConnectorAutopilotRunResponse sentRun = client.enterprise().connector().sendAutopilotRun(run.autopilotId());
+ConnectorReconcileResponse exceptions = client.enterprise().connector().reconcile(
     new ConnectorReconcileParams("exceptions", null)
 );
 System.out.println(sentRun.lifecycleStatus() + " " + exceptions.total());
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```java
+ConnectorAutopilotRunResponse run = client.enterprise()
+    .connector()
+    .customers()
+    .forCustomer("erp-customer-1")
+    .submitDocument(new ConnectorSubmitDocumentRequest(
+        "FA-2026-001",
+        "erp-fa-2026-001",
+        invoice
+    ));
+System.out.println(run.autopilotId());
 ```
 
 Common sandbox scenarios to test:
@@ -176,7 +212,32 @@ Common sandbox scenarios to test:
 - invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostakException`
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.connector().inbox(...)`, store the payload, then call `client.connector().ack(documentId)`
+- received invoice processing: poll `client.enterprise().connector().inbox(...)`, store the payload, then call `client.enterprise().connector().ack(documentId)`
+
+---
+
+## SAPI-SK participant flow
+
+```java
+Map<String, Object> sapiDocument = Map.of(
+    "metadata", Map.of(
+        "documentId", "FA-2026-001",
+        "documentTypeId", "invoice",
+        "processId", "billing",
+        "senderParticipantId", "0245:1234567890",
+        "receiverParticipantId", "0245:0987654321",
+        "creationDateTime", "2026-06-14T10:00:00Z"
+    ),
+    "payload", "<Invoice/>",
+    "payloadFormat", "XML"
+);
+
+client.sapi()
+    .participants()
+    .forParticipant("0245:1234567890")
+    .documents()
+    .send(sapiDocument, "sapi-fa-2026-001");
+```
 
 ---
 
@@ -219,7 +280,7 @@ calls, set `baseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
 **JSON mode** -- structured data, UBL XML is auto-generated:
 
 ```java
-SendDocumentResponse result = client.documents().send(
+SendDocumentResponse result = client.enterprise().documents().send(
     SendDocumentRequest.builder("0245:1234567890")
         .receiverName("Firma s.r.o.")
         .receiverIco("12345678")
@@ -240,7 +301,7 @@ SendDocumentResponse result = client.documents().send(
 **XML mode** -- send a pre-built UBL XML document:
 
 ```java
-client.documents().send(
+client.enterprise().documents().send(
     SendDocumentRequest.builder("0245:1234567890")
         .xml("<?xml version=\"1.0\" encoding=\"UTF-8\"?>...")
         .build()
@@ -250,7 +311,7 @@ client.documents().send(
 #### `documents().get(id)` -- Get a document by ID
 
 ```java
-Document doc = client.documents().get("doc-uuid");
+Document doc = client.enterprise().documents().get("doc-uuid");
 // doc.getId(), doc.getNumber(), doc.getStatus(), doc.getDirection(),
 // doc.getSupplier(), doc.getCustomer(), doc.getLines(), doc.getTotals()
 ```
@@ -258,7 +319,7 @@ Document doc = client.documents().get("doc-uuid");
 #### `documents().update(id, request)` -- Update a draft document
 
 ```java
-Document updated = client.documents().update("doc-uuid",
+Document updated = client.enterprise().documents().update("doc-uuid",
     UpdateDocumentRequest.builder()
         .invoiceNumber("FV-2026-002")
         .dueDate("2026-05-01")
@@ -272,34 +333,34 @@ Document updated = client.documents().update("doc-uuid",
 #### `documents().status(id)` -- Full status with history
 
 ```java
-DocumentStatusResponse status = client.documents().status("doc-uuid");
+DocumentStatusResponse status = client.enterprise().documents().status("doc-uuid");
 // status.status(), status.statusHistory(), status.deliveredAt()
 ```
 
 #### `documents().evidence(id)` -- Delivery evidence
 
 ```java
-DocumentEvidenceResponse evidence = client.documents().evidence("doc-uuid");
+DocumentEvidenceResponse evidence = client.enterprise().documents().evidence("doc-uuid");
 // evidence.as4Receipt(), evidence.mlrDocument(), evidence.invoiceResponse()
 ```
 
 #### `documents().pdf(id)` -- Download PDF
 
 ```java
-byte[] pdf = client.documents().pdf("doc-uuid");
+byte[] pdf = client.enterprise().documents().pdf("doc-uuid");
 java.nio.file.Files.write(java.nio.file.Path.of("invoice.pdf"), pdf);
 ```
 
 #### `documents().ubl(id)` -- Download UBL XML
 
 ```java
-String ubl = client.documents().ubl("doc-uuid");
+String ubl = client.enterprise().documents().ubl("doc-uuid");
 ```
 
 #### `documents().respond(id, request)` -- Send invoice response
 
 ```java
-InvoiceRespondResponse response = client.documents().respond("doc-uuid",
+InvoiceRespondResponse response = client.enterprise().documents().respond("doc-uuid",
     new InvoiceRespondRequest("AP", "Invoice accepted"));
 // "AP" = accepted, "RE" = rejected, "UQ" = under query
 ```
@@ -307,7 +368,7 @@ InvoiceRespondResponse response = client.documents().respond("doc-uuid",
 #### `documents().validate(request)` -- Validate without sending
 
 ```java
-ValidationResult validation = client.documents().validate(
+ValidationResult validation = client.enterprise().documents().validate(
     SendDocumentRequest.builder("0245:1234567890")
         .items(List.of(
             new SendDocumentRequest.LineItem("Test", 1, 100, 23)
@@ -320,7 +381,7 @@ ValidationResult validation = client.documents().validate(
 #### `documents().preflight(receiverPeppolId, documentTypeId)` -- Check receiver capability
 
 ```java
-PreflightResult check = client.documents().preflight("0245:1234567890", null);
+PreflightResult check = client.enterprise().documents().preflight("0245:1234567890", null);
 // check.registered(), check.supportsDocumentType(), check.smpUrl()
 ```
 
@@ -328,7 +389,7 @@ PreflightResult check = client.documents().preflight("0245:1234567890", null);
 
 ```java
 // JSON to UBL
-ConvertResult result = client.documents().convert(
+ConvertResult result = client.enterprise().documents().convert(
     "json",
     "ubl",
     Map.of("invoiceNumber", "FV-001", "items", List.of(...))
@@ -336,7 +397,7 @@ ConvertResult result = client.documents().convert(
 // result.outputFormat() == "ubl", result.document() is a UBL XML String, result.warnings()
 
 // UBL to JSON
-ConvertResult result = client.documents().convert(
+ConvertResult result = client.enterprise().documents().convert(
     "ubl",
     "json",
     "<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\">..."
@@ -351,28 +412,28 @@ ConvertResult result = client.documents().convert(
 #### `documents().inbox().list(offset, limit, status, since)` -- List received documents
 
 ```java
-InboxListResponse inbox = client.documents().inbox().list(0, 20, "RECEIVED", null);
+InboxListResponse inbox = client.enterprise().documents().inbox().list(0, 20, "RECEIVED", null);
 // inbox.documents(), inbox.total(), inbox.limit(), inbox.offset()
 ```
 
 #### `documents().inbox().get(id)` -- Full detail with UBL XML
 
 ```java
-InboxDocumentDetailResponse detail = client.documents().inbox().get("doc-uuid");
+InboxDocumentDetailResponse detail = client.enterprise().documents().inbox().get("doc-uuid");
 // detail.document(), detail.payload() (UBL XML string or null)
 ```
 
 #### `documents().inbox().acknowledge(id)` -- Mark as processed
 
 ```java
-AcknowledgeResponse ack = client.documents().inbox().acknowledge("doc-uuid");
+AcknowledgeResponse ack = client.enterprise().documents().inbox().acknowledge("doc-uuid");
 // ack.status() == "ACKNOWLEDGED"
 ```
 
 #### `documents().inbox().listAll(...)` -- Cross-firm inbox (integrator)
 
 ```java
-InboxAllResponse all = client.documents().inbox().listAll(0, 50, "RECEIVED", null, null);
+InboxAllResponse all = client.enterprise().documents().inbox().listAll(0, 50, "RECEIVED", null, null);
 // Each document includes firmId and firmName
 ```
 
@@ -383,14 +444,14 @@ InboxAllResponse all = client.documents().inbox().listAll(0, 50, "RECEIVED", nul
 #### `peppol().lookup(scheme, identifier)` -- SMP participant lookup
 
 ```java
-PeppolParticipant participant = client.peppol().lookup("0245", "12345678");
+PeppolParticipant participant = client.enterprise().peppol().lookup("0245", "12345678");
 // participant.peppolId(), participant.name(), participant.capabilities()
 ```
 
 #### `peppol().directory().search(q, country, page, pageSize)` -- Business Card directory
 
 ```java
-DirectorySearchResult results = client.peppol().directory().search(
+DirectorySearchResult results = client.enterprise().peppol().directory().search(
     "Telekom", "SK", 0, 20);
 // results.results(), results.total()
 ```
@@ -398,12 +459,12 @@ DirectorySearchResult results = client.peppol().directory().search(
 #### `peppol().companyLookup(ico)` -- Slovak company lookup
 
 ```java
-CompanyLookup company = client.peppol().companyLookup("12345678");
+CompanyLookup company = client.enterprise().peppol().companyLookup("12345678");
 // company.ico(), company.name(), company.dic(), company.peppolId()
 
-Map<String, Object> matches = client.peppol().companySearch("Demo", 10);
+Map<String, Object> matches = client.enterprise().peppol().companySearch("Demo", 10);
 
-Map<String, Object> resolved = client.peppol().resolve(Map.of(
+Map<String, Object> resolved = client.enterprise().peppol().resolve(Map.of(
     "ico", "12345678",
     "documentTypeId", "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."));
 ```
@@ -415,41 +476,41 @@ Map<String, Object> resolved = client.peppol().resolve(Map.of(
 #### `firms().list()` -- List all accessible firms
 
 ```java
-List<FirmSummary> firms = client.firms().list();
+List<FirmSummary> firms = client.enterprise().firms().list();
 // Each: id, name, ico, peppolId, peppolStatus
 ```
 
 #### `firms().get(id)` -- Firm detail
 
 ```java
-FirmDetail firm = client.firms().get("firm-uuid");
+FirmDetail firm = client.enterprise().firms().get("firm-uuid");
 // firm.peppolIdentifiers(), firm.address(), firm.createdAt()
 ```
 
 #### `firms().documents(id, offset, limit, direction)` -- List firm documents
 
 ```java
-InboxListResponse docs = client.firms().documents("firm-uuid", 0, 20, "inbound");
+InboxListResponse docs = client.enterprise().firms().documents("firm-uuid", 0, 20, "inbound");
 ```
 
 #### `firms().registerPeppolId(id, scheme, identifier)` -- Register Peppol ID
 
 ```java
-var result = client.firms().registerPeppolId("firm-uuid", "0245", "12345678");
+var result = client.enterprise().firms().registerPeppolId("firm-uuid", "0245", "12345678");
 // result.peppolId(), result.registeredAt()
 ```
 
 #### `firms().assign(ico)` -- Assign firm to integrator
 
 ```java
-AssignFirmResponse result = client.firms().assign("12345678");
+AssignFirmResponse result = client.enterprise().firms().assign("12345678");
 // result.firm(), result.status()
 ```
 
 #### `firms().assignBatch(icos)` -- Batch assign firms (max 50)
 
 ```java
-BatchAssignResponse result = client.firms().assignBatch(
+BatchAssignResponse result = client.enterprise().firms().assignBatch(
     List.of("12345678", "87654321", "11223344"));
 // result.results() -- each with ico, firm, status, error
 ```
@@ -461,7 +522,7 @@ BatchAssignResponse result = client.firms().assignBatch(
 #### `webhooks().create(url, events)` -- Register a webhook
 
 ```java
-WebhookDetail webhook = client.webhooks().create(
+WebhookDetail webhook = client.enterprise().webhooks().create(
     "https://example.com/webhook",
     List.of("document.received", "document.sent"));
 // Store webhook.secret() for HMAC-SHA256 signature verification
@@ -470,35 +531,35 @@ WebhookDetail webhook = client.webhooks().create(
 #### `webhooks().list()` -- List webhooks
 
 ```java
-List<Webhook> webhooks = client.webhooks().list();
+List<Webhook> webhooks = client.enterprise().webhooks().list();
 ```
 
 #### `webhooks().get(id)` -- Webhook detail with deliveries
 
 ```java
-WebhookDetail detail = client.webhooks().get("webhook-uuid");
+WebhookDetail detail = client.enterprise().webhooks().get("webhook-uuid");
 // detail.deliveries()
 
-WebhookTestResponse queued = client.webhooks().test(
+WebhookTestResponse queued = client.enterprise().webhooks().test(
     "webhook-uuid",
     new WebhookTestParams()
         .event("document.received")
         .count(250)
         .mode("queued"));
 
-WebhookDeliveriesResponse deliveries = client.webhooks().deliveries(
+WebhookDeliveriesResponse deliveries = client.enterprise().webhooks().deliveries(
     "webhook-uuid",
     Map.of("testRunId", queued.testRunId(), "includeResponseBody", true));
 
-Map<String, Object> dlq = client.webhooks().deadLetters(Map.of("includeResponseBody", true));
-client.webhooks().replayDeadLetter("delivery-id");
-client.webhooks().resolveDeadLetter("delivery-id", "Handled in ERP");
+Map<String, Object> dlq = client.enterprise().webhooks().deadLetters(Map.of("includeResponseBody", true));
+client.enterprise().webhooks().replayDeadLetter("delivery-id");
+client.enterprise().webhooks().resolveDeadLetter("delivery-id", "Handled in ERP");
 ```
 
 #### `webhooks().update(id, url, events, isActive)` -- Update webhook
 
 ```java
-client.webhooks().update("webhook-uuid",
+client.enterprise().webhooks().update("webhook-uuid",
     "https://example.com/new-webhook",
     List.of("document.received"),
     true);
@@ -507,7 +568,7 @@ client.webhooks().update("webhook-uuid",
 #### `webhooks().delete(id)` -- Delete webhook
 
 ```java
-client.webhooks().delete("webhook-uuid");
+client.enterprise().webhooks().delete("webhook-uuid");
 ```
 
 #### `WebhookSignature.verify(...)` -- Verify incoming webhook payload
@@ -537,7 +598,7 @@ if (!result.valid()) {
 Use `express.raw()` (Node) or the equivalent in your framework to capture raw bytes. Do NOT re-serialize parsed JSON — the round-trip breaks the HMAC.
 
 > **Migration note:** the old single-header format (`X-Epostak-Signature: t=…,v1=…`) is no longer
-> used by the server. Use `client.webhooks().create(url, events)` to register webhook endpoints.
+> used by the server. Use `client.enterprise().webhooks().create(url, events)` to register webhook endpoints.
 
 #### Dedup + retry headers (server v1.1 — 2026-05-12)
 
@@ -581,7 +642,7 @@ Alternative to push webhooks -- poll for events.
 #### `webhooks().queue().pull(limit, eventType)` -- Fetch pending events
 
 ```java
-WebhookQueueResponse queue = client.webhooks().queue().pull(50, "document.received");
+WebhookQueueResponse queue = client.enterprise().webhooks().queue().pull(50, "document.received");
 for (var item : queue.items()) {
     System.out.println(item.id() + " " + item.type() + " " + item.payload());
 }
@@ -591,7 +652,7 @@ for (var item : queue.items()) {
 #### `webhooks().queue().ack(eventId)` -- Acknowledge single event
 
 ```java
-client.webhooks().queue().ack("event-uuid");
+client.enterprise().webhooks().queue().ack("event-uuid");
 // void (HTTP 204)
 ```
 
@@ -599,14 +660,14 @@ client.webhooks().queue().ack("event-uuid");
 
 ```java
 List<String> ids = queue.items().stream().map(i -> i.id()).toList();
-client.webhooks().queue().batchAck(ids);
+client.enterprise().webhooks().queue().batchAck(ids);
 // void (HTTP 204)
 ```
 
 #### `webhooks().queue().pullAll(limit, since)` -- Cross-firm queue (integrator)
 
 ```java
-WebhookQueueAllResponse all = client.webhooks().queue().pullAll(200, "2026-04-01T00:00:00Z");
+WebhookQueueAllResponse all = client.enterprise().webhooks().queue().pullAll(200, "2026-04-01T00:00:00Z");
 for (var event : all.items()) {
     System.out.println(event.firmId() + " " + event.event() + " " + event.payload());
 }
@@ -617,7 +678,7 @@ for (var event : all.items()) {
 
 ```java
 List<String> ids = all.items().stream().map(e -> e.eventId()).toList();
-var result = client.webhooks().queue().batchAckAll(ids);
+var result = client.enterprise().webhooks().queue().batchAckAll(ids);
 System.out.println(result.acknowledged());
 ```
 
@@ -628,7 +689,7 @@ System.out.println(result.acknowledged());
 #### `reporting().statistics(from, to)` -- Aggregated stats
 
 ```java
-Statistics stats = client.reporting().statistics("2026-01-01", "2026-03-31");
+Statistics stats = client.enterprise().reporting().statistics("2026-01-01", "2026-03-31");
 // stats.period(), stats.outbound(), stats.inbound()
 ```
 
@@ -639,7 +700,7 @@ Statistics stats = client.reporting().statistics("2026-01-01", "2026-03-31");
 #### `account().get()` -- Account info
 
 ```java
-Account account = client.account().get();
+Account account = client.enterprise().account().get();
 // account.firm(), account.plan(), account.usage()
 ```
 
@@ -653,7 +714,7 @@ Requires Enterprise plan.
 
 ```java
 byte[] pdf = java.nio.file.Files.readAllBytes(java.nio.file.Path.of("invoice.pdf"));
-ExtractResult result = client.extract().single(pdf, "invoice.pdf", "application/pdf");
+ExtractResult result = client.enterprise().extract().single(pdf, "invoice.pdf", "application/pdf");
 // result.extraction(), result.ublXml(), result.confidence()
 ```
 
@@ -662,7 +723,7 @@ Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`
 #### `extract().batch(files)` -- Batch extraction (max 10 files)
 
 ```java
-BatchExtractResult result = client.extract().batch(List.of(
+BatchExtractResult result = client.enterprise().extract().batch(List.of(
     new ExtractResource.FileInput(pdfBytes, "inv1.pdf", "application/pdf"),
     new ExtractResource.FileInput(imageBytes, "inv2.png", "image/png")
 ));
@@ -718,7 +779,7 @@ All errors are thrown as `EPostakException` (extends `RuntimeException`):
 import sk.epostak.sdk.EPostakException;
 
 try {
-    client.documents().send(...);
+    client.enterprise().documents().send(...);
 } catch (EPostakException e) {
     System.err.println(e.getStatus());   // HTTP status code (0 for network errors)
     System.err.println(e.getCode());     // Machine-readable code, e.g. "VALIDATION_FAILED"
@@ -846,10 +907,10 @@ try {
 | `integrator().keys().deactivateByKeyId(id)` | DELETE | `/integrator/keys`             |
 | `integrator().keys().deactivateByClientId(clientId)` | DELETE | `/integrator/keys`       |
 | `integrator().licenses().info()`      | GET    | `/integrator/licenses/info`          |
-| `sapi().send(body, participantId, idempotencyKey)` | POST | `/sapi/v1/document/send`      |
-| `sapi().receive(participantId, ...)`  | GET    | `/sapi/v1/document/receive`          |
-| `sapi().get(id, participantId)`       | GET    | `/sapi/v1/document/receive/{id}`     |
-| `sapi().acknowledge(id, participantId)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
+| `sapi().participants().forParticipant(id).documents().send(body, key)` | POST | `/sapi/v1/document/send` |
+| `sapi().participants().forParticipant(id).documents().receive(...)` | GET | `/sapi/v1/document/receive` |
+| `sapi().participants().forParticipant(id).documents().get(documentId)` | GET | `/sapi/v1/document/receive/{id}` |
+| `sapi().participants().forParticipant(id).documents().acknowledge(documentId)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
 
 Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 

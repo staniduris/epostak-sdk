@@ -4,11 +4,35 @@ Official Node.js / TypeScript SDK for the [ePošťák API](https://epostak.sk/ap
 
 Zero runtime dependencies. Requires Node.js 18+.
 
+## Major release API shape
+
+TypeScript `4.0.0` is a breaking workflow-first release:
+
+- Enterprise direct firm flow: `client.enterprise.documents.send(...)`
+- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for("erp-customer").submitDocument(...)`
+- SAPI-SK interoperable flow: `client.sapi.participants.for("0245:1234567890").documents.send(...)`
+
+Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
+customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
+calls always send `X-Peppol-Participant-Id`.
+
 ## Recent changes
+
+### v4.0.0 — 2026-06-14
+
+- **Breaking:** documented Enterprise resources now live under
+  `client.enterprise`; old top-level resources remain internal compatibility
+  adapters.
+- **New:** `client.sapi.participants.for(participantId).documents` requires
+  participant scoping before SAPI document send/receive/get/acknowledge.
+- **New:** `client.enterprise.connector.customers.for(customerRef)` injects
+  `customerRef` and keeps `X-Firm-Id` off customer-managed Connector calls.
+- **Docs:** README and migration guide now cover Enterprise direct,
+  Enterprise Connector, and SAPI-SK flows as first-class paths.
 
 ### v3.3.4 — 2026-06-06
 
-- **New:** `client.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- **New:** `client.enterprise.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
 - **Coverage:** static endpoint coverage expanded to 317 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v3.3.3 — 2026-06-05
@@ -17,18 +41,18 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ### v3.3.2 — 2026-05-18
 
-- **New:** `client.sapi` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
-- **New:** `client.webhooks.test(id, { count, mode })` supports direct and queued webhook tests; queued tests return `testRunId` for delivery-history polling.
-- **New:** `client.webhooks.deadLetters()`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, { reason })` cover webhook dead-letter operations.
-- **New:** `client.peppol.resolve(...)` maps ERP identifiers (`ico`, `dic`, `icDph`, `peppolId`, or `scheme` + `identifier`) to Peppol participant + routing capability.
-- **New:** `client.documents.evidenceBundle(id)`, `client.outbound.getMdn(id)`, `client.peppol.companySearch(...)`, `client.documents.peppolDocuments(...)`, and `client.account.licenseInfo()`.
+- **New:** `client.sapi.participants.for(id).documents` covers SAPI-SK 1.0 document send, receive list/detail, and acknowledge.
+- **New:** `client.enterprise.webhooks.test(id, { count, mode })` supports direct and queued webhook tests; queued tests return `testRunId` for delivery-history polling.
+- **New:** `client.enterprise.webhooks.deadLetters()`, `replayDeadLetter(id)`, and `resolveDeadLetter(id, { reason })` cover webhook dead-letter operations.
+- **New:** `client.enterprise.peppol.resolve(...)` maps ERP identifiers (`ico`, `dic`, `icDph`, `peppolId`, or `scheme` + `identifier`) to Peppol participant + routing capability.
+- **New:** `client.enterprise.documents.evidenceBundle(id)`, `client.enterprise.pull.outbound.getMdn(id)`, `client.enterprise.peppol.companySearch(...)`, `client.enterprise.documents.peppolDocuments(...)`, and `client.enterprise.account.licenseInfo()`.
 - **Coverage:** static endpoint coverage expanded to 97 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
 ### v3.2.0 — 2026-05-12
 
-- **New:** Pull API — `client.inbound` (`list`, `get`, `getUbl`, `ack`) and `client.outbound` (`list`, `get`, `getUbl`, `events`) resources with full TypeScript types (`InboundDocument`, `OutboundDocument`, `OutboundEvent`, etc.).
+- **New:** Pull API — `client.enterprise.pull.inbound` (`list`, `get`, `getUbl`, `ack`) and `client.enterprise.pull.outbound` (`list`, `get`, `getUbl`, `events`) resources with full TypeScript types (`InboundDocument`, `OutboundDocument`, `OutboundEvent`, etc.).
 - **New:** `UblValidationError` class — thrown on `422 UBL_VALIDATION_ERROR`; carries `.rule` (e.g. `"BR-06"`) and `UblRule` exported union type for the 7 known rule codes.
-- **New:** `client.webhooks.test(id, { event? })` — `event` is now passed as `?event=` query parameter (server precedence over body).
+- **New:** `client.enterprise.webhooks.test(id, { event? })` — `event` is now passed as `?event=` query parameter (server precedence over body).
 - **New:** `client.lastRateLimit: { limit, remaining, resetAt: Date } | null` — updated after every request that includes `X-RateLimit-*` response headers.
 - **Improved:** `WebhookDelivery` type adds optional `idempotency_key?: string` — SHA-256 hex stable across retry attempts.
 - **Improved:** `WebhookDeliveriesParams` adds `includeResponseBody?: boolean` (opt-in response body in delivery history).
@@ -60,7 +84,7 @@ const client = new EPostak({
   clientSecret: "sk_live_xxxxx",
 });
 
-const result = await client.documents.send({
+const result = await client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   invoiceNumber: "FV-2026-001",
   issueDate: "2026-04-04",
@@ -74,7 +98,7 @@ console.log(result.documentId, result.messageId, result.payloadSha256);
 
 ### Connector golden path for ERP developers
 
-Use `client.connector` for the ERP workflow instead of building raw HTTP calls.
+Use `client.enterprise.connector` for the ERP workflow instead of building raw HTTP calls.
 The SDK handles OAuth token minting and refresh automatically after you create
 the client.
 
@@ -89,13 +113,13 @@ const invoice = {
   },
 };
 
-const preflight = await client.connector.preflight(invoice);
+const preflight = await client.enterprise.connector.preflight(invoice);
 if (!preflight.ready) {
   console.error(preflight.repairReport.blocking);
   throw new Error("Invoice is not ready for Peppol delivery");
 }
 
-const staged = await client.connector.outbox.stage({
+const staged = await client.enterprise.connector.outbox.stage({
   items: [
     {
       externalId: "FA-2026-001",
@@ -105,27 +129,27 @@ const staged = await client.connector.outbox.stage({
   ],
 });
 
-const sent = await client.connector.outbox.send(staged.items[0].outboxId);
+const sent = await client.enterprise.connector.outbox.send(staged.items[0].outboxId);
 if (!sent.documentId) {
   throw new Error("Staged invoice was not sent");
 }
 
-const status = await client.connector.status(sent.documentId);
+const status = await client.enterprise.connector.status(sent.documentId);
 
-const inbox = await client.connector.inbox({ limit: 20 });
+const inbox = await client.enterprise.connector.inbox({ limit: 20 });
 for (const doc of inbox.documents) {
-  await client.connector.ack(doc.documentId);
+  await client.enterprise.connector.ack(doc.documentId);
 }
 
 // Evidence is shared with the Enterprise document API.
-const evidence = await client.documents.evidence(sent.documentId);
+const evidence = await client.enterprise.documents.evidence(sent.documentId);
 console.log(status.status, evidence);
 ```
 
 For immediate send without staging:
 
 ```typescript
-const sent = await client.connector.send(invoice, {
+const sent = await client.enterprise.connector.send(invoice, {
   idempotencyKey: "erp-fa-2026-001-send",
 });
 console.log(sent.documentId, sent.status);
@@ -135,16 +159,29 @@ Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
 ERP sync jobs one place to read exceptions:
 
 ```typescript
-const run = await client.connector.autopilot({
+const run = await client.enterprise.connector.autopilot({
   customerRef: "erp-customer-1",
   mode: "shadow",
   externalId: "FA-2026-001",
   idempotencyKey: "erp-fa-2026-001",
   payload: invoice,
 });
-const sentRun = await client.connector.sendAutopilotRun(run.autopilotId);
-const exceptions = await client.connector.reconcile({ status: "exceptions" });
+const sentRun = await client.enterprise.connector.sendAutopilotRun(run.autopilotId);
+const exceptions = await client.enterprise.connector.reconcile({ status: "exceptions" });
 console.log(sentRun.lifecycleStatus, exceptions.total);
+```
+
+Customer-scoped Connector calls are the preferred integrator shape when you
+already know the managed ERP customer:
+
+```typescript
+const customer = client.enterprise.connector.customers.for("erp-customer-1");
+const run = await customer.submitDocument({
+  externalId: "FA-2026-001",
+  idempotencyKey: "erp-fa-2026-001",
+  payload: invoice,
+});
+console.log(run.autopilotId);
 ```
 
 Common sandbox scenarios to test:
@@ -153,12 +190,36 @@ Common sandbox scenarios to test:
 - invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in the typed `EPostakError`
 - duplicate idempotency key: `409 idempotency_conflict`
 - expired token: the SDK refreshes automatically; persistent auth failures surface as `EPostakError`
-- received invoice processing: poll `client.connector.inbox(...)`, store the payload, then call `client.connector.ack(documentId)`
+- received invoice processing: poll `client.enterprise.connector.inbox(...)`, store the payload, then call `client.enterprise.connector.ack(documentId)`
 
 Batch workers can send queued items with:
 
 ```typescript
-await client.connector.outbox.sendBatch({ limit: 50 }); // ready, failed, and due scheduled items
+await client.enterprise.connector.outbox.sendBatch({ limit: 50 }); // ready, failed, and due scheduled items
+```
+
+---
+
+## SAPI-SK participant flow
+
+```typescript
+const participant = client.sapi.participants.for("0245:1234567890");
+
+await participant.documents.send(
+  {
+    metadata: {
+      documentId: "FA-2026-001",
+      documentTypeId: "invoice",
+      processId: "billing",
+      senderParticipantId: "0245:1234567890",
+      receiverParticipantId: "0245:0987654321",
+      creationDateTime: "2026-06-14T10:00:00Z",
+    },
+    payload: "<Invoice/>",
+    payloadFormat: "XML",
+  },
+  { idempotencyKey: "sapi-fa-2026-001" },
+);
 ```
 
 ---
@@ -204,17 +265,17 @@ The SDK automatically mints a JWT on the first request and refreshes it
 before expiry. You never handle tokens directly. For manual token management:
 
 ```typescript
-const tokens = await client.auth.token({
+const tokens = await client.enterprise.auth.token({
   clientId: "sk_live_xxxxx",
   clientSecret: "sk_live_xxxxx",
 });
 console.log(tokens.access_token, tokens.expires_in); // 900s
 
-const renewed = await client.auth.renew({
+const renewed = await client.enterprise.auth.renew({
   refreshToken: tokens.refresh_token,
 });
 
-await client.auth.revoke({
+await client.enterprise.auth.revoke({
   token: tokens.refresh_token,
   tokenTypeHint: "refresh_token",
 });
@@ -223,16 +284,16 @@ await client.auth.revoke({
 ### Key introspection, rotation, IP allowlist
 
 ```typescript
-const status = await client.auth.status();
+const status = await client.enterprise.auth.status();
 console.log(status.key.prefix, status.plan.name, status.firm.peppolStatus);
 
-const rotated = await client.auth.rotateSecret(); // sk_live_* only
+const rotated = await client.enterprise.auth.rotateSecret(); // sk_live_* only
 console.log(rotated.key); // store immediately — only returned once
 
-await client.auth.ipAllowlist.update({
+await client.enterprise.auth.ipAllowlist.update({
   cidrs: ["192.168.1.0/24", "203.0.113.42"],
 });
-const { ip_allowlist } = await client.auth.ipAllowlist.get();
+const { ip_allowlist } = await client.enterprise.auth.ipAllowlist.get();
 ```
 
 ---
@@ -243,7 +304,7 @@ const { ip_allowlist } = await client.auth.ipAllowlist.get();
 
 ```typescript
 // Send a document (JSON mode — UBL auto-generated)
-const result = await client.documents.send(
+const result = await client.enterprise.documents.send(
   {
     receiverPeppolId: "0245:1234567890",
     receiverName: "Firma s.r.o.",
@@ -259,41 +320,41 @@ const result = await client.documents.send(
 );
 
 // Send pre-built UBL XML
-await client.documents.send({
+await client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   xml: '<?xml version="1.0"?>...',
 });
 
 // Get document by ID
-const doc = await client.documents.get("doc-uuid");
+const doc = await client.enterprise.documents.get("doc-uuid");
 
 // Update a draft document
-await client.documents.update("doc-uuid", { invoiceNumber: "FV-2026-002", dueDate: "2026-05-01" });
+await client.enterprise.documents.update("doc-uuid", { invoiceNumber: "FV-2026-002", dueDate: "2026-05-01" });
 
 // Status with full history
-const status = await client.documents.status("doc-uuid");
+const status = await client.enterprise.documents.status("doc-uuid");
 
 // Delivery evidence (AS4, MLR, invoice response)
-const evidence = await client.documents.evidence("doc-uuid");
+const evidence = await client.enterprise.documents.evidence("doc-uuid");
 
 // Download PDF / UBL XML
-const pdf = await client.documents.pdf("doc-uuid");
-const ubl = await client.documents.ubl("doc-uuid");
+const pdf = await client.enterprise.documents.pdf("doc-uuid");
+const ubl = await client.enterprise.documents.ubl("doc-uuid");
 
 // Respond to received invoice (AP=accept, RE=reject, UQ=query)
-await client.documents.respond("doc-uuid", { status: "AP", note: "Akceptované" });
+await client.enterprise.documents.respond("doc-uuid", { status: "AP", note: "Akceptované" });
 
 // Validate without sending — pass the JSON invoice or raw UBL XML
-const validation = await client.documents.validate({
+const validation = await client.enterprise.documents.validate({
   format: "json",
   document: { receiverPeppolId: "0245:1234567890", items: [/* ... */] },
 });
 
 // Check receiver capability
-const check = await client.documents.preflight({ receiverPeppolId: "0245:1234567890" });
+const check = await client.enterprise.documents.preflight({ receiverPeppolId: "0245:1234567890" });
 
 // Convert between JSON and UBL
-const converted = await client.documents.convert({
+const converted = await client.enterprise.documents.convert({
   input_format: "json",
   output_format: "ubl",
   document: { ... },
@@ -304,21 +365,21 @@ const converted = await client.documents.convert({
 
 ```typescript
 // List received documents
-const inbox = await client.documents.inbox.list({
+const inbox = await client.enterprise.documents.inbox.list({
   limit: 20,
   status: "RECEIVED",
   since: "2026-04-01T00:00:00Z",
 });
 
 // Get full detail with UBL XML payload
-const detail = await client.documents.inbox.get("doc-uuid");
+const detail = await client.enterprise.documents.inbox.get("doc-uuid");
 console.log(detail.document, detail.payload);
 
 // Acknowledge (mark as processed)
-await client.documents.inbox.acknowledge("doc-uuid");
+await client.enterprise.documents.inbox.acknowledge("doc-uuid");
 
 // Cross-firm inbox (integrator only)
-const all = await client.documents.inbox.listAll({
+const all = await client.enterprise.documents.inbox.listAll({
   limit: 50,
   firm_id: "firm-uuid",
 });
@@ -331,7 +392,7 @@ Cursor-paginated walk over `(occurred_at DESC, id DESC)`.
 ```typescript
 let cursor: string | null = null;
 do {
-  const page = await client.audit.list({
+  const page = await client.enterprise.audit.list({
     event: "jwt.issued",
     since: "2026-04-01T00:00:00Z",
     cursor,
@@ -347,18 +408,18 @@ do {
 ### Peppol
 
 ```typescript
-const participant = await client.peppol.lookup("0245", "1234567890");
+const participant = await client.enterprise.peppol.lookup("0245", "1234567890");
 
-const results = await client.peppol.directory.search({
+const results = await client.enterprise.peppol.directory.search({
   q: "Telekom",
   country: "SK",
 });
 
-const company = await client.peppol.companyLookup("12345678");
+const company = await client.enterprise.peppol.companyLookup("12345678");
 
-const matches = await client.peppol.companySearch({ q: "Demo", limit: 10 });
+const matches = await client.enterprise.peppol.companySearch({ q: "Demo", limit: 10 });
 
-const resolved = await client.peppol.resolve({
+const resolved = await client.enterprise.peppol.resolve({
   ico: "12345678",
   documentTypeId: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##...",
 });
@@ -367,27 +428,27 @@ const resolved = await client.peppol.resolve({
 ### Firms (integrator)
 
 ```typescript
-const firms = await client.firms.list();
-const firm = await client.firms.get("firm-uuid");
-const docs = await client.firms.documents("firm-uuid", {
+const firms = await client.enterprise.firms.list();
+const firm = await client.enterprise.firms.get("firm-uuid");
+const docs = await client.enterprise.firms.documents("firm-uuid", {
   limit: 20,
   direction: "inbound",
 });
-await client.firms.registerPeppolId("firm-uuid", {
+await client.enterprise.firms.registerPeppolId("firm-uuid", {
   scheme: "0245",
   identifier: "1234567890",
 });
 
 // Assign firm by ICO
-await client.firms.assign({ ico: "12345678" });
-await client.firms.assignBatch({ icos: ["12345678", "87654321"] });
+await client.enterprise.firms.assign({ ico: "12345678" });
+await client.enterprise.firms.assignBatch({ icos: ["12345678", "87654321"] });
 ```
 
 ### Webhooks
 
 ```typescript
 // Create webhook (store secret for HMAC verification!)
-const webhook = await client.webhooks.create(
+const webhook = await client.enterprise.webhooks.create(
   {
     url: "https://example.com/webhook",
     events: ["document.received", "document.sent"],
@@ -395,30 +456,30 @@ const webhook = await client.webhooks.create(
   { idempotencyKey: "create-prod-webhook" },
 );
 
-const list = await client.webhooks.list();
-const detail = await client.webhooks.get(webhook.id);
-await client.webhooks.update(webhook.id, { isActive: false });
-await client.webhooks.delete(webhook.id);
+const list = await client.enterprise.webhooks.list();
+const detail = await client.enterprise.webhooks.get(webhook.id);
+await client.enterprise.webhooks.update(webhook.id, { isActive: false });
+await client.enterprise.webhooks.delete(webhook.id);
 
 // Rotate the signing secret (issues a fresh one, invalidates the old).
-const { secret } = await client.webhooks.rotateSecret(webhook.id);
+const { secret } = await client.enterprise.webhooks.rotateSecret(webhook.id);
 
 // Production-like test: enqueue delivery rows for the normal webhook worker.
-const queued = await client.webhooks.test(webhook.id, {
+const queued = await client.enterprise.webhooks.test(webhook.id, {
   event: "document.received",
   count: 250,
   mode: "queued",
 });
 
-const deliveries = await client.webhooks.deliveries(webhook.id, {
+const deliveries = await client.enterprise.webhooks.deliveries(webhook.id, {
   testRunId: queued.testRunId,
   includeResponseBody: true,
 });
 
-const dlq = await client.webhooks.deadLetters({ includeResponseBody: true });
+const dlq = await client.enterprise.webhooks.deadLetters({ includeResponseBody: true });
 for (const failed of dlq.items) {
-  await client.webhooks.replayDeadLetter(failed.id);
-  // or: await client.webhooks.resolveDeadLetter(failed.id, { reason: "Handled in ERP" });
+  await client.enterprise.webhooks.replayDeadLetter(failed.id);
+  // or: await client.enterprise.webhooks.resolveDeadLetter(failed.id, { reason: "Handled in ERP" });
 }
 ```
 
@@ -488,21 +549,21 @@ The signature contract is **unchanged** — `verifyWebhookSignature` continues t
 
 ```typescript
 // Pull pending events
-const queue = await client.webhooks.queue.pull({ limit: 50 });
+const queue = await client.enterprise.webhooks.queue.pull({ limit: 50 });
 for (const item of queue.items) {
   console.log(item.event_id, item.event, item.payload);
-  await client.webhooks.queue.ack(item.event_id);
+  await client.enterprise.webhooks.queue.ack(item.event_id);
 }
 if (queue.has_more) {
   // Drain remaining events on the next iteration
 }
 
 // Batch acknowledge
-await client.webhooks.queue.batchAck(queue.items.map((e) => e.event_id));
+await client.enterprise.webhooks.queue.batchAck(queue.items.map((e) => e.event_id));
 
 // Cross-firm (integrator)
-const allEvents = await client.webhooks.queue.pullAll({ limit: 200 });
-await client.webhooks.queue.batchAckAll(
+const allEvents = await client.enterprise.webhooks.queue.pullAll({ limit: 200 });
+await client.enterprise.webhooks.queue.batchAckAll(
   allEvents.items.map((e) => e.event_id),
 );
 ```
@@ -511,7 +572,7 @@ await client.webhooks.queue.batchAckAll(
 
 ```typescript
 // Convenience period selector
-const stats = await client.reporting.statistics({ period: "month" });
+const stats = await client.enterprise.reporting.statistics({ period: "month" });
 console.log(stats.sent.total, stats.sent.by_type);
 console.log(stats.received.total, stats.received.by_type);
 console.log(stats.delivery_rate); // e.g. 0.987
@@ -519,13 +580,13 @@ console.log(stats.top_recipients); // up to 5
 console.log(stats.top_senders);
 
 // Or an explicit window
-await client.reporting.statistics({ from: "2026-01-01", to: "2026-03-31" });
+await client.enterprise.reporting.statistics({ from: "2026-01-01", to: "2026-03-31" });
 ```
 
 ### Account
 
 ```typescript
-const account = await client.account.get();
+const account = await client.enterprise.account.get();
 ```
 
 ### Extract (AI OCR)
@@ -534,14 +595,14 @@ const account = await client.account.get();
 import { readFileSync } from "fs";
 
 // Single file
-const result = await client.extract.single(
+const result = await client.enterprise.extract.single(
   readFileSync("invoice.pdf"),
   "application/pdf",
   "invoice.pdf",
 );
 
 // Batch (up to 10 files, server-side)
-const batch = await client.extract.batch([
+const batch = await client.enterprise.extract.batch([
   { file: pdfBuffer, mimeType: "application/pdf", fileName: "inv1.pdf" },
   { file: imgBuffer, mimeType: "image/png", fileName: "inv2.png" },
 ]);
@@ -584,7 +645,7 @@ envelope and RFC 7807 `application/problem+json`.
 import { EPostak, EPostakError } from "@epostak/sdk";
 
 try {
-  await client.documents.send({ ... });
+  await client.enterprise.documents.send({ ... });
 } catch (err) {
   if (err instanceof EPostakError) {
     console.error(err.status);         // HTTP status (0 for network errors)
@@ -728,10 +789,10 @@ try {
 | `outbound.getUbl(id)`                    | GET    | `/outbound/documents/{id}/ubl`               |
 | `outbound.getMdn(id)`                    | GET    | `/outbound/documents/{id}/mdn`               |
 | `outbound.events(params?)`               | GET    | `/outbound/events`                           |
-| `sapi.send(body, opts)`                  | POST   | `/sapi/v1/document/send`                     |
-| `sapi.receive(params, opts)`             | GET    | `/sapi/v1/document/receive`                  |
-| `sapi.get(id, opts)`                     | GET    | `/sapi/v1/document/receive/{id}`             |
-| `sapi.acknowledge(id, opts)`             | POST   | `/sapi/v1/document/receive/{id}/acknowledge` |
+| `sapi.participants.for(id).documents.send(body, opts?)` | POST | `/sapi/v1/document/send` |
+| `sapi.participants.for(id).documents.receive(params?)` | GET | `/sapi/v1/document/receive` |
+| `sapi.participants.for(id).documents.get(documentId)` | GET | `/sapi/v1/document/receive/{id}` |
+| `sapi.participants.for(id).documents.acknowledge(documentId)` | POST | `/sapi/v1/document/receive/{id}/acknowledge` |
 
 Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [Major workflow-first SDK release] — 2026-06-14
+
+- Bumped TypeScript to `4.0.0`; bumped Python, PHP, Ruby, Java, and .NET to
+  `1.0.0`.
+- Added the documented `enterprise` namespace in all six SDKs for
+  `/api/v1/*` workflows: Documents, Inbox, Pull APIs, Connector, Peppol, Firms,
+  Webhooks, Reporting, Auth, Account, Extract, Audit, and Integrator.
+- Kept SAPI-SK separate under participant-scoped document flows:
+  `sapi.participants.for(...).documents` or the language-native equivalent.
+- Added Connector customer-scoped helpers that inject `customerRef` and omit
+  `X-Firm-Id` for managed-customer calls.
+- Reworked README files and added a migration guide from old top-level
+  endpoint naming to the workflow-first public API.
+
 ## [Connector v2 SDK sync] — 2026-06-06
 
 - Added Connector v2 helpers across TypeScript, Python, Ruby, PHP, .NET, and

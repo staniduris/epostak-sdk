@@ -29,7 +29,15 @@ export { OAuth } from "./resources/oauth.js";
 // Resource classes (for typing and instanceof checks)
 export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
 export { AuditResource } from "./resources/audit.js";
-export { ConnectorOutboxResource, ConnectorResource } from "./resources/connector.js";
+export {
+  ConnectorCustomerDocumentsResource,
+  ConnectorCustomerMailboxResource,
+  ConnectorCustomerResource,
+  ConnectorCustomersResource,
+  ConnectorOutboxResource,
+  ConnectorResource,
+} from "./resources/connector.js";
+export { EnterprisePullResource, EnterpriseResource } from "./resources/enterprise.js";
 export { DocumentsResource, InboxResource } from "./resources/documents.js";
 export { FirmsResource } from "./resources/firms.js";
 export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
@@ -47,7 +55,12 @@ export {
 } from "./resources/integrator.js";
 export { InboundResource } from "./resources/inbound.js";
 export { OutboundResource } from "./resources/outbound.js";
-export { SapiResource } from "./resources/sapi.js";
+export {
+  SapiParticipantDocumentsResource,
+  SapiParticipantResource,
+  SapiParticipantsResource,
+  SapiResource,
+} from "./resources/sapi.js";
 export type { SapiParticipantOptions, SapiSendOptions } from "./resources/sapi.js";
 
 // All types
@@ -88,6 +101,7 @@ export type {
   ConnectorOutboxSendOptions,
   ConnectorOutboxBatchSendRequest,
   ConnectorOutboxBatchSendResponse,
+  ConnectorSubmitDocumentRequest,
   ValidateFormat,
   ReportingPeriod,
   WebhookDeliveryStatus,

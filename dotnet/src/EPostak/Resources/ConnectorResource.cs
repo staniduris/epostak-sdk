@@ -10,7 +10,19 @@ public sealed class ConnectorResource
 {
     private readonly HttpRequestor _http;
 
-    internal ConnectorResource(HttpRequestor http) => _http = http;
+    internal ConnectorResource(HttpRequestor http)
+    {
+        _http = http;
+        Customers = new ConnectorCustomersResource(this);
+    }
+
+    public ConnectorCustomersResource Customers { get; }
+
+    public Task<ConnectorAutopilotRunResponse> SubmitDocumentAsync(ConnectorSubmitDocumentRequest request, CancellationToken ct = default)
+    {
+        request.Mode ??= "stage";
+        return _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/autopilot", request, ct, omitFirmId: true);
+    }
 
     /// <summary>Validate receiver reachability and payload readiness before sending.</summary>
     public Task<ConnectorPreflightResponse> PreflightAsync(ConnectorPreflightRequest request, CancellationToken ct = default)
@@ -177,4 +189,98 @@ public sealed class ConnectorResource
             request ?? new ConnectorActionRequest(),
             ct,
             omitFirmId: true);
+}
+
+public sealed class ConnectorCustomersResource
+{
+    private readonly ConnectorResource _connector;
+
+    internal ConnectorCustomersResource(ConnectorResource connector) => _connector = connector;
+
+    public ConnectorCustomerResource For(string customerRef) => new(_connector, customerRef);
+}
+
+public sealed class ConnectorCustomerResource
+{
+    private readonly ConnectorResource _connector;
+    private readonly string _customerRef;
+
+    internal ConnectorCustomerResource(ConnectorResource connector, string customerRef)
+    {
+        _connector = connector;
+        _customerRef = customerRef;
+        Documents = new ConnectorCustomerDocumentsResource(connector);
+        Mailbox = new ConnectorCustomerMailboxResource(connector, customerRef);
+    }
+
+    public ConnectorCustomerDocumentsResource Documents { get; }
+    public ConnectorCustomerMailboxResource Mailbox { get; }
+
+    public Task<ConnectorAutopilotRunResponse> SubmitDocumentAsync(ConnectorSubmitDocumentRequest request, CancellationToken ct = default)
+    {
+        ApplyCustomerRef(request);
+        request.Mode ??= "stage";
+        return _connector.SubmitDocumentAsync(request, ct);
+    }
+
+    public Task<ConnectorAutopilotRunResponse> AutopilotAsync(ConnectorAutopilotRequest request, CancellationToken ct = default)
+    {
+        if (!string.IsNullOrEmpty(request.CustomerRef) && request.CustomerRef != _customerRef)
+            throw new ArgumentException("Connector customerRef conflicts with scoped customer.", nameof(request));
+        request.CustomerRef = _customerRef;
+        return _connector.AutopilotAsync(request, ct);
+    }
+
+    public Task<ConnectorSyncResponse> SyncAsync(ConnectorSyncParams? parameters = null, CancellationToken ct = default)
+    {
+        parameters ??= new ConnectorSyncParams();
+        if (!string.IsNullOrEmpty(parameters.CustomerRef) && parameters.CustomerRef != _customerRef)
+            throw new ArgumentException("Connector customerRef conflicts with scoped customer.", nameof(parameters));
+        parameters.CustomerRef = _customerRef;
+        return _connector.SyncAsync(parameters, ct);
+    }
+
+    private void ApplyCustomerRef(ConnectorSubmitDocumentRequest request)
+    {
+        if (!string.IsNullOrEmpty(request.CustomerRef) && request.CustomerRef != _customerRef)
+            throw new ArgumentException("Connector customerRef conflicts with scoped customer.", nameof(request));
+        request.CustomerRef = _customerRef;
+    }
+}
+
+public sealed class ConnectorCustomerDocumentsResource
+{
+    private readonly ConnectorResource _connector;
+
+    internal ConnectorCustomerDocumentsResource(ConnectorResource connector) => _connector = connector;
+
+    public Task<Dictionary<string, object?>> GetAsync(string documentId, CancellationToken ct = default)
+        => _connector.GetDocumentAsync(documentId, ct);
+
+    public Task<string> UblAsync(string documentId, CancellationToken ct = default)
+        => _connector.GetDocumentUblAsync(documentId, ct);
+
+    public Task<Dictionary<string, object?>> EvidenceAsync(string documentId, CancellationToken ct = default)
+        => _connector.GetDocumentEvidenceAsync(documentId, ct);
+
+    public Task<Dictionary<string, object?>> EvidenceBundleAsync(string documentId, CancellationToken ct = default)
+        => _connector.GetDocumentEvidenceBundleAsync(documentId, ct);
+}
+
+public sealed class ConnectorCustomerMailboxResource
+{
+    private readonly ConnectorResource _connector;
+    private readonly string _customerRef;
+
+    internal ConnectorCustomerMailboxResource(ConnectorResource connector, string customerRef)
+    {
+        _connector = connector;
+        _customerRef = customerRef;
+    }
+
+    public Task<Dictionary<string, object?>> RepairAsync(CancellationToken ct = default)
+        => _connector.RepairMailboxAsync(new ConnectorMailboxRepairRequest { CustomerRef = _customerRef }, ct);
+
+    public Task<ConnectorMailboxUpdateResponse> UpdateSendPolicyAsync(ConnectorSendPolicyOptions request, CancellationToken ct = default)
+        => _connector.UpdateMailboxSendPolicyAsync(_customerRef, request, ct);
 }

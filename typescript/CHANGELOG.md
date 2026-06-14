@@ -3,6 +3,20 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.0.0 — 2026-06-14
+
+### Changed
+
+- Breaking public API documentation now uses `client.enterprise.*` for all
+  Enterprise `/api/v1/*` workflows.
+- SAPI-SK document calls now have a participant-scoped public shape:
+  `client.sapi.participants.for(id).documents.*`.
+- Connector integrator flows can use
+  `client.enterprise.connector.customers.for(customerRef)` to inject
+  `customerRef` and omit `X-Firm-Id`.
+- Updated README, package metadata, endpoint coverage checks, and migration
+  documentation for the major release.
+
 ## 3.3.4 — 2026-06-06
 
 ### Added

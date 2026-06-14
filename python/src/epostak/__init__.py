@@ -41,4 +41,4 @@ __all__ = [
     "WebhookPayload",
     "WebhookPayloadData",
 ]
-__version__ = "0.10.0"
+__version__ = "1.0.0"

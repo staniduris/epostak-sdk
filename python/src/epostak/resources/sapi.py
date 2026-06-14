@@ -12,6 +12,10 @@ from epostak.resources.documents import _BaseResource, _build_query
 class SapiResource(_BaseResource):
     """SAPI-SK 1.0 document send/receive endpoints."""
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.participants = SapiParticipantsResource(self)
+
     @property
     def _sapi_base_url(self) -> str:
         return re.sub(r"/api/v1/?$", "", self._base_url)
@@ -83,3 +87,45 @@ class SapiResource(_BaseResource):
             f"/sapi/v1/document/receive/{quote(document_id, safe='')}/acknowledge",
             participant_id=participant_id,
         )
+
+
+class SapiParticipantDocumentsResource:
+    def __init__(self, sapi: SapiResource, participant_id: str) -> None:
+        self._sapi = sapi
+        self._participant_id = participant_id
+
+    def send(self, body: Dict[str, Any], *, idempotency_key: str) -> Dict[str, Any]:
+        return self._sapi.send(body, participant_id=self._participant_id, idempotency_key=idempotency_key)
+
+    def receive(
+        self,
+        *,
+        limit: Optional[int] = None,
+        status: Optional[str] = None,
+        page_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self._sapi.receive(
+            participant_id=self._participant_id,
+            limit=limit,
+            status=status,
+            page_token=page_token,
+        )
+
+    def get(self, document_id: str) -> Dict[str, Any]:
+        return self._sapi.get(document_id, participant_id=self._participant_id)
+
+    def acknowledge(self, document_id: str) -> Dict[str, Any]:
+        return self._sapi.acknowledge(document_id, participant_id=self._participant_id)
+
+
+class SapiParticipantResource:
+    def __init__(self, sapi: SapiResource, participant_id: str) -> None:
+        self.documents = SapiParticipantDocumentsResource(sapi, participant_id)
+
+
+class SapiParticipantsResource:
+    def __init__(self, sapi: SapiResource) -> None:
+        self._sapi = sapi
+
+    def for_participant(self, participant_id: str) -> SapiParticipantResource:
+        return SapiParticipantResource(self._sapi, participant_id)
