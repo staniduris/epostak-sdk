@@ -236,6 +236,21 @@ class Connector
     }
 
     /**
+     * Map a saved Connector Mapper template input into preview, stage, or send.
+     *
+     * @param array $body Mapper request with templateKey and source payload.
+     * @return array Mapping preview, checklist, or Autopilot result.
+     * @throws EPostakError On API error.
+     */
+    public function mapper(array $body): array
+    {
+        return $this->http->request('POST', '/connector/mapper', [
+            'json' => $body,
+            'omitFirmId' => true,
+        ]);
+    }
+
+    /**
      * Normalize a loose ERP/customer payload into a Connector lifecycle run.
      *
      * @param array $body Zen input request with customerRef and invoice/customer fields.
@@ -475,6 +490,11 @@ class ConnectorCustomer
     public function autopilot(array $body): array
     {
         return $this->connector->autopilot(connector_with_customer_ref($this->customerRef, $body));
+    }
+
+    public function mapper(array $body): array
+    {
+        return $this->connector->mapper(connector_with_customer_ref($this->customerRef, $body));
     }
 
     public function zenInput(array $body): array

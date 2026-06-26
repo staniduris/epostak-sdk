@@ -28,6 +28,12 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
+### Unreleased — 2026-06-26
+
+- `client.Connector.MapperAsync(...)` and customer-scoped
+  `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
+  cover `/connector/mapper`.
+
 ### v1.0.0 — 2026-06-14
 
 - `client.Enterprise` is the documented namespace for Documents, Inbox, Pull

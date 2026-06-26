@@ -290,6 +290,22 @@ class ConnectorAutopilotRunResponse(TypedDict, total=False):
     links: Dict[str, str]
 
 
+ConnectorMapperSourceType = Literal["json", "csv", "xml", "pdf_text", "text"]
+ConnectorMapperExecute = Literal["preview", "stage", "send"]
+
+
+class ConnectorMapperRequest(TypedDict, total=False):
+    templateKey: str
+    sourceType: ConnectorMapperSourceType
+    sourceText: str
+    sourceJson: Dict[str, Any]
+    customerRef: str
+    execute: ConnectorMapperExecute
+    confirmed: bool
+    fieldMap: Dict[str, Any]
+    defaults: Dict[str, Any]
+
+
 ConnectorReconcileStatus = Literal["exceptions", "all"]
 ConnectorReconcileItemType = Literal["autopilot_run", "outbox_item", "inbox_document"]
 ConnectorReconcileOwner = Literal["sender_erp", "epostak", "receiver"]

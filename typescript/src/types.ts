@@ -332,6 +332,24 @@ export interface ConnectorAutopilotRunResponse {
   links?: Record<string, string>;
 }
 
+export type ConnectorMapperSourceType = "json" | "csv" | "xml" | "pdf_text" | "text";
+export type ConnectorMapperExecute = "preview" | "stage" | "send";
+
+export interface ConnectorMapperRequest {
+  templateKey?: string;
+  sourceType?: ConnectorMapperSourceType | string;
+  sourceText?: string;
+  sourceJson?: Record<string, unknown>;
+  customerRef?: string;
+  execute?: ConnectorMapperExecute | string;
+  confirmed?: boolean;
+  fieldMap?: Record<string, unknown>;
+  defaults?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export type ConnectorMapperResponse = Record<string, unknown>;
+
 export type ConnectorReconcileStatus = "exceptions" | "all";
 
 export type ConnectorReconcileItemType =

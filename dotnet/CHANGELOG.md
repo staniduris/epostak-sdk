@@ -3,6 +3,14 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `client.Connector.MapperAsync(...)` and customer-scoped
+  `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
+  for the live `/connector/mapper` endpoint.
+
 ## 1.0.0 — 2026-06-14
 
 ### Added

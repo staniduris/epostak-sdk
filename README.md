@@ -58,11 +58,11 @@ const result = await client.enterprise.documents.send({
 ## Enterprise ERP/Integrator Flow
 
 For ERP integrations, prefer `client.enterprise.connector` over raw HTTP. It exposes the
-golden path directly: preflight, Autopilot, stage, send, status, inbox, ACK,
-reconcile, mailbox policy, sync, Connector document evidence, and action
+golden path directly: preflight, Mapper, Autopilot, stage, send, status, inbox,
+ACK, reconcile, mailbox policy, sync, Connector document evidence, and action
 execution.
 
-Connector V2 calls such as Autopilot, Zen input, mailbox, sync, Connector
+Connector V2 calls such as Autopilot, Mapper, Zen input, mailbox, sync, Connector
 documents, and actions use the integrator token plus `customerRef`; they do not
 need `X-Firm-Id`. Legacy Connector calls such as preflight, send, outbox,
 status, inbox, and events remain firm-scoped.
@@ -227,7 +227,7 @@ See [MIGRATION.md](./MIGRATION.md) for the old top-level naming to workflow-firs
 
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Connector** — ERP workflow mode: preflight repair report, Zen input, Autopilot lifecycle, reconciliation exceptions, mailbox repair/send policy, sync cursors, Connector document lifecycle/UBL/evidence manifests, action execution, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
+- **Connector** — ERP workflow mode: preflight repair report, Connector Mapper, Zen input, Autopilot lifecycle, reconciliation exceptions, mailbox repair/send policy, sync cursors, Connector document lifecycle/UBL/evidence manifests, action execution, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
 - **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence

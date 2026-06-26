@@ -147,6 +147,14 @@ module EPostak
         @http.request(:post, "/connector/autopilot", body: body, omit_firm_id: true)
       end
 
+      # Map a saved Connector Mapper template input into preview, stage, or send.
+      #
+      # @param body [Hash] Mapper request with templateKey and source payload
+      # @return [Hash] Mapping preview, checklist, or Autopilot result
+      def mapper(body)
+        @http.request(:post, "/connector/mapper", body: body, omit_firm_id: true)
+      end
+
       # Normalize a loose ERP/customer payload into a Connector lifecycle run.
       #
       # @param body [Hash] Zen input request with customerRef and invoice/customer fields
@@ -296,6 +304,10 @@ module EPostak
 
       def autopilot(body)
         @connector.autopilot(Resources.connector_with_customer_ref(@customer_ref, body))
+      end
+
+      def mapper(body)
+        @connector.mapper(Resources.connector_with_customer_ref(@customer_ref, body))
       end
 
       def zen_input(body)

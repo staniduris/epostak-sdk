@@ -146,6 +146,10 @@ def test_ubl_validation_error_is_epostak_error():
 @pytest.mark.parametrize(
     "call",
     [
+        pytest.param(
+            lambda c: c.mapper({"templateKey": "pohoda-csv-v1", "sourceType": "csv", "sourceText": "Doklad"}),
+            id="mapper",
+        ),
         pytest.param(lambda c: c.zen_input({"customerRef": "erp-customer-1"}), id="zen-input"),
         pytest.param(lambda c: c.autopilot({"customerRef": "erp-customer-1"}), id="autopilot"),
         pytest.param(lambda c: c.get_autopilot_run("auto-1"), id="get-autopilot"),
@@ -318,6 +322,11 @@ def test_connector_autopilot_and_reconcile_paths():
 def test_connector_managed_v2_paths():
     client = _make_client()
 
+    with patch.object(client.connector, "_request", return_value={"ok": True}) as mock_req:
+        body = {"templateKey": "pohoda-csv-v1", "sourceType": "csv", "sourceText": "Doklad"}
+        client.connector.mapper(body)
+        mock_req.assert_called_once_with("POST", "/connector/mapper", json=body, omit_firm_id=True)
+
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
         body = {"customerRef": "erp-customer-1", "invoiceNumber": "FA-2026-002", "mode": "stage"}
         client.connector.zen_input(body)
@@ -423,6 +432,35 @@ def test_major_connector_customer_submit_document_defaults_to_stage_without_firm
                 "payload": {"invoiceNumber": "FA-1"},
                 "customerRef": "erp-customer-1",
                 "mode": "stage",
+            },
+            omit_firm_id=True,
+        )
+
+
+def test_major_connector_customer_mapper_injects_customer_ref_without_firm_id():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+
+    with patch.object(client.connector, "_request", return_value={"ok": True}) as mock_req:
+        client.enterprise.connector.customers.for_customer("erp-customer-1").mapper(
+            {
+                "templateKey": "pohoda-csv-v1",
+                "sourceType": "csv",
+                "sourceText": "Doklad,PeppolID\nFA-1,0245:1234567890",
+            }
+        )
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/mapper",
+            json={
+                "templateKey": "pohoda-csv-v1",
+                "sourceType": "csv",
+                "sourceText": "Doklad,PeppolID\nFA-1,0245:1234567890",
+                "customerRef": "erp-customer-1",
             },
             omit_firm_id=True,
         )

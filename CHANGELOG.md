@@ -1,5 +1,14 @@
 # Changelog
 
+## [Connector Mapper SDK sync] — 2026-06-26
+
+- Added `connector.mapper(...)` helpers for `/connector/mapper` across
+  TypeScript, Python, Ruby, PHP, .NET, and Java.
+- Added customer-scoped Mapper helpers that inject `customerRef` and omit
+  `X-Firm-Id`, matching the existing Connector v2 pattern.
+- Extended endpoint coverage checks and SDK docs for the live Connector Mapper
+  contract.
+
 ## [Major workflow-first SDK release] — 2026-06-14
 
 - Bumped TypeScript to `4.0.0`; bumped Python, PHP, Ruby, Java, and .NET to

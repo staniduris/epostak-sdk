@@ -22,6 +22,12 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
+### Unreleased — 2026-06-26
+
+- `$client->connector->mapper(...)` and customer-scoped
+  `$client->enterprise->connector->customers->for($customerRef)->mapper(...)`
+  cover `/connector/mapper`.
+
 ### v1.0.0 — 2026-06-14
 
 - `$client->enterprise` is the documented namespace for Documents, Inbox, Pull
@@ -855,6 +861,7 @@ try {
 | `connector->sendOutboxItem($outboxId, $force)`               | POST   | `/connector/outbox/{outboxId}/send`  |
 | `connector->sendOutboxBatch($body)`                          | POST   | `/connector/outbox/send`             |
 | `connector->cancelOutboxItem($outboxId)`                     | DELETE | `/connector/outbox/{outboxId}`       |
+| `connector->mapper($body)`                                    | POST   | `/connector/mapper`                  |
 | `connector->zenInput($body)`                                  | POST   | `/connector/zen-input`               |
 | `connector->autopilot($body)`                                | POST   | `/connector/autopilot`               |
 | `connector->getAutopilotRun($autopilotId)`                   | GET    | `/connector/autopilot/{autopilotId}` |

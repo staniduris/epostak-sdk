@@ -405,6 +405,12 @@ describe("client.connector", () => {
       mode: "stage",
       payload: { invoiceNumber: "FA-1" },
     });
+    await client.connector.mapper({
+      templateKey: "pohoda-csv-v1",
+      sourceType: "csv",
+      sourceText: "Doklad,PeppolID\nFA-1,0245:1234567890",
+      execute: "stage",
+    });
     await client.connector.zenInput({ customerRef: "erp-customer-1", invoiceNumber: "FA-1" });
     await client.connector.getAutopilotRun("auto-1");
     await client.connector.sendAutopilotRun("auto-1");
@@ -622,9 +628,18 @@ describe("client.connector", () => {
       if (url.includes("/connector/zen-input")) {
         return makeMockResponse({ autopilotId: "auto-1", mode: "stage", lifecycleStatus: "staged" }, 201);
       }
+      if (url.includes("/connector/mapper")) {
+        return makeMockResponse({ ok: true, checklist: [] });
+      }
       return makeMockResponse({ documentId: "doc-1" });
     });
 
+    await client.enterprise.connector.customers.for("erp-customer-1").mapper({
+      templateKey: "pohoda-csv-v1",
+      sourceType: "csv",
+      sourceText: "Doklad,PeppolID\nFA-2026-002,0245:1234567890",
+      execute: "stage",
+    });
     await client.connector.zenInput({
       customerRef: "erp-customer-1",
       invoiceNumber: "FA-2026-002",
@@ -642,6 +657,8 @@ describe("client.connector", () => {
     await client.connector.runAction("action-1", { note: "send now" });
 
     assert.strictEqual(ubl, "<Invoice/>");
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mapper") && req.body.includes("pohoda-csv-v1")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mapper") && req.body.includes("erp-customer-1")));
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/zen-input") && req.body.includes("erp-customer-1")));
     assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/mailbox")));
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mailbox/repair") && req.body.includes("erp-customer-1")));

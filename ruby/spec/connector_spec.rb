@@ -145,7 +145,10 @@ RSpec.describe EPostak::Resources::Connector do
       .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
     stub_request(:post, "#{host}/connector/actions/action-1")
       .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:post, "#{host}/connector/mapper")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
 
+    firm_scoped_client.connector.mapper(templateKey: "pohoda-csv-v1", sourceType: "csv", sourceText: "Doklad")
     firm_scoped_client.connector.zen_input(customerRef: "erp-customer-1")
     firm_scoped_client.connector.autopilot(customerRef: "erp-customer-1")
     firm_scoped_client.connector.get_autopilot_run("auto-1")
@@ -161,6 +164,7 @@ RSpec.describe EPostak::Resources::Connector do
     firm_scoped_client.connector.get_document_evidence_bundle("doc-1")
     firm_scoped_client.connector.run_action("action-1", note: "send now")
 
+    expect_without_firm_header(:post, "#{host}/connector/mapper")
     expect_without_firm_header(:post, "#{host}/connector/zen-input")
     expect_without_firm_header(:post, "#{host}/connector/autopilot")
     expect_without_firm_header(:get, "#{host}/connector/autopilot/auto-1")
@@ -325,6 +329,9 @@ RSpec.describe EPostak::Resources::Connector do
   end
 
   it "uses managed Connector v2 paths" do
+    mapper_stub = stub_request(:post, "#{host}/connector/mapper")
+      .with(body: /pohoda-csv-v1/)
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
     zen_stub = stub_request(:post, "#{host}/connector/zen-input")
       .with(body: /erp-customer-1/)
       .to_return(status: 201, body: { "autopilotId" => "auto-1" }.to_json, headers: { "Content-Type" => "application/json" })
@@ -351,6 +358,7 @@ RSpec.describe EPostak::Resources::Connector do
       .with(body: /send now/)
       .to_return(status: 200, body: { "action" => {} }.to_json, headers: { "Content-Type" => "application/json" })
 
+    client.connector.customers.for_customer("erp-customer-1").mapper(templateKey: "pohoda-csv-v1", sourceType: "csv", sourceText: "Doklad")
     client.connector.zen_input(customerRef: "erp-customer-1", invoiceNumber: "FA-2026-002", mode: "stage")
     client.connector.mailboxes
     client.connector.repair_mailbox(customerRef: "erp-customer-1")
@@ -362,6 +370,7 @@ RSpec.describe EPostak::Resources::Connector do
     client.connector.get_document_evidence_bundle("doc-1")
     client.connector.run_action("action-1", note: "send now")
 
+    expect(mapper_stub).to have_been_requested
     expect(zen_stub).to have_been_requested
     expect(mailboxes_stub).to have_been_requested
     expect(repair_stub).to have_been_requested

@@ -266,6 +266,17 @@ public final class ConnectorResource {
     }
 
     /**
+     * Map a saved Connector Mapper template input into preview, stage, or send.
+     *
+     * @param request Mapper request with templateKey and source payload
+     * @return mapping preview, checklist, or Autopilot result
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> mapper(Map<String, Object> request) {
+        return (Map<String, Object>) http.postNoFirm("/connector/mapper", request, Map.class);
+    }
+
+    /**
      * Normalize a loose ERP/customer payload into a Connector lifecycle run.
      *
      * @param request Zen input request with customerRef and invoice/customer fields

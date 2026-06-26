@@ -108,6 +108,11 @@ final class ConnectorFirmScopeTest {
 
     private static List<NamedCall> v2Calls() {
         return List.of(
+                new NamedCall("mapper", client -> client.connector().mapper(Map.of(
+                        "templateKey", "pohoda-csv-v1",
+                        "sourceType", "csv",
+                        "sourceText", "Doklad"
+                ))),
                 new NamedCall("zenInput", client -> client.connector().zenInput(Map.of("customerRef", "cust-1"))),
                 new NamedCall("autopilot", client -> client.connector().autopilot(new ConnectorAutopilotRequest(
                         "cust-1", "shadow", null, null, Map.of(), null, Map.of()
