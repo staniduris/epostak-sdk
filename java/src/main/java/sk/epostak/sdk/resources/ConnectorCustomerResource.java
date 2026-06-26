@@ -6,6 +6,9 @@ import sk.epostak.sdk.models.ConnectorSubmitDocumentRequest;
 import sk.epostak.sdk.models.ConnectorSyncParams;
 import sk.epostak.sdk.models.ConnectorSyncResponse;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public final class ConnectorCustomerResource {
     private final ConnectorResource connector;
     private final String customerRef;
@@ -40,6 +43,16 @@ public final class ConnectorCustomerResource {
                 request.send(),
                 request.options()
         ));
+    }
+
+    public Map<String, Object> mapper(Map<String, Object> request) {
+        Object existingCustomerRef = request.get("customerRef");
+        if (existingCustomerRef != null && !customerRef.equals(existingCustomerRef)) {
+            throw new IllegalArgumentException("Connector customerRef conflicts with scoped customer");
+        }
+        Map<String, Object> scoped = new LinkedHashMap<>(request);
+        scoped.put("customerRef", customerRef);
+        return connector.mapper(scoped);
     }
 
     public ConnectorSyncResponse sync(ConnectorSyncParams params) {

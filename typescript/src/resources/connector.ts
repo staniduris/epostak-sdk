@@ -14,6 +14,8 @@ import type {
   ConnectorMailboxListResponse,
   ConnectorMailboxRepairRequest,
   ConnectorMailboxUpdateResponse,
+  ConnectorMapperRequest,
+  ConnectorMapperResponse,
   ConnectorOutboxBatchSendRequest,
   ConnectorOutboxBatchSendResponse,
   ConnectorOutboxItem,
@@ -186,6 +188,12 @@ export class ConnectorCustomerResource {
     return this.parent.autopilot(withCustomerRef(this.customerRef, body));
   }
 
+  mapper(
+    body: Omit<ConnectorMapperRequest, "customerRef"> & { customerRef?: string },
+  ): Promise<ConnectorMapperResponse> {
+    return this.parent.mapper(withCustomerRef(this.customerRef, body));
+  }
+
   zenInput(
     body: Omit<ConnectorZenInputRequest, "customerRef"> & { customerRef?: string },
   ): Promise<ConnectorAutopilotRunResponse> {
@@ -315,6 +323,15 @@ export class ConnectorResource extends BaseResource {
     body: ConnectorAutopilotRequest,
   ): Promise<ConnectorAutopilotRunResponse> {
     return this.request("POST", "/connector/autopilot", body, {
+      omitFirmId: true,
+    });
+  }
+
+  /**
+   * Map a saved Connector Mapper template input into a preview, staged, or sent run.
+   */
+  mapper(body: ConnectorMapperRequest): Promise<ConnectorMapperResponse> {
+    return this.request("POST", "/connector/mapper", body, {
       omitFirmId: true,
     });
   }

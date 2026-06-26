@@ -341,6 +341,39 @@ public sealed class ConnectorAutopilotRunResponse
     public Dictionary<string, string>? Links { get; set; }
 }
 
+public sealed class ConnectorMapperRequest
+{
+    [JsonPropertyName("templateKey")]
+    public string? TemplateKey { get; set; }
+
+    [JsonPropertyName("sourceType")]
+    public string? SourceType { get; set; }
+
+    [JsonPropertyName("sourceText")]
+    public string? SourceText { get; set; }
+
+    [JsonPropertyName("sourceJson")]
+    public Dictionary<string, object?>? SourceJson { get; set; }
+
+    [JsonPropertyName("customerRef")]
+    public string? CustomerRef { get; set; }
+
+    [JsonPropertyName("execute")]
+    public string? Execute { get; set; }
+
+    [JsonPropertyName("confirmed")]
+    public bool? Confirmed { get; set; }
+
+    [JsonPropertyName("fieldMap")]
+    public Dictionary<string, object?>? FieldMap { get; set; }
+
+    [JsonPropertyName("defaults")]
+    public Dictionary<string, object?>? Defaults { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, object?> Extra { get; set; } = [];
+}
+
 public sealed class ConnectorReconcileParams
 {
     public string? Status { get; set; }

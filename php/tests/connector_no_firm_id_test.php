@@ -169,6 +169,7 @@ namespace EPostak\Tests {
 
     $connector = makeConnector();
 
+    assertRequest(fn() => $connector->mapper(['templateKey' => 'pohoda-csv-v1', 'sourceType' => 'csv', 'sourceText' => 'Doklad']), 'POST', 'connector/mapper', false);
     assertRequest(fn() => $connector->zenInput(['customerRef' => 'erp-customer-1']), 'POST', 'connector/zen-input', false);
     assertRequest(fn() => $connector->autopilot(['customerRef' => 'erp-customer-1']), 'POST', 'connector/autopilot', false);
     assertRequest(fn() => $connector->getAutopilotRun('auto-1'), 'GET', 'connector/autopilot/auto-1', false);
@@ -202,6 +203,19 @@ namespace EPostak\Tests {
     $body = Client::$requests[0]['options']['json'] ?? [];
     assertTrue(($body['customerRef'] ?? null) === 'erp-customer-1', 'Expected customerRef to be injected.');
     assertTrue(($body['mode'] ?? null) === 'stage', 'Expected submitDocument to default to stage mode.');
+
+    assertRequest(
+        fn() => $connector->customers->for('erp-customer-1')->mapper([
+            'templateKey' => 'pohoda-csv-v1',
+            'sourceType' => 'csv',
+            'sourceText' => 'Doklad',
+        ]),
+        'POST',
+        'connector/mapper',
+        false
+    );
+    $body = Client::$requests[0]['options']['json'] ?? [];
+    assertTrue(($body['customerRef'] ?? null) === 'erp-customer-1', 'Expected mapper customerRef to be injected.');
 
     $sapi = new \EPostak\Resources\Sapi(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
     Client::$requests = [];

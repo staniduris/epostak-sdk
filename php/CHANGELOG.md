@@ -7,6 +7,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows the source package `0.x` version line in
 > this monorepo.
 
+## Unreleased
+
+### Added
+
+- Added `$client->connector->mapper(...)` and customer-scoped
+  `$client->enterprise->connector->customers->for($customerRef)->mapper(...)`
+  for the live `/connector/mapper` endpoint.
+
 ## 1.0.0 — 2026-06-14
 
 ### Added

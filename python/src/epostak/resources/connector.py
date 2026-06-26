@@ -20,6 +20,7 @@ if TYPE_CHECKING:
         ConnectorMailboxListResponse,
         ConnectorMailboxRepairRequest,
         ConnectorMailboxUpdateResponse,
+        ConnectorMapperRequest,
         ConnectorOutboxBatchSendResponse,
         ConnectorOutboxItem,
         ConnectorOutboxListResponse,
@@ -165,6 +166,10 @@ class ConnectorResource(_BaseResource):
     def autopilot(self, body: ConnectorAutopilotRequest) -> ConnectorAutopilotRunResponse:
         """Start a managed Connector Autopilot lifecycle run."""
         return self._request("POST", "/connector/autopilot", json=body, omit_firm_id=True)
+
+    def mapper(self, body: ConnectorMapperRequest) -> Dict[str, Any]:
+        """Map a saved Connector Mapper template input into preview, stage, or send."""
+        return self._request("POST", "/connector/mapper", json=body, omit_firm_id=True)
 
     def zen_input(self, body: ConnectorZenInputRequest) -> ConnectorAutopilotRunResponse:
         """Normalize a loose ERP/customer payload into a Connector lifecycle run."""
@@ -323,6 +328,9 @@ class ConnectorCustomerResource:
 
     def autopilot(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
         return self._parent.autopilot(_with_customer_ref(self._customer_ref, body))  # type: ignore[arg-type]
+
+    def mapper(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        return self._parent.mapper(_with_customer_ref(self._customer_ref, body))  # type: ignore[arg-type]
 
     def zen_input(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
         return self._parent.zen_input(_with_customer_ref(self._customer_ref, body))  # type: ignore[arg-type]

@@ -38,6 +38,12 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
+### Unreleased — 2026-06-26
+
+- `client.connector().mapper(...)` and customer-scoped
+  `client.enterprise().connector().customers().forCustomer(customerRef).mapper(...)`
+  cover `/connector/mapper`.
+
 ### v1.0.0 — 2026-06-14
 
 - `client.enterprise()` is the documented namespace for Documents, Inbox, Pull
@@ -874,6 +880,7 @@ try {
 | `connector().sendOutboxItem(outboxId, options)` | POST | `/connector/outbox/{outboxId}/send` |
 | `connector().sendOutboxBatch(request)` | POST  | `/connector/outbox/send`             |
 | `connector().cancelOutboxItem(outboxId)` | DELETE | `/connector/outbox/{outboxId}`     |
+| `connector().mapper(request)`        | POST   | `/connector/mapper`                  |
 | `connector().zenInput(request)`        | POST   | `/connector/zen-input`               |
 | `connector().autopilot(request)`      | POST   | `/connector/autopilot`               |
 | `connector().getAutopilotRun(autopilotId)` | GET | `/connector/autopilot/{autopilotId}` |

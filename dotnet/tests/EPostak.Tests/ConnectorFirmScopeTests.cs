@@ -105,6 +105,12 @@ public sealed class ConnectorFirmScopeTests
 
     private static IEnumerable<Func<EPostakClient, Task>> V2Calls()
     {
+        yield return client => client.Connector.MapperAsync(new ConnectorMapperRequest
+        {
+            TemplateKey = "pohoda-csv-v1",
+            SourceType = "csv",
+            SourceText = "Doklad",
+        });
         yield return client => client.Connector.ZenInputAsync(new ConnectorZenInputRequest { CustomerRef = "cust-1" });
         yield return client => client.Connector.AutopilotAsync(new ConnectorAutopilotRequest { CustomerRef = "cust-1" });
         yield return client => client.Connector.GetAutopilotRunAsync("run-1");

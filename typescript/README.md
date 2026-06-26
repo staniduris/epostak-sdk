@@ -18,6 +18,12 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
+### Unreleased — 2026-06-26
+
+- **New:** `client.connector.mapper(...)` and customer-scoped
+  `client.enterprise.connector.customers.for(customerRef).mapper(...)` cover
+  `/connector/mapper`.
+
 ### v4.0.0 — 2026-06-14
 
 - **Breaking:** documented Enterprise resources now live under
@@ -613,7 +619,7 @@ const batch = await client.enterprise.extract.batch([
 ## Integrator Mode
 
 Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls
-(`autopilot`, `zenInput`, mailbox, sync, Connector documents, actions) stay
+(`autopilot`, `mapper`, `zenInput`, mailbox, sync, Connector documents, actions) stay
 integrator-scoped and resolve the managed firm from `customerRef`, so the SDK
 does not send `X-Firm-Id` for those methods even if this client has `firmId`.
 
@@ -761,6 +767,7 @@ try {
 | `connector.outbox.send(outboxId, opts?)` | POST   | `/connector/outbox/{outboxId}/send`          |
 | `connector.outbox.sendBatch(body?)`      | POST   | `/connector/outbox/send`                     |
 | `connector.outbox.cancel(outboxId)`      | DELETE | `/connector/outbox/{outboxId}`               |
+| `connector.mapper(body)`                 | POST   | `/connector/mapper`                          |
 | `connector.zenInput(body)`               | POST   | `/connector/zen-input`                       |
 | `connector.autopilot(body)`              | POST   | `/connector/autopilot`                       |
 | `connector.getAutopilotRun(autopilotId)` | GET    | `/connector/autopilot/{autopilotId}`         |

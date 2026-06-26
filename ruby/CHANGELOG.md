@@ -5,6 +5,14 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
+## Unreleased
+
+### Added
+
+- Added `client.connector.mapper(...)` and customer-scoped
+  `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
+  for the live `/connector/mapper` endpoint.
+
 ## 1.0.0 — 2026-06-14
 
 ### Added

@@ -3,6 +3,14 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+
+- Added `client.connector.mapper(...)` and customer-scoped
+  `client.enterprise.connector.customers.for(customerRef).mapper(...)` for
+  the live `/connector/mapper` endpoint.
+
 ## 4.0.0 — 2026-06-14
 
 ### Changed

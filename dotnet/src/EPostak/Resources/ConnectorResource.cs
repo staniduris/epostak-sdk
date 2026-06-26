@@ -112,6 +112,10 @@ public sealed class ConnectorResource
     public Task<ConnectorAutopilotRunResponse> AutopilotAsync(ConnectorAutopilotRequest request, CancellationToken ct = default)
         => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/autopilot", request, ct, omitFirmId: true);
 
+    /// <summary>Map a saved Connector Mapper template input into preview, stage, or send.</summary>
+    public Task<Dictionary<string, object?>> MapperAsync(ConnectorMapperRequest request, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Post, "/connector/mapper", request, ct, omitFirmId: true);
+
     /// <summary>Normalize a loose ERP/customer payload into a Connector lifecycle run.</summary>
     public Task<ConnectorAutopilotRunResponse> ZenInputAsync(ConnectorZenInputRequest request, CancellationToken ct = default)
         => _http.RequestAsync<ConnectorAutopilotRunResponse>(HttpMethod.Post, "/connector/zen-input", request, ct, omitFirmId: true);
@@ -229,6 +233,14 @@ public sealed class ConnectorCustomerResource
             throw new ArgumentException("Connector customerRef conflicts with scoped customer.", nameof(request));
         request.CustomerRef = _customerRef;
         return _connector.AutopilotAsync(request, ct);
+    }
+
+    public Task<Dictionary<string, object?>> MapperAsync(ConnectorMapperRequest request, CancellationToken ct = default)
+    {
+        if (!string.IsNullOrEmpty(request.CustomerRef) && request.CustomerRef != _customerRef)
+            throw new ArgumentException("Connector customerRef conflicts with scoped customer.", nameof(request));
+        request.CustomerRef = _customerRef;
+        return _connector.MapperAsync(request, ct);
     }
 
     public Task<ConnectorSyncResponse> SyncAsync(ConnectorSyncParams? parameters = null, CancellationToken ct = default)

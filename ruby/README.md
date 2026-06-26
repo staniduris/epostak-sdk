@@ -16,6 +16,11 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
+**Unreleased** (2026-06-26)
+- `client.connector.mapper(...)` and customer-scoped
+  `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
+  cover `/connector/mapper`
+
 **v1.0.0** (2026-06-14)
 - `client.enterprise` is the documented namespace for Documents, Inbox, Pull
   APIs, Connector, Peppol, Firms, Webhooks, Reporting, Auth, Account, Extract,
