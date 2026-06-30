@@ -29,6 +29,7 @@ export { OAuth } from "./resources/oauth.js";
 // Resource classes (for typing and instanceof checks)
 export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
 export { AuditResource } from "./resources/audit.js";
+export { BoxResource } from "./resources/box.js";
 export {
   ConnectorCustomerDocumentsResource,
   ConnectorCustomerMailboxResource,
@@ -101,6 +102,16 @@ export type {
   ConnectorOutboxSendOptions,
   ConnectorOutboxBatchSendRequest,
   ConnectorOutboxBatchSendResponse,
+  BoxStatus,
+  BoxDirection,
+  BoxListParams,
+  BoxRetention,
+  BoxLastError,
+  BoxItem,
+  BoxItemDetail,
+  BoxListResponse,
+  BoxCreateRequest,
+  BoxScheduleRequest,
   ConnectorSubmitDocumentRequest,
   ValidateFormat,
   ReportingPeriod,
@@ -149,7 +160,9 @@ export type {
   ConvertRequest,
   ConvertResult,
   // Peppol
+  PeppolRoutingStatus,
   PeppolAccessPoint,
+  PeppolCertificateInfo,
   PeppolParticipant,
   DirectorySearchParams,
   DirectoryEntry,

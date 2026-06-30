@@ -1,6 +1,7 @@
 import type { AccountResource } from "./account.js";
 import type { AuditResource } from "./audit.js";
 import type { AuthResource } from "./auth.js";
+import type { BoxResource } from "./box.js";
 import type { ConnectorResource } from "./connector.js";
 import type { DocumentsResource, InboxResource } from "./documents.js";
 import type { ExtractResource } from "./extract.js";
@@ -21,6 +22,7 @@ export class EnterprisePullResource {
 
 export interface EnterpriseResourceConfig {
   auth: AuthResource;
+  box: BoxResource;
   audit: AuditResource;
   documents: DocumentsResource;
   firms: FirmsResource;
@@ -37,6 +39,7 @@ export interface EnterpriseResourceConfig {
 
 export class EnterpriseResource {
   readonly auth: AuthResource;
+  readonly box: BoxResource;
   readonly audit: AuditResource;
   readonly documents: DocumentsResource;
   readonly inbox: InboxResource;
@@ -52,6 +55,7 @@ export class EnterpriseResource {
 
   constructor(resources: EnterpriseResourceConfig) {
     this.auth = resources.auth;
+    this.box = resources.box;
     this.audit = resources.audit;
     this.documents = resources.documents;
     this.inbox = resources.documents.inbox;

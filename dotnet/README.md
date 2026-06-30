@@ -28,11 +28,14 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-### Unreleased — 2026-06-26
+### Unreleased — 2026-06-30
 
 - `client.Connector.MapperAsync(...)` and customer-scoped
   `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
   cover `/connector/mapper`.
+- `client.Box` / `client.Enterprise.Box` covers ePošťák Box list, create with
+  `BoxCreateRequest.PayloadXml`, detail, schedule, send-now, retry, and cancel
+  over `/box/items`.
 
 ### v1.0.0 — 2026-06-14
 
@@ -398,7 +401,17 @@ var all = await client.Enterprise.Documents.Inbox.ListAllAsync(new InboxAllParam
 ```csharp
 // SMP lookup
 var participant = await client.Enterprise.Peppol.LookupAsync("0245", "12345678");
-Console.WriteLine($"Name: {participant.Name}, Capabilities: {participant.Capabilities.Count}");
+if (participant.Accepts && participant.RoutingStatus == "ready")
+{
+    // Receiver is registered and routable for the default BIS Billing invoice.
+}
+
+var caps = await client.Enterprise.Peppol.CapabilitiesAsync(new CapabilitiesRequest
+{
+    Scheme = "0245",
+    Identifier = "12345678",
+    DocumentType = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
+});
 
 // Directory search
 var results = await client.Enterprise.Peppol.Directory.SearchAsync(new DirectorySearchParams

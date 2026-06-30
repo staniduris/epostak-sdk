@@ -31,6 +31,54 @@ public sealed class SmpParticipantCapability
 /// </summary>
 public sealed class PeppolParticipant
 {
+    /// <summary>True when the participant was found in the SMP.</summary>
+    [JsonPropertyName("found")]
+    public bool Found { get; set; }
+
+    /// <summary>True when the participant can receive the default/probed Peppol document type.</summary>
+    [JsonPropertyName("accepts")]
+    public bool Accepts { get; set; }
+
+    /// <summary>Routing status such as <c>ready</c>, <c>document_type_not_supported</c>, or <c>lookup_failed</c>.</summary>
+    [JsonPropertyName("routingStatus")]
+    public string? RoutingStatus { get; set; }
+
+    /// <summary>Peppol participant ID in <c>scheme:identifier</c> format.</summary>
+    [JsonPropertyName("participantId")]
+    public string? ParticipantId { get; set; }
+
+    /// <summary>Peppol identifier scheme, e.g. <c>0245</c>.</summary>
+    [JsonPropertyName("scheme")]
+    public string? Scheme { get; set; }
+
+    /// <summary>Identifier value within the scheme.</summary>
+    [JsonPropertyName("identifier")]
+    public string? Identifier { get; set; }
+
+    /// <summary>SMP access point metadata, when available.</summary>
+    [JsonPropertyName("accessPoint")]
+    public PeppolAccessPoint? AccessPoint { get; set; }
+
+    /// <summary>AS4 certificate metadata, when available.</summary>
+    [JsonPropertyName("certificate")]
+    public PeppolCertificateInfo? Certificate { get; set; }
+
+    /// <summary>UBL document type identifiers the participant can receive.</summary>
+    [JsonPropertyName("supportedDocumentTypes")]
+    public List<string>? SupportedDocumentTypes { get; set; }
+
+    /// <summary>Origin of the lookup data, such as <c>sml</c> or <c>internal</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>True when a transient SMP/SML lookup failure prevented a conclusive result.</summary>
+    [JsonPropertyName("temporaryFailure")]
+    public bool? TemporaryFailure { get; set; }
+
+    /// <summary>True when the participant is hosted on our own AP.</summary>
+    [JsonPropertyName("internal")]
+    public bool? Internal { get; set; }
+
     /// <summary>Peppol participant identifier in "scheme:id" format (e.g. "0245:12345678").</summary>
     [JsonPropertyName("peppolId")]
     public string PeppolId { get; set; } = "";
@@ -46,6 +94,70 @@ public sealed class PeppolParticipant
     /// <summary>List of document types and transport profiles the participant can receive.</summary>
     [JsonPropertyName("capabilities")]
     public List<SmpParticipantCapability> Capabilities { get; set; } = [];
+}
+
+/// <summary>SMP access point metadata.</summary>
+public sealed class PeppolAccessPoint
+{
+    /// <summary>AS4 endpoint URL.</summary>
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
+
+    /// <summary>Peppol transport profile identifier.</summary>
+    [JsonPropertyName("transportProfile")]
+    public string? TransportProfile { get; set; }
+}
+
+/// <summary>AS4 certificate metadata from the SMP endpoint.</summary>
+public sealed class PeppolCertificateInfo
+{
+    /// <summary>Whether certificate metadata was present in the SMP response.</summary>
+    [JsonPropertyName("present")]
+    public bool? Present { get; set; }
+
+    /// <summary>SHA-256 certificate fingerprint, when available.</summary>
+    [JsonPropertyName("fingerprintSha256")]
+    public string? FingerprintSha256 { get; set; }
+
+    /// <summary>Certificate subject, when available.</summary>
+    [JsonPropertyName("subject")]
+    public string? Subject { get; set; }
+
+    /// <summary>Certificate issuer, when available.</summary>
+    [JsonPropertyName("issuer")]
+    public string? Issuer { get; set; }
+
+    /// <summary>Certificate serial number, when available.</summary>
+    [JsonPropertyName("serialNumber")]
+    public string? SerialNumber { get; set; }
+
+    /// <summary>Certificate not-before timestamp, when available.</summary>
+    [JsonPropertyName("notBefore")]
+    public string? NotBefore { get; set; }
+
+    /// <summary>Certificate not-after timestamp, when available.</summary>
+    [JsonPropertyName("notAfter")]
+    public string? NotAfter { get; set; }
+
+    /// <summary>SMP service activation timestamp, when available.</summary>
+    [JsonPropertyName("serviceActivationDate")]
+    public string? ServiceActivationDate { get; set; }
+
+    /// <summary>SMP service expiration timestamp, when available.</summary>
+    [JsonPropertyName("serviceExpirationDate")]
+    public string? ServiceExpirationDate { get; set; }
+
+    /// <summary>Whether the endpoint certificate is currently valid.</summary>
+    [JsonPropertyName("valid")]
+    public bool? Valid { get; set; }
+
+    /// <summary>Certificate expiration timestamp, when available.</summary>
+    [JsonPropertyName("expiresAt")]
+    public string? ExpiresAt { get; set; }
+
+    /// <summary>Certificate parsing/validation error code, when present.</summary>
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -184,9 +296,21 @@ public sealed class CapabilitiesResponse
     [JsonPropertyName("found")]
     public bool Found { get; set; }
 
-    /// <summary>Business process IDs the participant advertises. Null when <see cref="Found"/> is false.</summary>
+    /// <summary>True when the participant accepts the probed document type.</summary>
     [JsonPropertyName("accepts")]
-    public List<string>? Accepts { get; set; }
+    public bool Accepts { get; set; }
+
+    /// <summary>Participant identifier echoed by the API.</summary>
+    [JsonPropertyName("participant")]
+    public ParticipantId? Participant { get; set; }
+
+    /// <summary>SMP access point metadata, when available.</summary>
+    [JsonPropertyName("accessPoint")]
+    public PeppolAccessPoint? AccessPoint { get; set; }
+
+    /// <summary>True when the participant is hosted on our own AP.</summary>
+    [JsonPropertyName("internal")]
+    public bool? Internal { get; set; }
 
     /// <summary>UBL document type identifiers the participant can receive. Null when <see cref="Found"/> is false.</summary>
     [JsonPropertyName("supportedDocumentTypes")]
@@ -198,6 +322,22 @@ public sealed class CapabilitiesResponse
     /// </summary>
     [JsonPropertyName("matchedDocumentType")]
     public string? MatchedDocumentType { get; set; }
+
+    /// <summary>Origin of the lookup data, such as <c>sml</c> or <c>internal</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>Human-readable rejection reason when the participant cannot receive the request.</summary>
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    /// <summary>AS4 certificate metadata, when available.</summary>
+    [JsonPropertyName("certificate")]
+    public PeppolCertificateInfo? Certificate { get; set; }
+
+    /// <summary>Matched capability details, when the backend returns them.</summary>
+    [JsonPropertyName("capability")]
+    public Dictionary<string, object?>? Capability { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -216,6 +356,10 @@ public sealed class ParticipantId
     /// <summary>Identifier value within the scheme (e.g. <c>12345678</c>). Required.</summary>
     [JsonPropertyName("identifier")]
     public required string Identifier { get; set; }
+
+    /// <summary>Combined form <c>scheme:identifier</c>, returned by lookup responses.</summary>
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
 }
 
 /// <summary>
@@ -234,21 +378,49 @@ public sealed class BatchLookupRequest
 /// </summary>
 public sealed class BatchLookupResult
 {
-    /// <summary>The scheme that was queried.</summary>
-    [JsonPropertyName("scheme")]
-    public string Scheme { get; set; } = "";
+    /// <summary>Zero-based position of this participant in the request.</summary>
+    [JsonPropertyName("index")]
+    public int Index { get; set; }
 
-    /// <summary>The identifier that was queried.</summary>
-    [JsonPropertyName("identifier")]
-    public string Identifier { get; set; } = "";
+    /// <summary>The participant identifier echoed by the API.</summary>
+    [JsonPropertyName("participant")]
+    public ParticipantId? Participant { get; set; }
 
     /// <summary>True if the participant was found in the SMP.</summary>
     [JsonPropertyName("found")]
     public bool Found { get; set; }
 
-    /// <summary>The resolved participant details. Null when <see cref="Found"/> is false.</summary>
-    [JsonPropertyName("participant")]
-    public PeppolParticipant? Participant { get; set; }
+    /// <summary>True when the participant can receive the default/probed Peppol document type.</summary>
+    [JsonPropertyName("accepts")]
+    public bool Accepts { get; set; }
+
+    /// <summary>Routing status such as <c>ready</c>, <c>participant_not_found</c>, or <c>lookup_failed</c>.</summary>
+    [JsonPropertyName("routingStatus")]
+    public string? RoutingStatus { get; set; }
+
+    /// <summary>SMP access point metadata, when available.</summary>
+    [JsonPropertyName("accessPoint")]
+    public PeppolAccessPoint? AccessPoint { get; set; }
+
+    /// <summary>AS4 certificate metadata, when available.</summary>
+    [JsonPropertyName("certificate")]
+    public PeppolCertificateInfo? Certificate { get; set; }
+
+    /// <summary>True when the participant is hosted on our own AP.</summary>
+    [JsonPropertyName("internal")]
+    public bool? Internal { get; set; }
+
+    /// <summary>UBL document type identifiers the participant advertises.</summary>
+    [JsonPropertyName("supportedDocumentTypes")]
+    public List<string>? SupportedDocumentTypes { get; set; }
+
+    /// <summary>Origin of the lookup data, such as <c>sml</c> or <c>internal</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>True when a transient SMP/SML lookup failure prevented a conclusive result.</summary>
+    [JsonPropertyName("temporaryFailure")]
+    public bool? TemporaryFailure { get; set; }
 
     /// <summary>Error message when lookup failed for reasons other than "not found". Null on success or plain not-found.</summary>
     [JsonPropertyName("error")]

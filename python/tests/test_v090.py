@@ -79,6 +79,59 @@ def _make_firm_scoped_connector():
     return connector, http
 
 
+def test_box_resource_uses_public_box_paths():
+    from epostak.resources.box import BoxResource
+
+    box = BoxResource(MagicMock(), "https://epostak.sk/api/v1", MagicMock(), None, max_retries=0)
+
+    with patch.object(box, "_request", return_value={"items": []}) as mock_req:
+        box.list(status="ready", direction="outbound", limit=10, offset=5)
+        mock_req.assert_called_once_with(
+            "GET",
+            "/box/items",
+            params={"status": "ready", "direction": "outbound", "limit": "10", "offset": "5"},
+        )
+
+    with patch.object(box, "_request", return_value={"ok": True}) as mock_req:
+        box.create({
+            "payloadXml": "<Invoice/>",
+            "scheduledFor": "2026-07-01T00:00:00.000Z",
+            "externalId": "erp-doc-1",
+            "metadata": {"source": "sdk-test"},
+        })
+        mock_req.assert_called_once_with(
+            "POST",
+            "/box/items",
+            json={
+                "payloadXml": "<Invoice/>",
+                "scheduledFor": "2026-07-01T00:00:00.000Z",
+                "externalId": "erp-doc-1",
+                "metadata": {"source": "sdk-test"},
+            },
+        )
+
+    with patch.object(box, "_request", return_value={"boxItemId": "box-1"}) as mock_req:
+        box.get("box-1")
+        mock_req.assert_called_once_with("GET", "/box/items/box-1")
+
+    with patch.object(box, "_request", return_value={"boxItemId": "box-1"}) as mock_req:
+        box.schedule("box-1", "2026-07-01T00:00:00.000Z")
+        mock_req.assert_called_once_with(
+            "POST",
+            "/box/items/box-1/schedule",
+            json={"scheduledFor": "2026-07-01T00:00:00.000Z"},
+        )
+
+    for method_name, expected_path in [
+        ("send_now", "/box/items/box-1/send-now"),
+        ("retry", "/box/items/box-1/retry"),
+        ("cancel", "/box/items/box-1/cancel"),
+    ]:
+        with patch.object(box, "_request", return_value={"ok": True}) as mock_req:
+            getattr(box, method_name)("box-1")
+            mock_req.assert_called_once_with("POST", expected_path)
+
+
 # ---------------------------------------------------------------------------
 # UBL_RULES
 # ---------------------------------------------------------------------------
@@ -388,6 +441,23 @@ def test_connector_managed_v2_paths():
             "/connector/actions/action-1",
             json={"note": "send now"},
             omit_firm_id=True,
+        )
+
+
+def test_peppol_capabilities_uses_participant_envelope():
+    from epostak.resources.peppol import PeppolResource
+
+    peppol = PeppolResource(MagicMock(), "https://epostak.sk/api/v1", MagicMock(), None, max_retries=0)
+    with patch.object(peppol, "_request", return_value={"found": True, "accepts": True}) as mock_req:
+        peppol.capabilities("0245", "2020305606", "urn:invoice")
+
+        mock_req.assert_called_once_with(
+            "POST",
+            "/peppol/capabilities",
+            json={
+                "participant": {"scheme": "0245", "identifier": "2020305606"},
+                "documentType": "urn:invoice",
+            },
         )
 
 

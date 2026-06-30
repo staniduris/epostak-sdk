@@ -17,6 +17,7 @@ import httpx
 from epostak.resources.account import AccountResource
 from epostak.resources.audit import AuditResource
 from epostak.resources.auth import AuthResource
+from epostak.resources.box import BoxResource
 from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource
 from epostak.resources.enterprise import EnterpriseResource
@@ -126,6 +127,9 @@ class EPostak:
     enterprise: EnterpriseResource
     """Workflow-first Enterprise API namespace for ``/api/v1/*`` resources."""
 
+    box: BoxResource
+    """ePošťák Box durable execution layer for scheduled and retryable dispatch."""
+
     connector: ConnectorResource
     """Connector workflow for ERP send, preflight, inbox polling, ack, and events."""
 
@@ -202,6 +206,7 @@ class EPostak:
         rl_kw = {"_rate_limit_store": self._rate_limit_store}
         tm = self._token_manager
         self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.box = BoxResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.connector = ConnectorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)

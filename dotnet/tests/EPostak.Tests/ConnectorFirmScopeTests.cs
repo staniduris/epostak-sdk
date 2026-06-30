@@ -52,7 +52,53 @@ public sealed class ConnectorFirmScopeTests
         Assert.Same(client.Inbound, client.Enterprise.Pull.Inbound);
         Assert.Same(client.Outbound, client.Enterprise.Pull.Outbound);
         Assert.Same(client.Connector, client.Enterprise.Connector);
+        Assert.Same(client.Box, client.Enterprise.Box);
         Assert.Same(client.Webhooks, client.Enterprise.Webhooks);
+    }
+
+    [Fact]
+    public async Task BoxResourceUsesPublicBoxPaths()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        await client.Box.ListAsync(new BoxListParams
+        {
+            Status = "ready",
+            Direction = "outbound",
+            Limit = 10,
+            Offset = 5,
+        });
+        await client.Box.CreateAsync(new BoxCreateRequest
+        {
+            PayloadXml = "<Invoice/>",
+            ScheduledFor = "2026-07-01T00:00:00.000Z",
+            ExternalId = "erp-doc-1",
+            Metadata = new Dictionary<string, object?> { ["source"] = "sdk-test" },
+        });
+        await client.Box.GetAsync("box-1");
+        await client.Box.ScheduleAsync("box-1", new BoxScheduleRequest { ScheduledFor = "2026-07-01T00:00:00.000Z" });
+        await client.Box.SendNowAsync("box-1");
+        await client.Box.RetryAsync("box-1");
+        await client.Box.CancelAsync("box-1");
+
+        var paths = handler.ApiRequests.Select(request => (request.Method.Method, request.Uri.PathAndQuery)).ToArray();
+        Assert.Equal(
+            new[]
+            {
+                ("GET", "/api/v1/box/items?status=ready&direction=outbound&limit=10&offset=5"),
+                ("POST", "/api/v1/box/items"),
+                ("GET", "/api/v1/box/items/box-1"),
+                ("POST", "/api/v1/box/items/box-1/schedule"),
+                ("POST", "/api/v1/box/items/box-1/send-now"),
+                ("POST", "/api/v1/box/items/box-1/retry"),
+                ("POST", "/api/v1/box/items/box-1/cancel"),
+            },
+            paths);
+        Assert.Contains("\"payloadXml\":\"\\u003CInvoice/\\u003E\"", handler.ApiRequests[1].Body);
+        Assert.Contains("\"externalId\":\"erp-doc-1\"", handler.ApiRequests[1].Body);
+        Assert.Contains("\"scheduledFor\":\"2026-07-01T00:00:00.000Z\"", handler.ApiRequests[3].Body);
     }
 
     [Fact]
@@ -92,6 +138,28 @@ public sealed class ConnectorFirmScopeTests
         Assert.Equal("/sapi/v1/document/send", request.Uri.AbsolutePath);
         Assert.Equal("0245:1234567890", request.Headers["X-Peppol-Participant-Id"]);
         Assert.Equal("sapi-fa-1", request.Headers["Idempotency-Key"]);
+    }
+
+    [Fact]
+    public async Task PeppolCapabilitiesUsesParticipantEnvelope()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        await client.Peppol.CapabilitiesAsync(new CapabilitiesRequest
+        {
+            Scheme = "0245",
+            Identifier = "2020305606",
+            DocumentType = "urn:invoice",
+        });
+
+        var request = Assert.Single(handler.ApiRequests);
+        Assert.Equal("/api/v1/peppol/capabilities", request.Uri.AbsolutePath);
+        Assert.Contains("\"participant\"", request.Body);
+        Assert.Contains("\"scheme\":\"0245\"", request.Body);
+        Assert.Contains("\"identifier\":\"2020305606\"", request.Body);
+        Assert.Contains("\"documentType\":\"urn:invoice\"", request.Body);
     }
 
     private static EPostakClient CreateClient(HttpClient http) =>

@@ -530,6 +530,94 @@ export interface ConnectorOutboxBatchSendResponse {
   results: ConnectorOutboxItem[];
 }
 
+export type BoxStatus =
+  | "ready"
+  | "scheduled"
+  | "sending"
+  | "retrying"
+  | "sent"
+  | "received"
+  | "needs_repair"
+  | "failed"
+  | "cancelled"
+  | "expired";
+
+export type BoxDirection = "outbound" | "inbound";
+
+export interface BoxListParams {
+  status?: BoxStatus | string;
+  direction?: BoxDirection;
+  limit?: number;
+  offset?: number;
+}
+
+export interface BoxRetention {
+  expiresAt: string | null;
+  reason: string | null;
+}
+
+export interface BoxLastError {
+  status?: number | null;
+  code?: string | null;
+  message?: string | null;
+  retryable?: boolean | null;
+  redacted?: boolean;
+  [key: string]: unknown;
+}
+
+export interface BoxItem {
+  boxItemId: string;
+  firmId: string;
+  integratorId: string | null;
+  direction: BoxDirection | string;
+  status: BoxStatus | string;
+  source: string;
+  invoiceId: string | null;
+  documentId: string | null;
+  peppolMessageId: string | null;
+  documentTypeId: string | null;
+  processId: string | null;
+  scheduledFor: string | null;
+  nextAttemptAt: string | null;
+  lockedAt: string | null;
+  lockedBy: string | null;
+  attemptCount: number;
+  payloadSha256: string | null;
+  storageBytes: number;
+  retention: BoxRetention;
+  sentAt: string | null;
+  receivedAt: string | null;
+  cancelledAt: string | null;
+  lastError: BoxLastError | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  links: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export interface BoxItemDetail extends BoxItem {
+  storage?: Record<string, unknown>;
+  timeline?: Array<Record<string, unknown>>;
+}
+
+export interface BoxListResponse {
+  items: BoxItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface BoxCreateRequest {
+  payloadXml: string;
+  scheduledFor?: string;
+  externalId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BoxScheduleRequest {
+  scheduledFor: string;
+}
+
 // ---------------------------------------------------------------------------
 // Line items
 // ---------------------------------------------------------------------------
@@ -1221,6 +1309,16 @@ export interface ConvertResult {
 // Peppol
 // ---------------------------------------------------------------------------
 
+export type PeppolRoutingStatus =
+  | "ready"
+  | "participant_not_found"
+  | "document_type_not_supported"
+  | "process_not_supported"
+  | "endpoint_not_found"
+  | "certificate_invalid"
+  | "certificate_expired"
+  | "lookup_failed";
+
 /** Access point metadata returned with a resolved Peppol participant. */
 export interface PeppolAccessPoint {
   /** AS4 endpoint URL of the receiving access point */
@@ -1231,23 +1329,51 @@ export interface PeppolAccessPoint {
   certificate?: string;
 }
 
+export interface PeppolCertificateInfo {
+  present: boolean;
+  fingerprintSha256?: string;
+  subject?: string;
+  issuer?: string;
+  serialNumber?: string;
+  notBefore?: string;
+  notAfter?: string;
+  serviceActivationDate?: string;
+  serviceExpirationDate?: string;
+  valid?: boolean;
+  error?: "malformed" | "invalid_x509";
+}
+
 /**
- * Peppol participant details returned by SMP lookup.
- * Shape follows the backend `/peppol/participants/{scheme}/{identifier}` route:
- * a 404 becomes `{found: false}` and the SDK translates that into a thrown
- * `EPostakError(404)`. On a hit, `found === true` plus metadata.
+ * Peppol participant invoice capability returned by
+ * `/peppol/participants/{scheme}/{identifier}`. A registered participant can
+ * return `found: true` and `accepts: false`; use `accepts` plus
+ * `routingStatus === "ready"` before sending.
  */
 export interface PeppolParticipant {
-  /** `true` when the participant is reachable on the Peppol network */
+  /** `true` when the participant exists in Peppol SMP/SML */
   found: boolean;
+  /** `true` when the participant accepts the default BIS Billing invoice capability */
+  accepts: boolean;
+  /** Machine-readable routing/capability status */
+  routingStatus: PeppolRoutingStatus;
+  /** Full Peppol participant ID, e.g. `"0245:2020123456"` */
+  participantId: string;
+  /** Peppol identifier scheme, e.g. `"0245"` */
+  scheme: string;
+  /** Identifier value inside the scheme */
+  identifier: string;
   /** `true` when resolved via an internal (own-AP) shortcut */
   internal?: boolean;
   /** Access-point metadata when resolved via SML/SMP */
   accessPoint?: PeppolAccessPoint | null;
+  /** Certificate metadata published by the SMP endpoint, when available */
+  certificate?: PeppolCertificateInfo | null;
   /** Peppol document type IDs advertised by the recipient's SMP record */
   supportedDocumentTypes?: string[];
-  /** Lookup source tag (e.g. `"sml"`, `"directory"`, `"internal"`) */
+  /** Lookup source tag (e.g. `"sml"` or `"internal"`) */
   source?: string | null;
+  /** `true` when the lookup failed transiently and should be retried later */
+  temporaryFailure?: boolean;
 }
 
 /** Query parameters for `GET /peppol/directory/search`. */
@@ -2224,6 +2350,15 @@ export interface PeppolCapabilitiesResponse {
   matchedDocumentType: string | null;
   /** Lookup source tag (`"sml"`, `"directory"`, `"internal"`) or `null` */
   source: string | null;
+  /** Certificate metadata published by the SMP endpoint, when available */
+  certificate?: PeppolCertificateInfo | null;
+  /** Detailed capability decision for the probed document/process pair */
+  capability?: {
+    documentTypeId: string;
+    processId: string;
+    routingStatus: PeppolRoutingStatus;
+    networkReady: boolean;
+  };
   /** Reason for negative lookup (only present when `found: false`) */
   reason?: string;
 }
@@ -2275,18 +2410,26 @@ export interface BatchLookupResult {
   participant: {
     scheme: string;
     identifier: string;
-    id: string;
+    id?: string;
   };
   /** `true` if the participant was found in SMP */
   found: boolean;
+  /** `true` when the participant accepts the default BIS Billing invoice capability */
+  accepts?: boolean;
+  /** Machine-readable routing/capability status */
+  routingStatus?: PeppolRoutingStatus;
   /** Access-point metadata, or `null` if not applicable */
   accessPoint?: PeppolAccessPoint | null;
+  /** Certificate metadata published by the SMP endpoint, when available */
+  certificate?: PeppolCertificateInfo | null;
   /** `true` when resolved via an internal (own-AP) shortcut */
   internal?: boolean;
   /** Full list of supported Peppol document type IDs, or `null` when not found */
   supportedDocumentTypes?: string[] | null;
   /** Lookup source tag (`"sml"`, `"directory"`, `"internal"`) or `null` */
   source?: string | null;
+  /** `true` when the lookup failed transiently and should be retried later */
+  temporaryFailure?: boolean;
   /** Error message for this participant when validation / lookup failed */
   error?: string;
 }

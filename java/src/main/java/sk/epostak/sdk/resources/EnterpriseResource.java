@@ -21,6 +21,7 @@ public final class EnterpriseResource {
     public ExtractResource extract() { return client.extract(); }
     public AccountResource account() { return client.account(); }
     public AuthResource auth() { return client.auth(); }
+    public BoxResource box() { return client.box(); }
     public ConnectorResource connector() { return client.connector(); }
     public AuditResource audit() { return client.audit(); }
     public IntegratorResource integrator() { return client.integrator(); }

@@ -13,6 +13,7 @@ operations.
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for(...).submitDocument(...)`
+- ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
 
 TypeScript is `4.0.0`. Python, PHP, Ruby, Java, and .NET are `1.0.0`.
@@ -228,6 +229,7 @@ See [MIGRATION.md](./MIGRATION.md) for the old top-level naming to workflow-firs
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
 - **Connector** — ERP workflow mode: preflight repair report, Connector Mapper, Zen input, Autopilot lifecycle, reconciliation exceptions, mailbox repair/send policy, sync cursors, Connector document lifecycle/UBL/evidence manifests, action execution, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
+- **Box** — durable Box items: list, create with `payloadXml`, detail, schedule, send-now, retry, and cancel
 - **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence

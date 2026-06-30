@@ -4,6 +4,9 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import sk.epostak.sdk.models.BoxCreateRequest;
+import sk.epostak.sdk.models.BoxListParams;
+import sk.epostak.sdk.models.BoxScheduleRequest;
 import sk.epostak.sdk.models.ConnectorActionRequest;
 import sk.epostak.sdk.models.ConnectorAutopilotRequest;
 import sk.epostak.sdk.models.ConnectorListParams;
@@ -13,6 +16,7 @@ import sk.epostak.sdk.models.ConnectorReconcileParams;
 import sk.epostak.sdk.models.ConnectorSendPolicyOptions;
 import sk.epostak.sdk.models.ConnectorSubmitDocumentRequest;
 import sk.epostak.sdk.models.ConnectorSyncParams;
+import sk.epostak.sdk.models.CapabilitiesRequest;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -103,6 +107,64 @@ final class ConnectorFirmScopeTest {
             assertEquals("/sapi/v1/document/send", request.path());
             assertEquals("0245:1234567890", request.participantId());
             assertEquals("sapi-fa-1", request.idempotencyKey());
+        }
+    }
+
+    @Test
+    void peppolCapabilitiesUsesParticipantEnvelope() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.peppol().capabilities(new CapabilitiesRequest(
+                    "0245",
+                    "2020305606",
+                    "urn:invoice"
+            ));
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals("/api/v1/peppol/capabilities", request.path());
+            assertEquals(true, request.body().contains("\"participant\""));
+            assertEquals(true, request.body().contains("\"scheme\":\"0245\""));
+            assertEquals(true, request.body().contains("\"identifier\":\"2020305606\""));
+            assertEquals(true, request.body().contains("\"documentType\":\"urn:invoice\""));
+        }
+    }
+
+    @Test
+    void boxResourceUsesPublicBoxPaths() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.box().list(new BoxListParams("ready", "outbound", 10, 5));
+            client.box().create(new BoxCreateRequest(
+                    "<Invoice/>",
+                    "2026-07-01T00:00:00.000Z",
+                    "erp-doc-1",
+                    Map.of("source", "sdk-test")
+            ));
+            client.box().get("box-1");
+            client.box().schedule("box-1", new BoxScheduleRequest("2026-07-01T00:00:00.000Z"));
+            client.box().sendNow("box-1");
+            client.box().retry("box-1");
+            client.box().cancel("box-1");
+
+            List<CapturedRequest> apiRequests = server.requests().stream()
+                    .filter(request -> !request.path().equals("/sapi/v1/auth/token"))
+                    .toList();
+            assertEquals(7, apiRequests.size());
+            assertEquals("GET", apiRequests.get(0).method());
+            assertEquals("/api/v1/box/items", apiRequests.get(0).path());
+            assertEquals("POST", apiRequests.get(1).method());
+            assertEquals("/api/v1/box/items", apiRequests.get(1).path());
+            assertEquals("/api/v1/box/items/box-1", apiRequests.get(2).path());
+            assertEquals("/api/v1/box/items/box-1/schedule", apiRequests.get(3).path());
+            assertEquals("/api/v1/box/items/box-1/send-now", apiRequests.get(4).path());
+            assertEquals("/api/v1/box/items/box-1/retry", apiRequests.get(5).path());
+            assertEquals("/api/v1/box/items/box-1/cancel", apiRequests.get(6).path());
+            assertEquals(true, apiRequests.get(1).body().contains("\"payloadXml\""));
+            assertEquals(true, apiRequests.get(1).body().contains("Invoice"));
+            assertEquals(true, apiRequests.get(1).body().contains("\"externalId\":\"erp-doc-1\""));
+            assertEquals(true, apiRequests.get(3).body().contains("\"scheduledFor\":\"2026-07-01T00:00:00.000Z\""));
         }
     }
 

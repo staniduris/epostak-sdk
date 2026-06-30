@@ -1,5 +1,21 @@
 # Changelog
 
+## [ePošťák Box SDK sync] — 2026-06-30
+
+- Added ePošťák Box helpers across TypeScript, Python, Ruby, PHP, .NET, and
+  Java for list, create with `payloadXml`, detail, schedule, send-now, retry,
+  and cancel.
+- Extended endpoint coverage and focused request-path tests for the live
+  `/box/items` public API surface.
+
+## [Peppol capability contract sync] — 2026-06-29
+
+- Synced Peppol participant lookup and batch lookup models with the live
+  routing contract: `accepts`, `routingStatus`, certificate metadata, and
+  temporary lookup failure flags.
+- Fixed `peppol.capabilities(...)` request serialization in Python, Ruby, PHP,
+  .NET, and Java to send `{ participant: { scheme, identifier }, documentType }`.
+
 ## [Connector Mapper SDK sync] — 2026-06-26
 
 - Added `connector.mapper(...)` helpers for `/connector/mapper` across

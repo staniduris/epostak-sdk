@@ -21,19 +21,18 @@ public sealed class PeppolResource
 
     /// <summary>
     /// Look up a Peppol participant by scheme and identifier via the SMP (Service Metadata Publisher).
-    /// Returns the participant's name, country, and supported document types/transport profiles.
-    /// Use this to verify a receiver exists and check what they can accept before sending.
+    /// Returns participant existence, default invoice routing capability, endpoint,
+    /// certificate, and supported document types.
     /// </summary>
-    /// <param name="scheme">The Peppol identifier scheme (e.g. "0192" for Slovak ICO, "0088" for EAN/GLN).</param>
+    /// <param name="scheme">The Peppol identifier scheme (e.g. "0245" for Slovak DIČ).</param>
     /// <param name="identifier">The identifier value within the scheme (e.g. "12345678").</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Participant details including Peppol ID, name, country, and list of supported capabilities.</returns>
+    /// <returns>Participant routing and capability details.</returns>
     /// <example>
     /// <code>
-    /// var participant = await client.Peppol.LookupAsync("0192", "12345678");
-    /// Console.WriteLine($"{participant.Name} ({participant.Country})");
-    /// foreach (var cap in participant.Capabilities)
-    ///     Console.WriteLine($"  Supports: {cap.DocumentTypeId} via {cap.TransportProfile}");
+    /// var participant = await client.Peppol.LookupAsync("0245", "12345678");
+    /// if (participant.Accepts &amp;&amp; participant.RoutingStatus == "ready")
+    ///     Console.WriteLine("Receiver is routable");
     /// </code>
     /// </example>
     public Task<PeppolParticipant> LookupAsync(string scheme, string identifier, CancellationToken ct = default)
@@ -97,7 +96,21 @@ public sealed class PeppolResource
     /// </code>
     /// </example>
     public Task<CapabilitiesResponse> CapabilitiesAsync(CapabilitiesRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<CapabilitiesResponse>(HttpMethod.Post, "/peppol/capabilities", request, ct);
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["participant"] = new Dictionary<string, string>
+            {
+                ["scheme"] = request.Scheme,
+                ["identifier"] = request.Identifier,
+            },
+        };
+
+        if (request.DocumentType is not null)
+            body["documentType"] = request.DocumentType;
+
+        return _http.RequestAsync<CapabilitiesResponse>(HttpMethod.Post, "/peppol/capabilities", body, ct);
+    }
 
     /// <summary>
     /// Look up multiple Peppol participants in a single SMP round-trip. Results are

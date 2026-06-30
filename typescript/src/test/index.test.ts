@@ -16,9 +16,12 @@ import * as assert from "node:assert/strict";
 import {
   EPostak,
   UblValidationError,
+  BoxResource,
   ConnectorResource,
   InboundResource,
   OutboundResource,
+  type BatchLookupResult,
+  type PeppolParticipant,
 } from "../index.js";
 
 // ---------------------------------------------------------------------------
@@ -102,10 +105,70 @@ function makeClient(config: { firmId?: string } = {}): EPostak {
 // Resource type assertions (compile-time — just ensure the types are assignable)
 // ---------------------------------------------------------------------------
 
-it("ConnectorResource, InboundResource and OutboundResource are exported", () => {
+it("BoxResource, ConnectorResource, InboundResource and OutboundResource are exported", () => {
+  assert.ok(BoxResource);
   assert.ok(ConnectorResource);
   assert.ok(InboundResource);
   assert.ok(OutboundResource);
+});
+
+it("box resource uses the public Box paths", async () => {
+  const client = makeClient();
+  const captured: Array<{ method: string; url: string; body: string | undefined }> = [];
+
+  mockFetch(async (input, init) => {
+    const url = typeof input === "string" ? input : (input as URL).toString();
+    if (url.includes("/auth/token")) {
+      return makeMockResponse({
+        access_token: "tok",
+        refresh_token: "ref",
+        token_type: "Bearer",
+        expires_in: 900,
+      });
+    }
+
+    captured.push({
+      method: init?.method ?? "GET",
+      url,
+      body: typeof init?.body === "string" ? init.body : undefined,
+    });
+    return makeMockResponse({ ok: true });
+  });
+
+  await client.box.list({ status: "ready", direction: "outbound", limit: 10, offset: 5 });
+  await client.box.create({
+    payloadXml: "<Invoice/>",
+    scheduledFor: "2026-07-01T00:00:00.000Z",
+    externalId: "erp-doc-1",
+    metadata: { source: "sdk-test" },
+  });
+  await client.box.get("box-1");
+  await client.box.schedule("box-1", { scheduledFor: "2026-07-01T00:00:00.000Z" });
+  await client.box.sendNow("box-1");
+  await client.box.retry("box-1");
+  await client.box.cancel("box-1");
+
+  assert.deepStrictEqual(
+    captured.map((req) => [req.method, new URL(req.url).pathname + new URL(req.url).search]),
+    [
+      ["GET", "/api/v1/box/items?status=ready&direction=outbound&limit=10&offset=5"],
+      ["POST", "/api/v1/box/items"],
+      ["GET", "/api/v1/box/items/box-1"],
+      ["POST", "/api/v1/box/items/box-1/schedule"],
+      ["POST", "/api/v1/box/items/box-1/send-now"],
+      ["POST", "/api/v1/box/items/box-1/retry"],
+      ["POST", "/api/v1/box/items/box-1/cancel"],
+    ],
+  );
+  assert.deepStrictEqual(JSON.parse(captured[1].body ?? "{}"), {
+    payloadXml: "<Invoice/>",
+    scheduledFor: "2026-07-01T00:00:00.000Z",
+    externalId: "erp-doc-1",
+    metadata: { source: "sdk-test" },
+  });
+  assert.deepStrictEqual(JSON.parse(captured[3].body ?? "{}"), {
+    scheduledFor: "2026-07-01T00:00:00.000Z",
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1049,6 +1112,48 @@ it("WebhookDelivery type accepts idempotency_key field", () => {
     idempotency_key: "sha256hex",
   };
   assert.strictEqual(delivery.idempotency_key, "sha256hex");
+});
+
+// ---------------------------------------------------------------------------
+// Peppol participant capability lookup types
+// ---------------------------------------------------------------------------
+
+it("Peppol participant lookup type exposes capability routing fields", () => {
+  const participant: PeppolParticipant = {
+    found: true,
+    accepts: false,
+    routingStatus: "document_type_not_supported",
+    participantId: "0245:2020305606",
+    scheme: "0245",
+    identifier: "2020305606",
+    accessPoint: null,
+    certificate: null,
+    supportedDocumentTypes: [],
+    source: "sml",
+    temporaryFailure: false,
+  };
+
+  assert.strictEqual(participant.found, true);
+  assert.strictEqual(participant.accepts, false);
+  assert.strictEqual(participant.routingStatus, "document_type_not_supported");
+});
+
+it("Batch participant lookup result type exposes capability routing fields", () => {
+  const result: BatchLookupResult = {
+    index: 0,
+    participant: { scheme: "0245", identifier: "2020305606", id: "0245:2020305606" },
+    found: true,
+    accepts: true,
+    routingStatus: "ready",
+    accessPoint: { url: "https://dev.epostak.sk/as4", transportProfile: "peppol-transport-as4-v2_0" },
+    certificate: { present: true, valid: true },
+    supportedDocumentTypes: ["urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."],
+    source: "sml",
+    temporaryFailure: false,
+  };
+
+  assert.strictEqual(result.accepts, true);
+  assert.strictEqual(result.routingStatus, "ready");
 });
 
 // ---------------------------------------------------------------------------

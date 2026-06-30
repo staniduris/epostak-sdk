@@ -63,6 +63,9 @@ module EPostak
     # @return [Resources::Enterprise] Workflow-first Enterprise API namespace
     attr_reader :enterprise
 
+    # @return [Resources::Box] ePošťák Box durable execution layer
+    attr_reader :box
+
     # Create a new ePošťák API client.
     #
     # @param client_id [String] OAuth client ID (your +sk_live_*+ or +sk_int_*+ key).
@@ -102,6 +105,7 @@ module EPostak
       @http = HttpClient.new(token_manager: @token_manager, base_url: @base_url, firm_id: @firm_id, max_retries: @max_retries)
 
       @auth       = Resources::Auth.new(@http, base_url: @base_url)
+      @box        = Resources::Box.new(@http)
       @connector  = Resources::Connector.new(@http)
       @audit      = Resources::Audit.new(@http)
       @documents  = Resources::Documents.new(@http)

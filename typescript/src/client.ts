@@ -6,6 +6,7 @@ import { ReportingResource } from "./resources/reporting.js";
 import { ExtractResource } from "./resources/extract.js";
 import { AccountResource } from "./resources/account.js";
 import { AuthResource } from "./resources/auth.js";
+import { BoxResource } from "./resources/box.js";
 import { ConnectorResource } from "./resources/connector.js";
 import { AuditResource } from "./resources/audit.js";
 import { IntegratorResource } from "./resources/integrator.js";
@@ -78,6 +79,8 @@ export class EPostak {
   auth: AuthResource;
   /** Workflow-first Enterprise API namespace for `/api/v1/*` resources. */
   enterprise: EnterpriseResource;
+  /** ePošťák Box durable execution layer for scheduled and retryable dispatch. */
+  box: BoxResource;
   /** Connector workflow for ERP send, preflight, inbox polling, ack, and events. */
   connector: ConnectorResource;
   /** Per-firm audit feed (cursor-paginated). */
@@ -152,6 +155,7 @@ export class EPostak {
     };
 
     this.auth = new AuthResource(this.clientConfig);
+    this.box = new BoxResource(this.clientConfig);
     this.connector = new ConnectorResource(this.clientConfig);
     this.audit = new AuditResource(this.clientConfig);
     this.documents = new DocumentsResource(this.clientConfig);
@@ -167,6 +171,7 @@ export class EPostak {
     this.sapi = new SapiResource(this.clientConfig);
     this.enterprise = new EnterpriseResource({
       auth: this.auth,
+      box: this.box,
       audit: this.audit,
       documents: this.documents,
       firms: this.firms,

@@ -12,6 +12,18 @@ earlier CHANGELOG headings used a different numbering scheme.
 - Added `client.connector.mapper(...)` and customer-scoped
   `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
   for the live `/connector/mapper` endpoint.
+- Added `client.box` / `client.enterprise.box` for the live ePošťák Box
+  `/box/items` list, create with `payload_xml`, detail, schedule, send-now,
+  retry, and cancel endpoints.
+- Documented Peppol participant lookup and batch lookup routing fields:
+  `accepts`, `routingStatus`, certificate metadata, and temporary lookup
+  failure flags.
+
+### Fixed
+
+- `peppol.capabilities(...)` now sends the live request shape
+  `{participant: {scheme, identifier}, documentType}` instead of the old flat
+  `scheme`/`identifier` body.
 
 ## 1.0.0 — 2026-06-14
 

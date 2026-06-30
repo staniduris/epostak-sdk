@@ -23,7 +23,9 @@ import java.util.Map;
  * <pre>{@code
  * // Lookup a Peppol participant
  * PeppolParticipant participant = client.peppol().lookup("0245", "12345678");
- * System.out.println(participant.name());
+ * if (participant.accepts() && "ready".equals(participant.routingStatus())) {
+ *     System.out.println("Receiver is routable");
+ * }
  *
  * // Search the Peppol directory
  * DirectorySearchResult results = client.peppol().directory().search("Acme", "SK", null, null);
@@ -55,18 +57,19 @@ public final class PeppolResource {
 
     /**
      * Perform an SMP (Service Metadata Publisher) participant lookup to retrieve
-     * a participant's name, country, and supported document capabilities.
+     * participant existence, default invoice routing capability, endpoint, and
+     * supported document types.
      *
      * <pre>{@code
      * PeppolParticipant p = client.peppol().lookup("0245", "12345678");
-     * for (PeppolParticipant.Capability cap : p.capabilities()) {
-     *     System.out.println(cap.documentTypeId());
+     * if (p.accepts() && "ready".equals(p.routingStatus())) {
+     *     System.out.println("Receiver is routable");
      * }
      * }</pre>
      *
      * @param scheme     identifier scheme, e.g. {@code "0245"} for Slovak DIČ
      * @param identifier identifier value, e.g. {@code "12345678"}
-     * @return the participant with capabilities
+     * @return participant routing and capability details
      * @throws sk.epostak.sdk.EPostakException if the participant is not found (404) or the request fails
      */
     public PeppolParticipant lookup(String scheme, String identifier) {
@@ -125,7 +128,15 @@ public final class PeppolResource {
      * @throws sk.epostak.sdk.EPostakException if the request fails
      */
     public CapabilitiesResponse capabilities(CapabilitiesRequest request) {
-        return http.post("/peppol/capabilities", request, CapabilitiesResponse.class);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("participant", Map.of(
+                "scheme", request.scheme(),
+                "identifier", request.identifier()
+        ));
+        if (request.documentType() != null) {
+            body.put("documentType", request.documentType());
+        }
+        return http.post("/peppol/capabilities", body, CapabilitiesResponse.class);
     }
 
     /**

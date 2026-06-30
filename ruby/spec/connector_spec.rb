@@ -59,7 +59,54 @@ RSpec.describe EPostak::Resources::Connector do
     expect(client.enterprise.pull.inbound).to equal(client.inbound)
     expect(client.enterprise.pull.outbound).to equal(client.outbound)
     expect(client.enterprise.connector).to equal(client.connector)
+    expect(client.enterprise.box).to equal(client.box)
     expect(client.enterprise.webhooks).to equal(client.webhooks)
+  end
+
+  it "uses public Box API paths" do
+    list_stub = stub_request(:get, "#{host}/box/items")
+      .with(query: hash_including("status" => "ready", "direction" => "outbound", "limit" => "10", "offset" => "5"))
+      .to_return(status: 200, body: { "items" => [] }.to_json, headers: { "Content-Type" => "application/json" })
+    create_stub = stub_request(:post, "#{host}/box/items")
+      .with(body: {
+        payloadXml: "<Invoice/>",
+        scheduledFor: "2026-07-01T00:00:00.000Z",
+        externalId: "erp-doc-1",
+        metadata: { source: "sdk-test" },
+      }.to_json)
+      .to_return(status: 201, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    detail_stub = stub_request(:get, "#{host}/box/items/box-1")
+      .to_return(status: 200, body: { "boxItemId" => "box-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    schedule_stub = stub_request(:post, "#{host}/box/items/box-1/schedule")
+      .with(body: { scheduledFor: "2026-07-01T00:00:00.000Z" }.to_json)
+      .to_return(status: 200, body: { "boxItemId" => "box-1" }.to_json, headers: { "Content-Type" => "application/json" })
+    send_now_stub = stub_request(:post, "#{host}/box/items/box-1/send-now")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    retry_stub = stub_request(:post, "#{host}/box/items/box-1/retry")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+    cancel_stub = stub_request(:post, "#{host}/box/items/box-1/cancel")
+      .to_return(status: 200, body: { "ok" => true }.to_json, headers: { "Content-Type" => "application/json" })
+
+    client.box.list(status: "ready", direction: "outbound", limit: 10, offset: 5)
+    client.box.create(
+      payload_xml: "<Invoice/>",
+      scheduled_for: "2026-07-01T00:00:00.000Z",
+      external_id: "erp-doc-1",
+      metadata: { source: "sdk-test" },
+    )
+    client.box.get("box-1")
+    client.box.schedule("box-1", scheduled_for: "2026-07-01T00:00:00.000Z")
+    client.box.send_now("box-1")
+    client.box.retry("box-1")
+    client.box.cancel("box-1")
+
+    expect(list_stub).to have_been_requested
+    expect(create_stub).to have_been_requested
+    expect(detail_stub).to have_been_requested
+    expect(schedule_stub).to have_been_requested
+    expect(send_now_stub).to have_been_requested
+    expect(retry_stub).to have_been_requested
+    expect(cancel_stub).to have_been_requested
   end
 
   it "submits customer-scoped Connector documents without X-Firm-Id" do
@@ -110,6 +157,21 @@ RSpec.describe EPostak::Resources::Connector do
       { xml: "<Invoice/>" },
       idempotency_key: "sapi-fa-1",
     )
+
+    expect(stub).to have_been_requested
+  end
+
+  it "posts Peppol capabilities with participant envelope" do
+    stub = stub_request(:post, "#{host}/peppol/capabilities")
+      .with(
+        body: {
+          participant: { scheme: "0245", identifier: "2020305606" },
+          documentType: "urn:invoice",
+        }.to_json,
+      )
+      .to_return(status: 200, body: { "found" => true, "accepts" => true }.to_json, headers: { "Content-Type" => "application/json" })
+
+    client.peppol.capabilities(scheme: "0245", identifier: "2020305606", document_type: "urn:invoice")
 
     expect(stub).to have_been_requested
   end

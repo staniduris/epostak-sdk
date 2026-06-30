@@ -442,6 +442,83 @@ class ConnectorOutboxBatchSendResponse(TypedDict, total=False):
     skipped: int
     results: List[ConnectorOutboxItem]
 
+
+BoxStatus = Literal[
+    "ready",
+    "scheduled",
+    "sending",
+    "retrying",
+    "sent",
+    "received",
+    "needs_repair",
+    "failed",
+    "cancelled",
+    "expired",
+]
+BoxDirection = Literal["outbound", "inbound"]
+
+
+class BoxListParams(TypedDict, total=False):
+    status: str
+    direction: BoxDirection
+    limit: int
+    offset: int
+
+
+class BoxItem(TypedDict, total=False):
+    boxItemId: str
+    firmId: str
+    integratorId: Optional[str]
+    direction: str
+    status: str
+    source: str
+    invoiceId: Optional[str]
+    documentId: Optional[str]
+    peppolMessageId: Optional[str]
+    documentTypeId: Optional[str]
+    processId: Optional[str]
+    scheduledFor: Optional[str]
+    nextAttemptAt: Optional[str]
+    lockedAt: Optional[str]
+    lockedBy: Optional[str]
+    attemptCount: int
+    payloadSha256: Optional[str]
+    storageBytes: int
+    retention: Dict[str, Any]
+    sentAt: Optional[str]
+    receivedAt: Optional[str]
+    cancelledAt: Optional[str]
+    lastError: Optional[Dict[str, Any]]
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+    links: Dict[str, str]
+
+
+class BoxItemDetail(BoxItem, total=False):
+    storage: Dict[str, Any]
+    timeline: List[Dict[str, Any]]
+
+
+class BoxListResponse(TypedDict):
+    items: List[BoxItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class BoxCreateRequestOptional(TypedDict, total=False):
+    scheduledFor: str
+    externalId: str
+    metadata: Dict[str, Any]
+
+
+class BoxCreateRequest(BoxCreateRequestOptional):
+    payloadXml: str
+
+
+class BoxScheduleRequest(TypedDict):
+    scheduledFor: str
+
 # ---------------------------------------------------------------------------
 # Line items
 # ---------------------------------------------------------------------------
@@ -850,13 +927,55 @@ class SmpParticipantCapability(TypedDict):
     transportProfile: str  # Transport profile, e.g. "peppol-transport-as4-v2_0"
 
 
-class PeppolParticipant(TypedDict, total=False):
-    """Peppol participant info returned by SMP lookup."""
+PeppolRoutingStatus = Literal[
+    "ready",
+    "participant_not_found",
+    "document_type_not_supported",
+    "process_not_supported",
+    "endpoint_not_found",
+    "certificate_invalid",
+    "certificate_expired",
+    "lookup_failed",
+]
 
-    peppolId: str  # type: ignore[misc]  # Full Peppol participant ID (scheme:id)
-    name: Optional[str]  # Registered business name, if available
-    country: Optional[str]  # ISO country code, if available
-    capabilities: List[SmpParticipantCapability]  # type: ignore[misc]  # Supported document types
+
+class PeppolAccessPoint(TypedDict, total=False):
+    """Peppol AS4 access point metadata returned by SMP lookup."""
+
+    url: str
+    transportProfile: Optional[str]
+
+
+class PeppolCertificateInfo(TypedDict, total=False):
+    """Certificate metadata published by the participant's SMP endpoint."""
+
+    present: bool
+    fingerprintSha256: str
+    subject: str
+    issuer: str
+    serialNumber: str
+    notBefore: str
+    notAfter: str
+    serviceActivationDate: str
+    serviceExpirationDate: str
+    valid: bool
+    error: Literal["malformed", "invalid_x509"]
+
+
+class PeppolParticipant(TypedDict, total=False):
+    """Peppol participant invoice capability returned by SMP lookup."""
+
+    found: bool  # type: ignore[misc]  # True if the participant exists in Peppol SMP/SML
+    accepts: bool  # type: ignore[misc]  # True if the default BIS Billing invoice capability is routable
+    routingStatus: PeppolRoutingStatus  # Machine-readable capability status
+    participantId: str  # type: ignore[misc]  # Full Peppol participant ID (scheme:id)
+    scheme: str  # type: ignore[misc]  # Peppol identifier scheme, e.g. "0245"
+    identifier: str  # type: ignore[misc]  # Identifier value inside the scheme
+    accessPoint: Optional[PeppolAccessPoint]
+    certificate: Optional[PeppolCertificateInfo]
+    supportedDocumentTypes: List[str]  # type: ignore[misc]  # Supported document type IDs
+    source: Optional[str]
+    temporaryFailure: bool
 
 
 class DirectoryEntry(TypedDict, total=False):
@@ -1384,8 +1503,13 @@ class PeppolCapabilitiesResult(TypedDict, total=False):
 
     found: bool  # type: ignore[misc]  # True if the participant is registered on SMP
     accepts: bool  # type: ignore[misc]  # True if the participant accepts the requested document type
+    participant: "PeppolParticipantRef"
+    accessPoint: Optional[PeppolAccessPoint]
     supportedDocumentTypes: List[str]  # type: ignore[misc]  # All advertised UBL document type IDs
     matchedDocumentType: Optional[str]  # The matched document type ID, if any
+    source: Optional[str]
+    certificate: Optional[PeppolCertificateInfo]
+    capability: Dict[str, Any]
 
 
 class PeppolParticipantRef(TypedDict):
@@ -1398,10 +1522,17 @@ class PeppolParticipantRef(TypedDict):
 class PeppolLookupBatchItem(TypedDict, total=False):
     """Per-participant result in a batch lookup response."""
 
-    scheme: str  # type: ignore[misc]  # Peppol scheme that was queried
-    identifier: str  # type: ignore[misc]  # Identifier that was queried
+    index: int  # type: ignore[misc]  # Zero-based position in the original request
+    participant: "PeppolParticipantRef"  # Echoed participant with optional id on valid input
     found: bool  # type: ignore[misc]  # True if the participant was found on SMP
-    participant: Optional[PeppolParticipant]  # Full participant data on hit, None otherwise
+    accepts: bool  # type: ignore[misc]  # True if the default invoice capability is routable
+    routingStatus: PeppolRoutingStatus
+    accessPoint: Optional[PeppolAccessPoint]
+    certificate: Optional[PeppolCertificateInfo]
+    internal: bool
+    supportedDocumentTypes: List[str]  # type: ignore[misc]
+    source: Optional[str]
+    temporaryFailure: bool
     error: Optional[str]  # Error message if the lookup failed
 
 

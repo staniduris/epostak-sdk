@@ -14,10 +14,11 @@ module EPostak
     class Enterprise
       attr_reader :auth, :audit, :documents, :inbox, :firms, :peppol,
                   :webhooks, :reporting, :account, :extract, :integrator,
-                  :connector, :pull
+                  :connector, :box, :pull
 
       def initialize(client)
         @auth = client.auth
+        @box = client.box
         @audit = client.audit
         @documents = client.documents
         @inbox = client.documents.inbox

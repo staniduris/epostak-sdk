@@ -10,6 +10,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added `client.Connector.MapperAsync(...)` and customer-scoped
   `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
   for the live `/connector/mapper` endpoint.
+- Added `client.Box` / `client.Enterprise.Box` for the live ePošťák Box
+  `/box/items` list, create with `BoxCreateRequest.PayloadXml`, detail,
+  schedule, send-now, retry, and cancel endpoints.
+- Added Peppol participant lookup and batch lookup routing fields:
+  `Accepts`, `RoutingStatus`, certificate metadata, and temporary lookup
+  failure flags.
+
+### Fixed
+
+- `Peppol.CapabilitiesAsync(...)` now sends the live request shape
+  `{participant: {scheme, identifier}, documentType}` instead of the old flat
+  `Scheme`/`Identifier` body.
 
 ## 1.0.0 — 2026-06-14
 

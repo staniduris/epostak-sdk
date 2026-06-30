@@ -29,12 +29,24 @@ class Peppol
     /**
      * SMP participant lookup.
      *
-     * Queries the Peppol SMP to check if a participant is registered
-     * and which document types it supports.
+     * Queries the Peppol SMP to check if a participant is registered and
+     * whether it accepts the default BIS Billing invoice capability.
      *
      * @param string $scheme     Peppol identifier scheme (e.g. '0192').
      * @param string $identifier Identifier value (e.g. ICO number).
-     * @return array Participant info with supported document types and endpoints.
+     * @return array{
+     *   found: bool,
+     *   accepts: bool,
+     *   routingStatus: string,
+     *   participantId: string,
+     *   scheme: string,
+     *   identifier: string,
+     *   accessPoint?: ?array,
+     *   certificate?: ?array,
+     *   supportedDocumentTypes?: list<string>,
+     *   source?: ?string,
+     *   temporaryFailure?: bool
+     * } Participant invoice capability. Use accepts=true and routingStatus=ready before send.
      * @throws EPostakError On API error.
      */
     public function lookup(string $scheme, string $identifier): array
@@ -113,7 +125,7 @@ class Peppol
      */
     public function capabilities(string $scheme, string $identifier, ?string $documentType = null): array
     {
-        $body = ['scheme' => $scheme, 'identifier' => $identifier];
+        $body = ['participant' => ['scheme' => $scheme, 'identifier' => $identifier]];
         if ($documentType !== null) {
             $body['documentType'] = $documentType;
         }
@@ -125,8 +137,8 @@ class Peppol
     /**
      * Look up many Peppol participants in a single request (max 100).
      *
-     * Each result matches the order of the input list and indicates whether
-     * the participant was found on SMP.
+     * Each result matches the order of the input list and separates participant
+     * existence (found) from invoice routing capability (accepts/routingStatus).
      *
      * @param list<array{scheme: string, identifier: string}> $participants Participant references.
      * @return array{
@@ -134,10 +146,16 @@ class Peppol
      *   found: int,
      *   notFound: int,
      *   results: list<array{
-     *     scheme: string,
-     *     identifier: string,
+     *     index: int,
+     *     participant: array{scheme: string, identifier: string, id?: string},
      *     found: bool,
-     *     participant?: ?array,
+     *     accepts?: bool,
+     *     routingStatus?: string,
+     *     accessPoint?: ?array,
+     *     certificate?: ?array,
+     *     supportedDocumentTypes?: list<string>,
+     *     source?: ?string,
+     *     temporaryFailure?: bool,
      *     error?: ?string
      *   }>
      * } Batch lookup result.
@@ -149,7 +167,7 @@ class Peppol
      *       ['scheme' => '0245', 'identifier' => '87654321'],
      *   ]);
      *   foreach ($batch['results'] as $r) {
-     *       echo $r['identifier'], ' -> ', $r['found'] ? 'found' : 'not found', "\n";
+     *       echo $r['participant']['identifier'], ' -> ', $r['found'] ? 'found' : 'not found', "\n";
      *   }
      */
     public function lookupBatch(array $participants): array

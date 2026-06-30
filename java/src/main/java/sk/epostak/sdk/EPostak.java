@@ -50,6 +50,7 @@ public final class EPostak {
     private final ExtractResource extract;
     private final AccountResource account;
     private final AuthResource auth;
+    private final BoxResource box;
     private final ConnectorResource connector;
     private final AuditResource audit;
     private final IntegratorResource integrator;
@@ -87,6 +88,7 @@ public final class EPostak {
         this.extract = new ExtractResource(httpClient);
         this.account = new AccountResource(httpClient);
         this.auth = new AuthResource(httpClient);
+        this.box = new BoxResource(httpClient);
         this.connector = new ConnectorResource(httpClient);
         this.audit = new AuditResource(httpClient);
         this.integrator = new IntegratorResource(httpClient);
@@ -162,6 +164,13 @@ public final class EPostak {
      * @return the auth resource
      */
     public AuthResource auth() { return auth; }
+
+    /**
+     * ePošťák Box durable execution layer.
+     *
+     * @return the Box resource
+     */
+    public BoxResource box() { return box; }
 
     /**
      * Connector workflow for ERP send, preflight, inbox polling, ack, and events.

@@ -33,6 +33,7 @@ namespace GuzzleHttp {
 
 namespace EPostak\Tests {
     use EPostak\HttpClient;
+    use EPostak\Resources\Box;
     use EPostak\Resources\Connector;
     use EPostak\TokenManager;
     use GuzzleHttp\Client;
@@ -44,7 +45,10 @@ namespace EPostak\Tests {
     require_once __DIR__ . '/../src/DuplicateInvoiceNumberError.php';
     require_once __DIR__ . '/../src/TokenManager.php';
     require_once __DIR__ . '/../src/HttpClient.php';
+    require_once __DIR__ . '/../src/Resources/Box.php';
     require_once __DIR__ . '/../src/Resources/Connector.php';
+    require_once __DIR__ . '/../src/Resources/PeppolDirectory.php';
+    require_once __DIR__ . '/../src/Resources/Peppol.php';
     require_once __DIR__ . '/../src/Resources/Sapi.php';
 
     final class StaticTokenManager extends TokenManager
@@ -113,6 +117,12 @@ namespace EPostak\Tests {
         return new Connector($http);
     }
 
+    function makeBox(): Box
+    {
+        $http = new HttpClient('https://epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0);
+        return new Box($http);
+    }
+
     function fail(string $message): void
     {
         fwrite(STDERR, $message . PHP_EOL);
@@ -168,6 +178,25 @@ namespace EPostak\Tests {
     }
 
     $connector = makeConnector();
+    $box = makeBox();
+
+    assertRequest(fn() => $box->list(['status' => 'ready', 'direction' => 'outbound', 'limit' => 10, 'offset' => 5]), 'GET', 'box/items?status=ready&direction=outbound&limit=10&offset=5', true);
+    assertRequest(fn() => $box->create([
+        'payloadXml' => '<Invoice/>',
+        'scheduledFor' => '2026-07-01T00:00:00.000Z',
+        'externalId' => 'erp-doc-1',
+        'metadata' => ['source' => 'sdk-test'],
+    ]), 'POST', 'box/items', true);
+    $body = Client::$requests[0]['options']['json'] ?? [];
+    assertTrue(($body['payloadXml'] ?? null) === '<Invoice/>', 'Expected Box create payloadXml.');
+    assertTrue(($body['externalId'] ?? null) === 'erp-doc-1', 'Expected Box create externalId.');
+    assertRequest(fn() => $box->get('box-1'), 'GET', 'box/items/box-1', true);
+    assertRequest(fn() => $box->schedule('box-1', '2026-07-01T00:00:00.000Z'), 'POST', 'box/items/box-1/schedule', true);
+    $body = Client::$requests[0]['options']['json'] ?? [];
+    assertTrue(($body['scheduledFor'] ?? null) === '2026-07-01T00:00:00.000Z', 'Expected Box schedule body.');
+    assertRequest(fn() => $box->sendNow('box-1'), 'POST', 'box/items/box-1/send-now', true);
+    assertRequest(fn() => $box->retry('box-1'), 'POST', 'box/items/box-1/retry', true);
+    assertRequest(fn() => $box->cancel('box-1'), 'POST', 'box/items/box-1/cancel', true);
 
     assertRequest(fn() => $connector->mapper(['templateKey' => 'pohoda-csv-v1', 'sourceType' => 'csv', 'sourceText' => 'Doklad']), 'POST', 'connector/mapper', false);
     assertRequest(fn() => $connector->zenInput(['customerRef' => 'erp-customer-1']), 'POST', 'connector/zen-input', false);
@@ -226,6 +255,17 @@ namespace EPostak\Tests {
     $headers = $request['options']['headers'] ?? [];
     assertTrue(($headers['X-Peppol-Participant-Id'] ?? null) === '0245:1234567890', 'Expected SAPI participant header.');
     assertTrue(($headers['Idempotency-Key'] ?? null) === 'sapi-fa-1', 'Expected SAPI idempotency header.');
+
+    $peppol = new \EPostak\Resources\Peppol(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
+    Client::$requests = [];
+    $peppol->capabilities('0245', '2020305606', 'urn:invoice');
+    $request = oneRequest();
+    assertTrue($request['method'] === 'POST', 'Expected Peppol capabilities to POST.');
+    assertTrue($request['path'] === 'peppol/capabilities', "Expected Peppol capabilities path, got {$request['path']}.");
+    $body = $request['options']['json'] ?? [];
+    assertTrue(($body['participant']['scheme'] ?? null) === '0245', 'Expected nested participant.scheme.');
+    assertTrue(($body['participant']['identifier'] ?? null) === '2020305606', 'Expected nested participant.identifier.');
+    assertTrue(($body['documentType'] ?? null) === 'urn:invoice', 'Expected documentType to be forwarded.');
 
     echo "connector_no_firm_id_test passed" . PHP_EOL;
 }

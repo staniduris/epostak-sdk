@@ -4,6 +4,7 @@ namespace EPostak.Resources;
 public sealed class EnterpriseResource
 {
     public AuthResource Auth { get; }
+    public BoxResource Box { get; }
     public AuditResource Audit { get; }
     public DocumentsResource Documents { get; }
     public InboxResource Inbox { get; }
@@ -20,6 +21,7 @@ public sealed class EnterpriseResource
     internal EnterpriseResource(EPostakClient client)
     {
         Auth = client.Auth;
+        Box = client.Box;
         Audit = client.Audit;
         Documents = client.Documents;
         Inbox = client.Documents.Inbox;

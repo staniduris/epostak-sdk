@@ -20,6 +20,7 @@ class Enterprise
 
     public function __construct(
         public Auth $auth,
+        public Box $box,
         public Audit $audit,
         public Documents $documents,
         public Firms $firms,

@@ -18,6 +18,7 @@ class EnterpriseResource:
 
     def __init__(self, client: Any) -> None:
         self.auth = client.auth
+        self.box = client.box
         self.audit = client.audit
         self.documents = client.documents
         self.inbox = client.documents.inbox

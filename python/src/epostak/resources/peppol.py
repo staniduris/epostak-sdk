@@ -99,15 +99,15 @@ class PeppolResource(_BaseResource):
             identifier: Peppol identifier value, e.g. ``"12345678"``.
 
         Returns:
-            Participant info with ``peppolId``, ``name``, ``country``, and ``capabilities``
-            (list of supported document types).
+            Participant routing info with ``found``, ``accepts``,
+            ``routingStatus``, ``participantId``, ``accessPoint``,
+            ``certificate``, and ``supportedDocumentTypes``.
 
         Example::
 
             participant = client.peppol.lookup("0245", "12345678")
-            print(participant["name"])
-            for cap in participant["capabilities"]:
-                print(cap["documentTypeId"])
+            if participant["accepts"] and participant["routingStatus"] == "ready":
+                print("Receiver is routable")
         """
         return self._request("GET", f"/peppol/participants/{quote(scheme, safe='')}/{quote(identifier, safe='')}")
 
@@ -192,7 +192,9 @@ class PeppolResource(_BaseResource):
             if caps["found"] and caps["accepts"]:
                 print("Receiver supports that document type")
         """
-        body: Dict[str, Any] = {"scheme": scheme, "identifier": identifier}
+        body: Dict[str, Any] = {
+            "participant": {"scheme": scheme, "identifier": identifier}
+        }
         if document_type is not None:
             body["documentType"] = document_type
         return self._request("POST", "/peppol/capabilities", json=body)
@@ -203,8 +205,8 @@ class PeppolResource(_BaseResource):
     ) -> PeppolLookupBatchResponse:
         """Look up many Peppol participants in a single request (max 100).
 
-        Each result matches the order of the input list and indicates whether
-        the participant was found on SMP.
+        Each result matches the order of the input list and separates
+        participant existence from invoice routing capability.
 
         Args:
             participants: List of ``{"scheme": str, "identifier": str}`` dicts.

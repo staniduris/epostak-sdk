@@ -7,6 +7,7 @@ namespace EPostak;
 use EPostak\RateLimit;
 use EPostak\Resources\Auth;
 use EPostak\Resources\Audit;
+use EPostak\Resources\Box;
 use EPostak\Resources\Connector;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Enterprise;
@@ -28,6 +29,7 @@ use GuzzleHttp\Exception\GuzzleException;
  * ePošťák API client.
  *
  * @property-read Auth $auth OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist
+ * @property-read Box $box ePošťák Box durable execution layer
  * @property-read Connector $connector Connector workflow for ERP send, preflight, inbox polling, ack, and events
  * @property-read Audit $audit Per-firm audit feed (cursor-paginated)
  * @property-read Documents $documents Send and receive documents via Peppol
@@ -55,6 +57,7 @@ class EPostak
     private int $maxRetries;
 
     public Auth $auth;
+    public Box $box;
     public Connector $connector;
     public Audit $audit;
     public Documents $documents;
@@ -116,6 +119,7 @@ class EPostak
         $this->http = new HttpClient($this->baseUrl, $tokenManager, $this->firmId, $this->maxRetries);
 
         $this->auth = new Auth($this->http);
+        $this->box = new Box($this->http);
         $this->connector = new Connector($this->http);
         $this->audit = new Audit($this->http);
         $this->documents = new Documents($this->http);
@@ -131,6 +135,7 @@ class EPostak
         $this->sapi = new Sapi($this->http);
         $this->enterprise = new Enterprise(
             $this->auth,
+            $this->box,
             $this->audit,
             $this->documents,
             $this->firms,

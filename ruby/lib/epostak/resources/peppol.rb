@@ -9,7 +9,7 @@ module EPostak
     #
     # @example
     #   participant = client.peppol.lookup("0245", "1234567890")
-    #   puts participant["capabilities"]
+    #   puts participant["routingStatus"]
     class Peppol
       # @return [Resources::PeppolDirectory] Sub-resource for searching the Peppol Business Card directory
       attr_reader :directory
@@ -21,20 +21,20 @@ module EPostak
       end
 
       # Look up a Peppol participant by their identifier scheme and value.
-      # Queries the SMP (Service Metadata Publisher) to retrieve the participant's
-      # name, country, and supported document types.
+      # Queries the SMP (Service Metadata Publisher) to check participant
+      # existence and the default BIS Billing invoice capability.
       #
-      # Slovak Peppol ID format: scheme "0245" with identifier = DIC value,
-      # or scheme "9950" with identifier = "SK" + DIC.
+      # Slovak Peppol ID format: scheme "0245" with identifier = DIC value.
       #
       # @param scheme [String] Peppol identifier scheme (e.g. "0245")
       # @param identifier [String] Identifier value (e.g. "1234567890")
-      # @return [Hash] Participant details including capabilities (supported document types)
+      # @return [Hash] Participant invoice capability. Use
+      #   found && accepts && routingStatus == "ready" before send.
       #
       # @example
       #   participant = client.peppol.lookup("0245", "1234567890")
-      #   if participant["capabilities"].any?
-      #     puts participant["capabilities"].map { |c| c["documentTypeId"] }
+      #   if participant["found"] && participant["accepts"]
+      #     puts participant["accessPoint"]&.fetch("url", nil)
       #   end
       def lookup(scheme, identifier)
         @http.request(:get, "/peppol/participants/#{encode(scheme)}/#{encode(identifier)}")
@@ -93,27 +93,27 @@ module EPostak
       #   )
       #   puts "Supported" if caps["found"] && caps["accepts"]
       def capabilities(scheme:, identifier:, document_type: nil)
-        body = { scheme: scheme, identifier: identifier }
+        body = { participant: { scheme: scheme, identifier: identifier } }
         body[:documentType] = document_type if document_type
         @http.request(:post, "/peppol/capabilities", body: body)
       end
 
       # Look up many Peppol participants in a single request (max 100).
       #
-      # Each result matches the order of the input list and indicates
-      # whether the participant was found on SMP.
+      # Each result matches the order of the input list and separates
+      # participant existence from invoice routing capability.
       #
       # @param participants [Array<Hash>] Array of { scheme:, identifier: } hashes
       # @return [Hash] {"total" => ..., "found" => ..., "notFound" => ...,
-      #   "results" => [{"scheme" => ..., "identifier" => ..., "found" => ...,
-      #   "participant" => ..., "error" => ...}]}
+      #   "results" => [{"index" => ..., "participant" => ..., "found" => ...,
+      #   "accepts" => ..., "routingStatus" => ..., "error" => ...}]}
       #
       # @example
       #   batch = client.peppol.lookup_batch([
       #     { scheme: "0245", identifier: "12345678" },
       #     { scheme: "0245", identifier: "87654321" }
       #   ])
-      #   batch["results"].each { |r| puts "#{r['identifier']} -> #{r['found']}" }
+      #   batch["results"].each { |r| puts "#{r['participant']['id']} -> #{r['routingStatus']}" }
       def lookup_batch(participants)
         @http.request(:post, "/peppol/participants/batch", body: { participants: participants })
       end

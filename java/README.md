@@ -38,11 +38,14 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-### Unreleased — 2026-06-26
+### Unreleased — 2026-06-30
 
 - `client.connector().mapper(...)` and customer-scoped
   `client.enterprise().connector().customers().forCustomer(customerRef).mapper(...)`
   cover `/connector/mapper`.
+- `client.box()` / `client.enterprise().box()` covers ePošťák Box list, create
+  with `BoxCreateRequest.payloadXml`, detail, schedule, send-now, retry, and
+  cancel over `/box/items`.
 
 ### v1.0.0 — 2026-06-14
 
@@ -451,7 +454,15 @@ InboxAllResponse all = client.enterprise().documents().inbox().listAll(0, 50, "R
 
 ```java
 PeppolParticipant participant = client.enterprise().peppol().lookup("0245", "12345678");
-// participant.peppolId(), participant.name(), participant.capabilities()
+if (participant.accepts() && "ready".equals(participant.routingStatus())) {
+    // Receiver is registered and routable for the default BIS Billing invoice.
+}
+
+CapabilitiesResponse caps = client.enterprise().peppol().capabilities(new CapabilitiesRequest(
+    "0245",
+    "12345678",
+    "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
+));
 ```
 
 #### `peppol().directory().search(q, country, page, pageSize)` -- Business Card directory
@@ -872,6 +883,13 @@ try {
 | `extract().single(...)`               | POST   | `/extract`                           |
 | `extract().batch(...)`                | POST   | `/extract/batch`                     |
 | `EPostak.validate(xml)`               | POST   | `https://epostak.sk/api/validate`    |
+| `box().list(params)`                  | GET    | `/box/items`                         |
+| `box().create(new BoxCreateRequest(...))` | POST | `/box/items`                         |
+| `box().get(itemId)`                   | GET    | `/box/items/{itemId}`                |
+| `box().schedule(itemId, request)`     | POST   | `/box/items/{itemId}/schedule`       |
+| `box().sendNow(itemId)`               | POST   | `/box/items/{itemId}/send-now`       |
+| `box().retry(itemId)`                 | POST   | `/box/items/{itemId}/retry`          |
+| `box().cancel(itemId)`                | POST   | `/box/items/{itemId}/cancel`         |
 | `connector().preflight(request)`      | POST   | `/connector/preflight`               |
 | `connector().send(body, idempotencyKey)` | POST | `/connector/send`                    |
 | `connector().stageOutbox(request)`    | POST   | `/connector/outbox`                  |

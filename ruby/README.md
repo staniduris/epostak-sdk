@@ -16,10 +16,13 @@ calls always send `X-Peppol-Participant-Id`.
 
 ## Recent changes
 
-**Unreleased** (2026-06-26)
+**Unreleased** (2026-06-30)
 - `client.connector.mapper(...)` and customer-scoped
   `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
   cover `/connector/mapper`
+- `client.box` / `client.enterprise.box` covers ePošťák Box list, create with
+  `payload_xml`, detail, schedule, send-now, retry, and cancel over
+  `/box/items`
 
 **v1.0.0** (2026-06-14)
 - `client.enterprise` is the documented namespace for Documents, Inbox, Pull
@@ -469,9 +472,15 @@ end
 
 ```ruby
 participant = client.enterprise.peppol.lookup("0245", "1234567890")
-participant["capabilities"].each do |cap|
-  puts cap["documentTypeId"]
+if participant["accepts"] && participant["routingStatus"] == "ready"
+  # Receiver is registered and routable for the default BIS Billing invoice.
 end
+
+caps = client.enterprise.peppol.capabilities(
+  scheme: "0245",
+  identifier: "1234567890",
+  document_type: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
+)
 ```
 
 #### Directory search
