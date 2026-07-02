@@ -213,6 +213,10 @@ public sealed class DocumentsResource
     public Task<byte[]> EvidenceBundleAsync(string id, CancellationToken ct = default)
         => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/evidence-bundle", ct);
 
+    /// <summary>Download the support/evidence ZIP packet for a document.</summary>
+    public Task<byte[]> SupportPacketAsync(string id, CancellationToken ct = default)
+        => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/support-packet", ct);
+
     /// <summary>
     /// Download the UBL XML source of a document. This is the canonical Peppol BIS 3.0
     /// representation that was sent or received over the network.

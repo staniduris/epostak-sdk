@@ -31,6 +31,8 @@ class Enterprise
         public Account $account,
         public Integrator $integrator,
         public Connector $connector,
+        public Payloads $payloads,
+        public Events $events,
         Inbound $inbound,
         Outbound $outbound
     ) {

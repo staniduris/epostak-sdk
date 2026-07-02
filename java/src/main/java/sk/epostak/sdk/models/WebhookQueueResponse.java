@@ -10,7 +10,7 @@ import java.util.List;
  * @param hasMore whether more events remain in the queue beyond this page
  */
 public record WebhookQueueResponse(
-        List<WebhookQueueItem> items,
+        @SerializedName(value = "items", alternate = {"events"}) List<WebhookQueueItem> items,
         @SerializedName("has_more") boolean hasMore
 ) {
     /**

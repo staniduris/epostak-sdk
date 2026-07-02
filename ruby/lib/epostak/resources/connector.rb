@@ -12,10 +12,11 @@ module EPostak
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
         @http = http
+        @documents = ConnectorDocuments.new(self)
         @customers = ConnectorCustomers.new(self)
       end
 
-      attr_reader :customers
+      attr_reader :customers, :documents
 
       def submit_document(body)
         autopilot(body.merge(mode: body[:mode] || body["mode"] || "stage"))
@@ -254,6 +255,11 @@ module EPostak
         @http.request(:get, "/connector/documents/#{encode(document_id)}/evidence-bundle", omit_firm_id: true)
       end
 
+      # Retrieve the Connector support packet manifest.
+      def get_document_support_packet(document_id)
+        @http.request(:get, "/connector/documents/#{encode(document_id)}/support-packet", omit_firm_id: true)
+      end
+
       # Execute a pending Connector action.
       #
       # @param action_id [String] Connector action ID
@@ -319,7 +325,7 @@ module EPostak
       end
     end
 
-    class ConnectorCustomerDocuments
+    class ConnectorDocuments
       def initialize(connector)
         @connector = connector
       end
@@ -339,6 +345,13 @@ module EPostak
       def evidence_bundle(document_id)
         @connector.get_document_evidence_bundle(document_id)
       end
+
+      def support_packet(document_id)
+        @connector.get_document_support_packet(document_id)
+      end
+    end
+
+    class ConnectorCustomerDocuments < ConnectorDocuments
     end
 
     class ConnectorCustomerMailbox

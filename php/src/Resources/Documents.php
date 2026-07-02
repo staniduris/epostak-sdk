@@ -214,6 +214,11 @@ class Documents
         return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/evidence-bundle');
     }
 
+    public function supportPacket(string $id): string
+    {
+        return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/support-packet');
+    }
+
     /**
      * Send an invoice response (BIS Invoice Response per Peppol BIS 3.0).
      *

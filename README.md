@@ -13,10 +13,32 @@ operations.
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for(...).submitDocument(...)`
+- Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.supportPacket(...)`
 - ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
 
 TypeScript is `4.0.0`. Python, PHP, Ruby, Java, and .NET are `1.0.0`.
+
+---
+
+## Enterprise API facade flow
+
+For enterprise integrators, start with the facade helpers before dropping to raw
+transport endpoints:
+
+1. `payloads.validate` or `payloads.extract` prepares and checks the payload.
+2. `documents.preflight` verifies Peppol capability before send.
+3. `documents.send` sends with an idempotency key.
+4. `events.pull` plus `events.batchAck` drains delivery events without an inbound webhook on day one.
+5. `documents.supportPacket` exports the support/debug bundle for failed or disputed sends.
+
+The older `webhooks.queue` resources remain available for compatibility, but
+new ERP integrations should prefer `events`.
+
+Non-breaking adoption: facade helpers are additive. Existing `/extract`,
+`/documents/validate`, `/webhook-queue`, and
+`/documents/{id}/evidence-bundle` integrations can keep running; migrate to
+`payloads`, `events`, and `supportPacket` when your release window allows.
 
 ---
 

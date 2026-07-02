@@ -13,9 +13,11 @@ public sealed class ConnectorResource
     internal ConnectorResource(HttpRequestor http)
     {
         _http = http;
+        Documents = new ConnectorDocumentsResource(this);
         Customers = new ConnectorCustomersResource(this);
     }
 
+    public ConnectorDocumentsResource Documents { get; }
     public ConnectorCustomersResource Customers { get; }
 
     public Task<ConnectorAutopilotRunResponse> SubmitDocumentAsync(ConnectorSubmitDocumentRequest request, CancellationToken ct = default)
@@ -185,6 +187,10 @@ public sealed class ConnectorResource
     public Task<Dictionary<string, object?>> GetDocumentEvidenceBundleAsync(string documentId, CancellationToken ct = default)
         => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/evidence-bundle", ct, omitFirmId: true);
 
+    /// <summary>Retrieve the Connector support packet manifest.</summary>
+    public Task<Dictionary<string, object?>> GetDocumentSupportPacketAsync(string documentId, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/connector/documents/{Uri.EscapeDataString(documentId)}/support-packet", ct, omitFirmId: true);
+
     /// <summary>Execute a pending Connector action.</summary>
     public Task<ConnectorActionResponse> RunActionAsync(string actionId, ConnectorActionRequest? request = null, CancellationToken ct = default)
         => _http.RequestAsync<ConnectorActionResponse>(
@@ -260,11 +266,11 @@ public sealed class ConnectorCustomerResource
     }
 }
 
-public sealed class ConnectorCustomerDocumentsResource
+public class ConnectorDocumentsResource
 {
     private readonly ConnectorResource _connector;
 
-    internal ConnectorCustomerDocumentsResource(ConnectorResource connector) => _connector = connector;
+    internal ConnectorDocumentsResource(ConnectorResource connector) => _connector = connector;
 
     public Task<Dictionary<string, object?>> GetAsync(string documentId, CancellationToken ct = default)
         => _connector.GetDocumentAsync(documentId, ct);
@@ -277,6 +283,16 @@ public sealed class ConnectorCustomerDocumentsResource
 
     public Task<Dictionary<string, object?>> EvidenceBundleAsync(string documentId, CancellationToken ct = default)
         => _connector.GetDocumentEvidenceBundleAsync(documentId, ct);
+
+    public Task<Dictionary<string, object?>> SupportPacketAsync(string documentId, CancellationToken ct = default)
+        => _connector.GetDocumentSupportPacketAsync(documentId, ct);
+}
+
+public sealed class ConnectorCustomerDocumentsResource : ConnectorDocumentsResource
+{
+    internal ConnectorCustomerDocumentsResource(ConnectorResource connector) : base(connector)
+    {
+    }
 }
 
 public sealed class ConnectorCustomerMailboxResource

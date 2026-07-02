@@ -122,8 +122,8 @@ function withCustomerRef<T extends { customerRef?: string }>(
   return { ...body, customerRef };
 }
 
-export class ConnectorCustomerDocumentsResource {
-  constructor(private readonly parent: ConnectorResource) {}
+export class ConnectorDocumentsResource {
+  constructor(protected readonly parent: ConnectorResource) {}
 
   get(documentId: string): Promise<Record<string, unknown>> {
     return this.parent.getDocument(documentId);
@@ -140,7 +140,13 @@ export class ConnectorCustomerDocumentsResource {
   evidenceBundle(documentId: string): Promise<Record<string, unknown>> {
     return this.parent.getDocumentEvidenceBundle(documentId);
   }
+
+  supportPacket(documentId: string): Promise<Record<string, unknown>> {
+    return this.parent.getDocumentSupportPacket(documentId);
+  }
 }
+
+export class ConnectorCustomerDocumentsResource extends ConnectorDocumentsResource {}
 
 export class ConnectorCustomerMailboxResource {
   constructor(
@@ -225,12 +231,15 @@ export class ConnectorCustomersResource {
 export class ConnectorResource extends BaseResource {
   /** Stage now, send later lifecycle for outbound ERP invoices. */
   readonly outbox: ConnectorOutboxResource;
+  /** Connector document lifecycle helpers. */
+  readonly documents: ConnectorDocumentsResource;
   /** Customer-scoped Connector workflow for integrator-managed firms. */
   readonly customers: ConnectorCustomersResource;
 
   constructor(config: ClientConfig) {
     super(config);
     this.outbox = new ConnectorOutboxResource(config);
+    this.documents = new ConnectorDocumentsResource(this);
     this.customers = new ConnectorCustomersResource(this);
   }
 
@@ -479,6 +488,18 @@ export class ConnectorResource extends BaseResource {
     return this.request(
       "GET",
       `/connector/documents/${encodeURIComponent(documentId)}/evidence-bundle`,
+      undefined,
+      { omitFirmId: true },
+    );
+  }
+
+  /**
+   * Retrieve the Connector support packet manifest.
+   */
+  getDocumentSupportPacket(documentId: string): Promise<Record<string, unknown>> {
+    return this.request(
+      "GET",
+      `/connector/documents/${encodeURIComponent(documentId)}/support-packet`,
       undefined,
       { omitFirmId: true },
     );

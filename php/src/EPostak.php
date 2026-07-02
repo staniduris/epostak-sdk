@@ -11,12 +11,14 @@ use EPostak\Resources\Box;
 use EPostak\Resources\Connector;
 use EPostak\Resources\Documents;
 use EPostak\Resources\Enterprise;
+use EPostak\Resources\Events;
 use EPostak\Resources\Firms;
 use EPostak\Resources\Inbound;
 use EPostak\Resources\Integrator;
 use EPostak\Resources\OAuth;
 use EPostak\Resources\Outbound;
 use EPostak\Resources\Peppol;
+use EPostak\Resources\Payloads;
 use EPostak\Resources\Webhooks;
 use EPostak\Resources\Reporting;
 use EPostak\Resources\Sapi;
@@ -31,6 +33,8 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Auth $auth OAuth token mint/renew/revoke + key introspection, rotation, IP allowlist
  * @property-read Box $box ePošťák Box durable execution layer
  * @property-read Connector $connector Connector workflow for ERP send, preflight, inbox polling, ack, and events
+ * @property-read Payloads $payloads Payload Assistant helpers
+ * @property-read Events $events Pull/ack event facade
  * @property-read Audit $audit Per-firm audit feed (cursor-paginated)
  * @property-read Documents $documents Send and receive documents via Peppol
  * @property-read Firms $firms Manage client firms (integrator keys)
@@ -59,6 +63,8 @@ class EPostak
     public Auth $auth;
     public Box $box;
     public Connector $connector;
+    public Payloads $payloads;
+    public Events $events;
     public Audit $audit;
     public Documents $documents;
     public Firms $firms;
@@ -121,6 +127,8 @@ class EPostak
         $this->auth = new Auth($this->http);
         $this->box = new Box($this->http);
         $this->connector = new Connector($this->http);
+        $this->payloads = new Payloads($this->http);
+        $this->events = new Events($this->http);
         $this->audit = new Audit($this->http);
         $this->documents = new Documents($this->http);
         $this->firms = new Firms($this->http);
@@ -146,6 +154,8 @@ class EPostak
             $this->account,
             $this->integrator,
             $this->connector,
+            $this->payloads,
+            $this->events,
             $this->inbound,
             $this->outbound
         );

@@ -10,13 +10,55 @@ TypeScript `4.0.0` is a breaking workflow-first release:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for("erp-customer").submitDocument(...)`
+- Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.supportPacket(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for("0245:1234567890").documents.send(...)`
 
 Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
 customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
 calls always send `X-Peppol-Participant-Id`.
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```typescript
+await client.enterprise.payloads.validate(invoice);
+
+await client.enterprise.documents.preflight({
+  receiverPeppolId: invoice.receiverPeppolId,
+});
+
+const sent = await client.enterprise.documents.send(invoice, {
+  idempotencyKey: "erp-fa-2026-001",
+});
+
+const events = await client.enterprise.events.pull({ limit: 50 });
+await client.enterprise.events.batchAck(events.items.map((event) => event.event_id));
+
+const supportPacket = await client.enterprise.documents.supportPacket(sent.documentId);
+```
+
+The older `client.enterprise.webhooks.queue` resource remains available for
+compatibility. New pull-based integrations should prefer
+`client.enterprise.events`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`client.enterprise.extract`, `client.enterprise.documents.validate`,
+`client.enterprise.webhooks.queue`, and
+`client.enterprise.documents.evidenceBundle` integrations can keep running;
+migrate to `payloads`, `events`, and `supportPacket` when your release window
+allows.
+
 ## Recent changes
+
+### Unreleased — 2026-07-01
+
+- **New:** Enterprise API facade helpers for Payload Assistant validation,
+  pull/ack event handling, and document support packets:
+  `client.enterprise.payloads.validate(...)`,
+  `client.enterprise.events.pull(...)`, and
+  `client.enterprise.documents.supportPacket(...)`.
 
 ### Unreleased — 2026-06-30
 
@@ -562,28 +604,25 @@ if (inserted.rowCount === 0) {
 
 The signature contract is **unchanged** — `verifyWebhookSignature` continues to work without code changes.
 
-### Webhook Pull Queue
+### Events pull facade
 
 ```typescript
 // Pull pending events
-const queue = await client.enterprise.webhooks.queue.pull({ limit: 50 });
+const queue = await client.enterprise.events.pull({ limit: 50 });
 for (const item of queue.items) {
   console.log(item.event_id, item.event, item.payload);
-  await client.enterprise.webhooks.queue.ack(item.event_id);
+  await client.enterprise.events.ack(item.event_id);
 }
 if (queue.has_more) {
   // Drain remaining events on the next iteration
 }
 
 // Batch acknowledge
-await client.enterprise.webhooks.queue.batchAck(queue.items.map((e) => e.event_id));
-
-// Cross-firm (integrator)
-const allEvents = await client.enterprise.webhooks.queue.pullAll({ limit: 200 });
-await client.enterprise.webhooks.queue.batchAckAll(
-  allEvents.items.map((e) => e.event_id),
-);
+await client.enterprise.events.batchAck(queue.items.map((e) => e.event_id));
 ```
+
+`client.enterprise.webhooks.queue` remains available for legacy queue and
+cross-firm drain jobs.
 
 ### Reporting
 
@@ -606,24 +645,31 @@ await client.enterprise.reporting.statistics({ from: "2026-01-01", to: "2026-03-
 const account = await client.enterprise.account.get();
 ```
 
-### Extract (AI OCR)
+### Payload Assistant OCR
 
 ```typescript
 import { readFileSync } from "fs";
 
 // Single file
-const result = await client.enterprise.extract.single(
+const result = await client.enterprise.payloads.extract(
   readFileSync("invoice.pdf"),
   "application/pdf",
   "invoice.pdf",
 );
+// Outbound invoices can include result.send_payload for review + validate + send.
+if (result.send_payload) {
+  await client.enterprise.payloads.validate(result.send_payload);
+}
 
-// Batch (up to 10 files, server-side)
-const batch = await client.enterprise.extract.batch([
+// Batch (up to 50 files, server-side)
+const batch = await client.enterprise.payloads.extractBatch([
   { file: pdfBuffer, mimeType: "application/pdf", fileName: "inv1.pdf" },
   { file: imgBuffer, mimeType: "image/png", fileName: "inv2.png" },
 ]);
 ```
+
+`client.enterprise.extract` remains available for compatibility; new
+integrations should use `client.enterprise.payloads.extract`.
 
 ---
 
@@ -714,6 +760,7 @@ try {
 | `documents.statusBatch(ids)`             | POST   | `/documents/status/batch`                    |
 | `documents.evidence(id)`                 | GET    | `/documents/{id}/evidence`                   |
 | `documents.evidenceBundle(id)`           | GET    | `/documents/{id}/evidence-bundle`            |
+| `documents.supportPacket(id)`            | GET    | `/documents/{id}/support-packet`             |
 | `documents.envelope(id)`                 | GET    | `/documents/{id}/envelope`                   |
 | `documents.pdf(id)`                      | GET    | `/documents/{id}/pdf`                        |
 | `documents.ubl(id)`                      | GET    | `/documents/{id}/ubl`                        |
@@ -760,6 +807,14 @@ try {
 | `webhooks.queue.batchAck(ids)`           | POST   | `/webhook-queue/batch-ack`                   |
 | `webhooks.queue.pullAll(params?)`        | GET    | `/webhook-queue/all`                         |
 | `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`               |
+| `payloads.extract(file, mimeType, fileName?)` | POST | `/payloads/extract`                          |
+| `payloads.extractBatch(files)`           | POST   | `/payloads/extract/batch`                    |
+| `payloads.parse(xml)`                    | POST   | `/payloads/parse`                            |
+| `payloads.convert(body)`                 | POST   | `/payloads/convert`                          |
+| `payloads.validate(body)`                | POST   | `/payloads/validate`                         |
+| `events.pull(params?)`                   | GET    | `/events/pull`                               |
+| `events.ack(eventId)`                    | POST   | `/events/{eventId}/ack`                      |
+| `events.batchAck(ids)`                   | POST   | `/events/batch-ack`                          |
 | `reporting.statistics(params?)`          | GET    | `/reporting/statistics`                      |
 | `reporting.submissions(params?)`         | GET    | `/reporting/submissions`                     |
 | `account.get()`                          | GET    | `/account`                                   |
@@ -799,6 +854,8 @@ try {
 | `connector.getDocumentUbl(documentId)`   | GET    | `/connector/documents/{documentId}/ubl`      |
 | `connector.getDocumentEvidence(documentId)` | GET | `/connector/documents/{documentId}/evidence` |
 | `connector.getDocumentEvidenceBundle(documentId)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector.getDocumentSupportPacket(documentId)` | GET | `/connector/documents/{documentId}/support-packet` |
+| `connector.documents.supportPacket(documentId)` | GET | `/connector/documents/{documentId}/support-packet` |
 | `connector.runAction(actionId, body?)`   | POST   | `/connector/actions/{actionId}`              |
 | `connector.status(documentId)`           | GET    | `/connector/status/{documentId}`             |
 | `connector.inbox(params?)`               | GET    | `/connector/inbox`                           |

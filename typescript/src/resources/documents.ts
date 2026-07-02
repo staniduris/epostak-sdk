@@ -394,6 +394,16 @@ export class DocumentsResource extends BaseResource {
     return Buffer.from(await res.arrayBuffer());
   }
 
+  async supportPacket(id: string): Promise<Buffer> {
+    const res = await this.request<Response>(
+      "GET",
+      `/documents/${encodeURIComponent(id)}/support-packet`,
+      undefined,
+      { rawResponse: true },
+    );
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   /**
    * Send an Invoice Response (Peppol Application Response) for a received
    * document. Routes a signed UBL Invoice Response back to the original

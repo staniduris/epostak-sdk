@@ -142,7 +142,7 @@ module EPostak
     # @raise [EPostak::Error] On non-2xx responses
     def request_multipart(path, file_parts)
       multipart_conn = Faraday.new(url: @base_url) do |f|
-        f.request :multipart
+        f.request :multipart, flat_encode: true
         f.request :url_encoded
         f.adapter Faraday.default_adapter
         f.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
@@ -158,8 +158,8 @@ module EPostak
           part[:filename] || "document"
         )
         if file_parts.count { |p| p[:field] == key } > 1
-          payload["#{key}[]"] ||= []
-          payload["#{key}[]"] << upload
+          payload[key] ||= []
+          payload[key] << upload
         else
           payload[key] = upload
         end

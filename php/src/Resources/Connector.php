@@ -16,12 +16,14 @@ use EPostak\EPostakError;
 class Connector
 {
     public ConnectorCustomers $customers;
+    public ConnectorDocuments $documents;
 
     /**
      * @param HttpClient $http Shared HTTP transport instance.
      */
     public function __construct(private HttpClient $http)
     {
+        $this->documents = new ConnectorDocuments($this);
         $this->customers = new ConnectorCustomers($this);
     }
 
@@ -429,6 +431,13 @@ class Connector
         ]);
     }
 
+    public function getDocumentSupportPacket(string $documentId): array
+    {
+        return $this->http->request('GET', '/connector/documents/' . urlencode($documentId) . '/support-packet', [
+            'omitFirmId' => true,
+        ]);
+    }
+
     /**
      * Execute a pending Connector action.
      *
@@ -508,7 +517,7 @@ class ConnectorCustomer
     }
 }
 
-class ConnectorCustomerDocuments
+class ConnectorDocuments
 {
     public function __construct(private Connector $connector)
     {
@@ -533,6 +542,15 @@ class ConnectorCustomerDocuments
     {
         return $this->connector->getDocumentEvidenceBundle($documentId);
     }
+
+    public function supportPacket(string $documentId): array
+    {
+        return $this->connector->getDocumentSupportPacket($documentId);
+    }
+}
+
+class ConnectorCustomerDocuments extends ConnectorDocuments
+{
 }
 
 class ConnectorCustomerMailbox

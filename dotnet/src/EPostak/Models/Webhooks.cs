@@ -638,6 +638,24 @@ public sealed class WebhookQueueResponse
     [JsonPropertyName("items")]
     public List<WebhookQueueItem> Items { get; set; } = [];
 
+    /// <summary>
+    /// Compatibility alias for the preferred <c>/events/pull</c> response while
+    /// production and generated docs converge on <c>items</c>.
+    /// </summary>
+    [JsonPropertyName("events")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<WebhookQueueItem>? Events
+    {
+        get => null;
+        set
+        {
+            if (value is not null)
+            {
+                Items = value;
+            }
+        }
+    }
+
     /// <summary>Whether more events remain in the queue beyond this page.</summary>
     [JsonPropertyName("has_more")]
     public bool HasMore { get; set; }

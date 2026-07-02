@@ -8,13 +8,51 @@ Ruby `1.0.0` is a breaking workflow-first release:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.support_packet(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
 
 Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
 customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
 calls always send `X-Peppol-Participant-Id`.
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```ruby
+client.enterprise.payloads.validate(invoice)
+
+client.enterprise.documents.preflight(invoice[:receiverPeppolId])
+
+sent = client.enterprise.documents.send(
+  invoice,
+  idempotency_key: "erp-fa-2026-001"
+)
+
+events = client.enterprise.events.pull(limit: 50)
+client.enterprise.events.batch_ack(events["items"].map { |event| event["event_id"] })
+
+support_packet = client.enterprise.documents.support_packet(sent["documentId"])
+```
+
+The older `client.enterprise.webhooks.queue` resource remains available for
+compatibility. New pull-based integrations should prefer
+`client.enterprise.events`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`client.enterprise.extract`, `client.enterprise.documents.validate`,
+`client.enterprise.webhooks.queue`, and
+`client.enterprise.documents.evidence_bundle` integrations can keep running;
+migrate to `payloads`, `events`, and `support_packet` when your release window
+allows.
+
 ## Recent changes
+
+**Unreleased** (2026-07-01)
+- `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`,
+  and `client.enterprise.documents.support_packet(...)` cover the Enterprise
+  API facade flow for validation, event pull/ack, and support packets
 
 **Unreleased** (2026-06-30)
 - `client.connector.mapper(...)` and customer-scoped
@@ -620,14 +658,15 @@ client.enterprise.webhooks.delete("webhook-uuid")
 
 ---
 
-### Webhook Queue (Pull-based)
+### Events pull facade
 
-Accessed via `client.enterprise.webhooks.queue`. An alternative to push webhooks for environments that cannot receive inbound HTTPS requests.
+Accessed via `client.enterprise.events`. This is the preferred pull/ack path
+for environments that cannot receive inbound HTTPS requests on day one.
 
 #### Pull events
 
 ```ruby
-response = client.enterprise.webhooks.queue.pull(limit: 50, event_type: "document.received")
+response = client.enterprise.events.pull(limit: 50, event_type: "document.received")
 response["items"].each do |item|
   puts "#{item['type']}: #{item['payload']}"
 end
@@ -636,18 +675,21 @@ end
 #### Acknowledge a single event
 
 ```ruby
-client.enterprise.webhooks.queue.ack("event-uuid")
-# => nil (HTTP 204)
+client.enterprise.events.ack("event-uuid")
+# => {"acknowledged" => true}
 ```
 
 #### Batch acknowledge events
 
 ```ruby
-response = client.enterprise.webhooks.queue.pull(limit: 50)
+response = client.enterprise.events.pull(limit: 50)
 ids = response["items"].map { |i| i["event_id"] }
-client.enterprise.webhooks.queue.batch_ack(ids)
-# => nil (HTTP 204)
+client.enterprise.events.batch_ack(ids)
+# => {"acknowledged" => ids.length}
 ```
+
+`client.enterprise.webhooks.queue` remains available for legacy queue and
+cross-firm drain jobs.
 
 #### Pull all events (integrator)
 
@@ -695,30 +737,34 @@ puts "Usage: #{account['usage']['outbound']} sent, #{account['usage']['inbound']
 
 ---
 
-### Extract (AI-powered OCR)
+### Payload Assistant OCR
 
 #### Extract from a single file
 
 ```ruby
 # From a file path
-result = client.enterprise.extract.single("invoice.pdf", "application/pdf", file_name: "invoice.pdf")
+result = client.enterprise.payloads.extract("invoice.pdf", "application/pdf", file_name: "invoice.pdf")
 puts result["confidence"] # => 0.95
-puts result["ubl_xml"]   # => Generated UBL XML
+puts result["ubl_xml"]    # => Generated UBL XML
+puts result["send_payload"] # Outbound draft for review + validate + send
 
 # From an IO object
 io = File.open("scan.png", "rb")
-result = client.enterprise.extract.single(io, "image/png", file_name: "scan.png")
+result = client.enterprise.payloads.extract(io, "image/png", file_name: "scan.png")
 ```
 
 #### Extract from multiple files
 
 ```ruby
-result = client.enterprise.extract.batch([
+result = client.enterprise.payloads.extract_batch([
   { file: "invoice1.pdf", mime_type: "application/pdf", file_name: "invoice1.pdf" },
   { file: "invoice2.pdf", mime_type: "application/pdf", file_name: "invoice2.pdf" }
 ])
 puts "#{result['successful']}/#{result['total']} extracted successfully"
 ```
+
+`client.enterprise.extract` remains available for compatibility; new
+integrations should use `client.enterprise.payloads.extract`.
 
 ---
 

@@ -16,6 +16,7 @@ import java.util.Map;
 public final class ConnectorResource {
 
     private final HttpClient http;
+    private final ConnectorDocumentsResource documents;
     private final ConnectorCustomersResource customers;
 
     /**
@@ -25,7 +26,12 @@ public final class ConnectorResource {
      */
     public ConnectorResource(HttpClient http) {
         this.http = http;
+        this.documents = new ConnectorDocumentsResource(this);
         this.customers = new ConnectorCustomersResource(this);
+    }
+
+    public ConnectorDocumentsResource documents() {
+        return documents;
     }
 
     public ConnectorCustomersResource customers() {
@@ -457,6 +463,18 @@ public final class ConnectorResource {
                 new TypeToken<Map<String, Object>>() {
                 }
         );
+    }
+
+    public Map<String, Object> getDocumentSupportPacket(String documentId) {
+        return http.getTypedNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/support-packet",
+                new TypeToken<Map<String, Object>>() {
+                }
+        );
+    }
+
+    public Map<String, Object> supportPacket(String documentId) {
+        return getDocumentSupportPacket(documentId);
     }
 
     /**

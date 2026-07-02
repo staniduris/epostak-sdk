@@ -23,6 +23,8 @@ public final class EnterpriseResource {
     public AuthResource auth() { return client.auth(); }
     public BoxResource box() { return client.box(); }
     public ConnectorResource connector() { return client.connector(); }
+    public PayloadsResource payloads() { return client.payloads(); }
+    public EventsResource events() { return client.events(); }
     public AuditResource audit() { return client.audit(); }
     public IntegratorResource integrator() { return client.integrator(); }
     public EnterprisePullResource pull() { return pull; }

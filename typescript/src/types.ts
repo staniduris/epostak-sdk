@@ -2596,10 +2596,61 @@ export interface DocumentEventsResponse {
 // Extract
 // ---------------------------------------------------------------------------
 
+/** Field the integrator must review or complete before sending the extracted payload. */
+export interface ExtractMissingField {
+  /** Machine-readable field key, e.g. `receiverPeppolId` */
+  field: string;
+  /** Human-readable label for review UIs */
+  label?: string;
+  /** Explanation of why the value is needed */
+  message?: string;
+  /** `true` when the field blocks `/documents/send` */
+  blocking?: boolean;
+  /** Current value, when a partial value exists */
+  value?: unknown;
+  [key: string]: unknown;
+}
+
+/** Provenance for a value returned by OCR or enrichment. */
+export interface ExtractFieldSource {
+  /** Source identifier, e.g. `ocr`, `firm_profile`, or `peppol_directory` */
+  source: string;
+  /** Resolved value from this source */
+  value?: unknown;
+  /** Optional source confidence score (0–1) */
+  confidence?: number;
+  [key: string]: unknown;
+}
+
+/** Recommended next action after OCR extraction. */
+export interface ExtractNextAction {
+  /** Machine-readable action type */
+  type: string;
+  /** Human-readable action label */
+  label?: string;
+  /** Longer review/send instruction */
+  message?: string;
+  /** API endpoint to call next, when applicable */
+  endpoint?: string;
+  /** HTTP method for `endpoint`, when applicable */
+  method?: string;
+  [key: string]: unknown;
+}
+
 /** Result of AI-powered data extraction from a single PDF or image file. */
 export interface ExtractResult {
   /** Extracted structured data (invoice fields, line items, parties, totals, etc.) */
   extraction: Record<string, unknown>;
+  /** Resolved document type, e.g. `invoice`, `credit_note`, or `self_billing` */
+  document_type?: string;
+  /** `inbound` returns generated UBL; `outbound` returns a reviewable send payload when supported */
+  direction?: "inbound" | "outbound" | string;
+  /** Draft JSON body for `POST /documents/send`; returned for outbound standard-invoice OCR */
+  send_payload?: Record<string, unknown> | null;
+  /** Fields the caller must fill before posting `send_payload` */
+  send_payload_missing_fields?: string[];
+  /** `true` when `send_payload` has the blocking fields needed by `/documents/send` */
+  send_ready?: boolean;
   /** Generated UBL 2.1 XML from the extracted data */
   ubl_xml: string;
   /** Coarse confidence bucket: `"high"`, `"medium"`, or `"low"` */
@@ -2608,6 +2659,12 @@ export interface ExtractResult {
   confidence_scores: Record<string, number>;
   /** `true` when `confidence === "low"` or `"medium"` — human review recommended */
   needs_review: boolean;
+  /** Review checklist for missing or low-confidence values */
+  missing_fields?: ExtractMissingField[];
+  /** Provenance map for extracted/enriched fields */
+  field_sources?: Record<string, ExtractFieldSource>;
+  /** Recommended next API action */
+  next_action?: ExtractNextAction;
   /** Original file name of the uploaded document */
   file_name: string;
 }
@@ -2616,12 +2673,32 @@ export interface ExtractResult {
 export interface BatchExtractItem {
   /** Original file name */
   file_name: string;
+  /** Resolved document type, e.g. `invoice`, `credit_note`, or `self_billing` */
+  document_type?: string;
+  /** `inbound` returns generated UBL; `outbound` returns a reviewable send payload when supported */
+  direction?: "inbound" | "outbound" | string;
+  /** Draft JSON body for `POST /documents/send`; returned for outbound standard-invoice OCR */
+  send_payload?: Record<string, unknown> | null;
+  /** Fields the caller must fill before posting `send_payload` */
+  send_payload_missing_fields?: string[];
+  /** `true` when `send_payload` has the blocking fields needed by `/documents/send` */
+  send_ready?: boolean;
   /** Extracted structured data, present on success */
   extraction?: Record<string, unknown>;
   /** Generated UBL XML, present on success */
   ubl_xml?: string;
   /** Confidence bucket, present on success */
   confidence?: "high" | "medium" | "low";
+  /** Per-field confidence scores (0–1) mapped onto the coarse bucket */
+  confidence_scores?: Record<string, number>;
+  /** `true` when a human should review this extraction */
+  needs_review?: boolean;
+  /** Review checklist for missing or low-confidence values */
+  missing_fields?: ExtractMissingField[];
+  /** Provenance map for extracted/enriched fields */
+  field_sources?: Record<string, ExtractFieldSource>;
+  /** Recommended next API action */
+  next_action?: ExtractNextAction;
   /** Error message if extraction failed for this file */
   error?: string;
 }

@@ -52,6 +52,8 @@ public final class EPostak {
     private final AuthResource auth;
     private final BoxResource box;
     private final ConnectorResource connector;
+    private final PayloadsResource payloads;
+    private final EventsResource events;
     private final AuditResource audit;
     private final IntegratorResource integrator;
     private final InboundResource inbound;
@@ -90,6 +92,8 @@ public final class EPostak {
         this.auth = new AuthResource(httpClient);
         this.box = new BoxResource(httpClient);
         this.connector = new ConnectorResource(httpClient);
+        this.payloads = new PayloadsResource(httpClient);
+        this.events = new EventsResource(httpClient);
         this.audit = new AuditResource(httpClient);
         this.integrator = new IntegratorResource(httpClient);
         this.inbound = new InboundResource(httpClient);
@@ -178,6 +182,12 @@ public final class EPostak {
      * @return the Connector resource
      */
     public ConnectorResource connector() { return connector; }
+
+    /** Payload Assistant helpers for OCR, parse, convert, and validation. */
+    public PayloadsResource payloads() { return payloads; }
+
+    /** Pull/ack event facade over the webhook queue. */
+    public EventsResource events() { return events; }
 
     /**
      * Per-firm audit feed (cursor-paginated).

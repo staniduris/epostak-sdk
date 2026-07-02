@@ -59,6 +59,30 @@ def _make_client() -> EPostak:
     return client
 
 
+def test_events_pull_normalizes_live_events_response():
+    from epostak.resources.events import EventsResource
+
+    import httpx
+
+    tm = MagicMock()
+    tm.get_access_token.return_value = "test-token"
+    events = EventsResource(httpx.Client(), "https://epostak.sk/api/v1", tm, None)
+
+    live_response = {
+        "events": [{"event_id": "evt-live", "event": "document.received"}],
+        "has_more": False,
+    }
+    with patch.object(events, "_request", return_value=live_response) as mock_req:
+        result = events.pull(limit=10, event_type="document.received")
+
+    mock_req.assert_called_once_with(
+        "GET",
+        "/events/pull",
+        params={"limit": "10", "event_type": "document.received"},
+    )
+    assert result["items"][0]["event_id"] == "evt-live"
+
+
 def _make_firm_scoped_connector():
     """Return a ConnectorResource wired to a mocked HTTP client with firm scope."""
     from epostak.resources.connector import ConnectorResource

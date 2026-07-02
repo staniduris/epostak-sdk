@@ -3,6 +3,7 @@
 from epostak.resources.account import AccountResource
 from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource, InboxResource
+from epostak.resources.events import EventsResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
 from epostak.resources.inbound import InboundResource
@@ -11,6 +12,7 @@ from epostak.resources.integrator import (
     IntegratorResource,
 )
 from epostak.resources.outbound import OutboundResource
+from epostak.resources.payloads import PayloadsResource
 from epostak.resources.peppol import PeppolDirectoryResource, PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.sapi import SapiResource
@@ -20,6 +22,7 @@ __all__ = [
     "AccountResource",
     "ConnectorResource",
     "DocumentsResource",
+    "EventsResource",
     "ExtractResource",
     "FirmsResource",
     "InboundResource",
@@ -27,6 +30,7 @@ __all__ = [
     "IntegratorLicensesResource",
     "IntegratorResource",
     "OutboundResource",
+    "PayloadsResource",
     "PeppolDirectoryResource",
     "PeppolResource",
     "ReportingResource",

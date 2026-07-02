@@ -45,6 +45,12 @@ public sealed class EPostakClient : IDisposable
     /// <summary>Connector workflow for ERP send, preflight, inbox polling, ack, and events.</summary>
     public ConnectorResource Connector { get; }
 
+    /// <summary>Payload Assistant helpers for OCR, parse, convert, and validation.</summary>
+    public PayloadsResource Payloads { get; }
+
+    /// <summary>Pull/ack event facade over the webhook queue.</summary>
+    public EventsResource Events { get; }
+
     /// <summary>Per-firm audit feed (cursor-paginated).</summary>
     public AuditResource Audit { get; }
 
@@ -156,6 +162,8 @@ public sealed class EPostakClient : IDisposable
         Auth = new AuthResource(requestor, _http, config.BaseUrl);
         Box = new BoxResource(requestor);
         Connector = new ConnectorResource(requestor);
+        Payloads = new PayloadsResource(requestor);
+        Events = new EventsResource(requestor);
         Audit = new AuditResource(requestor);
         Documents = new DocumentsResource(requestor);
         Firms = new FirmsResource(requestor);

@@ -30,13 +30,57 @@ Java `1.0.0` is a breaking workflow-first release:
 
 - Enterprise direct firm flow: `client.enterprise().documents().send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise().connector().customers().forCustomer("erp-customer").submitDocument(...)`
+- Enterprise API facade flow: `client.enterprise().payloads().validate(...)`, `client.enterprise().events().pull(...)`, `client.enterprise().documents().supportPacket(...)`
 - SAPI-SK interoperable flow: `client.sapi().participants().forParticipant("0245:1234567890").documents().send(...)`
 
 Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
 customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
 calls always send `X-Peppol-Participant-Id`.
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```java
+client.enterprise().payloads().validate(request);
+
+client.enterprise().documents().preflight(request.getReceiverPeppolId());
+
+SendDocumentResponse sent = client.enterprise().documents().send(
+    request,
+    "erp-fa-2026-001"
+);
+
+WebhookQueueResponse events = client.enterprise().events().pull(50, null);
+client.enterprise().events().batchAck(
+    events.items().stream()
+        .map(WebhookQueueResponse.WebhookQueueItem::eventId)
+        .toList()
+);
+
+byte[] supportPacket = client.enterprise().documents().supportPacket(sent.documentId());
+```
+
+The older `client.enterprise().webhooks().queue()` resource remains available
+for compatibility. New pull-based integrations should prefer
+`client.enterprise().events()`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`client.enterprise().extract()`, `client.enterprise().documents().validate()`,
+`client.enterprise().webhooks().queue()`, and
+`client.enterprise().documents().evidenceBundle()` integrations can keep
+running; migrate to `payloads()`, `events()`, and `supportPacket()` when your
+release window allows.
+
 ## Recent changes
+
+### Unreleased — 2026-07-01
+
+- `client.enterprise().payloads().validate(...)`,
+  `client.enterprise().events().pull(...)`, and
+  `client.enterprise().documents().supportPacket(...)` cover the Enterprise API
+  facade flow for validation, event pull/ack, and support packets.
 
 ### Unreleased — 2026-06-30
 
@@ -652,34 +696,35 @@ The signature contract is **unchanged** — `WebhookSignature.verify(...)` conti
 
 ---
 
-### Webhook Pull Queue
+### Events pull facade
 
 Alternative to push webhooks -- poll for events.
 
-#### `webhooks().queue().pull(limit, eventType)` -- Fetch pending events
+#### `events().pull(limit, eventType)` -- Fetch pending events
 
 ```java
-WebhookQueueResponse queue = client.enterprise().webhooks().queue().pull(50, "document.received");
+WebhookQueueResponse queue = client.enterprise().events().pull(50, "document.received");
 for (var item : queue.items()) {
-    System.out.println(item.id() + " " + item.type() + " " + item.payload());
+    System.out.println(item.eventId() + " " + item.event() + " " + item.payload());
 }
 // queue.hasMore()
 ```
 
-#### `webhooks().queue().ack(eventId)` -- Acknowledge single event
+#### `events().ack(eventId)` -- Acknowledge single event
 
 ```java
-client.enterprise().webhooks().queue().ack("event-uuid");
-// void (HTTP 204)
+client.enterprise().events().ack("event-uuid");
 ```
 
-#### `webhooks().queue().batchAck(eventIds)` -- Batch acknowledge
+#### `events().batchAck(eventIds)` -- Batch acknowledge
 
 ```java
-List<String> ids = queue.items().stream().map(i -> i.id()).toList();
-client.enterprise().webhooks().queue().batchAck(ids);
-// void (HTTP 204)
+List<String> ids = queue.items().stream().map(i -> i.eventId()).toList();
+client.enterprise().events().batchAck(ids);
 ```
+
+The older `client.enterprise().webhooks().queue()` resource remains available
+for legacy queue and cross-firm drain jobs.
 
 #### `webhooks().queue().pullAll(limit, since)` -- Cross-firm queue (integrator)
 
@@ -723,29 +768,32 @@ Account account = client.enterprise().account().get();
 
 ---
 
-### Extract (AI OCR)
+### Payload Assistant OCR
 
 Requires Enterprise plan.
 
-#### `extract().single(fileBytes, fileName, mimeType)` -- Single file
+#### `payloads().extract(fileBytes, fileName, mimeType)` -- Single file
 
 ```java
 byte[] pdf = java.nio.file.Files.readAllBytes(java.nio.file.Path.of("invoice.pdf"));
-ExtractResult result = client.enterprise().extract().single(pdf, "invoice.pdf", "application/pdf");
-// result.extraction(), result.ublXml(), result.confidence()
+ExtractResult result = client.enterprise().payloads().extract(pdf, "invoice.pdf", "application/pdf");
+// result.extraction(), result.ublXml(), result.confidence(), response field send_payload
 ```
 
 Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`. Max 20 MB.
 
-#### `extract().batch(files)` -- Batch extraction (max 10 files)
+#### `payloads().extractBatch(files)` -- Batch extraction (max 50 files)
 
 ```java
-BatchExtractResult result = client.enterprise().extract().batch(List.of(
+BatchExtractResult result = client.enterprise().payloads().extractBatch(List.of(
     new ExtractResource.FileInput(pdfBytes, "inv1.pdf", "application/pdf"),
     new ExtractResource.FileInput(imageBytes, "inv2.png", "image/png")
 ));
 // result.batchId(), result.total(), result.successful(), result.failed(), result.results()
 ```
+
+`client.enterprise().extract()` remains available for compatibility; new
+integrations should use `client.enterprise().payloads().extract`.
 
 ---
 
@@ -832,6 +880,7 @@ try {
 | `documents().statusBatch(ids)`        | POST   | `/documents/status/batch`            |
 | `documents().evidence(id)`            | GET    | `/documents/{id}/evidence`           |
 | `documents().evidenceBundle(id)`      | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents().supportPacket(id)`       | GET    | `/documents/{id}/support-packet`     |
 | `documents().envelope(id)`            | GET    | `/documents/{id}/envelope`           |
 | `documents().pdf(id)`                 | GET    | `/documents/{id}/pdf`                |
 | `documents().ubl(id)`                 | GET    | `/documents/{id}/ubl`                |
@@ -912,6 +961,8 @@ try {
 | `connector().getDocumentUbl(documentId)` | GET | `/connector/documents/{documentId}/ubl` |
 | `connector().getDocumentEvidence(documentId)` | GET | `/connector/documents/{documentId}/evidence` |
 | `connector().getDocumentEvidenceBundle(documentId)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector().getDocumentSupportPacket(documentId)` | GET | `/connector/documents/{documentId}/support-packet` |
+| `connector().documents().supportPacket(documentId)` | GET | `/connector/documents/{documentId}/support-packet` |
 | `connector().runAction(actionId, request)` | POST | `/connector/actions/{actionId}`    |
 | `connector().status(documentId)`      | GET    | `/connector/status/{documentId}`     |
 | `connector().inbox(params)`           | GET    | `/connector/inbox`                   |

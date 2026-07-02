@@ -21,6 +21,8 @@ import {
   InboundResource,
   OutboundResource,
   type BatchLookupResult,
+  type BatchExtractResult,
+  type ExtractResult,
   type PeppolParticipant,
 } from "../index.js";
 
@@ -169,6 +171,139 @@ it("box resource uses the public Box paths", async () => {
   assert.deepStrictEqual(JSON.parse(captured[3].body ?? "{}"), {
     scheduledFor: "2026-07-01T00:00:00.000Z",
   });
+});
+
+it("payloads, events and support packet facade use preferred API paths", async () => {
+  const client = makeClient();
+  const captured: Array<{ method: string; url: string; body: string | undefined }> = [];
+
+  mockFetch(async (input, init) => {
+    const url = typeof input === "string" ? input : (input as URL).toString();
+    if (url.includes("/auth/token")) {
+      return makeMockResponse({
+        access_token: "tok",
+        refresh_token: "ref",
+        token_type: "Bearer",
+        expires_in: 900,
+      });
+    }
+
+    captured.push({
+      method: init?.method ?? "GET",
+      url,
+      body: typeof init?.body === "string" ? init.body : undefined,
+    });
+    if (url.includes("/events/pull")) {
+      return makeMockResponse({
+        events: [
+          {
+            event_id: "evt-live",
+            firm_id: "firm-1",
+            event: "document.received",
+            payload: { event: "document.received", event_version: "1", timestamp: "2026-07-03T00:00:00Z", data: {} },
+            created_at: "2026-07-03T00:00:00Z",
+          },
+        ],
+        has_more: false,
+      });
+    }
+    return makeMockResponse({ ok: true, acknowledged: 1, items: [] });
+  });
+
+  await client.payloads.extract(Buffer.from("pdf"), "application/pdf", "invoice.pdf");
+  await client.payloads.extractBatch([
+    { file: Buffer.from("pdf"), mimeType: "application/pdf", fileName: "invoice.pdf" },
+  ]);
+  await client.payloads.parse("<Invoice/>");
+  await client.payloads.convert({
+    input_format: "ubl",
+    output_format: "json",
+    document: "<Invoice/>",
+  });
+  await client.payloads.validate({
+    format: "ubl",
+    document: "<Invoice/>",
+  });
+  const events = await client.events.pull({ limit: 10, event_type: "document.received" });
+  await client.events.ack("evt-1");
+  await client.events.batchAck(["evt-1", "evt-2"]);
+  await client.documents.supportPacket("doc-1");
+  await client.connector.getDocumentSupportPacket("doc-1");
+  await client.connector.documents.supportPacket("doc-3");
+  await client.connector.customers.for("cust-1").documents.supportPacket("doc-2");
+
+  assert.deepStrictEqual(
+    captured.map((req) => [req.method, new URL(req.url).pathname + new URL(req.url).search]),
+    [
+      ["POST", "/api/v1/payloads/extract"],
+      ["POST", "/api/v1/payloads/extract/batch"],
+      ["POST", "/api/v1/payloads/parse"],
+      ["POST", "/api/v1/payloads/convert"],
+      ["POST", "/api/v1/payloads/validate"],
+      ["GET", "/api/v1/events/pull?limit=10&event_type=document.received"],
+      ["POST", "/api/v1/events/evt-1/ack"],
+      ["POST", "/api/v1/events/batch-ack"],
+      ["GET", "/api/v1/documents/doc-1/support-packet"],
+      ["GET", "/api/v1/connector/documents/doc-1/support-packet"],
+      ["GET", "/api/v1/connector/documents/doc-3/support-packet"],
+      ["GET", "/api/v1/connector/documents/doc-2/support-packet"],
+    ],
+  );
+  assert.deepStrictEqual(JSON.parse(captured[7].body ?? "{}"), {
+    event_ids: ["evt-1", "evt-2"],
+  });
+  assert.strictEqual(events.items[0]?.event_id, "evt-live");
+});
+
+it("extract result types expose OCR review send payload fields", () => {
+  const single: ExtractResult = {
+    extraction: { invoiceNumber: "FAK-001" },
+    document_type: "invoice",
+    direction: "outbound",
+    send_payload: { receiverName: "Odberatel s.r.o." },
+    send_payload_missing_fields: ["receiverPeppolId"],
+    send_ready: false,
+    ubl_xml: "",
+    confidence: "high",
+    confidence_scores: { invoice_number: 0.95 },
+    needs_review: true,
+    missing_fields: [{ field: "receiverPeppolId", blocking: true }],
+    field_sources: {
+      invoice_number: { source: "ocr", value: "FAK-001", confidence: 0.95 },
+    },
+    next_action: {
+      type: "review_and_send",
+      endpoint: "/api/v1/documents/send",
+      method: "POST",
+    },
+    file_name: "invoice.pdf",
+  };
+
+  const batch: BatchExtractResult = {
+    results: [
+      {
+        file_name: "invoice.pdf",
+        direction: "outbound",
+        send_payload: { receiverName: "Odberatel s.r.o." },
+        send_payload_missing_fields: ["receiverPeppolId"],
+        send_ready: false,
+        extraction: single.extraction,
+        confidence: single.confidence,
+        missing_fields: [{ field: "receiverPeppolId", blocking: true }],
+        field_sources: {
+          invoice_number: { source: "ocr", value: "FAK-001", confidence: 0.95 },
+        },
+        next_action: {
+          type: "review_and_send",
+          endpoint: "/api/v1/documents/send",
+          method: "POST",
+        },
+      },
+    ],
+  };
+
+  assert.strictEqual(single.next_action?.endpoint, "/api/v1/documents/send");
+  assert.strictEqual(batch.results[0].send_payload_missing_fields?.[0], "receiverPeppolId");
 });
 
 // ---------------------------------------------------------------------------

@@ -1610,12 +1610,50 @@ class DocumentEventsResponse(TypedDict):
 # ---------------------------------------------------------------------------
 
 
+class ExtractMissingField(TypedDict, total=False):
+    """Field the integrator must review or complete before sending."""
+
+    field: str
+    label: str
+    message: str
+    blocking: bool
+    value: Any
+
+
+class ExtractFieldSource(TypedDict, total=False):
+    """Provenance for a value returned by OCR or enrichment."""
+
+    source: str
+    value: Any
+    confidence: float
+
+
+class ExtractNextAction(TypedDict, total=False):
+    """Recommended next action after OCR extraction."""
+
+    type: str
+    label: str
+    message: str
+    endpoint: str
+    method: str
+
+
 class ExtractResult(TypedDict, total=False):
     """Result of AI-powered extraction from a single file."""
 
     extraction: Dict[str, Any]  # type: ignore[misc]  # Structured invoice data extracted by AI
+    document_type: str  # type: ignore[misc]  # Resolved document type, e.g. invoice or self_billing
+    direction: str  # type: ignore[misc]  # "inbound" returns UBL; "outbound" returns a review send payload when supported
+    send_payload: Optional[Dict[str, Any]]  # type: ignore[misc]  # Draft body for POST /documents/send
+    send_payload_missing_fields: List[str]  # type: ignore[misc]  # Fields required before posting send_payload
+    send_ready: bool  # type: ignore[misc]  # True when blocking send fields are present
     ubl_xml: str  # type: ignore[misc]  # Generated UBL XML from the extraction
-    confidence: float  # type: ignore[misc]  # AI confidence score (0.0 - 1.0)
+    confidence: Union[str, float]  # type: ignore[misc]  # Confidence bucket returned by API; float kept for older callers
+    confidence_scores: Dict[str, float]  # type: ignore[misc]  # Per-field confidence scores
+    needs_review: bool  # type: ignore[misc]  # Human review recommended
+    missing_fields: List[ExtractMissingField]  # type: ignore[misc]  # Review checklist
+    field_sources: Dict[str, ExtractFieldSource]  # type: ignore[misc]  # Field provenance map
+    next_action: ExtractNextAction  # type: ignore[misc]  # Recommended next API action
     file_name: str  # type: ignore[misc]  # Name of the processed file
 
 
@@ -1623,9 +1661,19 @@ class BatchExtractItem(TypedDict, total=False):
     """Result for a single file within a batch extraction."""
 
     file_name: str  # type: ignore[misc]  # Name of the processed file
+    document_type: str  # Resolved document type
+    direction: str  # "inbound" or "outbound"
+    send_payload: Optional[Dict[str, Any]]  # Draft body for POST /documents/send
+    send_payload_missing_fields: List[str]  # Fields required before posting send_payload
+    send_ready: bool  # True when blocking send fields are present
     extraction: Dict[str, Any]  # Structured invoice data (present on success)
     ubl_xml: str  # Generated UBL XML (present on success)
     confidence: str  # AI confidence score as string (present on success)
+    confidence_scores: Dict[str, float]  # Per-field confidence scores
+    needs_review: bool  # Human review recommended
+    missing_fields: List[ExtractMissingField]  # Review checklist
+    field_sources: Dict[str, ExtractFieldSource]  # Field provenance map
+    next_action: ExtractNextAction  # Recommended next API action
     error: str  # Error message (present on failure)
 
 

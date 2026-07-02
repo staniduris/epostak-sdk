@@ -214,6 +214,11 @@ module EPostak
         @http.request_raw(:get, "/documents/#{encode(id)}/evidence-bundle")
       end
 
+      # Download the support/evidence ZIP packet for a document.
+      def support_packet(id)
+        @http.request_raw(:get, "/documents/#{encode(id)}/support-packet")
+      end
+
       # Send an Invoice Response (accept, reject, or query) for a received document.
       # This sends a Peppol Invoice Response message back to the supplier.
       #

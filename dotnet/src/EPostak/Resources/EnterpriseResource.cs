@@ -16,6 +16,8 @@ public sealed class EnterpriseResource
     public AccountResource Account { get; }
     public IntegratorResource Integrator { get; }
     public ConnectorResource Connector { get; }
+    public PayloadsResource Payloads { get; }
+    public EventsResource Events { get; }
     public EnterprisePullResource Pull { get; }
 
     internal EnterpriseResource(EPostakClient client)
@@ -33,6 +35,8 @@ public sealed class EnterpriseResource
         Account = client.Account;
         Integrator = client.Integrator;
         Connector = client.Connector;
+        Payloads = client.Payloads;
+        Events = client.Events;
         Pull = new EnterprisePullResource(client.Inbound, client.Outbound);
     }
 }

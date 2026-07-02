@@ -234,6 +234,10 @@ public final class DocumentsResource {
         return http.getBytes("/documents/" + HttpClient.encode(id) + "/evidence-bundle");
     }
 
+    public byte[] supportPacket(String id) {
+        return http.getBytes("/documents/" + HttpClient.encode(id) + "/support-packet");
+    }
+
     /**
      * Send an invoice response for a received document. Status must be one of
      * the seven UBL response codes: {@code AB}, {@code IP}, {@code UQ},

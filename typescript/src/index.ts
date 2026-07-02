@@ -31,6 +31,7 @@ export { AuthResource, IpAllowlistResource } from "./resources/auth.js";
 export { AuditResource } from "./resources/audit.js";
 export { BoxResource } from "./resources/box.js";
 export {
+  ConnectorDocumentsResource,
   ConnectorCustomerDocumentsResource,
   ConnectorCustomerMailboxResource,
   ConnectorCustomerResource,
@@ -40,6 +41,7 @@ export {
 } from "./resources/connector.js";
 export { EnterprisePullResource, EnterpriseResource } from "./resources/enterprise.js";
 export { DocumentsResource, InboxResource } from "./resources/documents.js";
+export { EventsResource } from "./resources/events.js";
 export { FirmsResource } from "./resources/firms.js";
 export { PeppolResource, PeppolDirectoryResource } from "./resources/peppol.js";
 export {
@@ -48,6 +50,7 @@ export {
 } from "./resources/webhooks.js";
 export { ReportingResource } from "./resources/reporting.js";
 export { ExtractResource } from "./resources/extract.js";
+export { PayloadsResource } from "./resources/payloads.js";
 export { AccountResource } from "./resources/account.js";
 export {
   IntegratorResource,

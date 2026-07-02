@@ -14,7 +14,7 @@ module EPostak
     class Enterprise
       attr_reader :auth, :audit, :documents, :inbox, :firms, :peppol,
                   :webhooks, :reporting, :account, :extract, :integrator,
-                  :connector, :box, :pull
+                  :connector, :payloads, :events, :box, :pull
 
       def initialize(client)
         @auth = client.auth
@@ -30,6 +30,8 @@ module EPostak
         @extract = client.extract
         @integrator = client.integrator
         @connector = client.connector
+        @payloads = client.payloads
+        @events = client.events
         @pull = EnterprisePull.new(inbound: client.inbound, outbound: client.outbound)
       end
     end

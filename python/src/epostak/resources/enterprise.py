@@ -30,4 +30,6 @@ class EnterpriseResource:
         self.account = client.account
         self.integrator = client.integrator
         self.connector = client.connector
+        self.payloads = client.payloads
+        self.events = client.events
         self.pull = EnterprisePullResource(client.inbound, client.outbound)

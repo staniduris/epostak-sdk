@@ -20,13 +20,55 @@ Or add to your `.csproj`:
 
 - Enterprise direct firm flow: `client.Enterprise.Documents.SendAsync(...)`
 - Enterprise ERP/integrator flow: `client.Enterprise.Connector.Customers.For("erp-customer").SubmitDocumentAsync(...)`
+- Enterprise API facade flow: `client.Enterprise.Payloads.ValidateAsync(...)`, `client.Enterprise.Events.PullAsync(...)`, `client.Enterprise.Documents.SupportPacketAsync(...)`
 - SAPI-SK interoperable flow: `client.Sapi.Participants.For("0245:1234567890").Documents.SendAsync(...)`
 
 Enterprise `FirmId` applies only to firm-scoped Enterprise calls. Connector
 customer-scoped calls inject `CustomerRef` and omit `X-Firm-Id`. SAPI document
 calls always send `X-Peppol-Participant-Id`.
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```csharp
+await client.Enterprise.Payloads.ValidateAsync(request);
+
+await client.Enterprise.Documents.PreflightAsync(new PreflightRequest
+{
+    ReceiverPeppolId = request.ReceiverPeppolId
+});
+
+var sent = await client.Enterprise.Documents.SendAsync(
+    request,
+    idempotencyKey: "erp-fa-2026-001");
+
+var events = await client.Enterprise.Events.PullAsync(new WebhookQueueParams { Limit = 50 });
+await client.Enterprise.Events.BatchAckAsync(events.Items.Select(e => e.EventId));
+
+var supportPacket = await client.Enterprise.Documents.SupportPacketAsync(sent.DocumentId);
+```
+
+The older `client.Enterprise.Webhooks.Queue` resource remains available for
+compatibility. New pull-based integrations should prefer
+`client.Enterprise.Events`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`client.Enterprise.Extract`, `client.Enterprise.Documents.ValidateAsync`,
+`client.Enterprise.Webhooks.Queue`, and
+`client.Enterprise.Documents.EvidenceBundleAsync` integrations can keep running;
+migrate to `Payloads`, `Events`, and `SupportPacketAsync` when your release
+window allows.
+
 ## Recent changes
+
+### Unreleased — 2026-07-01
+
+- `client.Enterprise.Payloads.ValidateAsync(...)`,
+  `client.Enterprise.Events.PullAsync(...)`, and
+  `client.Enterprise.Documents.SupportPacketAsync(...)` cover the Enterprise
+  API facade flow for validation, event pull/ack, and support packets.
 
 ### Unreleased — 2026-06-30
 
@@ -537,11 +579,11 @@ app.MapPost("/webhooks/epostak", async (HttpRequest req, NpgsqlConnection db) =>
 
 The signature contract is **unchanged** (HMAC-SHA256 over `${timestamp}.${body}`).
 
-### Webhook Queue (polling)
+### Events pull facade
 
 ```csharp
 // Pull events
-var events = await client.Enterprise.Webhooks.Queue.PullAsync(new WebhookQueueParams
+var events = await client.Enterprise.Events.PullAsync(new WebhookQueueParams
 {
     Limit = 50,
     EventType = WebhookEvents.DocumentReceived
@@ -549,17 +591,17 @@ var events = await client.Enterprise.Webhooks.Queue.PullAsync(new WebhookQueuePa
 
 foreach (var item in events.Items)
 {
-    Console.WriteLine($"Event: {item.Type}, ID: {item.Id}");
+    Console.WriteLine($"Event: {item.Event}, ID: {item.EventId}");
     // Process the event...
 
     // Acknowledge it
-    await client.Enterprise.Webhooks.Queue.AckAsync(item.Id);
+    await client.Enterprise.Events.AckAsync(item.EventId);
 }
 
 // Batch acknowledge
-await client.Enterprise.Webhooks.Queue.BatchAckAsync(events.Items.Select(e => e.Id));
+await client.Enterprise.Events.BatchAckAsync(events.Items.Select(e => e.EventId));
 
-// Pull across all firms (integrator)
+// Legacy cross-firm queue remains available for integrator drain jobs.
 var allEvents = await client.Enterprise.Webhooks.Queue.PullAllAsync(new WebhookQueueAllParams
 {
     Limit = 100,
@@ -568,7 +610,7 @@ var allEvents = await client.Enterprise.Webhooks.Queue.PullAllAsync(new WebhookQ
 
 // Batch ack all (integrator)
 var result = await client.Enterprise.Webhooks.Queue.BatchAckAllAsync(
-    allEvents.Events.Select(e => e.EventId));
+    allEvents.Items.Select(e => e.EventId));
 Console.WriteLine($"Acknowledged: {result.Acknowledged}");
 ```
 
@@ -607,17 +649,18 @@ await client.Enterprise.Integrator.Keys.DeactivateAsync(clientId: "sk_int_xxxxx.
 var usage = await client.Enterprise.Integrator.Licenses.InfoAsync(limit: 100);
 ```
 
-### Extract (OCR)
+### Payload Assistant OCR
 
 ```csharp
 // Extract from a single file
 using var stream = File.OpenRead("invoice.pdf");
-var extracted = await client.Enterprise.Extract.SingleAsync(stream, "application/pdf", "invoice.pdf");
+var extracted = await client.Enterprise.Payloads.ExtractAsync(stream, "application/pdf", "invoice.pdf");
 Console.WriteLine($"Confidence: {extracted.Confidence}");
 Console.WriteLine($"UBL: {extracted.UblXml}");
+// Outbound invoices can include the response field send_payload for review + validate + send.
 
 // Batch extraction
-var batchResult = await client.Enterprise.Extract.BatchAsync(
+var batchResult = await client.Enterprise.Payloads.ExtractBatchAsync(
 [
     new ExtractFile { Stream = File.OpenRead("inv1.pdf"), MimeType = "application/pdf", FileName = "inv1.pdf" },
     new ExtractFile { Stream = File.OpenRead("inv2.png"), MimeType = "image/png", FileName = "inv2.png" }
@@ -625,6 +668,9 @@ var batchResult = await client.Enterprise.Extract.BatchAsync(
 
 Console.WriteLine($"Batch: {batchResult.Successful}/{batchResult.Total} successful");
 ```
+
+`client.Enterprise.Extract` remains available for compatibility; new
+integrations should use `client.Enterprise.Payloads.ExtractAsync`.
 
 ## Error handling
 

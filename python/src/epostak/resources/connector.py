@@ -49,6 +49,7 @@ class ConnectorResource(_BaseResource):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self.documents = ConnectorDocumentsResource(self)
         self.customers = ConnectorCustomersResource(self)
 
     def submit_document(self, body: Dict[str, Any]) -> ConnectorAutopilotRunResponse:
@@ -263,6 +264,14 @@ class ConnectorResource(_BaseResource):
             omit_firm_id=True,
         )
 
+    def get_document_support_packet(self, document_id: str) -> Dict[str, Any]:
+        """Retrieve the Connector support packet manifest."""
+        return self._request(
+            "GET",
+            f"/connector/documents/{quote(document_id, safe='')}/support-packet",
+            omit_firm_id=True,
+        )
+
     def run_action(
         self,
         action_id: str,
@@ -285,7 +294,7 @@ def _with_customer_ref(customer_ref: str, body: Dict[str, Any]) -> Dict[str, Any
     return scoped
 
 
-class ConnectorCustomerDocumentsResource:
+class ConnectorDocumentsResource:
     def __init__(self, parent: ConnectorResource) -> None:
         self._parent = parent
 
@@ -300,6 +309,13 @@ class ConnectorCustomerDocumentsResource:
 
     def evidence_bundle(self, document_id: str) -> Dict[str, Any]:
         return self._parent.get_document_evidence_bundle(document_id)
+
+    def support_packet(self, document_id: str) -> Dict[str, Any]:
+        return self._parent.get_document_support_packet(document_id)
+
+
+class ConnectorCustomerDocumentsResource(ConnectorDocumentsResource):
+    pass
 
 
 class ConnectorCustomerMailboxResource:

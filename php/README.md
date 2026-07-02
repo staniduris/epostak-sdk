@@ -12,6 +12,7 @@ PHP `1.0.0` is a breaking workflow-first release:
 
 - Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
 - Enterprise ERP/integrator flow: `$client->enterprise->connector->customers->for("erp-customer")->submitDocument(...)`
+- Enterprise API facade flow: `$client->enterprise->payloads->validate(...)`, `$client->enterprise->events->pull(...)`, `$client->enterprise->documents->supportPacket(...)`
 - SAPI-SK interoperable flow: `$client->sapi->participants->for("0245:1234567890")->documents->send(...)`
 
 Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
@@ -20,7 +21,49 @@ calls always send `X-Peppol-Participant-Id`.
 
 ---
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```php
+$client->enterprise->payloads->validate($invoice);
+
+$client->enterprise->documents->preflight($invoice['receiverPeppolId']);
+
+$sent = $client->enterprise->documents->send(
+    $invoice,
+    'erp-fa-2026-001'
+);
+
+$events = $client->enterprise->events->pull(['limit' => 50]);
+$client->enterprise->events->batchAck(array_column($events['items'], 'event_id'));
+
+$supportPacket = $client->enterprise->documents->supportPacket($sent['documentId']);
+```
+
+The older `$client->enterprise->webhooks->queue` resource remains available for
+compatibility. New pull-based integrations should prefer
+`$client->enterprise->events`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`$client->enterprise->extract`, `$client->enterprise->documents->validate`,
+`$client->enterprise->webhooks->queue`, and
+`$client->enterprise->documents->evidenceBundle` integrations can keep running;
+migrate to `payloads`, `events`, and `supportPacket` when your release window
+allows.
+
+---
+
 ## Recent changes
+
+### Unreleased — 2026-07-01
+
+- Enterprise API facade helpers for Payload Assistant validation, pull/ack
+  event handling, and document support packets:
+  `$client->enterprise->payloads->validate(...)`,
+  `$client->enterprise->events->pull(...)`, and
+  `$client->enterprise->documents->supportPacket(...)`.
 
 ### Unreleased — 2026-06-30
 
@@ -606,14 +649,15 @@ The signature contract is **unchanged** — `WebhookSignature::verify()` continu
 
 ---
 
-### Webhook Pull Queue
+### Events pull facade
 
-Alternative to push webhooks -- poll for events. Access via `$client->enterprise->webhooks->queue`.
+Alternative to push webhooks -- poll for events. Access via
+`$client->enterprise->events`.
 
-#### `webhooks->queue->pull($params)` -- Fetch pending events
+#### `events->pull($params)` -- Fetch pending events
 
 ```php
-$queue = $client->enterprise->webhooks->queue->pull([
+$queue = $client->enterprise->events->pull([
     'limit' => 50,                          // 1-100, default 20
     'event_type' => 'document.received',    // Optional filter
 ]);
@@ -625,20 +669,23 @@ foreach ($queue['items'] as $item) {
 // $queue['has_more'] -- bool
 ```
 
-#### `webhooks->queue->ack($eventId)` -- Acknowledge single event
+#### `events->ack($eventId)` -- Acknowledge single event
 
 ```php
-$client->enterprise->webhooks->queue->ack('event-uuid');
-// Returns null (HTTP 204)
+$client->enterprise->events->ack('event-uuid');
+// Returns ['acknowledged' => true]
 ```
 
-#### `webhooks->queue->batchAck($eventIds)` -- Batch acknowledge
+#### `events->batchAck($eventIds)` -- Batch acknowledge
 
 ```php
-$ids = array_column($queue['items'], 'id');
-$client->enterprise->webhooks->queue->batchAck($ids);
-// Returns null (HTTP 204)
+$ids = array_column($queue['items'], 'event_id');
+$client->enterprise->events->batchAck($ids);
+// Returns ['acknowledged' => count($ids)]
 ```
+
+`$client->enterprise->webhooks->queue` remains available for legacy queue and
+cross-firm drain jobs.
 
 #### `webhooks->queue->pullAll($params)` -- Cross-firm queue (integrator)
 
@@ -648,16 +695,16 @@ $queue = $client->enterprise->webhooks->queue->pullAll([
     'since' => '2026-04-01T00:00:00Z',
 ]);
 
-foreach ($queue['events'] as $event) {
+foreach ($queue['items'] as $event) {
     echo $event['firm_id'] . ' ' . $event['event'] . "\n";
 }
-// => ['events' => [...], 'count' => ...]
+// => ['items' => [...], 'has_more' => false]
 ```
 
 #### `webhooks->queue->batchAckAll($eventIds)` -- Cross-firm batch ack (integrator)
 
 ```php
-$ids = array_column($queue['events'], 'event_id');
+$ids = array_column($queue['items'], 'event_id');
 $result = $client->enterprise->webhooks->queue->batchAckAll($ids);
 echo $result['acknowledged'];  // number of events acknowledged
 ```
@@ -693,33 +740,37 @@ $account = $client->enterprise->account->get();
 
 ---
 
-### Extract (AI OCR)
+### Payload Assistant OCR
 
 Requires Enterprise plan.
 
-#### `extract->single($filePath, $mimeType, $fileName)` -- Single file
+#### `payloads->extract($filePath, $mimeType, $fileName)` -- Single file
 
 ```php
-$result = $client->enterprise->extract->single(
+$result = $client->enterprise->payloads->extract(
     '/path/to/invoice.pdf',
     'application/pdf',
     'invoice.pdf'    // Optional, defaults to basename
 );
 // => ['extraction' => [...], 'ubl_xml' => '...', 'confidence' => 0.95, 'file_name' => '...']
+// Outbound invoices can include $result['send_payload'] for review + validate + send.
 ```
 
 Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`. Max 20 MB.
 
-#### `extract->batch($files)` -- Batch extraction (up to 10 files)
+#### `payloads->extractBatch($files)` -- Batch extraction (up to 50 files)
 
 ```php
-$result = $client->enterprise->extract->batch([
+$result = $client->enterprise->payloads->extractBatch([
     ['filePath' => '/path/to/inv1.pdf', 'mimeType' => 'application/pdf', 'fileName' => 'inv1.pdf'],
     ['filePath' => '/path/to/inv2.png', 'mimeType' => 'image/png'],
 ]);
 // => ['batch_id', 'total', 'successful', 'failed',
 //     'results' => [['file_name', 'extraction', 'ubl_xml', 'confidence', 'error'], ...]]
 ```
+
+`$client->enterprise->extract` remains available for compatibility; new
+integrations should use `$client->enterprise->payloads->extract`.
 
 ---
 
@@ -800,6 +851,7 @@ try {
 | `documents->statusBatch($ids)`                               | POST   | `/documents/status/batch`            |
 | `documents->evidence($id)`                                   | GET    | `/documents/{id}/evidence`           |
 | `documents->evidenceBundle($id)`                             | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents->supportPacket($id)`                              | GET    | `/documents/{id}/support-packet`     |
 | `documents->envelope($id)`                                   | GET    | `/documents/{id}/envelope`           |
 | `documents->pdf($id)`                                        | GET    | `/documents/{id}/pdf`                |
 | `documents->ubl($id)`                                        | GET    | `/documents/{id}/ubl`                |
@@ -845,6 +897,14 @@ try {
 | `webhooks->queue->batchAck($ids)`                            | POST   | `/webhook-queue/batch-ack`           |
 | `webhooks->queue->pullAll($params)`                          | GET    | `/webhook-queue/all`                 |
 | `webhooks->queue->batchAckAll($ids)`                         | POST   | `/webhook-queue/all/batch-ack`       |
+| `payloads->extract($filePath, $mimeType, $fileName)`         | POST   | `/payloads/extract`                  |
+| `payloads->extractBatch($files)`                             | POST   | `/payloads/extract/batch`            |
+| `payloads->parse($xml)`                                      | POST   | `/payloads/parse`                    |
+| `payloads->convert($inputFormat, $outputFormat, $document)`  | POST   | `/payloads/convert`                  |
+| `payloads->validate($body)`                                  | POST   | `/payloads/validate`                 |
+| `events->pull($params)`                                      | GET    | `/events/pull`                       |
+| `events->ack($eventId)`                                      | POST   | `/events/{eventId}/ack`              |
+| `events->batchAck($ids)`                                     | POST   | `/events/batch-ack`                  |
 | `inbound->list($params)`                                     | GET    | `/inbound/documents`                 |
 | `inbound->get($id)`                                          | GET    | `/inbound/documents/{id}`            |
 | `inbound->getUbl($id)`                                       | GET    | `/inbound/documents/{id}/ubl`        |
@@ -893,6 +953,8 @@ try {
 | `connector->getDocumentUbl($documentId)`                      | GET    | `/connector/documents/{documentId}/ubl` |
 | `connector->getDocumentEvidence($documentId)`                 | GET    | `/connector/documents/{documentId}/evidence` |
 | `connector->getDocumentEvidenceBundle($documentId)`           | GET    | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector->getDocumentSupportPacket($documentId)`            | GET    | `/connector/documents/{documentId}/support-packet` |
+| `connector->documents->supportPacket($documentId)`            | GET    | `/connector/documents/{documentId}/support-packet` |
 | `connector->runAction($actionId, $body)`                      | POST   | `/connector/actions/{actionId}`      |
 | `connector->status($documentId)`                             | GET    | `/connector/status/{documentId}`     |
 | `connector->inbox($params)`                                  | GET    | `/connector/inbox`                   |

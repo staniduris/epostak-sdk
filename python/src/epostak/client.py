@@ -21,11 +21,13 @@ from epostak.resources.box import BoxResource
 from epostak.resources.connector import ConnectorResource
 from epostak.resources.documents import DocumentsResource
 from epostak.resources.enterprise import EnterpriseResource
+from epostak.resources.events import EventsResource
 from epostak.resources.extract import ExtractResource
 from epostak.resources.firms import FirmsResource
 from epostak.resources.inbound import InboundResource
 from epostak.resources.integrator import IntegratorResource
 from epostak.resources.outbound import OutboundResource
+from epostak.resources.payloads import PayloadsResource
 from epostak.resources.peppol import PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.sapi import SapiResource
@@ -133,6 +135,12 @@ class EPostak:
     connector: ConnectorResource
     """Connector workflow for ERP send, preflight, inbox polling, ack, and events."""
 
+    payloads: PayloadsResource
+    """Payload Assistant helpers for OCR, parse, convert, and validation."""
+
+    events: EventsResource
+    """Pull/ack event facade over the webhook queue."""
+
     audit: AuditResource
     """Per-firm audit feed (cursor-paginated)."""
 
@@ -208,6 +216,8 @@ class EPostak:
         self.auth = AuthResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.box = BoxResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.connector = ConnectorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.payloads = PayloadsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.events = EventsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.audit = AuditResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.documents = DocumentsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.firms = FirmsResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)

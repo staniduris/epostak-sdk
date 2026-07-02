@@ -574,6 +574,11 @@ class DocumentsResource(_BaseResource):
         response = self._request("GET", f"/documents/{quote(id, safe='')}/evidence-bundle", raw=True)
         return response.content
 
+    def support_packet(self, id: str) -> bytes:
+        """Download the support/evidence ZIP packet for a document."""
+        response = self._request("GET", f"/documents/{quote(id, safe='')}/support-packet", raw=True)
+        return response.content
+
     def respond(self, id: str, status: str, note: Optional[str] = None) -> InvoiceRespondResponse:
         """Send an invoice response for a received document.
 

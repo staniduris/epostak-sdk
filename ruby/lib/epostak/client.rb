@@ -24,6 +24,12 @@ module EPostak
     #   preflight, inbox polling, ack, and events
     attr_reader :connector
 
+    # @return [Resources::Payloads] Payload Assistant helpers
+    attr_reader :payloads
+
+    # @return [Resources::Events] Pull/ack event facade
+    attr_reader :events
+
     # @return [Resources::Audit] Per-firm audit feed (cursor-paginated)
     attr_reader :audit
 
@@ -107,6 +113,8 @@ module EPostak
       @auth       = Resources::Auth.new(@http, base_url: @base_url)
       @box        = Resources::Box.new(@http)
       @connector  = Resources::Connector.new(@http)
+      @payloads   = Resources::Payloads.new(@http)
+      @events     = Resources::Events.new(@http)
       @audit      = Resources::Audit.new(@http)
       @documents  = Resources::Documents.new(@http)
       @firms      = Resources::Firms.new(@http)

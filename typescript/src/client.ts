@@ -14,6 +14,8 @@ import { InboundResource } from "./resources/inbound.js";
 import { OutboundResource } from "./resources/outbound.js";
 import { SapiResource } from "./resources/sapi.js";
 import { EnterpriseResource } from "./resources/enterprise.js";
+import { PayloadsResource } from "./resources/payloads.js";
+import { EventsResource } from "./resources/events.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport, RateLimitState } from "./types.js";
 import { EPostakError, buildApiError } from "./utils/errors.js";
@@ -83,6 +85,10 @@ export class EPostak {
   box: BoxResource;
   /** Connector workflow for ERP send, preflight, inbox polling, ack, and events. */
   connector: ConnectorResource;
+  /** Payload Assistant helpers for OCR, parse, convert, and validation. */
+  payloads: PayloadsResource;
+  /** Pull/ack event facade over the webhook queue. */
+  events: EventsResource;
   /** Per-firm audit feed (cursor-paginated). */
   audit: AuditResource;
   /** Send and receive documents via Peppol. */
@@ -157,6 +163,8 @@ export class EPostak {
     this.auth = new AuthResource(this.clientConfig);
     this.box = new BoxResource(this.clientConfig);
     this.connector = new ConnectorResource(this.clientConfig);
+    this.payloads = new PayloadsResource(this.clientConfig);
+    this.events = new EventsResource(this.clientConfig);
     this.audit = new AuditResource(this.clientConfig);
     this.documents = new DocumentsResource(this.clientConfig);
     this.firms = new FirmsResource(this.clientConfig);
@@ -182,6 +190,8 @@ export class EPostak {
       account: this.account,
       integrator: this.integrator,
       connector: this.connector,
+      payloads: this.payloads,
+      events: this.events,
       inbound: this.inbound,
       outbound: this.outbound,
     });

@@ -2,10 +2,10 @@ package sk.epostak.sdk.resources;
 
 import java.util.Map;
 
-public final class ConnectorCustomerDocumentsResource {
+public final class ConnectorDocumentsResource {
     private final ConnectorResource connector;
 
-    ConnectorCustomerDocumentsResource(ConnectorResource connector) {
+    ConnectorDocumentsResource(ConnectorResource connector) {
         this.connector = connector;
     }
 

@@ -13,13 +13,54 @@ Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.o
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
 - Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.support_packet(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
 
 Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
 customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
 calls always send `X-Peppol-Participant-Id`.
 
+## Enterprise API facade flow
+
+Use this as the default low-friction path for ERP integrations that do not want
+to receive webhooks on day one:
+
+```python
+client.enterprise.payloads.validate(invoice)
+
+client.enterprise.documents.preflight(invoice["receiverPeppolId"])
+
+sent = client.enterprise.documents.send(
+    invoice,
+    idempotency_key="erp-fa-2026-001",
+)
+
+events = client.enterprise.events.pull(limit=50)
+client.enterprise.events.batch_ack([event["event_id"] for event in events["items"]])
+
+support_packet = client.enterprise.documents.support_packet(sent["documentId"])
+```
+
+The older `client.enterprise.webhooks.queue` resource remains available for
+compatibility. New pull-based integrations should prefer
+`client.enterprise.events`.
+
+Non-breaking adoption: facade helpers are additive. Existing
+`client.enterprise.extract`, `client.enterprise.documents.validate`,
+`client.enterprise.webhooks.queue`, and
+`client.enterprise.documents.evidence_bundle` integrations can keep running;
+migrate to `payloads`, `events`, and `support_packet` when your release window
+allows.
+
 ## Recent changes
+
+### Unreleased — 2026-07-01
+
+- Enterprise API facade helpers for Payload Assistant validation, pull/ack
+  event handling, and document support packets:
+  `client.enterprise.payloads.validate(...)`,
+  `client.enterprise.events.pull(...)`, and
+  `client.enterprise.documents.support_packet(...)`.
 
 ### Unreleased — 2026-06-30
 
@@ -512,25 +553,24 @@ if inserted is None:
 
 The signature contract is **unchanged** — `verify_webhook_signature` continues to work without code changes.
 
-### Webhook pull queue
+### Events pull facade
 
 ```python
-queue = client.enterprise.webhooks.queue.pull(limit=50)
+queue = client.enterprise.events.pull(limit=50)
 for item in queue["items"]:
     print(item["event_id"], item["event"], item["payload"])
-    client.enterprise.webhooks.queue.ack(item["event_id"])
+    client.enterprise.events.ack(item["event_id"])
 
 if queue["has_more"]:
     # more events waiting — pull again
     pass
 
 # Batch acknowledge
-client.enterprise.webhooks.queue.batch_ack([e["event_id"] for e in queue["items"]])
-
-# Cross-firm (integrator)
-all_events = client.enterprise.webhooks.queue.pull_all(limit=200)
-client.enterprise.webhooks.queue.batch_ack_all([e["event_id"] for e in all_events["items"]])
+client.enterprise.events.batch_ack([e["event_id"] for e in queue["items"]])
 ```
+
+`client.enterprise.webhooks.queue` remains available for legacy queue and
+cross-firm drain jobs.
 
 ### Reporting
 
@@ -554,19 +594,26 @@ account = client.enterprise.account.get()
 print(account["firm"]["name"], account["plan"]["name"])
 ```
 
-### Extract (AI OCR)
+### Payload Assistant OCR
 
 ```python
 # Single file
 with open("invoice.pdf", "rb") as f:
-    result = client.enterprise.extract.single(f.read(), "application/pdf", "invoice.pdf")
+    result = client.enterprise.payloads.extract(f.read(), "application/pdf", "invoice.pdf")
 
-# Batch (up to 10 files, server-side)
-batch = client.enterprise.extract.batch([
+# Outbound invoices can include result["send_payload"] for review + validate + send.
+if result.get("send_payload"):
+    client.enterprise.payloads.validate(result["send_payload"])
+
+# Batch (up to 50 files, server-side)
+batch = client.enterprise.payloads.extract_batch([
     {"file": pdf_bytes, "mime_type": "application/pdf", "file_name": "inv1.pdf"},
     {"file": img_bytes, "mime_type": "image/png", "file_name": "inv2.png"},
 ])
 ```
+
+`client.enterprise.extract` remains available for compatibility; new
+integrations should use `client.enterprise.payloads.extract`.
 
 ---
 
@@ -649,6 +696,7 @@ except EPostakError as err:
 | `documents.status_batch(ids)`                                  | POST   | `/documents/status/batch`            |
 | `documents.evidence(id)`                                       | GET    | `/documents/{id}/evidence`           |
 | `documents.evidence_bundle(id)`                                | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents.support_packet(id)`                                 | GET    | `/documents/{id}/support-packet`     |
 | `documents.envelope(id)`                                       | GET    | `/documents/{id}/envelope`           |
 | `documents.pdf(id)`                                            | GET    | `/documents/{id}/pdf`                |
 | `documents.ubl(id)`                                            | GET    | `/documents/{id}/ubl`                |
@@ -695,6 +743,14 @@ except EPostakError as err:
 | `webhooks.queue.batch_ack(ids)`                                | POST   | `/webhook-queue/batch-ack`           |
 | `webhooks.queue.pull_all(**params)`                            | GET    | `/webhook-queue/all`                 |
 | `webhooks.queue.batch_ack_all(ids)`                            | POST   | `/webhook-queue/all/batch-ack`       |
+| `payloads.extract(file, mime_type, file_name="document")`      | POST   | `/payloads/extract`                  |
+| `payloads.extract_batch(files)`                                | POST   | `/payloads/extract/batch`            |
+| `payloads.parse(xml)`                                          | POST   | `/payloads/parse`                    |
+| `payloads.convert(input_format, output_format, document)`      | POST   | `/payloads/convert`                  |
+| `payloads.validate(body)`                                      | POST   | `/payloads/validate`                 |
+| `events.pull(**params)`                                        | GET    | `/events/pull`                       |
+| `events.ack(event_id)`                                         | POST   | `/events/{eventId}/ack`              |
+| `events.batch_ack(ids)`                                        | POST   | `/events/batch-ack`                  |
 | `reporting.statistics(period=..., from_date=..., to_date=...)` | GET    | `/reporting/statistics`              |
 | `reporting.submissions(limit=..., offset=..., report_type=...)` | GET   | `/reporting/submissions`             |
 | `account.get()`                                                | GET    | `/account`                           |
@@ -734,6 +790,8 @@ except EPostakError as err:
 | `connector.get_document_ubl(document_id)`                      | GET    | `/connector/documents/{documentId}/ubl` |
 | `connector.get_document_evidence(document_id)`                 | GET    | `/connector/documents/{documentId}/evidence` |
 | `connector.get_document_evidence_bundle(document_id)`          | GET    | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector.get_document_support_packet(document_id)`           | GET    | `/connector/documents/{documentId}/support-packet` |
+| `connector.documents.support_packet(document_id)`              | GET    | `/connector/documents/{documentId}/support-packet` |
 | `connector.run_action(action_id, body=None)`                   | POST   | `/connector/actions/{actionId}`      |
 | `connector.status(document_id)`                                | GET    | `/connector/status/{documentId}`     |
 | `connector.inbox(**params)`                                    | GET    | `/connector/inbox`                   |
