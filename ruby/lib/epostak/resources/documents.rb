@@ -54,9 +54,17 @@ module EPostak
       # Accepts either structured JSON (the API generates UBL XML) or
       # pre-built UBL XML via the +xml+ key.
       #
-      # Document types (+docType+): +"invoice"+, +"credit_note"+,
-      # +"correction"+, +"self_billing"+, +"reverse_charge"+,
-      # +"self_billing_credit_note"+. Defaults to +"invoice"+ when omitted.
+      # JSON document types (+documentType+): +"invoice"+, +"credit_note"+,
+      # +"self_billing"+, +"self_billing_credit_note"+. Defaults to
+      # +"invoice"+ when omitted. For normal invoices and credit notes, use
+      # +receiver*+ fields for the buyer. For self-billing JSON payloads,
+      # prefer +supplier*+ aliases; the supplier is the Peppol receiver while
+      # the authenticated firm is the buyer issuing the document.
+      # +precedingInvoiceRef+ is required for +"credit_note"+ and
+      # +"self_billing_credit_note"+. Final invoices can include
+      # +prepayments+; the API sums +amountWithVat+ into +prepaidAmount+,
+      # reduces PayableAmount, and preserves advance/tax document references
+      # in the generated UBL note.
       #
       # **Supplier-party pinning (XML mode).** When submitting raw UBL via
       # the +xml+ key, the server pins the seller identity (Name, IČO,
@@ -87,6 +95,29 @@ module EPostak
       #     invoiceNumber: "FV-2026-042",
       #     items: [
       #       { description: "Consulting", quantity: 10, unit: "HUR", unitPrice: 100, vatRate: 23 }
+      #     ]
+      #   )
+      #
+      # @example Send self-billing JSON
+      #   result = client.documents.send_document(
+      #     documentType: "self_billing",
+      #     supplierPeppolId: "0245:2123038963",
+      #     supplierName: "Dodavatel s.r.o.",
+      #     supplierIcDph: "SK2123038963",
+      #     invoiceNumber: "SB-2026-001",
+      #     items: [
+      #       { description: "Dodany material", quantity: 100, unitPrice: 25, vatRate: 23 }
+      #     ]
+      #   )
+      #
+      # @example Send self-billing credit note JSON
+      #   result = client.documents.send_document(
+      #     documentType: "self_billing_credit_note",
+      #     supplierPeppolId: "0245:2123038963",
+      #     precedingInvoiceRef: "SB-2026-001",
+      #     invoiceNumber: "SBCN-2026-001",
+      #     items: [
+      #       { description: "Oprava mnozstva", quantity: 1, unitPrice: 100, vatRate: 23 }
       #     ]
       #   )
       #

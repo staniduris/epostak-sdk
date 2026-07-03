@@ -365,13 +365,28 @@ public sealed class Document
 /// </summary>
 public sealed class SendDocumentRequest
 {
-    /// <summary>Peppol identifier of the receiver (e.g. "0245:12345678"). Required.</summary>
+    /// <summary>
+    /// JSON document type: <c>invoice</c>, <c>credit_note</c>, <c>self_billing</c>,
+    /// or <c>self_billing_credit_note</c>. Defaults to <c>invoice</c>.
+    /// </summary>
+    [JsonPropertyName("documentType")]
+    public string? DocumentType { get; set; }
+
+    /// <summary>Peppol identifier of the receiver (e.g. "0245:12345678"). XML mode requires this.</summary>
     [JsonPropertyName("receiverPeppolId")]
-    public required string ReceiverPeppolId { get; set; }
+    public string? ReceiverPeppolId { get; set; }
+
+    /// <summary>Self-billing alias for the supplier/Peppol receiver.</summary>
+    [JsonPropertyName("supplierPeppolId")]
+    public string? SupplierPeppolId { get; set; }
 
     /// <summary>Invoice number (e.g. "FV-2026-001"). Auto-generated if not provided.</summary>
     [JsonPropertyName("invoiceNumber")]
     public string? InvoiceNumber { get; set; }
+
+    /// <summary>Original invoice number for credit notes. Required for credit_note and self_billing_credit_note.</summary>
+    [JsonPropertyName("precedingInvoiceRef")]
+    public string? PrecedingInvoiceRef { get; set; }
 
     /// <summary>Invoice issue date in YYYY-MM-DD format. Defaults to today.</summary>
     [JsonPropertyName("issueDate")]
@@ -425,9 +440,64 @@ public sealed class SendDocumentRequest
     [JsonPropertyName("receiverAddress")]
     public string? ReceiverAddress { get; set; }
 
+    /// <summary>Receiver street and number.</summary>
+    [JsonPropertyName("receiverStreet")]
+    public string? ReceiverStreet { get; set; }
+
+    /// <summary>Receiver city.</summary>
+    [JsonPropertyName("receiverCity")]
+    public string? ReceiverCity { get; set; }
+
+    /// <summary>Receiver postal code.</summary>
+    [JsonPropertyName("receiverPostalCode")]
+    public string? ReceiverPostalCode { get; set; }
+
     /// <summary>Receiver's ISO 3166-1 alpha-2 country code (e.g. "SK").</summary>
     [JsonPropertyName("receiverCountry")]
     public string? ReceiverCountry { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverName"/>.</summary>
+    [JsonPropertyName("supplierName")]
+    public string? SupplierName { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverIco"/>.</summary>
+    [JsonPropertyName("supplierIco")]
+    public string? SupplierIco { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverDic"/>.</summary>
+    [JsonPropertyName("supplierDic")]
+    public string? SupplierDic { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverIcDph"/>.</summary>
+    [JsonPropertyName("supplierIcDph")]
+    public string? SupplierIcDph { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverStreet"/>.</summary>
+    [JsonPropertyName("supplierStreet")]
+    public string? SupplierStreet { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverCity"/>.</summary>
+    [JsonPropertyName("supplierCity")]
+    public string? SupplierCity { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverPostalCode"/>.</summary>
+    [JsonPropertyName("supplierPostalCode")]
+    public string? SupplierPostalCode { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverAddress"/>.</summary>
+    [JsonPropertyName("supplierAddress")]
+    public string? SupplierAddress { get; set; }
+
+    /// <summary>Self-billing alias for <see cref="ReceiverCountry"/>.</summary>
+    [JsonPropertyName("supplierCountry")]
+    public string? SupplierCountry { get; set; }
+
+    /// <summary>
+    /// Structured settled prepayments on the final invoice. The API sums AmountWithVat
+    /// into prepaidAmount, reduces PayableAmount, and preserves references in the UBL note.
+    /// </summary>
+    [JsonPropertyName("prepayments")]
+    public List<Prepayment>? Prepayments { get; set; }
 
     /// <summary>Invoice line items. Mutually exclusive with <see cref="Xml"/>.</summary>
     [JsonPropertyName("items")]
@@ -444,6 +514,42 @@ public sealed class SendDocumentRequest
     /// <summary>Raw UBL 2.1 XML to send instead of structured JSON. Mutually exclusive with <see cref="Items"/>.</summary>
     [JsonPropertyName("xml")]
     public string? Xml { get; set; }
+}
+
+/// <summary>Structured settled prepayment for final-invoice JSON mode.</summary>
+public sealed class Prepayment
+{
+    /// <summary>Advance/prepayment invoice reference from the ERP.</summary>
+    [JsonPropertyName("advanceInvoiceRef")]
+    public string? AdvanceInvoiceRef { get; set; }
+
+    /// <summary>Tax document number for the received advance payment.</summary>
+    [JsonPropertyName("taxDocumentRef")]
+    public string? TaxDocumentRef { get; set; }
+
+    /// <summary>Settlement date in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("settlementDate")]
+    public string? SettlementDate { get; set; }
+
+    /// <summary>Settled amount without VAT.</summary>
+    [JsonPropertyName("amountWithoutVat")]
+    public decimal? AmountWithoutVat { get; set; }
+
+    /// <summary>VAT amount from the settled prepayment.</summary>
+    [JsonPropertyName("vatAmount")]
+    public decimal? VatAmount { get; set; }
+
+    /// <summary>Settled amount including VAT. Required by the API.</summary>
+    [JsonPropertyName("amountWithVat")]
+    public decimal AmountWithVat { get; set; }
+
+    /// <summary>VAT rate of the prepayment, when known.</summary>
+    [JsonPropertyName("vatRate")]
+    public decimal? VatRate { get; set; }
+
+    /// <summary>Optional VAT category of the prepayment, for example S or AE.</summary>
+    [JsonPropertyName("vatCategoryCode")]
+    public string? VatCategoryCode { get; set; }
 }
 
 /// <summary>

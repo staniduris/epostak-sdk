@@ -130,6 +130,39 @@ result = client.enterprise.documents.send({
     ],
 })
 print(result["documentId"], result["messageId"], result["payload_sha256"])
+
+# Self-billing JSON mode: supplier* is the Peppol receiver/supplier.
+client.enterprise.documents.send({
+    "documentType": "self_billing",
+    "supplierPeppolId": "0245:2123038963",
+    "supplierName": "Dodavatel s.r.o.",
+    "supplierDic": "2123038963",
+    "supplierIcDph": "SK2123038963",
+    "invoiceNumber": "SB-2026-001",
+    "issueDate": "2026-07-01",
+    "dueDate": "2026-07-15",
+    "items": [
+        {"description": "Dodany material", "quantity": 100, "unitPrice": 25, "vatRate": 23},
+    ],
+})
+
+# Final invoice with settled advance payments.
+client.enterprise.documents.send({
+    "receiverPeppolId": "0245:1234567890",
+    "invoiceNumber": "FV-2026-ADV",
+    "prepayments": [
+        {
+            "advanceInvoiceRef": "2651700004",
+            "taxDocumentRef": "2601800022",
+            "settlementDate": "2026-02-23",
+            "amountWithVat": 838.25,
+            "vatRate": 23,
+        },
+    ],
+    "items": [
+        {"description": "Final invoice line", "quantity": 1, "unitPrice": 1000, "vatRate": 23},
+    ],
+})
 ```
 
 ### Connector golden path for ERP developers
@@ -340,6 +373,16 @@ result = client.enterprise.documents.send(
     # if the same key is replayed before the original request finishes.
     idempotency_key="fv-2026-001-send",
 )
+
+# Credit note / self-billing credit note: precedingInvoiceRef is required.
+client.enterprise.documents.send({
+    "documentType": "self_billing_credit_note",
+    "supplierPeppolId": "0245:2123038963",
+    "supplierName": "Dodavatel s.r.o.",
+    "precedingInvoiceRef": "SB-2026-001",
+    "invoiceNumber": "SBCN-2026-001",
+    "items": [{"description": "Oprava mnozstva", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
+})
 
 # Send pre-built UBL XML
 client.enterprise.documents.send({

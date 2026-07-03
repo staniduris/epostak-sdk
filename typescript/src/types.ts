@@ -701,34 +701,57 @@ export interface Party {
  *
  * - `"invoice"` — standard outbound invoice (UBL `380`)
  * - `"credit_note"` — outbound credit note (UBL `381`)
- * - `"correction"` — corrective invoice (UBL `384`)
  * - `"self_billing"` — self-billing invoice issued by the buyer (UBL `389`)
- * - `"reverse_charge"` — reverse-charge invoice
  * - `"self_billing_credit_note"` — self-billing credit note (UBL `261`)
+ *
+ * Other Peppol/UBL variants remain available through XML mode.
  */
 export type DocType =
   | "invoice"
   | "credit_note"
-  | "correction"
   | "self_billing"
-  | "reverse_charge"
   | "self_billing_credit_note";
 
 /**
- * Request body for sending an invoice using structured JSON fields.
- * The API generates UBL XML automatically from these fields.
+ * Request body for sending a Peppol billing document using structured JSON
+ * fields. The API generates UBL XML automatically from these fields.
+ *
+ * JSON mode supports `invoice`, `credit_note`, `self_billing`, and
+ * `self_billing_credit_note`. For normal invoices/credit notes, use
+ * `receiver*` fields for the buyer. For self-billing, prefer `supplier*`
+ * aliases; the supplier is the Peppol receiver while the authenticated firm is
+ * the buyer issuing the self-billing document.
+ *
+ * `precedingInvoiceRef` is required for `credit_note` and
+ * `self_billing_credit_note`.
+ *
  * Up to 999 line items; body cap 25 MB (attachments are base64-embedded).
  */
 export interface SendDocumentJsonRequest {
-  /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
-  receiverPeppolId: string;
+  /** Preferred business document type selector. Defaults to `"invoice"`. */
+  documentType?: DocType;
+  /** Snake_case alias for `documentType`. Do not send conflicting aliases. */
+  document_type?: DocType;
   /**
-   * Document type. See {@link DocType} for accepted values. Defaults to
-   * `"invoice"` when omitted.
+   * Compatibility alias for `documentType`. Older SDK versions documented this
+   * field; it is still accepted.
    */
   docType?: DocType;
+  /**
+   * Peppol participant ID of the receiver (e.g. `"0245:1234567890"`).
+   * For `invoice`/`credit_note`, this is the buyer. For self-billing, use
+   * `supplierPeppolId` or pass the supplier here.
+   */
+  receiverPeppolId?: string;
+  /** Self-billing alias for the supplier/Peppol receiver. */
+  supplierPeppolId?: string;
   /** Invoice number — auto-generated if omitted */
   invoiceNumber?: string;
+  /**
+   * Original invoice number corrected by this document. Required for
+   * `credit_note` and `self_billing_credit_note`.
+   */
+  precedingInvoiceRef?: string;
   /** Issue date in `YYYY-MM-DD` format — defaults to today */
   issueDate?: string;
   /** Payment due date in `YYYY-MM-DD` format */
@@ -755,8 +778,39 @@ export interface SendDocumentJsonRequest {
   receiverIcDph?: string;
   /** Receiver's street address as a single string */
   receiverAddress?: string;
+  /** Receiver's street and number (preferred over parsing `receiverAddress`) */
+  receiverStreet?: string;
+  /** Receiver city */
+  receiverCity?: string;
+  /** Receiver postal code */
+  receiverPostalCode?: string;
   /** Receiver's ISO 3166-1 alpha-2 country code (e.g. `"SK"`) */
   receiverCountry?: string;
+  /** Self-billing alias for `receiverName` (supplier legal name). */
+  supplierName?: string;
+  /** Self-billing alias for `receiverIco`. */
+  supplierIco?: string;
+  /** Self-billing alias for `receiverDic`. */
+  supplierDic?: string;
+  /** Self-billing alias for `receiverIcDph`; used for supplier-side VAT logic. */
+  supplierIcDph?: string;
+  /** Self-billing alias for `receiverStreet`. */
+  supplierStreet?: string;
+  /** Self-billing alias for `receiverCity`. */
+  supplierCity?: string;
+  /** Self-billing alias for `receiverPostalCode`. */
+  supplierPostalCode?: string;
+  /** Self-billing alias for `receiverAddress`. */
+  supplierAddress?: string;
+  /** Self-billing alias for `receiverCountry`. */
+  supplierCountry?: string;
+  /**
+   * Structured settled prepayments on the final invoice. The API sums
+   * `amountWithVat` into `prepaidAmount`, reduces PayableAmount, and preserves
+   * references in the generated UBL note. Do not combine with
+   * `items[].lineType = "advance_deduction"`.
+   */
+  prepayments?: Prepayment[];
   /** Invoice line items — at least one is required, max 999 */
   items: LineItem[];
   /**
@@ -767,6 +821,26 @@ export interface SendDocumentJsonRequest {
    * Limits: max 20 files per invoice, 10 MB per file, 15 MB total.
    */
   attachments?: DocumentAttachment[];
+}
+
+/** Structured settled prepayment for a final invoice JSON payload. */
+export interface Prepayment {
+  /** Advance/prepayment invoice reference from the ERP. */
+  advanceInvoiceRef?: string;
+  /** Tax document number for the received advance payment. */
+  taxDocumentRef?: string;
+  /** Settlement date in `YYYY-MM-DD` format. */
+  settlementDate?: string;
+  /** Settled amount without VAT. */
+  amountWithoutVat?: number;
+  /** VAT amount from the settled prepayment. */
+  vatAmount?: number;
+  /** Settled amount including VAT. Required and summed into prepaidAmount. */
+  amountWithVat: number;
+  /** VAT rate of the prepayment, when known. */
+  vatRate?: number;
+  /** Optional VAT category of the prepayment, for example `S` or `AE`. */
+  vatCategoryCode?: string;
 }
 
 /**

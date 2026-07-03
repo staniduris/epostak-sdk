@@ -85,11 +85,18 @@ public final class DocumentsResource {
      * Send a document via Peppol. Supports both JSON mode (structured data) and
      * XML mode (pre-built UBL).
      * <p>
-     * <strong>Document types ({@code docType}).</strong> Accepted values:
-     * {@code "invoice"}, {@code "credit_note"}, {@code "correction"},
-     * {@code "self_billing"}, {@code "reverse_charge"},
-     * {@code "self_billing_credit_note"}. Defaults to {@code "invoice"} when
-     * omitted.
+     * <strong>JSON document types ({@code documentType}).</strong> Accepted
+     * values: {@code "invoice"}, {@code "credit_note"},
+     * {@code "self_billing"}, {@code "self_billing_credit_note"}. Defaults to
+     * {@code "invoice"} when omitted. For normal invoices and credit notes,
+     * use receiver fields for the buyer. For self-billing JSON payloads,
+     * prefer supplier fields; the supplier is the Peppol receiver while the
+     * authenticated firm is the buyer issuing the document.
+     * {@code precedingInvoiceRef} is required for {@code "credit_note"} and
+     * {@code "self_billing_credit_note"}. Final invoices can include
+     * {@code prepayments}; the API sums {@code amountWithVat} into
+     * {@code prepaidAmount}, reduces PayableAmount, and preserves advance/tax
+     * document references in the generated UBL note.
      * <p>
      * <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
      * UBL via {@code xml}, the server pins the seller identity (Name, IČO,
@@ -111,6 +118,15 @@ public final class DocumentsResource {
      *         .dueDate("2026-04-18")
      *         .items(List.of(new SendDocumentRequest.LineItem(
      *             "Consulting services", 10, 150.0, 23)))
+     *         .build());
+     *
+     * client.documents().send(
+     *     SendDocumentRequest.builder()
+     *         .documentType("self_billing")
+     *         .supplierPeppolId("0245:2123038963")
+     *         .supplierName("Dodavatel s.r.o.")
+     *         .items(List.of(new SendDocumentRequest.LineItem(
+     *             "Dodany material", 100, 25.0, 23)))
      *         .build());
      * }</pre>
      *

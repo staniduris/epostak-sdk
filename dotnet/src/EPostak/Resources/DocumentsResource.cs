@@ -63,10 +63,17 @@ public sealed class DocumentsResource
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Document types (<c>DocType</c>).</strong> Accepted values:
-    /// <c>"invoice"</c>, <c>"credit_note"</c>, <c>"correction"</c>,
-    /// <c>"self_billing"</c>, <c>"reverse_charge"</c>,
+    /// <strong>JSON document types (<c>DocumentType</c>).</strong> Accepted values:
+    /// <c>"invoice"</c>, <c>"credit_note"</c>, <c>"self_billing"</c>,
     /// <c>"self_billing_credit_note"</c>. Defaults to <c>"invoice"</c> when omitted.
+    /// For normal invoices and credit notes, use <c>Receiver*</c> fields for
+    /// the buyer. For self-billing JSON payloads, prefer <c>Supplier*</c>
+    /// aliases; the supplier is the Peppol receiver while the authenticated
+    /// firm is the buyer issuing the document. <c>PrecedingInvoiceRef</c> is
+    /// required for <c>"credit_note"</c> and <c>"self_billing_credit_note"</c>.
+    /// Final invoices can include <c>Prepayments</c>; the API sums
+    /// <c>AmountWithVat</c> into <c>prepaidAmount</c>, reduces PayableAmount,
+    /// and preserves advance/tax document references in the generated UBL note.
     /// </para>
     /// <para>
     /// <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
@@ -90,8 +97,11 @@ public sealed class DocumentsResource
     /// <code>
     /// var result = await client.Documents.SendAsync(new SendDocumentRequest
     /// {
-    ///     ReceiverPeppolId = "0245:12345678",
-    ///     InvoiceNumber = "FV-2026-001",
+    ///     DocumentType = "self_billing",
+    ///     SupplierPeppolId = "0245:12345678",
+    ///     SupplierName = "Dodavatel s.r.o.",
+    ///     SupplierIcDph = "SK2123456789",
+    ///     InvoiceNumber = "SB-2026-001",
     ///     IssueDate = "2026-04-11",
     ///     DueDate = "2026-05-11",
     ///     Currency = "EUR",
