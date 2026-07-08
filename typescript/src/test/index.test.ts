@@ -368,6 +368,110 @@ describe("UblValidationError", () => {
       assert.strictEqual((err as UblValidationError).code, "UBL_VALIDATION_ERROR");
     }
   });
+
+  it("serializes self-billing credit-note JSON payloads with supplier aliases", async () => {
+    const client = makeClient();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedBody =
+        typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      return makeMockResponse({
+        documentId: "doc-1",
+        messageId: "msg-1",
+        status: "SENT",
+      });
+    });
+
+    await client.documents.send({
+      documentType: "self_billing_credit_note",
+      supplierPeppolId: "0245:2123038963",
+      supplierName: "Dodavatel s.r.o.",
+      supplierIcDph: "SK2123038963",
+      precedingInvoiceRef: "SB-2026-001",
+      invoiceNumber: "SBCN-2026-001",
+      prepayments: [
+        {
+          advanceInvoiceRef: "2651700004",
+          taxDocumentRef: "2601800022",
+          settlementDate: "2026-02-23",
+          amountWithoutVat: 681.5,
+          vatAmount: 156.75,
+          amountWithVat: 838.25,
+          vatRate: 23,
+        },
+      ],
+      items: [
+        {
+          description: "Oprava mnozstva",
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(capturedBody, {
+      documentType: "self_billing_credit_note",
+      supplierPeppolId: "0245:2123038963",
+      supplierName: "Dodavatel s.r.o.",
+      supplierIcDph: "SK2123038963",
+      precedingInvoiceRef: "SB-2026-001",
+      invoiceNumber: "SBCN-2026-001",
+      prepayments: [
+        {
+          advanceInvoiceRef: "2651700004",
+          taxDocumentRef: "2601800022",
+          settlementDate: "2026-02-23",
+          amountWithoutVat: 681.5,
+          vatAmount: 156.75,
+          amountWithVat: 838.25,
+          vatRate: 23,
+        },
+      ],
+      items: [
+        {
+          description: "Oprava mnozstva",
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
+      ],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

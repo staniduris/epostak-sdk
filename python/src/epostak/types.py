@@ -533,6 +533,21 @@ class LineItem(TypedDict, total=False):
     unitPrice: float  # type: ignore[misc]  # Price per unit excluding VAT
     vatRate: float  # type: ignore[misc]  # VAT rate as a percentage, e.g. 23
     discount: float  # Discount percentage (0-100) applied to the line total
+    vatCategoryCode: str  # UBL VAT category code, e.g. "S", "Z", or "AE"
+    vatCategory: str  # Alias for vatCategoryCode
+    vat_category: str  # Snake_case alias for vatCategoryCode
+    taxTreatment: str  # Higher-level tax treatment mapped to vatCategoryCode
+    tax_treatment: str  # Snake_case alias for taxTreatment
+    deliveryDate: str  # Line delivery date in YYYY-MM-DD format
+    lineType: str  # Line type, e.g. "standard" or "advance_deduction"
+    advanceInvoiceReference: str  # Advance invoice reference for deduction lines
+    customsTariffCode: str  # Customs tariff / combined nomenclature code
+    commodityClassificationCode: str  # Generic item classification code
+    commodityClassificationListId: str  # Classification list identifier, e.g. "HS"
+    reverseChargeParagraphLetter: str  # Domestic reverse-charge paragraph letter
+    controlStatementType: str  # Slovak control-statement type, e.g. "IO" or "MT"
+    controlStatementQuantity: float  # type: ignore[misc]  # Control-statement quantity
+    controlStatementUnit: str  # Control-statement unit, e.g. "kg", "t", "m", or "ks"
 
 
 class LineItemResponse(TypedDict, total=False):
@@ -593,11 +608,29 @@ class DocumentAttachment(TypedDict, total=False):
     description: str  # Optional short description (max 100 chars)
 
 
+class Prepayment(TypedDict, total=False):
+    """Structured settled prepayment for final-invoice JSON mode."""
+
+    advanceInvoiceRef: str  # Advance/prepayment invoice reference from the ERP
+    taxDocumentRef: str  # Tax document number for the received advance payment
+    settlementDate: str  # Settlement date in YYYY-MM-DD format
+    amountWithoutVat: float  # Settled amount without VAT
+    vatAmount: float  # VAT amount from the settled prepayment
+    amountWithVat: float  # Settled amount including VAT; summed into prepaidAmount
+    vatRate: float  # VAT rate of the prepayment, when known
+    vatCategoryCode: str  # Optional VAT category, e.g. S or AE
+
+
 class _SendDocumentBase(TypedDict, total=False):
     """Base fields shared by JSON-mode and XML-mode send requests."""
 
-    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver (required)
+    documentType: str  # JSON mode: invoice, credit_note, self_billing, self_billing_credit_note
+    document_type: str  # Alias for documentType
+    docType: str  # Compatibility alias for documentType
+    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the buyer/receiver; XML mode requires this
+    supplierPeppolId: str  # Self-billing alias for the supplier/Peppol receiver
     invoiceNumber: str  # Invoice number, e.g. "FV-2026-001"
+    precedingInvoiceRef: str  # Required for credit_note and self_billing_credit_note
     issueDate: str  # Issue date in ISO 8601 / YYYY-MM-DD
     dueDate: str  # Payment due date in ISO 8601 / YYYY-MM-DD
     currency: str  # ISO 4217 currency code, default "EUR"
@@ -611,7 +644,20 @@ class _SendDocumentBase(TypedDict, total=False):
     receiverDic: str  # Receiver tax ID (DIC)
     receiverIcDph: str  # Receiver VAT ID (IC DPH)
     receiverAddress: str  # Receiver street address
+    receiverStreet: str  # Receiver street and number
+    receiverCity: str  # Receiver city
+    receiverPostalCode: str  # Receiver postal code
     receiverCountry: str  # Receiver ISO country code, e.g. "SK"
+    supplierName: str  # Self-billing alias for receiverName
+    supplierIco: str  # Self-billing alias for receiverIco
+    supplierDic: str  # Self-billing alias for receiverDic
+    supplierIcDph: str  # Self-billing alias for receiverIcDph
+    supplierStreet: str  # Self-billing alias for receiverStreet
+    supplierCity: str  # Self-billing alias for receiverCity
+    supplierPostalCode: str  # Self-billing alias for receiverPostalCode
+    supplierAddress: str  # Self-billing alias for receiverAddress
+    supplierCountry: str  # Self-billing alias for receiverCountry
+    prepayments: List[Prepayment]  # Structured settled prepayments for final invoices
     items: List[LineItem]  # Line items (JSON mode) -- mutually exclusive with ``xml``
     attachments: List[DocumentAttachment]  # JSON mode only -- embedded as BG-24 in UBL
     xml: str  # Pre-built UBL XML string (XML mode) -- mutually exclusive with ``items``

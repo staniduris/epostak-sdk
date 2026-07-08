@@ -141,6 +141,39 @@ var result = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
     ]
 });
 
+// Self-billing JSON mode: Supplier* is the Peppol receiver/supplier.
+await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
+{
+    DocumentType = "self_billing",
+    SupplierPeppolId = "0245:2123038963",
+    SupplierName = "Dodavatel s.r.o.",
+    SupplierDic = "2123038963",
+    SupplierIcDph = "SK2123038963",
+    InvoiceNumber = "SB-2026-001",
+    IssueDate = "2026-07-01",
+    DueDate = "2026-07-15",
+    Items = [ new LineItem { Description = "Dodany material", Quantity = 100, UnitPrice = 25, VatRate = 23 } ]
+});
+
+// Final invoice with settled advance payments.
+await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
+{
+    ReceiverPeppolId = "0245:1234567890",
+    InvoiceNumber = "FV-2026-ADV",
+    Prepayments =
+    [
+        new Prepayment
+        {
+            AdvanceInvoiceRef = "2651700004",
+            TaxDocumentRef = "2601800022",
+            SettlementDate = "2026-02-23",
+            AmountWithVat = 838.25m,
+            VatRate = 23
+        }
+    ],
+    Items = [ new LineItem { Description = "Final invoice line", Quantity = 1, UnitPrice = 1000, VatRate = 23 } ]
+});
+
 Console.WriteLine($"Sent! Document ID: {result.DocumentId}");
 ```
 
@@ -359,6 +392,17 @@ var sent = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
     Items = [ new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
+});
+
+// Credit note / self-billing credit note: PrecedingInvoiceRef is required.
+await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
+{
+    DocumentType = "self_billing_credit_note",
+    SupplierPeppolId = "0245:2123038963",
+    SupplierName = "Dodavatel s.r.o.",
+    PrecedingInvoiceRef = "SB-2026-001",
+    InvoiceNumber = "SBCN-2026-001",
+    Items = [ new LineItem { Description = "Oprava mnozstva", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
 });
 
 // Send raw UBL XML

@@ -139,6 +139,35 @@ SendDocumentResponse result = client.enterprise().documents().send(
         .build()
 );
 System.out.println(result.documentId() + " " + result.messageId());
+
+// Self-billing JSON mode: supplier* is the Peppol receiver/supplier.
+client.enterprise().documents().send(
+    SendDocumentRequest.builder()
+        .documentType("self_billing")
+        .supplierPeppolId("0245:2123038963")
+        .supplierName("Dodavatel s.r.o.")
+        .supplierDic("2123038963")
+        .supplierIcDph("SK2123038963")
+        .invoiceNumber("SB-2026-001")
+        .issueDate("2026-07-01")
+        .dueDate("2026-07-15")
+        .items(List.of(new SendDocumentRequest.LineItem("Dodany material", 100, 25, 23)))
+        .build()
+);
+
+// Final invoice with settled advance payments.
+client.enterprise().documents().send(
+    SendDocumentRequest.builder("0245:1234567890")
+        .invoiceNumber("FV-2026-ADV")
+        .prepayments(List.of(new SendDocumentRequest.Prepayment(
+            "2651700004",
+            "2601800022",
+            "2026-02-23",
+            838.25
+        )))
+        .items(List.of(new SendDocumentRequest.LineItem("Final invoice line", 1, 1000, 23)))
+        .build()
+);
 ```
 
 ### Connector golden path for ERP developers
@@ -349,6 +378,18 @@ SendDocumentResponse result = client.enterprise().documents().send(
         .build()
 );
 // result.documentId(), result.messageId(), result.status()
+
+// Credit note / self-billing credit note: precedingInvoiceRef is required.
+client.enterprise().documents().send(
+    SendDocumentRequest.builder()
+        .documentType("self_billing_credit_note")
+        .supplierPeppolId("0245:2123038963")
+        .supplierName("Dodavatel s.r.o.")
+        .precedingInvoiceRef("SB-2026-001")
+        .invoiceNumber("SBCN-2026-001")
+        .items(List.of(new SendDocumentRequest.LineItem("Oprava mnozstva", 1, 100, 23)))
+        .build()
+);
 ```
 
 **XML mode** -- send a pre-built UBL XML document:

@@ -8,6 +8,10 @@ All notable changes to the official ePošťák Java SDK
 
 ### Added
 
+- Added structured JSON billing payload fields to `SendDocumentRequest`:
+  `documentType`, self-billing supplier aliases, credit-note references,
+  `prepayments`, and advanced `LineItem` tax/classification/control-statement
+  fields.
 - Added `client.connector().mapper(...)` and customer-scoped
   `client.enterprise().connector().customers().forCustomer(customerRef).mapper(...)`
   for the live `/connector/mapper` endpoint.

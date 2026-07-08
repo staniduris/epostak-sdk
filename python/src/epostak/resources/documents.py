@@ -394,13 +394,20 @@ class DocumentsResource(_BaseResource):
         Supports two modes:
 
         - **JSON mode**: pass structured data with ``items`` list, UBL is auto-generated.
-        - **XML mode**: pass ``xml`` with a pre-built UBL XML string.
+          Supported ``documentType`` values are ``"invoice"``, ``"credit_note"``,
+          ``"self_billing"``, and ``"self_billing_credit_note"``. Defaults to
+          ``"invoice"`` when omitted.
+        - **XML mode**: pass ``xml`` with a pre-built UBL XML string. XML mode
+          requires ``receiverPeppolId``.
 
-        Both modes require ``receiverPeppolId``.
-
-        Document types (``docType``): ``"invoice"``, ``"credit_note"``,
-        ``"correction"``, ``"self_billing"``, ``"reverse_charge"``,
-        ``"self_billing_credit_note"``. Defaults to ``"invoice"`` when omitted.
+        For normal invoices/credit notes, use ``receiver*`` fields for the
+        buyer. For self-billing JSON payloads, prefer ``supplier*`` aliases;
+        the supplier is the Peppol receiver while the authenticated firm is the
+        buyer issuing the document. ``precedingInvoiceRef`` is required for
+        ``"credit_note"`` and ``"self_billing_credit_note"``. Final invoices
+        can include ``prepayments[]``; the API sums ``amountWithVat`` into
+        ``prepaidAmount``, reduces PayableAmount, and preserves advance/tax
+        document references in the generated UBL note.
 
         **Supplier-party pinning (XML mode).** When submitting raw UBL via
         ``xml``, the server pins the seller identity (Name, IČO, IČ DPH,
@@ -423,7 +430,10 @@ class DocumentsResource(_BaseResource):
         Example::
 
             result = client.documents.send({
-                "receiverPeppolId": "0245:1234567890",
+                "documentType": "self_billing",
+                "supplierPeppolId": "0245:1234567890",
+                "supplierName": "Dodavatel s.r.o.",
+                "supplierIcDph": "SK2123456789",
                 "invoiceNumber": "FV-2026-001",
                 "issueDate": "2026-04-04",
                 "dueDate": "2026-04-18",
