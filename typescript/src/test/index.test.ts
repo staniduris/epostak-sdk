@@ -411,7 +411,24 @@ describe("UblValidationError", () => {
         },
       ],
       items: [
-        { description: "Oprava mnozstva", quantity: 1, unitPrice: 100, vatRate: 23 },
+        {
+          description: "Oprava mnozstva",
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
       ],
     });
 
@@ -434,7 +451,24 @@ describe("UblValidationError", () => {
         },
       ],
       items: [
-        { description: "Oprava mnozstva", quantity: 1, unitPrice: 100, vatRate: 23 },
+        {
+          description: "Oprava mnozstva",
+          quantity: 1,
+          unitPrice: 100,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
       ],
     });
   });

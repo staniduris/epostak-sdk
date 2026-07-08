@@ -1,5 +1,14 @@
 # Changelog
 
+## [JSON billing payload SDK sync] — 2026-07-08
+
+- Synced structured JSON billing payload models across TypeScript, Python,
+  Ruby, PHP, .NET, and Java for `documentType`, self-billing supplier aliases,
+  credit-note references, structured `prepayments`, and advanced `LineItem`
+  tax/classification/control-statement fields.
+- Extended endpoint coverage and serialization tests so line-item payload
+  model drift is caught together with route drift.
+
 ## [ePošťák Box SDK sync] — 2026-06-30
 
 - Added ePošťák Box helpers across TypeScript, Python, Ruby, PHP, .NET, and

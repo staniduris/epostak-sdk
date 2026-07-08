@@ -7,6 +7,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added structured JSON billing payload fields to `SendDocumentRequest`:
+  `DocumentType`, self-billing supplier aliases, credit-note references,
+  `Prepayments`, and advanced `LineItem` tax/classification/control-statement
+  fields.
 - Added `client.Connector.MapperAsync(...)` and customer-scoped
   `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
   for the live `/connector/mapper` endpoint.

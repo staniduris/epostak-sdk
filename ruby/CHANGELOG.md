@@ -9,6 +9,10 @@ earlier CHANGELOG headings used a different numbering scheme.
 
 ### Added
 
+- Documented structured JSON billing payload fields for `documents.send_document`:
+  `documentType`, self-billing supplier aliases, credit-note references,
+  `prepayments`, and advanced line-item tax/classification/control-statement
+  fields.
 - Added `client.connector.mapper(...)` and customer-scoped
   `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
   for the live `/connector/mapper` endpoint.

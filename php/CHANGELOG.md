@@ -11,6 +11,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Documented structured JSON billing payload fields for `documents->send(...)`:
+  `documentType`, self-billing supplier aliases, credit-note references,
+  `prepayments`, and advanced line-item tax/classification/control-statement
+  fields.
 - Added `$client->connector->mapper(...)` and customer-scoped
   `$client->enterprise->connector->customers->for($customerRef)->mapper(...)`
   for the live `/connector/mapper` endpoint.

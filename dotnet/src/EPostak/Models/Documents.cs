@@ -168,6 +168,58 @@ public sealed class LineItem
     /// <summary>Optional discount as a percentage (e.g. 10 for 10% off).</summary>
     [JsonPropertyName("discount")]
     public decimal? Discount { get; set; }
+
+    /// <summary>UBL VAT category code, for example S, Z, or AE.</summary>
+    [JsonPropertyName("vatCategoryCode")]
+    public string? VatCategoryCode { get; set; }
+
+    /// <summary>Alias for <see cref="VatCategoryCode"/>.</summary>
+    [JsonPropertyName("vatCategory")]
+    public string? VatCategory { get; set; }
+
+    /// <summary>Higher-level tax treatment mapped by the API to VatCategoryCode.</summary>
+    [JsonPropertyName("taxTreatment")]
+    public string? TaxTreatment { get; set; }
+
+    /// <summary>Line delivery date in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    /// <summary>Line type, for example standard or advance_deduction.</summary>
+    [JsonPropertyName("lineType")]
+    public string? LineType { get; set; }
+
+    /// <summary>Advance invoice reference required for advance deduction lines.</summary>
+    [JsonPropertyName("advanceInvoiceReference")]
+    public string? AdvanceInvoiceReference { get; set; }
+
+    /// <summary>Customs tariff / combined nomenclature code.</summary>
+    [JsonPropertyName("customsTariffCode")]
+    public string? CustomsTariffCode { get; set; }
+
+    /// <summary>Generic item classification code when CustomsTariffCode is not used.</summary>
+    [JsonPropertyName("commodityClassificationCode")]
+    public string? CommodityClassificationCode { get; set; }
+
+    /// <summary>Classification list identifier, for example HS.</summary>
+    [JsonPropertyName("commodityClassificationListId")]
+    public string? CommodityClassificationListId { get; set; }
+
+    /// <summary>Domestic reverse-charge paragraph letter evidence.</summary>
+    [JsonPropertyName("reverseChargeParagraphLetter")]
+    public string? ReverseChargeParagraphLetter { get; set; }
+
+    /// <summary>Slovak control-statement type, for example IO or MT.</summary>
+    [JsonPropertyName("controlStatementType")]
+    public string? ControlStatementType { get; set; }
+
+    /// <summary>Slovak control-statement quantity.</summary>
+    [JsonPropertyName("controlStatementQuantity")]
+    public decimal? ControlStatementQuantity { get; set; }
+
+    /// <summary>Slovak control-statement unit, for example kg, t, m, or ks.</summary>
+    [JsonPropertyName("controlStatementUnit")]
+    public string? ControlStatementUnit { get; set; }
 }
 
 /// <summary>

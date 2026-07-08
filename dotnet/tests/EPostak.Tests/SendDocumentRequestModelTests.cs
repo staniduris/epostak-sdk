@@ -34,7 +34,19 @@ public sealed class SendDocumentRequestModelTests
                     Description = "Oprava mnozstva",
                     Quantity = 1,
                     UnitPrice = 100,
-                    VatRate = 23
+                    VatRate = 23,
+                    VatCategoryCode = "AE",
+                    TaxTreatment = "reverse_charge_domestic",
+                    DeliveryDate = "2026-04-01",
+                    LineType = "advance_deduction",
+                    AdvanceInvoiceReference = "ZF-2026-001",
+                    CustomsTariffCode = "72044910",
+                    CommodityClassificationCode = "72044910",
+                    CommodityClassificationListId = "HS",
+                    ReverseChargeParagraphLetter = "f",
+                    ControlStatementType = "MT",
+                    ControlStatementQuantity = 1250,
+                    ControlStatementUnit = "kg"
                 }
             ]
         };
@@ -51,5 +63,17 @@ public sealed class SendDocumentRequestModelTests
         Assert.Contains("\"amountWithVat\":838.25", json);
         Assert.Contains("\"unitPrice\":100", json);
         Assert.Contains("\"vatRate\":23", json);
+        Assert.Contains("\"vatCategoryCode\":\"AE\"", json);
+        Assert.Contains("\"taxTreatment\":\"reverse_charge_domestic\"", json);
+        Assert.Contains("\"deliveryDate\":\"2026-04-01\"", json);
+        Assert.Contains("\"lineType\":\"advance_deduction\"", json);
+        Assert.Contains("\"advanceInvoiceReference\":\"ZF-2026-001\"", json);
+        Assert.Contains("\"customsTariffCode\":\"72044910\"", json);
+        Assert.Contains("\"commodityClassificationCode\":\"72044910\"", json);
+        Assert.Contains("\"commodityClassificationListId\":\"HS\"", json);
+        Assert.Contains("\"reverseChargeParagraphLetter\":\"f\"", json);
+        Assert.Contains("\"controlStatementType\":\"MT\"", json);
+        Assert.Contains("\"controlStatementQuantity\":1250", json);
+        Assert.Contains("\"controlStatementUnit\":\"kg\"", json);
     }
 }

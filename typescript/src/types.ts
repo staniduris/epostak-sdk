@@ -639,6 +639,36 @@ export interface LineItem {
   vatRate: number;
   /** Optional discount as a percentage applied to this line (e.g. `10` for 10% off) */
   discount?: number;
+  /** UBL VAT category code, e.g. `"S"`, `"Z"`, or `"AE"` */
+  vatCategoryCode?: string;
+  /** Alias for `vatCategoryCode` */
+  vatCategory?: string;
+  /** Snake_case alias for `vatCategoryCode` */
+  vat_category?: string;
+  /** Higher-level tax treatment mapped by the API to `vatCategoryCode` */
+  taxTreatment?: string;
+  /** Snake_case alias for `taxTreatment` */
+  tax_treatment?: string;
+  /** Line delivery date in `YYYY-MM-DD` format */
+  deliveryDate?: string;
+  /** Line type, for example `"standard"` or `"advance_deduction"` */
+  lineType?: string;
+  /** Advance invoice reference required for `lineType = "advance_deduction"` */
+  advanceInvoiceReference?: string;
+  /** Customs tariff / combined nomenclature code */
+  customsTariffCode?: string;
+  /** Generic item classification code when `customsTariffCode` is not used */
+  commodityClassificationCode?: string;
+  /** Classification list identifier, e.g. `"HS"` */
+  commodityClassificationListId?: string;
+  /** Domestic reverse-charge paragraph letter evidence */
+  reverseChargeParagraphLetter?: string;
+  /** Slovak control-statement type, e.g. `"IO"` or `"MT"` */
+  controlStatementType?: string;
+  /** Slovak control-statement quantity */
+  controlStatementQuantity?: number;
+  /** Slovak control-statement unit, e.g. `"kg"`, `"t"`, `"m"`, or `"ks"` */
+  controlStatementUnit?: string;
 }
 
 /** A line item as returned by the API in document responses (includes computed totals). */

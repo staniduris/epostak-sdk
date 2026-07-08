@@ -533,6 +533,21 @@ class LineItem(TypedDict, total=False):
     unitPrice: float  # type: ignore[misc]  # Price per unit excluding VAT
     vatRate: float  # type: ignore[misc]  # VAT rate as a percentage, e.g. 23
     discount: float  # Discount percentage (0-100) applied to the line total
+    vatCategoryCode: str  # UBL VAT category code, e.g. "S", "Z", or "AE"
+    vatCategory: str  # Alias for vatCategoryCode
+    vat_category: str  # Snake_case alias for vatCategoryCode
+    taxTreatment: str  # Higher-level tax treatment mapped to vatCategoryCode
+    tax_treatment: str  # Snake_case alias for taxTreatment
+    deliveryDate: str  # Line delivery date in YYYY-MM-DD format
+    lineType: str  # Line type, e.g. "standard" or "advance_deduction"
+    advanceInvoiceReference: str  # Advance invoice reference for deduction lines
+    customsTariffCode: str  # Customs tariff / combined nomenclature code
+    commodityClassificationCode: str  # Generic item classification code
+    commodityClassificationListId: str  # Classification list identifier, e.g. "HS"
+    reverseChargeParagraphLetter: str  # Domestic reverse-charge paragraph letter
+    controlStatementType: str  # Slovak control-statement type, e.g. "IO" or "MT"
+    controlStatementQuantity: float  # type: ignore[misc]  # Control-statement quantity
+    controlStatementUnit: str  # Control-statement unit, e.g. "kg", "t", "m", or "ks"
 
 
 class LineItemResponse(TypedDict, total=False):

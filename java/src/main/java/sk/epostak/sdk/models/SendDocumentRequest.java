@@ -333,6 +333,19 @@ public final class SendDocumentRequest {
      * @param unitPrice   price per unit excluding VAT
      * @param vatRate     VAT rate as a percentage (e.g. {@code 23.0})
      * @param discount    optional discount percentage, or {@code null}
+     * @param vatCategoryCode UBL VAT category code, e.g. {@code "S"}, {@code "Z"}, or {@code "AE"}
+     * @param vatCategory alias for {@code vatCategoryCode}
+     * @param taxTreatment higher-level tax treatment mapped by the API to {@code vatCategoryCode}
+     * @param deliveryDate line delivery date in {@code YYYY-MM-DD} format
+     * @param lineType line type, e.g. {@code "standard"} or {@code "advance_deduction"}
+     * @param advanceInvoiceReference advance invoice reference for deduction lines
+     * @param customsTariffCode customs tariff / combined nomenclature code
+     * @param commodityClassificationCode generic item classification code
+     * @param commodityClassificationListId classification list identifier, e.g. {@code "HS"}
+     * @param reverseChargeParagraphLetter domestic reverse-charge paragraph letter evidence
+     * @param controlStatementType Slovak control-statement type, e.g. {@code "IO"} or {@code "MT"}
+     * @param controlStatementQuantity Slovak control-statement quantity
+     * @param controlStatementUnit Slovak control-statement unit, e.g. {@code "kg"}, {@code "t"}, {@code "m"}, or {@code "ks"}
      */
     public record LineItem(
             String description,
@@ -340,8 +353,48 @@ public final class SendDocumentRequest {
             String unit,
             @SerializedName("unitPrice") double unitPrice,
             @SerializedName("vatRate") double vatRate,
-            Double discount
+            Double discount,
+            @SerializedName("vatCategoryCode") String vatCategoryCode,
+            @SerializedName("vatCategory") String vatCategory,
+            @SerializedName("taxTreatment") String taxTreatment,
+            @SerializedName("deliveryDate") String deliveryDate,
+            @SerializedName("lineType") String lineType,
+            @SerializedName("advanceInvoiceReference") String advanceInvoiceReference,
+            @SerializedName("customsTariffCode") String customsTariffCode,
+            @SerializedName("commodityClassificationCode") String commodityClassificationCode,
+            @SerializedName("commodityClassificationListId") String commodityClassificationListId,
+            @SerializedName("reverseChargeParagraphLetter") String reverseChargeParagraphLetter,
+            @SerializedName("controlStatementType") String controlStatementType,
+            @SerializedName("controlStatementQuantity") Double controlStatementQuantity,
+            @SerializedName("controlStatementUnit") String controlStatementUnit
     ) {
+        /**
+         * Compatibility constructor with the original optional unit/discount fields.
+         */
+        public LineItem(String description, double quantity, String unit, double unitPrice, double vatRate, Double discount) {
+            this(
+                    description,
+                    quantity,
+                    unit,
+                    unitPrice,
+                    vatRate,
+                    discount,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
         /**
          * Convenience constructor without optional fields (unit defaults to {@code null},
          * no discount).
