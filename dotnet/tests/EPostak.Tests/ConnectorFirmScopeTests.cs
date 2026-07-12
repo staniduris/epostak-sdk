@@ -141,6 +141,42 @@ public sealed class ConnectorFirmScopeTests
     }
 
     [Fact]
+    public async Task JsonModeDocumentsSendRequiresReceiverNameBeforeHttp()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            client.Documents.SendAsync(new SendDocumentRequest
+            {
+                ReceiverPeppolId = "0245:12345678",
+                Items = [new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 }]
+            }));
+
+        Assert.Contains("ReceiverName", ex.Message);
+        Assert.Empty(handler.ApiRequests);
+    }
+
+    [Fact]
+    public async Task XmlModeDocumentsSendDoesNotRequireReceiverName()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        await client.Documents.SendAsync(new SendDocumentRequest
+        {
+            ReceiverPeppolId = "0245:12345678",
+            Xml = "<Invoice/>",
+        });
+
+        var request = Assert.Single(handler.ApiRequests);
+        Assert.Equal("/api/v1/documents/send", request.Uri.AbsolutePath);
+        Assert.DoesNotContain("receiverName", request.Body);
+    }
+
+    [Fact]
     public async Task PeppolCapabilitiesUsesParticipantEnvelope()
     {
         var handler = new CaptureHandler();

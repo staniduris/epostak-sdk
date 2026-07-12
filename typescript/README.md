@@ -52,6 +52,12 @@ allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-12
+
+- **New:** JSON billing payloads now expose the live receiver address,
+  `prepaidAmount`, `prepayments`, and advanced line-item VAT/classification
+  fields from the Enterprise OpenAPI.
+
 ### Unreleased — 2026-07-01
 
 - **New:** Enterprise API facade helpers for Payload Assistant validation,
@@ -137,6 +143,7 @@ const client = new EPostak({
 
 const result = await client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-001",
   issueDate: "2026-04-04",
   dueDate: "2026-04-18",
@@ -157,6 +164,7 @@ the client.
 const invoice = {
   receiverPeppolId: "0245:1234567890",
   document: {
+    receiverName: "Firma s.r.o.",
     invoiceNumber: "FA-2026-001",
     issueDate: "2026-06-04",
     dueDate: "2026-06-18",
@@ -398,7 +406,7 @@ await client.enterprise.documents.respond("doc-uuid", { status: "AP", note: "Akc
 // Validate without sending — pass the JSON invoice or raw UBL XML
 const validation = await client.enterprise.documents.validate({
   format: "json",
-  document: { receiverPeppolId: "0245:1234567890", items: [/* ... */] },
+  document: { receiverPeppolId: "0245:1234567890", receiverName: "Firma s.r.o.", items: [/* ... */] },
 });
 
 // Check receiver capability

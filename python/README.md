@@ -54,6 +54,12 @@ allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-12
+
+- JSON billing payloads now expose the live receiver address, `prepaidAmount`,
+  `prepayments`, and advanced line-item VAT/classification fields from the
+  Enterprise OpenAPI.
+
 ### Unreleased — 2026-07-01
 
 - Enterprise API facade helpers for Payload Assistant validation, pull/ack
@@ -122,6 +128,7 @@ client = EPostak(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
 
 result = client.enterprise.documents.send({
     "receiverPeppolId": "0245:1234567890",
+    "receiverName": "Firma s.r.o.",
     "invoiceNumber": "FV-2026-001",
     "issueDate": "2026-04-04",
     "dueDate": "2026-04-18",
@@ -142,6 +149,7 @@ the client.
 invoice = {
     "receiverPeppolId": "0245:1234567890",
     "document": {
+        "receiverName": "Firma s.r.o.",
         "invoiceNumber": "FA-2026-001",
         "issueDate": "2026-06-04",
         "dueDate": "2026-06-18",
@@ -367,7 +375,7 @@ ubl = client.enterprise.documents.ubl("doc-uuid")
 client.enterprise.documents.respond("doc-uuid", status="AP", note="Akceptované")
 
 # Validate without sending
-validation = client.enterprise.documents.validate({"receiverPeppolId": "0245:1234567890", "items": [...]})
+validation = client.enterprise.documents.validate({"receiverPeppolId": "0245:1234567890", "receiverName": "Firma s.r.o.", "items": [...]})
 
 # Check receiver capability
 check = client.enterprise.documents.preflight("0245:1234567890")
@@ -376,7 +384,7 @@ check = client.enterprise.documents.preflight("0245:1234567890")
 converted = client.enterprise.documents.convert(
     input_format="json",
     output_format="ubl",
-    document={"invoiceNumber": "FV-001", "items": [...]},
+    document={"receiverName": "Firma s.r.o.", "invoiceNumber": "FV-001", "items": [...]},
 )
 ```
 

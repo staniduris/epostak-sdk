@@ -17,6 +17,7 @@ import sk.epostak.sdk.models.ConnectorSendPolicyOptions;
 import sk.epostak.sdk.models.ConnectorSubmitDocumentRequest;
 import sk.epostak.sdk.models.ConnectorSyncParams;
 import sk.epostak.sdk.models.CapabilitiesRequest;
+import sk.epostak.sdk.models.SendDocumentRequest;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -28,6 +29,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class ConnectorFirmScopeTest {
     @Test
@@ -107,6 +109,41 @@ final class ConnectorFirmScopeTest {
             assertEquals("/sapi/v1/document/send", request.path());
             assertEquals("0245:1234567890", request.participantId());
             assertEquals("sapi-fa-1", request.idempotencyKey());
+        }
+    }
+
+    @Test
+    void jsonModeDocumentsSendRequiresReceiverNameBeforeHttp() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+                    client.documents().send(
+                            SendDocumentRequest.builder("0245:12345678")
+                                    .items(List.of(new SendDocumentRequest.LineItem("Item", 1, 100, 23)))
+                                    .build()
+                    )
+            );
+
+            assertEquals(true, error.getMessage().contains("receiverName"));
+            assertEquals(0, server.requests().size());
+        }
+    }
+
+    @Test
+    void xmlModeDocumentsSendDoesNotRequireReceiverName() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.documents().send(
+                    SendDocumentRequest.builder("0245:12345678")
+                            .xml("<Invoice/>")
+                            .build()
+            );
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals("/api/v1/documents/send", request.path());
+            assertEquals(false, request.body().contains("receiverName"));
         }
     }
 

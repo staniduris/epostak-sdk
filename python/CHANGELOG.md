@@ -7,6 +7,12 @@ file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ### Added
 
+- Added live JSON billing payload fields to `SendDocumentRequest` typing:
+  `receiverStreet`, `receiverCity`, `receiverPostalCode`, `prepaidAmount`,
+  `prepayments`, and advanced `LineItem` VAT/classification/control-statement
+  fields.
+- Split typed send payloads into JSON/XML request shapes so JSON mode requires
+  `receiverName` and does not advertise non-live `docType`.
 - Added `client.connector.mapper(...)` and customer-scoped
   `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
   for the live `/connector/mapper` endpoint.

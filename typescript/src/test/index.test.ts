@@ -359,6 +359,7 @@ describe("UblValidationError", () => {
     try {
       await client.documents.send({
         receiverPeppolId: "0245:1234567890",
+        receiverName: "Test s.r.o.",
         items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }],
       });
       assert.fail("Expected UblValidationError to be thrown");
@@ -367,6 +368,166 @@ describe("UblValidationError", () => {
       assert.strictEqual((err as UblValidationError).rule, "BR-02");
       assert.strictEqual((err as UblValidationError).code, "UBL_VALIDATION_ERROR");
     }
+  });
+
+  it("serializes live JSON billing prepayment and line-item fields", async () => {
+    const client = makeClient();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedBody =
+        typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      return makeMockResponse({
+        documentId: "doc-1",
+        messageId: "msg-1",
+        status: "SENT",
+      });
+    });
+
+    await client.documents.send({
+      receiverPeppolId: "0245:12345678",
+      receiverName: "Zakaznik s.r.o.",
+      receiverStreet: "Hlavna 1",
+      receiverCity: "Bratislava",
+      receiverPostalCode: "81101",
+      prepaidAmount: 1230,
+      prepayments: [
+        {
+          advanceInvoiceRef: "ZAL-2026-0004",
+          taxDocumentRef: "DDP-2026-0022",
+          settlementDate: "2026-02-23",
+          amountWithoutVat: 1000,
+          vatAmount: 230,
+          amountWithVat: 1230,
+          vatRate: 23,
+          vatCategoryCode: "S",
+        },
+      ],
+      items: [
+        {
+          description: "Konzultacne sluzby",
+          quantity: 10,
+          unit: "HUR",
+          unitPrice: 50,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(capturedBody, {
+      receiverPeppolId: "0245:12345678",
+      receiverName: "Zakaznik s.r.o.",
+      receiverStreet: "Hlavna 1",
+      receiverCity: "Bratislava",
+      receiverPostalCode: "81101",
+      prepaidAmount: 1230,
+      prepayments: [
+        {
+          advanceInvoiceRef: "ZAL-2026-0004",
+          taxDocumentRef: "DDP-2026-0022",
+          settlementDate: "2026-02-23",
+          amountWithoutVat: 1000,
+          vatAmount: 230,
+          amountWithVat: 1230,
+          vatRate: 23,
+          vatCategoryCode: "S",
+        },
+      ],
+      items: [
+        {
+          description: "Konzultacne sluzby",
+          quantity: 10,
+          unit: "HUR",
+          unitPrice: 50,
+          vatRate: 23,
+          vatCategoryCode: "AE",
+          taxTreatment: "reverse_charge_domestic",
+          deliveryDate: "2026-04-01",
+          customsTariffCode: "72044910",
+          commodityClassificationCode: "72044910",
+          commodityClassificationListId: "HS",
+          reverseChargeParagraphLetter: "f",
+          controlStatementType: "MT",
+          controlStatementQuantity: 1250,
+          controlStatementUnit: "kg",
+        },
+      ],
+    });
+  });
+
+  it("serializes live JSON billing advance-deduction line fields", async () => {
+    const client = makeClient();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedBody =
+        typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      return makeMockResponse({
+        documentId: "doc-2",
+        messageId: "msg-2",
+        status: "SENT",
+      });
+    });
+
+    await client.documents.send({
+      receiverPeppolId: "0245:12345678",
+      receiverName: "Zakaznik s.r.o.",
+      items: [
+        {
+          description: "Zuctovanie zalohy",
+          quantity: 1,
+          unit: "C62",
+          unitPrice: -1000,
+          vatRate: 23,
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(capturedBody, {
+      receiverPeppolId: "0245:12345678",
+      receiverName: "Zakaznik s.r.o.",
+      items: [
+        {
+          description: "Zuctovanie zalohy",
+          quantity: 1,
+          unit: "C62",
+          unitPrice: -1000,
+          vatRate: 23,
+          lineType: "advance_deduction",
+          advanceInvoiceReference: "ZF-2026-001",
+        },
+      ],
+    });
   });
 });
 

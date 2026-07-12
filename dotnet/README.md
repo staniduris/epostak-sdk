@@ -63,6 +63,12 @@ window allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-12
+
+- JSON billing payloads now expose the live receiver address, `PrepaidAmount`,
+  `Prepayments`, and advanced line-item VAT/classification fields from the
+  Enterprise OpenAPI.
+
 ### Unreleased — 2026-07-01
 
 - `client.Enterprise.Payloads.ValidateAsync(...)`,
@@ -124,6 +130,7 @@ var client = new EPostakClient(new EPostakConfig
 var result = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
+    ReceiverName = "Firma s.r.o.",
     InvoiceNumber = "INV-2026-001",
     IssueDate = "2026-04-11",
     DueDate = "2026-05-11",
@@ -199,6 +206,7 @@ var invoice = new Dictionary<string, object?>
     ["receiverPeppolId"] = "0245:1234567890",
     ["document"] = new Dictionary<string, object?>
     {
+        ["receiverName"] = "Firma s.r.o.",
         ["invoiceNumber"] = "FA-2026-001",
         ["issueDate"] = "2026-06-04",
         ["dueDate"] = "2026-06-18",
@@ -358,6 +366,7 @@ var updated = await client.Enterprise.Documents.UpdateAsync("doc-id", new Update
 var sent = await client.Enterprise.Documents.SendAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
+    ReceiverName = "Firma s.r.o.",
     Items = [ new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
 });
 
@@ -395,6 +404,7 @@ var response = await client.Enterprise.Documents.RespondAsync("doc-id", new Invo
 var validation = await client.Enterprise.Documents.ValidateAsync(new SendDocumentRequest
 {
     ReceiverPeppolId = "0245:12345678",
+    ReceiverName = "Firma s.r.o.",
     Items = [ new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 } ]
 });
 

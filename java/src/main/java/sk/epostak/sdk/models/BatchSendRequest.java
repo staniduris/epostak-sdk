@@ -14,10 +14,12 @@ import java.util.List;
  * BatchSendRequest req = new BatchSendRequest(List.of(
  *     new BatchSendRequest.BatchItem(
  *         SendDocumentRequest.builder("0245:12345678")
+ *             .receiverName("Firma A s.r.o.")
  *             .invoiceNumber("FV-2026-001").build(),
  *         "idem-001"),
  *     new BatchSendRequest.BatchItem(
  *         SendDocumentRequest.builder("0245:87654321")
+ *             .receiverName("Firma B s.r.o.")
  *             .invoiceNumber("FV-2026-002").build(),
  *         null)
  * ));

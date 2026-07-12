@@ -63,10 +63,18 @@ public sealed class DocumentsResource
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>Document types (<c>DocType</c>).</strong> Accepted values:
-    /// <c>"invoice"</c>, <c>"credit_note"</c>, <c>"correction"</c>,
-    /// <c>"self_billing"</c>, <c>"reverse_charge"</c>,
-    /// <c>"self_billing_credit_note"</c>. Defaults to <c>"invoice"</c> when omitted.
+    /// JSON mode follows the live <c>SendDocumentJsonRequest</c> schema. It
+    /// does not accept <c>DocType</c>; for custom UBL type codes or self-billing
+    /// documents, submit pre-built XML via <c>Xml</c>. JSON mode requires
+    /// <c>ReceiverPeppolId</c>, <c>ReceiverName</c>, and <c>Items</c>.
+    /// </para>
+    /// <para>
+    /// JSON mode also supports explicit receiver address fields, <c>PrepaidAmount</c>,
+    /// structured <c>Prepayments</c>, and advanced line-item tax/classification fields
+    /// such as <c>TaxTreatment</c>, <c>VatCategoryCode</c>, <c>DeliveryDate</c>,
+    /// <c>LineType</c>, <c>CustomsTariffCode</c>, and Slovak control-statement fields.
+    /// Do not combine <c>Prepayments</c>/<c>PrepaidAmount</c> with
+    /// <c>Items[].LineType = "advance_deduction"</c>.
     /// </para>
     /// <para>
     /// <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
@@ -91,6 +99,7 @@ public sealed class DocumentsResource
     /// var result = await client.Documents.SendAsync(new SendDocumentRequest
     /// {
     ///     ReceiverPeppolId = "0245:12345678",
+    ///     ReceiverName = "Firma s.r.o.",
     ///     InvoiceNumber = "FV-2026-001",
     ///     IssueDate = "2026-04-11",
     ///     DueDate = "2026-05-11",
@@ -118,7 +127,29 @@ public sealed class DocumentsResource
     /// <param name="idempotencyKey">Optional idempotency key for safe retries. Null disables the header.</param>
     /// <param name="ct">Cancellation token.</param>
     public Task<SendDocumentResponse> SendAsync(SendDocumentRequest request, string? idempotencyKey, CancellationToken ct = default)
-        => _http.RequestAsync<SendDocumentResponse>(HttpMethod.Post, "/documents/send", request, idempotencyKey, ct);
+    {
+        ValidateSendRequest(request);
+        return _http.RequestAsync<SendDocumentResponse>(HttpMethod.Post, "/documents/send", request, idempotencyKey, ct);
+    }
+
+    private static void ValidateSendRequest(SendDocumentRequest request)
+    {
+        if (request is null)
+            throw new ArgumentNullException(nameof(request));
+
+        var hasXml = !string.IsNullOrWhiteSpace(request.Xml);
+        if (hasXml)
+            return;
+
+        if (request.Items is null)
+            return;
+
+        if (request.Items.Count == 0)
+            throw new ArgumentException("JSON-mode send requires at least one line item.", nameof(request));
+
+        if (string.IsNullOrWhiteSpace(request.ReceiverName))
+            throw new ArgumentException("JSON-mode send requires ReceiverName.", nameof(request));
+    }
 
     /// <summary>
     /// Get the current delivery status and full status history of a document.
@@ -270,6 +301,7 @@ public sealed class DocumentsResource
     /// var result = await client.Documents.ValidateAsync(new SendDocumentRequest
     /// {
     ///     ReceiverPeppolId = "0245:12345678",
+    ///     ReceiverName = "Firma s.r.o.",
     ///     Items = new List&lt;LineItem&gt;
     ///     {
     ///         new() { Description = "Item 1", Quantity = 1, UnitPrice = 50m, VatRate = 23m }
@@ -335,8 +367,8 @@ public sealed class DocumentsResource
     /// <code>
     /// var response = await client.Documents.SendBatchAsync(new List&lt;BatchSendItem&gt;
     /// {
-    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:12345678", ... } },
-    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:87654321", ... },
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:12345678", ReceiverName = "Firma A s.r.o.", ... } },
+    ///     new() { Document = new SendDocumentRequest { ReceiverPeppolId = "0245:87654321", ReceiverName = "Firma B s.r.o.", ... },
     ///             IdempotencyKey = "batch-002" }
     /// });
     /// Console.WriteLine($"{response.Succeeded}/{response.Total} sent");

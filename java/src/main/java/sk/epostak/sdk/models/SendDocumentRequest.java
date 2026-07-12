@@ -7,11 +7,13 @@ import java.util.List;
  * Request body for sending a document via Peppol.
  * <p>
  * Use either JSON mode (structured data with {@code items}) or XML mode
- * (pre-built UBL with {@code xml}). The {@code receiverPeppolId} is always required.
+ * (pre-built UBL with {@code xml}). The {@code receiverPeppolId} is always
+ * required; JSON mode also requires {@code receiverName} and {@code items}.
  *
  * <pre>{@code
  * // JSON mode
  * SendDocumentRequest req = SendDocumentRequest.builder("0245:12345678")
+ *     .receiverName("Firma s.r.o.")
  *     .invoiceNumber("FV-2026-001")
  *     .issueDate("2026-04-04")
  *     .dueDate("2026-04-18")
@@ -28,16 +30,16 @@ import java.util.List;
 public final class SendDocumentRequest {
 
     /** Receiver's Peppol participant ID (required), e.g. {@code "0245:12345678"}. */
-    @SerializedName("receiver_peppol_id")
+    @SerializedName("receiverPeppolId")
     private final String receiverPeppolId;
     /** Invoice number, e.g. {@code "FV-2026-001"}. */
-    @SerializedName("invoice_number")
+    @SerializedName("invoiceNumber")
     private final String invoiceNumber;
     /** Issue date in ISO 8601 format (YYYY-MM-DD). */
-    @SerializedName("issue_date")
+    @SerializedName("issueDate")
     private final String issueDate;
     /** Due date in ISO 8601 format (YYYY-MM-DD). */
-    @SerializedName("due_date")
+    @SerializedName("dueDate")
     private final String dueDate;
     /** Currency code, e.g. {@code "EUR"}. Defaults to {@code "EUR"} if not set. */
     private final String currency;
@@ -46,32 +48,46 @@ public final class SendDocumentRequest {
     /** IBAN for bank transfer payment. */
     private final String iban;
     /** Payment method code, e.g. {@code "30"} for bank transfer. */
-    @SerializedName("payment_method")
+    @SerializedName("paymentMethod")
     private final String paymentMethod;
     /** Slovak variable symbol for payment matching. */
-    @SerializedName("variable_symbol")
+    @SerializedName("variableSymbol")
     private final String variableSymbol;
     /** Buyer reference (purchase order number, contract ID, etc.). */
-    @SerializedName("buyer_reference")
+    @SerializedName("buyerReference")
     private final String buyerReference;
-    /** Receiver company name (optional, auto-resolved from Peppol ID). */
-    @SerializedName("receiver_name")
+    /** Receiver company name. Required in JSON mode. */
+    @SerializedName("receiverName")
     private final String receiverName;
     /** Receiver ICO (company registration number). */
-    @SerializedName("receiver_ico")
+    @SerializedName("receiverIco")
     private final String receiverIco;
     /** Receiver DIC (tax ID). */
-    @SerializedName("receiver_dic")
+    @SerializedName("receiverDic")
     private final String receiverDic;
     /** Receiver IC DPH (VAT registration number). */
-    @SerializedName("receiver_ic_dph")
+    @SerializedName("receiverIcDph")
     private final String receiverIcDph;
     /** Receiver postal address (street, city, zip). */
-    @SerializedName("receiver_address")
+    @SerializedName("receiverAddress")
     private final String receiverAddress;
+    /** Receiver street and number. */
+    @SerializedName("receiverStreet")
+    private final String receiverStreet;
+    /** Receiver city. */
+    @SerializedName("receiverCity")
+    private final String receiverCity;
+    /** Receiver postal code. */
+    @SerializedName("receiverPostalCode")
+    private final String receiverPostalCode;
     /** Receiver country code (ISO 3166-1 alpha-2). */
-    @SerializedName("receiver_country")
+    @SerializedName("receiverCountry")
     private final String receiverCountry;
+    /** Amount paid in advance. Do not combine with advance deduction lines. */
+    @SerializedName("prepaidAmount")
+    private final Double prepaidAmount;
+    /** Structured settled prepayments for final-invoice JSON mode. */
+    private final List<Prepayment> prepayments;
     /** Line items for JSON mode. Mutually exclusive with {@code xml}. */
     private final List<LineItem> items;
     /** Invoice attachments (BG-24). JSON mode only; embedded as base64 into the generated UBL XML. */
@@ -95,7 +111,12 @@ public final class SendDocumentRequest {
         this.receiverDic = builder.receiverDic;
         this.receiverIcDph = builder.receiverIcDph;
         this.receiverAddress = builder.receiverAddress;
+        this.receiverStreet = builder.receiverStreet;
+        this.receiverCity = builder.receiverCity;
+        this.receiverPostalCode = builder.receiverPostalCode;
         this.receiverCountry = builder.receiverCountry;
+        this.prepaidAmount = builder.prepaidAmount;
+        this.prepayments = builder.prepayments;
         this.items = builder.items;
         this.attachments = builder.attachments;
         this.xml = builder.xml;
@@ -141,8 +162,18 @@ public final class SendDocumentRequest {
     public String getReceiverIcDph() { return receiverIcDph; }
     /** @return the receiver postal address */
     public String getReceiverAddress() { return receiverAddress; }
+    /** @return the receiver street */
+    public String getReceiverStreet() { return receiverStreet; }
+    /** @return the receiver city */
+    public String getReceiverCity() { return receiverCity; }
+    /** @return the receiver postal code */
+    public String getReceiverPostalCode() { return receiverPostalCode; }
     /** @return the receiver country code */
     public String getReceiverCountry() { return receiverCountry; }
+    /** @return the prepaid amount */
+    public Double getPrepaidAmount() { return prepaidAmount; }
+    /** @return structured settled prepayments */
+    public List<Prepayment> getPrepayments() { return prepayments; }
     /** @return the line items (JSON mode) */
     public List<LineItem> getItems() { return items; }
     /** @return the attachments (JSON mode, BG-24) */
@@ -170,8 +201,8 @@ public final class SendDocumentRequest {
      * @param description optional short description (max 100 chars), or {@code null}
      */
     public record Attachment(
-            @SerializedName("file_name") String fileName,
-            @SerializedName("mime_type") String mimeType,
+            @SerializedName("fileName") String fileName,
+            @SerializedName("mimeType") String mimeType,
             String content,
             String description
     ) {
@@ -198,15 +229,68 @@ public final class SendDocumentRequest {
      * @param unitPrice   price per unit excluding VAT
      * @param vatRate     VAT rate as a percentage (e.g. {@code 23.0})
      * @param discount    optional discount percentage, or {@code null}
+     * @param vatCategoryCode UBL VAT category code, e.g. {@code "S"}, {@code "Z"}, or {@code "AE"}
+     * @param vatCategory alias for {@code vatCategoryCode}
+     * @param taxTreatment higher-level tax treatment mapped by the API to {@code vatCategoryCode}
+     * @param deliveryDate line delivery date in {@code YYYY-MM-DD} format
+     * @param lineType line type, e.g. {@code "standard"} or {@code "advance_deduction"}
+     * @param advanceInvoiceReference advance invoice reference for deduction lines
+     * @param customsTariffCode customs tariff / combined nomenclature code
+     * @param commodityClassificationCode generic item classification code
+     * @param commodityClassificationListId classification list identifier, e.g. {@code "HS"}
+     * @param reverseChargeParagraphLetter domestic reverse-charge paragraph letter evidence
+     * @param controlStatementType Slovak control-statement type, e.g. {@code "IO"} or {@code "MT"}
+     * @param controlStatementQuantity Slovak control-statement quantity
+     * @param controlStatementUnit Slovak control-statement unit, e.g. {@code "kg"}, {@code "t"}, {@code "m"}, or {@code "ks"}
      */
     public record LineItem(
             String description,
             double quantity,
             String unit,
-            @SerializedName("unit_price") double unitPrice,
-            @SerializedName("vat_rate") double vatRate,
-            Double discount
+            @SerializedName("unitPrice") double unitPrice,
+            @SerializedName("vatRate") double vatRate,
+            Double discount,
+            @SerializedName("vatCategoryCode") String vatCategoryCode,
+            @SerializedName("vatCategory") String vatCategory,
+            @SerializedName("taxTreatment") String taxTreatment,
+            @SerializedName("deliveryDate") String deliveryDate,
+            @SerializedName("lineType") String lineType,
+            @SerializedName("advanceInvoiceReference") String advanceInvoiceReference,
+            @SerializedName("customsTariffCode") String customsTariffCode,
+            @SerializedName("commodityClassificationCode") String commodityClassificationCode,
+            @SerializedName("commodityClassificationListId") String commodityClassificationListId,
+            @SerializedName("reverseChargeParagraphLetter") String reverseChargeParagraphLetter,
+            @SerializedName("controlStatementType") String controlStatementType,
+            @SerializedName("controlStatementQuantity") Double controlStatementQuantity,
+            @SerializedName("controlStatementUnit") String controlStatementUnit
     ) {
+        /**
+         * Compatibility constructor with the original optional unit/discount fields.
+         */
+        public LineItem(String description, double quantity, String unit, double unitPrice, double vatRate, Double discount) {
+            this(
+                    description,
+                    quantity,
+                    unit,
+                    unitPrice,
+                    vatRate,
+                    discount,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
+
         /**
          * Convenience constructor without optional fields (unit defaults to {@code null},
          * no discount).
@@ -221,13 +305,42 @@ public final class SendDocumentRequest {
         }
     }
 
+    // -- prepayment record ----------------------------------------------------
+
+    /**
+     * Structured settled prepayment for final-invoice JSON mode.
+     *
+     * @param advanceInvoiceRef advance/prepayment invoice reference from the ERP
+     * @param taxDocumentRef    tax document number for the received advance payment
+     * @param settlementDate    settlement date in {@code YYYY-MM-DD} format
+     * @param amountWithoutVat  settled amount without VAT, or {@code null}
+     * @param vatAmount         VAT amount from the settled prepayment, or {@code null}
+     * @param amountWithVat     settled amount including VAT
+     * @param vatRate           VAT rate of the prepayment, or {@code null}
+     * @param vatCategoryCode   optional VAT category of the prepayment
+     */
+    public record Prepayment(
+            @SerializedName("advanceInvoiceRef") String advanceInvoiceRef,
+            @SerializedName("taxDocumentRef") String taxDocumentRef,
+            @SerializedName("settlementDate") String settlementDate,
+            @SerializedName("amountWithoutVat") Double amountWithoutVat,
+            @SerializedName("vatAmount") Double vatAmount,
+            @SerializedName("amountWithVat") double amountWithVat,
+            @SerializedName("vatRate") Double vatRate,
+            @SerializedName("vatCategoryCode") String vatCategoryCode
+    ) {
+        public Prepayment(String advanceInvoiceRef, String taxDocumentRef, String settlementDate, double amountWithVat) {
+            this(advanceInvoiceRef, taxDocumentRef, settlementDate, null, null, amountWithVat, null, null);
+        }
+    }
+
     // -- builder --------------------------------------------------------------
 
     /**
      * Builder for constructing a {@link SendDocumentRequest}.
      * <p>
-     * The receiver Peppol ID is required and set via the constructor. All other
-     * fields are optional.
+     * The receiver Peppol ID is required and set via the constructor. JSON mode
+     * also requires {@link #receiverName(String)} and {@link #items(List)}.
      */
     public static final class Builder {
         /** Receiver's Peppol participant ID (required). */
@@ -260,8 +373,18 @@ public final class SendDocumentRequest {
         private String receiverIcDph;
         /** Receiver postal address. */
         private String receiverAddress;
+        /** Receiver street and number. */
+        private String receiverStreet;
+        /** Receiver city. */
+        private String receiverCity;
+        /** Receiver postal code. */
+        private String receiverPostalCode;
         /** Receiver country code. */
         private String receiverCountry;
+        /** Amount paid in advance. */
+        private Double prepaidAmount;
+        /** Structured settled prepayments for final invoices. */
+        private List<Prepayment> prepayments;
         /** Line items for JSON mode. */
         private List<LineItem> items;
         /** Invoice attachments (BG-24), JSON mode only. */
@@ -301,8 +424,18 @@ public final class SendDocumentRequest {
         public Builder receiverIcDph(String receiverIcDph) { this.receiverIcDph = receiverIcDph; return this; }
         /** @param receiverAddress the receiver's postal address @return this builder */
         public Builder receiverAddress(String receiverAddress) { this.receiverAddress = receiverAddress; return this; }
+        /** @param receiverStreet the receiver street and number @return this builder */
+        public Builder receiverStreet(String receiverStreet) { this.receiverStreet = receiverStreet; return this; }
+        /** @param receiverCity the receiver city @return this builder */
+        public Builder receiverCity(String receiverCity) { this.receiverCity = receiverCity; return this; }
+        /** @param receiverPostalCode the receiver postal code @return this builder */
+        public Builder receiverPostalCode(String receiverPostalCode) { this.receiverPostalCode = receiverPostalCode; return this; }
         /** @param receiverCountry the receiver's country code (ISO 3166-1 alpha-2) @return this builder */
         public Builder receiverCountry(String receiverCountry) { this.receiverCountry = receiverCountry; return this; }
+        /** @param prepaidAmount amount paid in advance @return this builder */
+        public Builder prepaidAmount(Double prepaidAmount) { this.prepaidAmount = prepaidAmount; return this; }
+        /** @param prepayments structured settled prepayments for final invoices @return this builder */
+        public Builder prepayments(List<Prepayment> prepayments) { this.prepayments = prepayments; return this; }
         /** @param items the line items (JSON mode, mutually exclusive with XML) @return this builder */
         public Builder items(List<LineItem> items) { this.items = items; return this; }
         /**

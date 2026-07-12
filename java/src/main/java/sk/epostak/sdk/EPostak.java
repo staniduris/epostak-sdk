@@ -22,6 +22,7 @@ import java.time.Duration;
  *
  * SendDocumentResponse result = client.documents().send(
  *     SendDocumentRequest.builder("0245:1234567890")
+ *         .receiverName("Firma s.r.o.")
  *         .invoiceNumber("FV-2026-001")
  *         .issueDate("2026-04-04")
  *         .dueDate("2026-04-18")

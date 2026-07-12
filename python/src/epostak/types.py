@@ -533,6 +533,21 @@ class LineItem(TypedDict, total=False):
     unitPrice: float  # type: ignore[misc]  # Price per unit excluding VAT
     vatRate: float  # type: ignore[misc]  # VAT rate as a percentage, e.g. 23
     discount: float  # Discount percentage (0-100) applied to the line total
+    vatCategoryCode: str  # UBL VAT category code, e.g. "S", "Z", or "AE"
+    vatCategory: str  # Alias for vatCategoryCode
+    vat_category: str  # Snake_case alias for vatCategoryCode
+    taxTreatment: str  # Higher-level tax treatment mapped to vatCategoryCode
+    tax_treatment: str  # Snake_case alias for taxTreatment
+    deliveryDate: str  # Line delivery date in YYYY-MM-DD format
+    lineType: str  # Line type, e.g. "standard" or "advance_deduction"
+    advanceInvoiceReference: str  # Advance invoice reference for deduction lines
+    customsTariffCode: str  # Customs tariff / combined nomenclature code
+    commodityClassificationCode: str  # Generic item classification code
+    commodityClassificationListId: str  # Classification list identifier, e.g. "HS"
+    reverseChargeParagraphLetter: str  # Domestic reverse-charge paragraph letter
+    controlStatementType: str  # Slovak control-statement type, e.g. "IO" or "MT"
+    controlStatementQuantity: float  # type: ignore[misc]  # Control-statement quantity
+    controlStatementUnit: str  # Control-statement unit, e.g. "kg", "t", "m", or "ks"
 
 
 class LineItemResponse(TypedDict, total=False):
@@ -593,10 +608,27 @@ class DocumentAttachment(TypedDict, total=False):
     description: str  # Optional short description (max 100 chars)
 
 
-class _SendDocumentBase(TypedDict, total=False):
-    """Base fields shared by JSON-mode and XML-mode send requests."""
+class _PrepaymentOptional(TypedDict, total=False):
+    """Optional fields on a structured settled prepayment."""
 
-    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver (required)
+    advanceInvoiceRef: str  # Advance/prepayment invoice reference from the ERP
+    taxDocumentRef: str  # Tax document number for the received advance payment
+    settlementDate: str  # Settlement date in YYYY-MM-DD format
+    amountWithoutVat: float  # type: ignore[misc]  # Settled amount without VAT
+    vatAmount: float  # type: ignore[misc]  # VAT amount from the settled prepayment
+    vatRate: float  # type: ignore[misc]  # VAT rate of the prepayment, when known
+    vatCategoryCode: str  # Optional VAT category of the prepayment, e.g. "S" or "AE"
+
+
+class Prepayment(_PrepaymentOptional):
+    """Structured settled prepayment for final-invoice JSON mode."""
+
+    amountWithVat: float  # type: ignore[misc]  # Settled amount including VAT
+
+
+class _SendDocumentBase(TypedDict, total=False):
+    """Optional structured JSON send fields."""
+
     invoiceNumber: str  # Invoice number, e.g. "FV-2026-001"
     issueDate: str  # Issue date in ISO 8601 / YYYY-MM-DD
     dueDate: str  # Payment due date in ISO 8601 / YYYY-MM-DD
@@ -606,20 +638,36 @@ class _SendDocumentBase(TypedDict, total=False):
     paymentMethod: str  # Payment method code, e.g. "30" (credit transfer)
     variableSymbol: str  # Slovak variable symbol for bank payments (max 10 digits)
     buyerReference: str  # Buyer's reference / purchase order number
-    receiverName: str  # Receiver company name (auto-resolved if omitted)
     receiverIco: str  # Receiver ICO, 8 digits
     receiverDic: str  # Receiver tax ID (DIC)
     receiverIcDph: str  # Receiver VAT ID (IC DPH)
     receiverAddress: str  # Receiver street address
+    receiverStreet: str  # Receiver street and number
+    receiverCity: str  # Receiver city
+    receiverPostalCode: str  # Receiver postal code
     receiverCountry: str  # Receiver ISO country code, e.g. "SK"
-    items: List[LineItem]  # Line items (JSON mode) -- mutually exclusive with ``xml``
+    prepaidAmount: float  # type: ignore[misc]  # Amount paid in advance
+    prepayments: List[Prepayment]  # Structured settled prepayments for final invoices
     attachments: List[DocumentAttachment]  # JSON mode only -- embedded as BG-24 in UBL
+
+
+class SendDocumentJsonRequest(_SendDocumentBase):
+    """Structured JSON send request. The API generates UBL XML."""
+
+    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver
+    receiverName: str  # Receiver company name required by the live JSON schema
+    items: List[LineItem]  # Line items (JSON mode) -- mutually exclusive with ``xml``
+
+
+class SendDocumentXmlRequest(TypedDict):
+    """Raw UBL XML send request."""
+
+    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver
     xml: str  # Pre-built UBL XML string (XML mode) -- mutually exclusive with ``items``
 
 
-# Union type: either JSON mode (with items) or XML mode (with xml)
-SendDocumentRequest = Dict[str, Any]
-"""Request body for ``documents.send()``.  Use ``items`` for JSON mode or ``xml`` for XML mode."""
+SendDocumentRequest = Union[SendDocumentJsonRequest, SendDocumentXmlRequest]
+"""Request body for ``documents.send()``: structured JSON mode or raw XML mode."""
 
 
 class SendDocumentResponse(TypedDict, total=False):

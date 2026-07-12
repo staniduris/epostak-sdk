@@ -10,6 +10,7 @@ module EPostak
     # @example Send an invoice
     #   result = client.documents.send_document(
     #     receiverPeppolId: "0245:1234567890",
+    #     receiverName: "Firma s.r.o.",
     #     items: [{ description: "Web development", quantity: 40, unitPrice: 80, vatRate: 23 }]
     #   )
     #   status = client.documents.status(result["documentId"])
@@ -54,9 +55,18 @@ module EPostak
       # Accepts either structured JSON (the API generates UBL XML) or
       # pre-built UBL XML via the +xml+ key.
       #
-      # Document types (+docType+): +"invoice"+, +"credit_note"+,
-      # +"correction"+, +"self_billing"+, +"reverse_charge"+,
-      # +"self_billing_credit_note"+. Defaults to +"invoice"+ when omitted.
+      # JSON mode follows the live SendDocumentJsonRequest schema. It does
+      # not accept +docType+; for custom UBL type codes or self-billing
+      # documents, submit pre-built XML via +xml+. JSON mode requires
+      # +receiverPeppolId+, +receiverName+, and +items+.
+      #
+      # JSON mode also supports explicit receiver address fields
+      # (+receiverStreet+, +receiverCity+, +receiverPostalCode+),
+      # +prepaidAmount+, structured +prepayments+, and advanced line-item
+      # tax/classification fields such as +taxTreatment+, +vatCategoryCode+,
+      # +deliveryDate+, +lineType+, +customsTariffCode+, and Slovak
+      # control-statement fields. Do not combine +prepayments+ /
+      # +prepaidAmount+ with +items[].lineType = "advance_deduction"+.
       #
       # **Supplier-party pinning (XML mode).** When submitting raw UBL via
       # the +xml+ key, the server pins the seller identity (Name, IČO,
@@ -84,6 +94,7 @@ module EPostak
       # @example Send with JSON (API generates UBL)
       #   result = client.documents.send_document(
       #     receiverPeppolId: "0245:1234567890",
+      #     receiverName: "Firma s.r.o.",
       #     invoiceNumber: "FV-2026-042",
       #     items: [
       #       { description: "Consulting", quantity: 10, unit: "HUR", unitPrice: 100, vatRate: 23 }
@@ -103,6 +114,7 @@ module EPostak
       #
       #   result = client.documents.send_document(
       #     receiverPeppolId: "0245:1234567890",
+      #     receiverName: "Firma s.r.o.",
       #     items: [{ description: "Consulting", quantity: 10, unitPrice: 100, vatRate: 23 }],
       #     attachments: [
       #       {
@@ -249,6 +261,7 @@ module EPostak
       # @example
       #   result = client.documents.validate(
       #     receiverPeppolId: "0245:1234567890",
+      #     receiverName: "Firma s.r.o.",
       #     items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }]
       #   )
       #   puts "Invalid!" unless result["valid"]
@@ -286,7 +299,7 @@ module EPostak
       #   result = client.documents.convert(
       #     input_format: "json",
       #     output_format: "ubl",
-      #     document: { invoiceNumber: "FV-001", items: [...] }
+      #     document: { receiverName: "Firma s.r.o.", invoiceNumber: "FV-001", items: [...] }
       #   )
       #   puts result["document"] # => UBL XML string
       #
@@ -320,12 +333,14 @@ module EPostak
       #   batch = client.documents.send_batch([
       #     {
       #       receiverPeppolId: "0245:1234567890",
+      #       receiverName: "Firma A s.r.o.",
       #       invoiceNumber: "FV-2026-010",
       #       items: [{ description: "Audit", quantity: 1, unitPrice: 500, vatRate: 23 }],
       #       idempotencyKey: "batch-2026-04-22-001"
       #     },
       #     {
       #       receiverPeppolId: "0245:0987654321",
+      #       receiverName: "Firma B s.r.o.",
       #       invoiceNumber: "FV-2026-011",
       #       items: [{ description: "Consulting", quantity: 2, unitPrice: 300, vatRate: 23 }]
       #     }

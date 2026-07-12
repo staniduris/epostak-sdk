@@ -7,6 +7,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added live JSON billing payload fields to `SendDocumentRequest`:
+  `ReceiverStreet`, `ReceiverCity`, `ReceiverPostalCode`, `PrepaidAmount`,
+  `Prepayments`, and advanced `LineItem` VAT/classification/control-statement
+  fields.
+- Clarified that `ReceiverName` is required for JSON-mode sends and made
+  `Prepayment.AmountWithVat` required.
+- Added a send-time JSON-mode guard for missing `ReceiverName` or empty
+  `Items`, while keeping XML-mode sends exempt.
 - Added `client.Connector.MapperAsync(...)` and customer-scoped
   `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
   for the live `/connector/mapper` endpoint.

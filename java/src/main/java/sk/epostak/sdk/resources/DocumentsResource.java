@@ -19,6 +19,7 @@ import java.util.Map;
  * // Send an invoice
  * SendDocumentResponse result = client.documents().send(
  *     SendDocumentRequest.builder("0245:1234567890")
+ *         .receiverName("Firma s.r.o.")
  *         .invoiceNumber("FV-2026-001")
  *         .issueDate("2026-04-04")
  *         .items(List.of(new SendDocumentRequest.LineItem(
@@ -85,11 +86,19 @@ public final class DocumentsResource {
      * Send a document via Peppol. Supports both JSON mode (structured data) and
      * XML mode (pre-built UBL).
      * <p>
-     * <strong>Document types ({@code docType}).</strong> Accepted values:
-     * {@code "invoice"}, {@code "credit_note"}, {@code "correction"},
-     * {@code "self_billing"}, {@code "reverse_charge"},
-     * {@code "self_billing_credit_note"}. Defaults to {@code "invoice"} when
-     * omitted.
+     * JSON mode follows the live {@code SendDocumentJsonRequest} schema. It
+     * does not accept {@code docType}; for custom UBL type codes or
+     * self-billing documents, submit pre-built XML via {@code xml}. JSON mode
+     * requires {@code receiverPeppolId}, {@code receiverName}, and
+     * {@code items}.
+     * <p>
+     * JSON mode also supports explicit receiver address fields,
+     * {@code prepaidAmount}, structured {@code prepayments}, and advanced
+     * line-item tax/classification fields such as {@code taxTreatment},
+     * {@code vatCategoryCode}, {@code deliveryDate}, {@code lineType},
+     * {@code customsTariffCode}, and Slovak control-statement fields. Do not
+     * combine {@code prepayments}/{@code prepaidAmount} with
+     * {@code items[].lineType = "advance_deduction"}.
      * <p>
      * <strong>Supplier-party pinning (XML mode).</strong> When submitting raw
      * UBL via {@code xml}, the server pins the seller identity (Name, IČO,
@@ -106,6 +115,7 @@ public final class DocumentsResource {
      * <pre>{@code
      * SendDocumentResponse result = client.documents().send(
      *     SendDocumentRequest.builder("0245:1234567890")
+     *         .receiverName("Firma s.r.o.")
      *         .invoiceNumber("FV-2026-001")
      *         .issueDate("2026-04-04")
      *         .dueDate("2026-04-18")
@@ -119,6 +129,7 @@ public final class DocumentsResource {
      * @throws sk.epostak.sdk.EPostakException if validation fails or the request fails
      */
     public SendDocumentResponse send(SendDocumentRequest request) {
+        validateSendRequest(request);
         return http.post("/documents/send", request, SendDocumentResponse.class);
     }
 
@@ -133,7 +144,26 @@ public final class DocumentsResource {
      * @throws sk.epostak.sdk.EPostakException if validation fails or the request fails
      */
     public SendDocumentResponse send(SendDocumentRequest request, String idempotencyKey) {
+        validateSendRequest(request);
         return http.postIdempotent("/documents/send", request, SendDocumentResponse.class, idempotencyKey);
+    }
+
+    private static void validateSendRequest(SendDocumentRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        if (request.getXml() != null && !request.getXml().isBlank()) {
+            return;
+        }
+        if (request.getItems() == null) {
+            return;
+        }
+        if (request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("JSON-mode send requires at least one line item");
+        }
+        if (request.getReceiverName() == null || request.getReceiverName().isBlank()) {
+            throw new IllegalArgumentException("JSON-mode send requires receiverName");
+        }
     }
 
     /**
@@ -364,9 +394,11 @@ public final class DocumentsResource {
      * BatchSendResponse resp = client.documents().sendBatch(List.of(
      *     new BatchSendRequest.BatchItem(
      *         SendDocumentRequest.builder("0245:12345678")
+     *             .receiverName("Firma A s.r.o.")
      *             .invoiceNumber("FV-2026-001").build()),
      *     new BatchSendRequest.BatchItem(
      *         SendDocumentRequest.builder("0245:87654321")
+     *             .receiverName("Firma B s.r.o.")
      *             .invoiceNumber("FV-2026-002").build(), "idem-002")
      * ));
      * System.out.println(resp.succeeded() + "/" + resp.total() + " sent");

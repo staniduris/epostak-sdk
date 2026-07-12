@@ -1,5 +1,21 @@
 # Changelog
 
+## [Live JSON billing payload SDK sync] — 2026-07-12
+
+- Synced the live Enterprise OpenAPI JSON billing payload surface across
+  TypeScript, Python, Ruby, PHP, .NET, and Java: explicit receiver address
+  fields, `prepaidAmount`, structured `prepayments`, and advanced `LineItem`
+  VAT/classification/control-statement fields.
+- Fixed Java `SendDocumentRequest` serialization to use the live camelCase JSON
+  contract for send-request, line-item, attachment, and prepayment fields.
+- Aligned JSON-mode docs/types with the live schema by requiring
+  `receiverName`, removing non-live JSON `docType`, and keeping self-billing on
+  XML-mode payloads.
+- Added .NET and Java client-side guards so JSON-mode sends without
+  `receiverName` fail before HTTP while XML-mode sends remain allowed.
+- Extended endpoint coverage and serialization tests so payload schema drift is
+  checked alongside route drift.
+
 ## [ePošťák Box SDK sync] — 2026-06-30
 
 - Added ePošťák Box helpers across TypeScript, Python, Ruby, PHP, .NET, and

@@ -56,9 +56,18 @@ class Documents
     /**
      * Send a document via Peppol.
      *
-     * Document types (`docType`): `invoice`, `credit_note`, `correction`,
-     * `self_billing`, `reverse_charge`, `self_billing_credit_note`. Defaults
-     * to `invoice` when omitted.
+     * JSON mode follows the live `SendDocumentJsonRequest` schema. It does
+     * not accept `docType`; for custom UBL type codes or self-billing
+     * documents, submit pre-built XML via `xml`. JSON mode requires
+     * `receiverPeppolId`, `receiverName`, and `items`.
+     *
+     * JSON mode also supports explicit receiver address fields
+     * (`receiverStreet`, `receiverCity`, `receiverPostalCode`),
+     * `prepaidAmount`, structured `prepayments`, and advanced line-item
+     * tax/classification fields such as `taxTreatment`, `vatCategoryCode`,
+     * `deliveryDate`, `lineType`, `customsTariffCode`, and Slovak
+     * control-statement fields. Do not combine `prepayments`/`prepaidAmount`
+     * with `items[].lineType = "advance_deduction"`.
      *
      * **Supplier-party pinning (XML mode).** When submitting raw UBL via
      * the `xml` field, the server pins the seller identity (Name, IČO,
@@ -85,13 +94,12 @@ class Documents
      *
      * @example
      *   $result = $client->documents->send([
-     *       'type' => 'invoice',
+     *       'receiverPeppolId' => '0245:1234567890',
+     *       'receiverName' => 'Firma s.r.o.',
      *       'invoiceNumber' => 'INV-2026-001',
      *       'issueDate' => '2026-04-11',
-     *       'supplier' => ['peppolId' => '0245:12345678'],
-     *       'customer' => ['peppolId' => '0245:87654321'],
-     *       'lines' => [
-     *           ['description' => 'Consulting', 'quantity' => 1, 'unitPrice' => 100.00],
+     *       'items' => [
+     *           ['description' => 'Consulting', 'quantity' => 1, 'unitPrice' => 100.00, 'vatRate' => 23],
      *       ],
      *   ]);
      *   echo $result['documentId'];
@@ -101,6 +109,7 @@ class Documents
      *          image/jpeg, text/csv, xlsx, ods. Max 20 files, 10 MB each, 15 MB total.
      *   $result = $client->documents->send([
      *       'receiverPeppolId' => '0245:12345678',
+     *       'receiverName' => 'Firma s.r.o.',
      *       'items' => [['description' => 'Consulting', 'quantity' => 10, 'unitPrice' => 50, 'vatRate' => 23]],
      *       'attachments' => [[
      *           'fileName'    => 'invoice-detail.pdf',
@@ -303,7 +312,7 @@ class Documents
      *
      * @example
      *   // JSON to UBL
-     *   $result = $client->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+     *   $result = $client->documents->convert('json', 'ubl', ['receiverName' => 'Firma s.r.o.', 'invoiceNumber' => 'FV-001', 'items' => [...]]);
      *   echo $result['document']; // UBL XML string
      *
      *   // UBL to JSON
@@ -342,12 +351,14 @@ class Documents
      *   $batch = $client->documents->sendBatch([
      *       [
      *           'receiverPeppolId' => '0245:1234567890',
+     *           'receiverName' => 'Firma A s.r.o.',
      *           'invoiceNumber' => 'FV-2026-010',
      *           'items' => [['description' => 'Audit', 'quantity' => 1, 'unitPrice' => 500, 'vatRate' => 23]],
      *           'idempotencyKey' => 'batch-2026-04-22-001',
      *       ],
      *       [
      *           'receiverPeppolId' => '0245:0987654321',
+     *           'receiverName' => 'Firma B s.r.o.',
      *           'invoiceNumber' => 'FV-2026-011',
      *           'items' => [['description' => 'Consulting', 'quantity' => 2, 'unitPrice' => 300, 'vatRate' => 23]],
      *       ],

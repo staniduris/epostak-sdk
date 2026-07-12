@@ -168,6 +168,58 @@ public sealed class LineItem
     /// <summary>Optional discount as a percentage (e.g. 10 for 10% off).</summary>
     [JsonPropertyName("discount")]
     public decimal? Discount { get; set; }
+
+    /// <summary>UBL VAT category code, for example S, Z, or AE.</summary>
+    [JsonPropertyName("vatCategoryCode")]
+    public string? VatCategoryCode { get; set; }
+
+    /// <summary>Alias for <see cref="VatCategoryCode"/>.</summary>
+    [JsonPropertyName("vatCategory")]
+    public string? VatCategory { get; set; }
+
+    /// <summary>Higher-level tax treatment mapped by the API to VatCategoryCode.</summary>
+    [JsonPropertyName("taxTreatment")]
+    public string? TaxTreatment { get; set; }
+
+    /// <summary>Line delivery date in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    /// <summary>Line type, for example standard or advance_deduction.</summary>
+    [JsonPropertyName("lineType")]
+    public string? LineType { get; set; }
+
+    /// <summary>Advance invoice reference required for advance deduction lines.</summary>
+    [JsonPropertyName("advanceInvoiceReference")]
+    public string? AdvanceInvoiceReference { get; set; }
+
+    /// <summary>Customs tariff / combined nomenclature code.</summary>
+    [JsonPropertyName("customsTariffCode")]
+    public string? CustomsTariffCode { get; set; }
+
+    /// <summary>Generic item classification code when CustomsTariffCode is not used.</summary>
+    [JsonPropertyName("commodityClassificationCode")]
+    public string? CommodityClassificationCode { get; set; }
+
+    /// <summary>Classification list identifier, for example HS.</summary>
+    [JsonPropertyName("commodityClassificationListId")]
+    public string? CommodityClassificationListId { get; set; }
+
+    /// <summary>Domestic reverse-charge paragraph letter evidence.</summary>
+    [JsonPropertyName("reverseChargeParagraphLetter")]
+    public string? ReverseChargeParagraphLetter { get; set; }
+
+    /// <summary>Slovak control-statement type, for example IO or MT.</summary>
+    [JsonPropertyName("controlStatementType")]
+    public string? ControlStatementType { get; set; }
+
+    /// <summary>Slovak control-statement quantity.</summary>
+    [JsonPropertyName("controlStatementQuantity")]
+    public decimal? ControlStatementQuantity { get; set; }
+
+    /// <summary>Slovak control-statement unit, for example kg, t, m, or ks.</summary>
+    [JsonPropertyName("controlStatementUnit")]
+    public string? ControlStatementUnit { get; set; }
 }
 
 /// <summary>
@@ -405,7 +457,7 @@ public sealed class SendDocumentRequest
     [JsonPropertyName("buyerReference")]
     public string? BuyerReference { get; set; }
 
-    /// <summary>Legal name of the receiver company. Auto-resolved from Peppol ID if not provided.</summary>
+    /// <summary>Legal name of the receiver company. Required when sending structured JSON with Items.</summary>
     [JsonPropertyName("receiverName")]
     public string? ReceiverName { get; set; }
 
@@ -425,9 +477,32 @@ public sealed class SendDocumentRequest
     [JsonPropertyName("receiverAddress")]
     public string? ReceiverAddress { get; set; }
 
+    /// <summary>Receiver street and number.</summary>
+    [JsonPropertyName("receiverStreet")]
+    public string? ReceiverStreet { get; set; }
+
+    /// <summary>Receiver city.</summary>
+    [JsonPropertyName("receiverCity")]
+    public string? ReceiverCity { get; set; }
+
+    /// <summary>Receiver postal code.</summary>
+    [JsonPropertyName("receiverPostalCode")]
+    public string? ReceiverPostalCode { get; set; }
+
     /// <summary>Receiver's ISO 3166-1 alpha-2 country code (e.g. "SK").</summary>
     [JsonPropertyName("receiverCountry")]
     public string? ReceiverCountry { get; set; }
+
+    /// <summary>Amount paid in advance. Do not combine with advance deduction lines.</summary>
+    [JsonPropertyName("prepaidAmount")]
+    public decimal? PrepaidAmount { get; set; }
+
+    /// <summary>
+    /// Structured settled prepayments on the final invoice. The API sums AmountWithVat
+    /// into PrepaidAmount, reduces PayableAmount, and preserves references in the UBL note.
+    /// </summary>
+    [JsonPropertyName("prepayments")]
+    public List<Prepayment>? Prepayments { get; set; }
 
     /// <summary>Invoice line items. Mutually exclusive with <see cref="Xml"/>.</summary>
     [JsonPropertyName("items")]
@@ -444,6 +519,42 @@ public sealed class SendDocumentRequest
     /// <summary>Raw UBL 2.1 XML to send instead of structured JSON. Mutually exclusive with <see cref="Items"/>.</summary>
     [JsonPropertyName("xml")]
     public string? Xml { get; set; }
+}
+
+/// <summary>Structured settled prepayment for final-invoice JSON mode.</summary>
+public sealed class Prepayment
+{
+    /// <summary>Advance/prepayment invoice reference from the ERP.</summary>
+    [JsonPropertyName("advanceInvoiceRef")]
+    public string? AdvanceInvoiceRef { get; set; }
+
+    /// <summary>Tax document number for the received advance payment.</summary>
+    [JsonPropertyName("taxDocumentRef")]
+    public string? TaxDocumentRef { get; set; }
+
+    /// <summary>Settlement date in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("settlementDate")]
+    public string? SettlementDate { get; set; }
+
+    /// <summary>Settled amount without VAT.</summary>
+    [JsonPropertyName("amountWithoutVat")]
+    public decimal? AmountWithoutVat { get; set; }
+
+    /// <summary>VAT amount from the settled prepayment.</summary>
+    [JsonPropertyName("vatAmount")]
+    public decimal? VatAmount { get; set; }
+
+    /// <summary>Settled amount including VAT. Required by the API.</summary>
+    [JsonPropertyName("amountWithVat")]
+    public required decimal AmountWithVat { get; set; }
+
+    /// <summary>VAT rate of the prepayment, when known.</summary>
+    [JsonPropertyName("vatRate")]
+    public decimal? VatRate { get; set; }
+
+    /// <summary>Optional VAT category of the prepayment, for example S or AE.</summary>
+    [JsonPropertyName("vatCategoryCode")]
+    public string? VatCategoryCode { get; set; }
 }
 
 /// <summary>

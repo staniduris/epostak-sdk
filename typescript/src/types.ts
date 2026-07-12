@@ -639,6 +639,36 @@ export interface LineItem {
   vatRate: number;
   /** Optional discount as a percentage applied to this line (e.g. `10` for 10% off) */
   discount?: number;
+  /** UBL VAT category code, e.g. `"S"`, `"Z"`, or `"AE"` */
+  vatCategoryCode?: string;
+  /** Alias for `vatCategoryCode` */
+  vatCategory?: string;
+  /** Snake_case alias for `vatCategoryCode` */
+  vat_category?: string;
+  /** Higher-level tax treatment mapped by the API to `vatCategoryCode` */
+  taxTreatment?: string;
+  /** Snake_case alias for `taxTreatment` */
+  tax_treatment?: string;
+  /** Line delivery date in `YYYY-MM-DD` format */
+  deliveryDate?: string;
+  /** Line type, for example `"standard"` or `"advance_deduction"` */
+  lineType?: string;
+  /** Advance invoice reference required for `lineType = "advance_deduction"` */
+  advanceInvoiceReference?: string;
+  /** Customs tariff / combined nomenclature code */
+  customsTariffCode?: string;
+  /** Generic item classification code when `customsTariffCode` is not used */
+  commodityClassificationCode?: string;
+  /** Classification list identifier, e.g. `"HS"` */
+  commodityClassificationListId?: string;
+  /** Domestic reverse-charge paragraph letter evidence */
+  reverseChargeParagraphLetter?: string;
+  /** Slovak control-statement type, e.g. `"IO"` or `"MT"` */
+  controlStatementType?: string;
+  /** Slovak control-statement quantity */
+  controlStatementQuantity?: number;
+  /** Slovak control-statement unit, e.g. `"kg"`, `"t"`, `"m"`, or `"ks"` */
+  controlStatementUnit?: string;
 }
 
 /** A line item as returned by the API in document responses (includes computed totals). */
@@ -696,25 +726,6 @@ export interface Party {
 // ---------------------------------------------------------------------------
 
 /**
- * Document type for the send pipeline. Determines the UBL typecode and which
- * VAT/self-billing rules apply server-side. Defaults to `"invoice"` if omitted.
- *
- * - `"invoice"` — standard outbound invoice (UBL `380`)
- * - `"credit_note"` — outbound credit note (UBL `381`)
- * - `"correction"` — corrective invoice (UBL `384`)
- * - `"self_billing"` — self-billing invoice issued by the buyer (UBL `389`)
- * - `"reverse_charge"` — reverse-charge invoice
- * - `"self_billing_credit_note"` — self-billing credit note (UBL `261`)
- */
-export type DocType =
-  | "invoice"
-  | "credit_note"
-  | "correction"
-  | "self_billing"
-  | "reverse_charge"
-  | "self_billing_credit_note";
-
-/**
  * Request body for sending an invoice using structured JSON fields.
  * The API generates UBL XML automatically from these fields.
  * Up to 999 line items; body cap 25 MB (attachments are base64-embedded).
@@ -722,11 +733,6 @@ export type DocType =
 export interface SendDocumentJsonRequest {
   /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
   receiverPeppolId: string;
-  /**
-   * Document type. See {@link DocType} for accepted values. Defaults to
-   * `"invoice"` when omitted.
-   */
-  docType?: DocType;
   /** Invoice number — auto-generated if omitted */
   invoiceNumber?: string;
   /** Issue date in `YYYY-MM-DD` format — defaults to today */
@@ -745,8 +751,8 @@ export interface SendDocumentJsonRequest {
   variableSymbol?: string;
   /** Buyer reference / purchase order number required by some buyers */
   buyerReference?: string;
-  /** Legal name of the receiver (overrides Peppol directory lookup) */
-  receiverName?: string;
+  /** Legal name of the receiver. Required by the live JSON billing schema. */
+  receiverName: string;
   /** Receiver's ICO — Slovak business registration number (8 digits) */
   receiverIco?: string;
   /** Receiver's DIC — tax identification number */
@@ -755,8 +761,25 @@ export interface SendDocumentJsonRequest {
   receiverIcDph?: string;
   /** Receiver's street address as a single string */
   receiverAddress?: string;
+  /** Receiver's street and number (preferred over parsing `receiverAddress`) */
+  receiverStreet?: string;
+  /** Receiver city */
+  receiverCity?: string;
+  /** Receiver postal code */
+  receiverPostalCode?: string;
   /** Receiver's ISO 3166-1 alpha-2 country code (e.g. `"SK"`) */
   receiverCountry?: string;
+  /**
+   * Amount paid in advance. Do not combine with
+   * `items[].lineType = "advance_deduction"`.
+   */
+  prepaidAmount?: number;
+  /**
+   * Structured settled prepayments on the final invoice. The API sums
+   * `amountWithVat` into `prepaidAmount`, reduces PayableAmount, and preserves
+   * advance/tax document references in the generated UBL note.
+   */
+  prepayments?: Prepayment[];
   /** Invoice line items — at least one is required, max 999 */
   items: LineItem[];
   /**
@@ -767,6 +790,26 @@ export interface SendDocumentJsonRequest {
    * Limits: max 20 files per invoice, 10 MB per file, 15 MB total.
    */
   attachments?: DocumentAttachment[];
+}
+
+/** Structured settled prepayment for a final invoice JSON payload. */
+export interface Prepayment {
+  /** Advance/prepayment invoice reference from the ERP. */
+  advanceInvoiceRef?: string;
+  /** Tax document number for the received advance payment. */
+  taxDocumentRef?: string;
+  /** Settlement date in `YYYY-MM-DD` format. */
+  settlementDate?: string;
+  /** Settled amount without VAT. */
+  amountWithoutVat?: number;
+  /** VAT amount from the settled prepayment. */
+  vatAmount?: number;
+  /** Settled amount including VAT. Required and summed into prepaidAmount. */
+  amountWithVat: number;
+  /** VAT rate of the prepayment, when known. */
+  vatRate?: number;
+  /** Optional VAT category of the prepayment, for example `S` or `AE`. */
+  vatCategoryCode?: string;
 }
 
 /**

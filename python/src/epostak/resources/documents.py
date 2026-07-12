@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         InvoiceResponsesListResponse,
         OutboxListResponse,
         PreflightResult,
+        SendDocumentRequest,
         SendDocumentResponse,
         ValidationResult,
     )
@@ -385,7 +386,7 @@ class DocumentsResource(_BaseResource):
 
     def send(
         self,
-        body: Dict[str, Any],
+        body: SendDocumentRequest,
         *,
         idempotency_key: Optional[str] = None,
     ) -> SendDocumentResponse:
@@ -396,11 +397,21 @@ class DocumentsResource(_BaseResource):
         - **JSON mode**: pass structured data with ``items`` list, UBL is auto-generated.
         - **XML mode**: pass ``xml`` with a pre-built UBL XML string.
 
-        Both modes require ``receiverPeppolId``.
+        Both modes require ``receiverPeppolId``. JSON mode also requires
+        ``receiverName`` and ``items``.
 
-        Document types (``docType``): ``"invoice"``, ``"credit_note"``,
-        ``"correction"``, ``"self_billing"``, ``"reverse_charge"``,
-        ``"self_billing_credit_note"``. Defaults to ``"invoice"`` when omitted.
+        JSON mode follows the live ``SendDocumentJsonRequest`` schema. It does
+        not accept ``docType``; for custom UBL type codes or self-billing
+        documents, submit pre-built XML via ``xml``.
+
+        JSON mode also supports explicit receiver address fields
+        (``receiverStreet``, ``receiverCity``, ``receiverPostalCode``),
+        ``prepaidAmount``, structured ``prepayments`` and advanced line-item
+        tax/classification fields such as ``taxTreatment``,
+        ``vatCategoryCode``, ``deliveryDate``, ``lineType``,
+        ``customsTariffCode`` and Slovak control-statement fields. Do not
+        combine ``prepayments``/``prepaidAmount`` with
+        ``items[].lineType = "advance_deduction"``.
 
         **Supplier-party pinning (XML mode).** When submitting raw UBL via
         ``xml``, the server pins the seller identity (Name, IČO, IČ DPH,
@@ -415,7 +426,7 @@ class DocumentsResource(_BaseResource):
         (which is the authenticated firm) is rewritten instead.
 
         Args:
-            body: Request body.  See :class:`~epostak.types._SendDocumentBase` for available fields.
+            body: Request body. See :class:`~epostak.types.SendDocumentRequest`.
 
         Returns:
             Dict with ``documentId``, ``messageId``, and ``status``.
@@ -424,6 +435,7 @@ class DocumentsResource(_BaseResource):
 
             result = client.documents.send({
                 "receiverPeppolId": "0245:1234567890",
+                "receiverName": "Firma s.r.o.",
                 "invoiceNumber": "FV-2026-001",
                 "issueDate": "2026-04-04",
                 "dueDate": "2026-04-18",
@@ -638,6 +650,7 @@ class DocumentsResource(_BaseResource):
 
             result = client.documents.validate({
                 "receiverPeppolId": "0245:1234567890",
+                "receiverName": "Firma s.r.o.",
                 "items": [{"description": "Test", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
             })
             if result["valid"]:
@@ -694,7 +707,7 @@ class DocumentsResource(_BaseResource):
             result = client.documents.convert(
                 input_format="json",
                 output_format="ubl",
-                document={"invoiceNumber": "FV-001", "items": [...]},
+                document={"receiverName": "Firma s.r.o.", "invoiceNumber": "FV-001", "items": [...]},
             )
             print(result["document"])  # UBL XML string
 
@@ -738,12 +751,14 @@ class DocumentsResource(_BaseResource):
             batch = client.documents.send_batch([
                 {
                     "receiverPeppolId": "0245:1234567890",
+                    "receiverName": "Firma A s.r.o.",
                     "invoiceNumber": "FV-2026-010",
                     "items": [{"description": "Audit", "quantity": 1, "unitPrice": 500, "vatRate": 23}],
                     "idempotencyKey": "batch-2026-04-22-001",
                 },
                 {
                     "receiverPeppolId": "0245:0987654321",
+                    "receiverName": "Firma B s.r.o.",
                     "invoiceNumber": "FV-2026-011",
                     "items": [{"description": "Consulting", "quantity": 2, "unitPrice": 300, "vatRate": 23}],
                 },

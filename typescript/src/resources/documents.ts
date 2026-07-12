@@ -145,6 +145,7 @@ export class InboxResource extends BaseResource {
  * // Send an invoice
  * const result = await client.documents.send({
  *   receiverPeppolId: '0245:1234567890',
+ *   receiverName: 'Firma s.r.o.',
  *   items: [{ description: 'Consulting', quantity: 10, unitPrice: 100, vatRate: 23 }],
  * });
  *
@@ -202,9 +203,18 @@ export class DocumentsResource extends BaseResource {
    * (the API generates UBL XML) or pre-built UBL XML. Body cap 25 MB
    * (attachments are base64-embedded).
    *
-   * **Document types (`docType`):** `invoice`, `credit_note`, `correction`,
-   * `self_billing`, `reverse_charge`, `self_billing_credit_note`. Defaults to
-   * `invoice` when omitted.
+   * JSON mode follows the live `SendDocumentJsonRequest` schema. It does not
+   * accept `docType`; for custom UBL type codes or self-billing documents,
+   * submit pre-built XML via `xml`. JSON mode requires `receiverPeppolId`,
+   * `receiverName`, and `items`.
+   *
+   * JSON mode also supports explicit receiver address fields
+   * (`receiverStreet`, `receiverCity`, `receiverPostalCode`), `prepaidAmount`,
+   * structured `prepayments[]`, and advanced line-item tax/classification
+   * fields such as `taxTreatment`, `vatCategoryCode`, `deliveryDate`,
+   * `lineType`, `customsTariffCode`, and Slovak control-statement fields.
+   * Do not combine `prepayments[]`/`prepaidAmount` with
+   * `items[].lineType = "advance_deduction"`.
    *
    * **Supplier-party pinning (XML mode).** When submitting raw UBL via `xml`,
    * the server pins the seller identity (Name, IČO, IČ DPH, Postal Address,
@@ -230,6 +240,7 @@ export class DocumentsResource extends BaseResource {
    * // Send using JSON (API generates UBL)
    * const result = await client.documents.send({
    *   receiverPeppolId: '0245:1234567890',
+   *   receiverName: 'Firma s.r.o.',
    *   invoiceNumber: 'FV-2026-042',
    *   items: [
    *     { description: 'Web development', quantity: 40, unit: 'HUR', unitPrice: 80, vatRate: 23 },
@@ -516,7 +527,7 @@ export class DocumentsResource extends BaseResource {
    * const { document: ublXml, warnings } = await client.documents.convert({
    *   input_format: 'json',
    *   output_format: 'ubl',
-   *   document: { invoiceNumber: 'FV-001', items: [...] },
+   *   document: { receiverName: 'Firma s.r.o.', invoiceNumber: 'FV-001', items: [...] },
    * });
    *
    * // UBL to JSON
@@ -549,6 +560,7 @@ export class DocumentsResource extends BaseResource {
    * const batch = await client.documents.sendBatch([
    *   {
    *     receiverPeppolId: '0245:1234567890',
+   *     receiverName: 'Firma s.r.o.',
    *     items: [{ description: 'A', quantity: 1, unitPrice: 100, vatRate: 23 }],
    *     idempotencyKey: 'order-001',
    *   },

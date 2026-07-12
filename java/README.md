@@ -75,6 +75,13 @@ release window allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-12
+
+- JSON billing payloads now expose the live receiver address, `prepaidAmount`,
+  `prepayments`, and advanced line-item VAT/classification fields from the
+  Enterprise OpenAPI. `SendDocumentRequest` serializes these fields with the
+  live camelCase JSON names.
+
 ### Unreleased — 2026-07-01
 
 - `client.enterprise().payloads().validate(...)`,
@@ -130,6 +137,7 @@ EPostak client = EPostak.builder()
 // Send an invoice
 SendDocumentResponse result = client.enterprise().documents().send(
     SendDocumentRequest.builder("0245:1234567890")
+        .receiverName("Firma s.r.o.")
         .invoiceNumber("FV-2026-001")
         .issueDate("2026-04-04")
         .dueDate("2026-04-18")
@@ -154,6 +162,7 @@ import java.util.Map;
 Map<String, Object> invoice = Map.of(
     "receiverPeppolId", "0245:1234567890",
     "document", Map.of(
+        "receiverName", "Firma s.r.o.",
         "invoiceNumber", "FA-2026-001",
         "issueDate", "2026-06-04",
         "dueDate", "2026-06-18",
@@ -423,6 +432,7 @@ InvoiceRespondResponse response = client.enterprise().documents().respond("doc-u
 ```java
 ValidationResult validation = client.enterprise().documents().validate(
     SendDocumentRequest.builder("0245:1234567890")
+        .receiverName("Firma s.r.o.")
         .items(List.of(
             new SendDocumentRequest.LineItem("Test", 1, 100, 23)
         ))

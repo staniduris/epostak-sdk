@@ -69,6 +69,7 @@ const client = new EPostak({
 
 const result = await client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-001",
   issueDate: "2026-04-04",
   dueDate: "2026-04-18",
@@ -94,6 +95,7 @@ status, inbox, and events remain firm-scoped.
 const invoice = {
   receiverPeppolId: "0245:1234567890",
   document: {
+    receiverName: "Firma s.r.o.",
     invoiceNumber: "FA-2026-001",
     issueDate: "2026-06-04",
     dueDate: "2026-06-18",

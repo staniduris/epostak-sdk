@@ -8,6 +8,14 @@ All notable changes to the official ePošťák Java SDK
 
 ### Added
 
+- Added live JSON billing payload fields to `SendDocumentRequest`:
+  `receiverStreet`, `receiverCity`, `receiverPostalCode`, `prepaidAmount`,
+  `prepayments`, and advanced `LineItem` VAT/classification/control-statement
+  fields.
+- Clarified JSON-mode `receiverName` requirements and kept self-billing/custom
+  document types scoped to XML-mode payloads.
+- Added a send-time JSON-mode guard for missing `receiverName` or empty
+  `items`, while keeping XML-mode sends exempt.
 - Added `client.connector().mapper(...)` and customer-scoped
   `client.enterprise().connector().customers().forCustomer(customerRef).mapper(...)`
   for the live `/connector/mapper` endpoint.
@@ -20,6 +28,8 @@ All notable changes to the official ePošťák Java SDK
 
 ### Fixed
 
+- `SendDocumentRequest` now serializes send-request, attachment, line-item, and
+  prepayment JSON fields with the live camelCase OpenAPI names.
 - `peppol().capabilities(...)` now sends the live request shape
   `{participant: {scheme, identifier}, documentType}` instead of the old flat
   `scheme`/`identifier` body.

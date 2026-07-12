@@ -57,6 +57,12 @@ allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-12
+
+- JSON billing payloads now expose the live receiver address, `prepaidAmount`,
+  `prepayments`, and advanced line-item VAT/classification fields from the
+  Enterprise OpenAPI.
+
 ### Unreleased — 2026-07-01
 
 - Enterprise API facade helpers for Payload Assistant validation, pull/ack
@@ -114,6 +120,7 @@ $client = new EPostak(['clientId' => 'sk_live_xxxxx', 'clientSecret' => 'your-cl
 // Send an invoice
 $result = $client->enterprise->documents->send([
     'receiverPeppolId' => '0245:1234567890',
+    'receiverName' => 'Firma s.r.o.',
     'invoiceNumber' => 'FV-2026-001',
     'issueDate' => '2026-04-04',
     'dueDate' => '2026-04-18',
@@ -137,6 +144,7 @@ create the client.
 $invoice = [
     'receiverPeppolId' => '0245:1234567890',
     'document' => [
+        'receiverName' => 'Firma s.r.o.',
         'invoiceNumber' => 'FA-2026-001',
         'issueDate' => '2026-06-04',
         'dueDate' => '2026-06-18',
@@ -369,6 +377,7 @@ $response = $client->enterprise->documents->respond('doc-uuid', 'AP', 'Invoice a
 ```php
 $validation = $client->enterprise->documents->validate([
     'receiverPeppolId' => '0245:1234567890',
+    'receiverName' => 'Firma s.r.o.',
     'items' => [['description' => 'Test', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23]],
 ]);
 // => ['valid' => true/false, 'warnings' => [...], 'ubl' => '...' or null]
@@ -385,7 +394,7 @@ $check = $client->enterprise->documents->preflight('0245:1234567890');
 
 ```php
 // JSON to UBL
-$result = $client->enterprise->documents->convert('json', 'ubl', ['invoiceNumber' => 'FV-001', 'items' => [...]]);
+$result = $client->enterprise->documents->convert('json', 'ubl', ['receiverName' => 'Firma s.r.o.', 'invoiceNumber' => 'FV-001', 'items' => [...]]);
 echo $result['document']; // UBL XML string
 
 // UBL to JSON

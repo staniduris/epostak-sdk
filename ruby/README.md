@@ -49,6 +49,11 @@ allows.
 
 ## Recent changes
 
+**Unreleased** (2026-07-12)
+- JSON billing payloads now expose the live receiver address, `prepaidAmount`,
+  `prepayments`, and advanced line-item VAT/classification fields from the
+  Enterprise OpenAPI
+
 **Unreleased** (2026-07-01)
 - `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`,
   and `client.enterprise.documents.support_packet(...)` cover the Enterprise
@@ -116,6 +121,7 @@ client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_se
 # Send an invoice
 result = client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-042",
   items: [
     { description: "Web development", quantity: 40, unit: "HUR", unitPrice: 80, vatRate: 23 }
@@ -131,6 +137,7 @@ Connector workflow mode for ERP teams:
 invoice = {
   receiverPeppolId: "0245:1234567890",
   document: {
+    receiverName: "Firma s.r.o.",
     invoiceNumber: "FA-2026-001",
     issueDate: "2026-06-04",
     dueDate: "2026-06-18",
@@ -292,6 +299,7 @@ All methods return parsed JSON as Ruby hashes with string keys.
 ```ruby
 result = client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-042",
   issueDate: "2026-04-11",
   dueDate: "2026-05-11",
@@ -376,6 +384,7 @@ Response status codes: `AP` (accepted), `RE` (rejected), `UQ` (under query).
 ```ruby
 result = client.enterprise.documents.validate(
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }]
 )
 # => { "valid" => true, "warnings" => [], "ublPreview" => "..." }
@@ -395,7 +404,7 @@ check = client.enterprise.documents.preflight(receiver_peppol_id: "0245:12345678
 result = client.enterprise.documents.convert(
   input_format: "json",
   output_format: "ubl",
-  document: { invoiceNumber: "FV-001", items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }] }
+  document: { receiverName: "Firma s.r.o.", invoiceNumber: "FV-001", items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }] }
 )
 puts result["document"] # => UBL XML string
 
@@ -784,6 +793,7 @@ firms = integrator.firms.list
 firm_client = integrator.with_firm("firm-a-uuid")
 firm_client.enterprise.documents.send(
   receiverPeppolId: "0245:1234567890",
+  receiverName: "Firma s.r.o.",
   items: [{ description: "Service", quantity: 1, unitPrice: 500, vatRate: 23 }]
 )
 

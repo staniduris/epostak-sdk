@@ -9,6 +9,12 @@ earlier CHANGELOG headings used a different numbering scheme.
 
 ### Added
 
+- Documented live JSON billing payload fields for `documents.send_document`:
+  `receiverStreet`, `receiverCity`, `receiverPostalCode`, `prepaidAmount`,
+  `prepayments`, and advanced line-item VAT/classification/control-statement
+  fields.
+- Clarified that JSON-mode sends follow the live schema, require
+  `receiverName`, and do not accept non-live `docType`.
 - Added `client.connector.mapper(...)` and customer-scoped
   `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
   for the live `/connector/mapper` endpoint.
