@@ -67,7 +67,28 @@ public class DuplicateInvoiceNumberException : EPostakException
         string? requiredScope,
         IReadOnlyList<string>? conflictKey,
         DuplicateInvoiceExistingDocument? existingDocument
-    ) : base(status, message, code, details, type, title, detail, instance, requestId, requiredScope)
+    ) : this(status, message, code, details, type, title, detail, instance, requestId, requiredScope, conflictKey, existingDocument, null, null, null, null)
+    {
+    }
+
+    public DuplicateInvoiceNumberException(
+        int status,
+        string message,
+        string? code,
+        object? details,
+        string? type,
+        string? title,
+        string? detail,
+        string? instance,
+        string? requestId,
+        string? requiredScope,
+        IReadOnlyList<string>? conflictKey,
+        DuplicateInvoiceExistingDocument? existingDocument,
+        string? field,
+        string? nextAction,
+        bool? retryable,
+        int? retryAfter
+    ) : base(status, message, code, details, type, title, detail, instance, requestId, requiredScope, field, nextAction, retryable, retryAfter)
     {
         ConflictKey = conflictKey ?? Array.AsReadOnly(new[] { "firmId", "invoiceNumber" });
         ExistingDocument = existingDocument;

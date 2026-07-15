@@ -19,9 +19,12 @@ RSpec.describe EPostak::Resources::Webhooks do
   end
 
   describe "#test with event param" do
-    it "posts with event in body when provided" do
+    it "posts with event in the body and compatibility query when provided" do
       stub = stub_request(:post, "#{host}/webhooks/wh-1/test")
-        .with(body: { event: "document.delivered" }.to_json)
+        .with(
+          body: { event: "document.delivered" }.to_json,
+          query: { "event" => "document.delivered" },
+        )
         .to_return(
           status: 200,
           body: { "success" => true, "statusCode" => 200 }.to_json,

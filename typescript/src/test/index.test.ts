@@ -15,6 +15,7 @@ import * as assert from "node:assert/strict";
 // Import from the compiled source (not dist re-exports) to keep it simple
 import {
   EPostak,
+  EPostakError,
   UblValidationError,
   BoxResource,
   ConnectorResource,
@@ -24,7 +25,32 @@ import {
   type BatchExtractResult,
   type ExtractResult,
   type PeppolParticipant,
+  type ConnectorMapperPreviewRequest,
 } from "../index.js";
+
+it("preserves nested business error metadata and Retry-After seconds", () => {
+  const retryable = new EPostakError(409, {
+    error: {
+      code: "idempotency_in_flight",
+      message: "Still processing",
+      field: "externalId",
+      nextAction: "retry",
+      retryable: true,
+      requestId: "req-body",
+    },
+  }, new Headers({ "Retry-After": "7", "X-Request-Id": "req-header" }));
+  assert.strictEqual(retryable.field, "externalId");
+  assert.strictEqual(retryable.nextAction, "retry");
+  assert.strictEqual(retryable.retryable, true);
+  assert.strictEqual(retryable.requestId, "req-body");
+  assert.strictEqual(retryable.retryAfter, 7);
+
+  const validation = new EPostakError(422, {
+    error: { code: "validation_failed", message: "Fix request", retryable: false },
+  });
+  assert.strictEqual(validation.retryable, false);
+  assert.strictEqual(validation.retryAfter, undefined);
+});
 
 // ---------------------------------------------------------------------------
 // Minimal fetch mock infrastructure
@@ -79,7 +105,7 @@ after(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeClient(config: { firmId?: string } = {}): EPostak {
+function makeClient(config: { firmId?: string; maxRetries?: number } = {}): EPostak {
   // Use a pre-minted bearer token so no auth request is made.
   // We mock the token endpoint to return a token immediately.
   mockFetch(async (input) => {
@@ -112,6 +138,15 @@ it("BoxResource, ConnectorResource, InboundResource and OutboundResource are exp
   assert.ok(ConnectorResource);
   assert.ok(InboundResource);
   assert.ok(OutboundResource);
+});
+
+it("ConnectorMapperPreviewRequest is exported from the package root", () => {
+  const request: ConnectorMapperPreviewRequest = {
+    sourceType: "json",
+    sourceJson: { invoiceNumber: "FA-1" },
+    execute: "preview",
+  };
+  assert.strictEqual(request.execute, "preview");
 });
 
 it("box resource uses the public Box paths", async () => {
@@ -246,7 +281,7 @@ it("payloads, events and support packet facade use preferred API paths", async (
       ["GET", "/api/v1/documents/doc-1/support-packet"],
       ["GET", "/api/v1/connector/documents/doc-1/support-packet"],
       ["GET", "/api/v1/connector/documents/doc-3/support-packet"],
-      ["GET", "/api/v1/connector/documents/doc-2/support-packet"],
+      ["GET", "/api/v1/connector/documents/doc-2/support-packet?customerRef=cust-1"],
     ],
   );
   assert.deepStrictEqual(JSON.parse(captured[7].body ?? "{}"), {
@@ -878,7 +913,7 @@ describe("client.connector", () => {
       return makeMockResponse({ items: [], total: 0, limit: 20, offset: 0 });
     });
 
-    await client.connector.outbox.stage({
+    await client.connector.advanced.outbox.stage({
       items: [
         {
           externalId: "FA-2026-001",
@@ -886,11 +921,11 @@ describe("client.connector", () => {
         },
       ],
     });
-    await client.connector.outbox.list({ status: "blocked", limit: 10, offset: 20 });
-    await client.connector.outbox.get("outbox-1");
-    await client.connector.outbox.send("outbox-1", { force: true });
-    await client.connector.outbox.sendBatch({ ids: ["outbox-1"], force: true });
-    await client.connector.outbox.cancel("outbox-1");
+    await client.connector.advanced.outbox.list({ status: "blocked", limit: 10, offset: 20 });
+    await client.connector.advanced.outbox.get("outbox-1");
+    await client.connector.advanced.outbox.send("outbox-1", { force: true });
+    await client.connector.advanced.outbox.sendBatch({ ids: ["outbox-1"], force: true });
+    await client.connector.advanced.outbox.cancel("outbox-1");
 
     assert.ok(captured.some((req) => req.method === "POST" && req.url.includes("/connector/outbox") && req.body.includes("FA-2026-001")));
     assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/outbox?status=blocked&limit=10&offset=20")));
@@ -934,16 +969,16 @@ describe("client.connector", () => {
       }, init?.method === "POST" && url.endsWith("/connector/autopilot") ? 201 : 200);
     });
 
-    await client.connector.autopilot({
+    await client.connector.advanced.autopilot({
       customerRef: "erp-customer-1",
       mode: "shadow",
       externalId: "ERP-FA-2026-001",
       idempotencyKey: "erp-fa-2026-001",
       payload: { receiverPeppolId: "0245:1234567890", invoiceNumber: "FA-2026-001" },
     });
-    await client.connector.getAutopilotRun("auto-1");
-    await client.connector.sendAutopilotRun("auto-1");
-    await client.connector.reconcile({ status: "exceptions", since: "2026-06-01T00:00:00.000Z" });
+    await client.connector.advanced.getAutopilotRun("auto-1");
+    await client.connector.advanced.sendAutopilotRun("auto-1");
+    await client.connector.advanced.reconcile({ status: "exceptions", since: "2026-06-01T00:00:00.000Z" });
 
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/autopilot") && req.body.includes('"mode":"shadow"')));
     assert.ok(captured.some((req) => req.method === "GET" && req.url.includes("/connector/autopilot/auto-1")));
@@ -993,12 +1028,16 @@ describe("client.connector", () => {
       return makeMockResponse({ documentId: "doc-1" });
     });
 
-    await client.enterprise.connector.customers.for("erp-customer-1").mapper({
+    await client.connector.customers.for("erp-customer-1").advanced.mapper({
       templateKey: "pohoda-csv-v1",
       sourceType: "csv",
       sourceText: "Doklad,PeppolID\nFA-2026-002,0245:1234567890",
-      execute: "stage",
+      execute: "preview",
     });
+    assert.throws(
+      () => client.connector.customers.for("erp-customer-1").advanced.mapper({ execute: "send" } as never),
+      /only supports preview normalization/,
+    );
     await client.connector.zenInput({
       customerRef: "erp-customer-1",
       invoiceNumber: "FA-2026-002",
@@ -1018,6 +1057,7 @@ describe("client.connector", () => {
     assert.strictEqual(ubl, "<Invoice/>");
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mapper") && req.body.includes("pohoda-csv-v1")));
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mapper") && req.body.includes("erp-customer-1")));
+    assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mapper") && req.body.includes('"execute":"preview"')));
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/zen-input") && req.body.includes("erp-customer-1")));
     assert.ok(captured.some((req) => req.method === "GET" && req.url.endsWith("/connector/mailbox")));
     assert.ok(captured.some((req) => req.method === "POST" && req.url.endsWith("/connector/mailbox/repair") && req.body.includes("erp-customer-1")));
@@ -1041,12 +1081,19 @@ describe("major release workflow namespaces", () => {
     assert.strictEqual(client.enterprise.pull.outbound, client.outbound);
     assert.strictEqual(client.enterprise.connector, client.connector);
     assert.strictEqual(client.enterprise.webhooks, client.webhooks);
+    assert.strictEqual(client.connector.outbox, client.connector.advanced.outbox);
+    const customer = client.connector.customers.for("erp-customer-1");
+    assert.strictEqual(customer.mailbox, customer.advanced.mailbox);
+    assert.throws(
+      () => client.connector.customers.for("  "),
+      /customerRef is required/,
+    );
   });
 
-  it("submits customer-scoped Connector documents without X-Firm-Id", async () => {
+  it("keeps customer events tenant-scoped while advanced legacy events remain firm-scoped", async () => {
     const client = makeClient({ firmId: "firm-1" });
-    let capturedBody = "";
-    let capturedFirmId: string | null = "not-called";
+    const captured: Array<{ url: string; firmId: string | null }> = [];
+    let requestIndex = 0;
 
     mockFetch(async (input, init) => {
       const url = typeof input === "string" ? input : (input as URL).toString();
@@ -1058,22 +1105,690 @@ describe("major release workflow namespaces", () => {
           expires_in: 900,
         });
       }
-      assert.ok(url.endsWith("/connector/autopilot"), `Unexpected URL ${url}`);
-      capturedBody = String(init?.body);
-      capturedFirmId = new Headers(init?.headers).get("X-Firm-Id");
-      return makeMockResponse({ autopilotId: "auto-1", lifecycleStatus: "staged" }, 201);
+      captured.push({
+        url,
+        firmId: new Headers(init?.headers).get("X-Firm-Id"),
+      });
+      requestIndex += 1;
+      return makeMockResponse({
+        events: requestIndex === 1
+          ? [{
+              id: "event-1",
+              documentId: "doc-1",
+              type: "document.cancelled",
+              state: "cancelled",
+              occurredAt: "2026-07-14T10:00:00.000Z",
+              data: {
+                customerRef: "erp-customer-1",
+                direction: "outbound",
+                type: "invoice",
+                number: null,
+                response: null,
+              },
+            }]
+          : [{
+              id: "event-2",
+              documentId: "doc-2",
+              type: "delivered",
+              occurredAt: "2026-07-14T10:00:00.000Z",
+              status: "delivered",
+            }],
+        nextCursor: null,
+        hasMore: false,
+      });
     });
 
-    await client.enterprise.connector.customers.for("erp-customer-1").submitDocument({
+    const business = await client.connector.customers.for("erp-customer-1").events.list({ limit: 10 });
+    const legacy = await client.connector.advanced.events({ limit: 10 });
+
+    assert.ok(captured[0].url.includes("customerRef=erp-customer-1"));
+    assert.strictEqual(captured[0].firmId, null);
+    assert.ok(!captured[1].url.includes("customerRef="));
+    assert.strictEqual(captured[1].firmId, "firm-1");
+    assert.strictEqual(business.events[0].type, "document.cancelled");
+    assert.strictEqual(business.events[0].state, "cancelled");
+    assert.strictEqual(business.events[0].data.number, null);
+    assert.strictEqual(business.events[0].data.response, null);
+    assert.strictEqual(legacy.events[0].status, "delivered");
+  });
+
+  it("manages one global Connector webhook without leaking X-Firm-Id", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    const requests: Array<{
+      method: string;
+      path: string;
+      body: string;
+      firmId: string | null;
+    }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname.endsWith("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      requests.push({
+        method: String(init?.method),
+        path: `${url.pathname}${url.search}`,
+        body: String(init?.body ?? ""),
+        firmId: new Headers(init?.headers).get("X-Firm-Id"),
+      });
+      if (url.pathname.endsWith("/test")) {
+        return makeMockResponse({
+          deliveryId: "whd-1",
+          status: "queued",
+          event: {
+            id: "evt-1",
+            customerRef: "erp-customer-1",
+            documentId: "doc-1",
+            type: "document.delivered",
+            state: "delivered",
+            occurredAt: "2026-07-15T10:00:00Z",
+            data: {
+              customerRef: "erp-customer-1",
+              direction: "outbound",
+              type: "invoice",
+              number: "FA-1",
+              response: null,
+            },
+            test: true,
+          },
+        });
+      }
+      if (url.pathname.endsWith("/deliveries")) {
+        return makeMockResponse({ deliveries: [], nextCursor: null, hasMore: false });
+      }
+      return makeMockResponse({
+        webhook: {
+          id: "wh-1",
+          url: "https://erp.example/epostak",
+          events: ["document.received"],
+          active: true,
+          failedAttempts: 0,
+          createdAt: "2026-07-15T10:00:00Z",
+          updatedAt: "2026-07-15T10:00:00Z",
+        },
+        ...(String(init?.method) === "PUT" ? { secret: "a".repeat(64) } : {}),
+      });
+    });
+
+    const current = await client.connector.webhook.get();
+    const configured = await client.connector.webhook.configure(" https://erp.example/epostak ", ["document.received"]);
+    await client.connector.webhook.rotateSecret();
+    const tested = await client.connector.webhook.test(" erp-customer-1 ");
+    await client.connector.webhook.deliveries({ cursor: "next", limit: 25, status: "FAILED" });
+    await client.connector.webhook.delete();
+
+    assert.strictEqual(current.webhook?.id, "wh-1");
+    assert.strictEqual(configured.secret, "a".repeat(64));
+    assert.strictEqual(tested.deliveryId, "whd-1");
+    assert.strictEqual(tested.status, "queued");
+    assert.strictEqual(tested.event?.customerRef, "erp-customer-1");
+    assert.strictEqual(tested.event?.data.customerRef, "erp-customer-1");
+    assert.strictEqual(tested.event?.data.number, "FA-1");
+    assert.strictEqual(tested.event?.data.response, null);
+    assert.strictEqual(tested.event?.test, true);
+    assert.deepStrictEqual(
+      requests.map(({ method, path }) => [method, path]),
+      [
+        ["GET", "/api/v1/connector/webhook"],
+        ["PUT", "/api/v1/connector/webhook"],
+        ["POST", "/api/v1/connector/webhook/rotate-secret"],
+        ["POST", "/api/v1/connector/webhook/test"],
+        ["GET", "/api/v1/connector/webhook/deliveries?cursor=next&limit=25&status=FAILED"],
+        ["DELETE", "/api/v1/connector/webhook"],
+      ],
+    );
+    assert.ok(requests.every((request) => request.firmId === null));
+    assert.ok(requests[1].body.includes('"url":"https://erp.example/epostak"'));
+    assert.strictEqual(requests[3].body, '{"customerRef":"erp-customer-1"}');
+    assert.throws(() => client.connector.webhook.configure(" "), /URL is required/);
+    assert.throws(() => client.connector.webhook.test(" "), /customerRef is required/);
+  });
+
+  it("submits customer-scoped Connector documents without X-Firm-Id", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    let capturedBody = "";
+    let capturedFirmId: string | null = "not-called";
+    let capturedIdempotency: string | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      assert.ok(url.endsWith("/connector/documents"), `Unexpected URL ${url}`);
+      capturedBody = String(init?.body);
+      capturedFirmId = new Headers(init?.headers).get("X-Firm-Id");
+      capturedIdempotency = new Headers(init?.headers).get("Idempotency-Key");
+      return makeMockResponse({
+        id: "doc-1",
+        customerRef: "erp-customer-1",
+        externalId: "FA-1",
+        direction: "outbound",
+        type: "invoice",
+        number: "FA-1",
+        state: "queued",
+        recipient: { name: null, country: "SK", companyId: null, taxId: "2120123456", vatId: null },
+        createdAt: "2026-07-14T10:00:00.000Z",
+        updatedAt: "2026-07-14T10:00:00.000Z",
+        links: { self: "/api/v1/connector/documents/doc-1" },
+      }, 201);
+    });
+
+    await client.connector.customers.for("erp-customer-1").documents.send({
       externalId: "FA-1",
-      idempotencyKey: "erp-fa-1",
-      payload: { invoiceNumber: "FA-1" },
+      type: "invoice",
+      number: "FA-1",
+      recipient: { country: "SK", taxId: "2120123456" },
+      lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
     });
 
     assert.strictEqual(capturedFirmId, null);
+    assert.strictEqual(
+      capturedIdempotency,
+      "connector:v1:f7be06badbccd0670a25e6df7fd654fd45ae7291d5f5043257806adc0b107045",
+    );
+    assert.ok(capturedBody.includes('"customerRef":"erp-customer-1"'));
+    assert.ok(capturedBody.includes('"delivery":"send"'));
+    assert.ok(capturedBody.includes('"externalId":"FA-1"'));
+    assert.ok(!capturedBody.toLowerCase().includes("peppol"));
+  });
+
+  it("wires customer stage, filtered list and idempotent invoice response", async () => {
+    const client = makeClient({ firmId: "firm-1", maxRetries: 1 });
+    const requests: Array<{
+      method: string;
+      path: string;
+      body: string;
+      firmId: string | null;
+      idempotencyKey: string | null;
+    }> = [];
+    let respondAttempts = 0;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+
+      const parsed = new URL(url);
+      const headers = new Headers(init?.headers);
+      requests.push({
+        method: init?.method ?? "GET",
+        path: parsed.pathname + parsed.search,
+        body: String(init?.body ?? ""),
+        firmId: headers.get("X-Firm-Id"),
+        idempotencyKey: headers.get("Idempotency-Key"),
+      });
+
+      if (parsed.pathname.endsWith("/respond")) {
+        respondAttempts += 1;
+        if (respondAttempts === 1) {
+          return makeMockResponse(
+            { error: { code: "temporary", message: "retry" } },
+            503,
+            { "Retry-After": "0" },
+          );
+        }
+        return makeMockResponse({
+          id: "doc-in-1",
+          customerRef: "erp-customer-1",
+          response: {
+            status: "accepted",
+            direction: "sent",
+            delivery: "queued",
+            respondedAt: "2026-07-15T12:00:00Z",
+          },
+          idempotent: true,
+        });
+      }
+      if ((init?.method ?? "GET") === "GET") {
+        return makeMockResponse({ documents: [], nextCursor: "cur-2", hasMore: true });
+      }
+      return makeMockResponse({ id: "doc-stage-1", state: "queued" }, 201);
+    });
+
+    const documents = client.connector.customers.for("erp-customer-1").documents;
+    assert.throws(
+      () => documents.respond("doc-in-1", "another-customer", { status: "accepted" }),
+      /customerRef conflicts with scoped customer/,
+    );
+    assert.strictEqual(requests.length, 0);
+    await documents.stage(
+      {
+        externalId: "FA-STAGE-1",
+        type: "invoice",
+        number: "FA-STAGE-1",
+        recipient: { country: "SK", taxId: "2120123456" },
+        lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
+      },
+      { idempotencyKey: "connector-stage-key" },
+    );
+    const page = await documents.list({
+      direction: "inbound",
+      state: "received",
+      type: "invoice",
+      createdAfter: "2026-07-01T00:00:00Z",
+      cursor: "cur-1",
+      limit: 25,
+    });
+    const result = await documents.respond("doc-in-1", {
+      status: "accepted",
+      note: "Imported into ERP",
+    });
+
+    assert.deepStrictEqual(
+      requests.map(({ method, path }) => [method, path]),
+      [
+        ["POST", "/api/v1/connector/documents"],
+        ["GET", "/api/v1/connector/documents?customerRef=erp-customer-1&direction=inbound&state=received&type=invoice&createdAfter=2026-07-01T00%3A00%3A00Z&cursor=cur-1&limit=25"],
+        ["POST", "/api/v1/connector/documents/doc-in-1/respond?customerRef=erp-customer-1"],
+        ["POST", "/api/v1/connector/documents/doc-in-1/respond?customerRef=erp-customer-1"],
+      ],
+    );
+    assert.ok(requests.every(({ firmId }) => firmId === null));
+    assert.strictEqual(requests[0].idempotencyKey, "connector-stage-key");
+    assert.deepStrictEqual(JSON.parse(requests[0].body), {
+      externalId: "FA-STAGE-1",
+      type: "invoice",
+      number: "FA-STAGE-1",
+      recipient: { country: "SK", taxId: "2120123456" },
+      lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
+      customerRef: "erp-customer-1",
+      delivery: "stage",
+    });
+    assert.strictEqual(requests[2].idempotencyKey, null);
+    assert.strictEqual(requests[3].idempotencyKey, null);
+    assert.strictEqual(requests[2].body, requests[3].body);
+    assert.deepStrictEqual(JSON.parse(requests[2].body), {
+      status: "accepted",
+      note: "Imported into ERP",
+    });
+    assert.strictEqual(page.nextCursor, "cur-2");
+    assert.strictEqual(page.hasMore, true);
+    assert.strictEqual(result.response.status, "accepted");
+    assert.strictEqual(result.response.direction, "sent");
+    assert.strictEqual(result.response.delivery, "queued");
+    assert.strictEqual(result.idempotent, true);
+  });
+
+  it("keeps the customer submitDocument compatibility alias on staged Autopilot without mutating input", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    let capturedBody = "";
+    let capturedFirmId: string | null = "not-called";
+    const input = {
+      externalId: "legacy-1",
+      payload: {
+        number: "FA-legacy-1",
+        recipient: { country: "SK", taxId: "2120123456" },
+        lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
+      },
+    };
+
+    mockFetch(async (raw, init) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      assert.ok(url.endsWith("/connector/autopilot"), `Unexpected URL ${url}`);
+      capturedBody = String(init?.body);
+      capturedFirmId = new Headers(init?.headers).get("X-Firm-Id");
+      return makeMockResponse({ documentId: "doc-legacy", status: "staged" }, 202);
+    });
+
+    await client.connector.customers.for("erp-customer-1").submitDocument(input);
+
+    assert.strictEqual(capturedFirmId, null);
+    assert.deepStrictEqual(input, {
+      externalId: "legacy-1",
+      payload: {
+        number: "FA-legacy-1",
+        recipient: { country: "SK", taxId: "2120123456" },
+        lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
+      },
+    });
     assert.ok(capturedBody.includes('"customerRef":"erp-customer-1"'));
     assert.ok(capturedBody.includes('"mode":"stage"'));
-    assert.ok(capturedBody.includes('"externalId":"FA-1"'));
+  });
+
+  it("snapshots nested JSON before an awaited OAuth mint", async () => {
+    const client = makeClient();
+    let releaseToken!: (response: Response) => void;
+    const tokenResponse = new Promise<Response>((resolve) => {
+      releaseToken = resolve;
+    });
+    let capturedBody = "";
+
+    mockFetch(async (raw, init) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) return tokenResponse;
+      capturedBody = String(init?.body);
+      return makeMockResponse({ id: "doc-1", state: "queued" }, 201);
+    });
+
+    const input = {
+      externalId: "FA-snapshot",
+      number: "FA-snapshot",
+      recipient: {
+        country: "SK",
+        taxId: "2120123456",
+        address: { street: "Original 1", city: "Bratislava", postalCode: "81101" },
+      },
+      lines: [{ description: "Original line", quantity: 1, unitPrice: 10, vatRate: 23 }],
+      attachments: [{ fileName: "original.pdf", mimeType: "application/pdf", content: "AA==" }],
+    };
+
+    const pending = client.connector.customers.for("customer").documents.send(input);
+    input.recipient.address.street = "Mutated 2";
+    input.lines[0].description = "Mutated line";
+    input.attachments[0].fileName = "mutated.pdf";
+    releaseToken(makeMockResponse({
+      access_token: "tok",
+      refresh_token: "ref",
+      token_type: "Bearer",
+      expires_in: 900,
+    }));
+    await pending;
+
+    assert.ok(capturedBody.includes("Original 1"));
+    assert.ok(capturedBody.includes("Original line"));
+    assert.ok(capturedBody.includes("original.pdf"));
+    assert.ok(!capturedBody.includes("Mutated"));
+    assert.ok(!capturedBody.includes("mutated.pdf"));
+  });
+
+  it("binds customer point operations and artifacts to the scoped customerRef", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    const captured: Array<{
+      method: string;
+      path: string;
+      body: BodyInit | null | undefined;
+      firmId: string | null;
+    }> = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      captured.push({
+        method: init?.method ?? "GET",
+        path: new URL(url).pathname + new URL(url).search,
+        body: init?.body,
+        firmId: new Headers(init?.headers).get("X-Firm-Id"),
+      });
+      return makeMockResponse({ id: "doc-1", state: "queued" });
+    });
+
+    const customer = client.connector.customers.for("customer A/1");
+    const documents = customer.documents;
+    assert.throws(() => documents.sendDocument("  "), /documentId is required/);
+    await documents.get("customer-b-doc");
+    await documents.acknowledge("customer-b-doc", "erp-import");
+    await documents.sendDocument("customer-b-doc");
+    await documents.cancelDocument("customer-b-doc");
+    await customer.advanced.documents.ubl("customer-b-doc");
+    await customer.advanced.documents.evidence("customer-b-doc");
+    await customer.advanced.documents.evidenceBundle("customer-b-doc");
+    await customer.advanced.documents.supportPacket("customer-b-doc");
+
+    assert.deepStrictEqual(
+      captured.map(({ method, path, body, firmId }) => [method, path, body, firmId]),
+      [
+        ["GET", "/api/v1/connector/documents/customer-b-doc?customerRef=customer+A%2F1", null, null],
+        ["POST", "/api/v1/connector/documents/customer-b-doc/acknowledge?customerRef=customer+A%2F1", '{"reference":"erp-import"}', null],
+        ["POST", "/api/v1/connector/documents/customer-b-doc/send?customerRef=customer+A%2F1", null, null],
+        ["POST", "/api/v1/connector/documents/customer-b-doc/cancel?customerRef=customer+A%2F1", null, null],
+        ["GET", "/api/v1/connector/documents/customer-b-doc/ubl?customerRef=customer+A%2F1", null, null],
+        ["GET", "/api/v1/connector/documents/customer-b-doc/evidence?customerRef=customer+A%2F1", null, null],
+        ["GET", "/api/v1/connector/documents/customer-b-doc/evidence-bundle?customerRef=customer+A%2F1", null, null],
+        ["GET", "/api/v1/connector/documents/customer-b-doc/support-packet?customerRef=customer+A%2F1", null, null],
+      ],
+    );
+  });
+
+  it("derives bounded collision-safe Connector idempotency keys", async () => {
+    const client = makeClient();
+    const keys: string[] = [];
+    const bodies: string[] = [];
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      keys.push(new Headers(init?.headers).get("Idempotency-Key") ?? "");
+      bodies.push(String(init?.body));
+      return makeMockResponse({ id: "doc-1", state: "queued" });
+    });
+
+    const submit = async (
+      customerRef: string,
+      externalId: string,
+      idempotencyKey?: string,
+    ) =>
+      client.connector.customers.for(customerRef).documents.send(
+        {
+          externalId,
+          type: "invoice",
+          number: "FA-1",
+          recipient: { country: "SK", taxId: "2120123456" },
+          lines: [{ description: "Licence", quantity: 1, unitPrice: 1, vatRate: 23 }],
+        },
+        idempotencyKey ? { idempotencyKey } : undefined,
+      );
+
+    await submit("a:b", "c");
+    await submit("a", "b:c");
+    await submit("c".repeat(255), "e".repeat(255));
+    await submit("\u00a0\ufeffzákazník😀\ufeff\u00a0", "\ufeffFA-žltý-1\u00a0");
+    await submit("\u0085zákazník😀\u0085", "\u0085FA-žltý-1\u0085");
+    await submit("customer", "external", "caller-key");
+
+    assert.deepStrictEqual(keys, [
+      "connector:v1:540e8f1c5ae653a7d7e2fe88f7eb8dcabea924d661b1542ad191bb1848e0c33d",
+      "connector:v1:e482a79a788392ccae4952360dd438820641e4c162b4952b42d35e78260d70be",
+      "connector:v1:7182fd43682e0689adf34c908bc3ec162aaf1687c167fdbff714ff43daa4b111",
+      "connector:v1:eec0ca654af898913432fbc7b7441a05080f72099f6d2ff85852f78c7458fdfd",
+      "connector:v1:ff49689a9ece4c0319420ed07fc3a2a5b2e2e7bb6d4430a68557e372fdf70080",
+      "caller-key",
+    ]);
+    assert.ok(keys.slice(0, 5).every((key) => key.length === 77));
+    assert.notStrictEqual(keys[0], keys[1]);
+    assert.ok(bodies[3].includes('"customerRef":"zákazník😀"'));
+    assert.ok(bodies[3].includes('"externalId":"FA-žltý-1"'));
+    assert.ok(bodies[4].includes('"customerRef":"\u0085zákazník😀\u0085"'));
+    assert.ok(bodies[4].includes('"externalId":"\u0085FA-žltý-1\u0085"'));
+
+    assert.throws(
+      () => client.connector.customers.for("customer").documents.send(
+        {
+          externalId: "empty-key",
+          number: "FA-1",
+          recipient: { country: "SK", taxId: "2120123456" },
+          lines: [{ description: "Licence", quantity: 1, unitPrice: 1, vatRate: 23 }],
+        },
+        { idempotencyKey: "" },
+      ),
+      /1-255 UTF-8 bytes/,
+    );
+  });
+
+  it("retries keyed golden and lifecycle POSTs but surfaces 409 once", async () => {
+    const client = makeClient({ maxRetries: 1 });
+    const input = {
+      externalId: "FA-retry",
+      number: "FA-retry",
+      recipient: { country: "SK", taxId: "2120123456" },
+      lines: [{ description: "Original", quantity: 1, unitPrice: 1, vatRate: 23 }],
+    };
+    const bodies: string[] = [];
+    const keys: Array<string | null> = [];
+    let attempts = 0;
+
+    mockFetch(async (raw, init) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({ access_token: "tok", refresh_token: "ref", token_type: "Bearer", expires_in: 900 });
+      }
+      attempts += 1;
+      bodies.push(String(init?.body));
+      keys.push(new Headers(init?.headers).get("Idempotency-Key"));
+      if (attempts === 1) {
+        input.lines[0].description = "Mutated";
+        return makeMockResponse({ error: { code: "temporary", message: "retry" } }, 503, { "Retry-After": "0" });
+      }
+      return makeMockResponse({ id: "doc-1", state: "queued" }, 201);
+    });
+
+    await client.connector.customers.for("customer").documents.send(input);
+    assert.strictEqual(attempts, 2);
+    assert.strictEqual(bodies[0], bodies[1]);
+    assert.ok(bodies[0].includes("Original"));
+    assert.deepStrictEqual(keys, [keys[0], keys[0]]);
+    assert.ok(keys[0]);
+
+    let lifecycleAttempts = 0;
+    mockFetch(async () => {
+      lifecycleAttempts += 1;
+      return lifecycleAttempts === 1
+        ? makeMockResponse({ error: { code: "temporary", message: "retry" } }, 503, { "Retry-After": "0" })
+        : makeMockResponse({ id: "doc-1", state: "cancelled" });
+    });
+    await client.connector.customers.for("customer").documents.cancelDocument("doc-1");
+    assert.strictEqual(lifecycleAttempts, 2);
+
+    const conflictClient = makeClient({ maxRetries: 1 });
+    let conflictAttempts = 0;
+    mockFetch(async (raw) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({ access_token: "tok", refresh_token: "ref", token_type: "Bearer", expires_in: 900 });
+      }
+      conflictAttempts += 1;
+      return makeMockResponse({ error: { code: "idempotency_in_flight", message: "busy", retryable: true } }, 409, { "Retry-After": "0" });
+    });
+    await assert.rejects(
+      conflictClient.connector.customers.for("customer").documents.send({ ...input, externalId: "FA-conflict" }),
+      (error: unknown) => error instanceof EPostakError && error.status === 409,
+    );
+    assert.strictEqual(conflictAttempts, 1);
+  });
+
+  it("retries Connector transport failures without changing Enterprise or SAPI POST policy", async () => {
+    const connectorClient = makeClient({ firmId: "firm-1", maxRetries: 1 });
+    const connectorAttempts: Array<{
+      path: string;
+      body: string;
+      key: string | null;
+      firmId: string | null;
+    }> = [];
+
+    mockFetch(async (raw, init) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      const headers = new Headers(init?.headers);
+      connectorAttempts.push({
+        path: new URL(url).pathname + new URL(url).search,
+        body: String(init?.body ?? ""),
+        key: headers.get("Idempotency-Key"),
+        firmId: headers.get("X-Firm-Id"),
+      });
+      if (connectorAttempts.length === 1) {
+        throw new TypeError("socket reset");
+      }
+      return makeMockResponse({ id: "doc-transport", state: "queued" }, 201);
+    });
+
+    await connectorClient.connector.customers.for("erp-customer-1").documents.stage(
+      {
+        externalId: "FA-TRANSPORT-1",
+        type: "invoice",
+        number: "FA-TRANSPORT-1",
+        recipient: { country: "SK", taxId: "2120123456" },
+        lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
+      },
+      { idempotencyKey: "connector-transport-key" },
+    );
+
+    assert.strictEqual(connectorAttempts.length, 2);
+    assert.deepStrictEqual(connectorAttempts[0], connectorAttempts[1]);
+    assert.strictEqual(connectorAttempts[0].path, "/api/v1/connector/documents");
+    assert.strictEqual(connectorAttempts[0].key, "connector-transport-key");
+    assert.strictEqual(connectorAttempts[0].firmId, null);
+
+    const sapiClient = makeClient({ firmId: "firm-1", maxRetries: 1 });
+    let sapiAttempts = 0;
+    mockFetch(async (raw) => {
+      const url = typeof raw === "string" ? raw : (raw as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      sapiAttempts += 1;
+      throw new TypeError("socket reset");
+    });
+
+    await assert.rejects(
+      sapiClient.sapi.participants.for("0245:1234567890").documents.send(
+        {
+          metadata: {
+            documentId: "sapi-transport-1",
+            documentTypeId: "invoice",
+            processId: "billing",
+            senderParticipantId: "0245:1234567890",
+            receiverParticipantId: "0245:0987654321",
+            creationDateTime: "2026-07-15T12:00:00Z",
+          },
+          payload: "<Invoice/>",
+          payloadFormat: "XML",
+        },
+        { idempotencyKey: "sapi-transport-key" },
+      ),
+      (error: unknown) => error instanceof EPostakError && error.status === 0,
+    );
+    assert.strictEqual(sapiAttempts, 1);
   });
 
   it("scopes SAPI document calls by participant and SAPI base URL", async () => {

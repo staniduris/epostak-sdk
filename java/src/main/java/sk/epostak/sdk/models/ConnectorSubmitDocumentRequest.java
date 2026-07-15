@@ -3,7 +3,11 @@ package sk.epostak.sdk.models;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Request body for the major-release Connector submitDocument workflow. */
+/**
+ * Autopilot submit payload retained for source compatibility.
+ * New integrations use {@link ConnectorBusinessDocumentRequest} with a
+ * customer-scoped documents resource.
+ */
 public final class ConnectorSubmitDocumentRequest {
     private String customerRef;
     private String mode;
@@ -19,6 +23,9 @@ public final class ConnectorSubmitDocumentRequest {
 
     public String customerRef() { return customerRef; }
     public String mode() { return mode; }
+    public String externalId() { return externalId; }
+    public String idempotencyKey() { return idempotencyKey; }
+    public Map<String, Object> payload() { return payload; }
 
     public void customerRef(String customerRef) { this.customerRef = customerRef; }
     public void mode(String mode) { this.mode = mode; }

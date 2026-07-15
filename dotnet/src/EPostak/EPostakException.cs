@@ -54,6 +54,18 @@ public class EPostakException : Exception
     /// <summary>Server-assigned request identifier — set whenever the server returns <c>X-Request-Id</c> or includes <c>requestId</c> in the body.</summary>
     public string? RequestId { get; }
 
+    /// <summary>Request field that should be corrected, when supplied by the API.</summary>
+    public string? Field { get; }
+
+    /// <summary>Remediation hint supplied by the API.</summary>
+    public string? NextAction { get; }
+
+    /// <summary>Whether the same business operation can be retried unchanged.</summary>
+    public bool? Retryable { get; }
+
+    /// <summary>Delta seconds from the <c>Retry-After</c> response header.</summary>
+    public int? RetryAfter { get; }
+
     /// <summary>
     /// Required OAuth scope when the server rejects with <c>403 insufficient_scope</c>.
     /// Parsed from the <c>WWW-Authenticate: Bearer error="insufficient_scope" scope="..."</c>
@@ -85,6 +97,26 @@ public class EPostakException : Exception
         string? instance = null,
         string? requestId = null,
         string? requiredScope = null)
+        : this(status, message, code, details, type, title, detail, instance, requestId, requiredScope, null, null, null, null)
+    {
+    }
+
+    /// <summary>Create an exception including Connector remediation metadata.</summary>
+    public EPostakException(
+        int status,
+        string message,
+        string? code,
+        object? details,
+        string? type,
+        string? title,
+        string? detail,
+        string? instance,
+        string? requestId,
+        string? requiredScope,
+        string? field,
+        string? nextAction,
+        bool? retryable,
+        int? retryAfter)
         : base(message)
     {
         Status = status;
@@ -96,6 +128,10 @@ public class EPostakException : Exception
         Instance = instance;
         RequestId = requestId;
         RequiredScope = requiredScope;
+        Field = field;
+        NextAction = nextAction;
+        Retryable = retryable;
+        RetryAfter = retryAfter;
     }
 
     /// <summary>

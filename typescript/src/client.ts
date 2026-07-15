@@ -46,8 +46,9 @@ export interface EPostakConfig {
    */
   firmId?: string;
   /**
-   * Maximum number of automatic retries on 429 (rate-limit) and 5xx errors.
-   * Uses exponential backoff with jitter. Defaults to 3, set 0 to disable.
+   * Maximum automatic retries for safe reads and explicitly server-idempotent
+   * Connector operations on network, 429, and 5xx failures. Uses exponential
+   * backoff with jitter. Defaults to 3; set 0 to disable.
    */
   maxRetries?: number;
 }

@@ -4,10 +4,38 @@ All notable changes to the official ePošťák Java SDK
 (`sk.epostak:epostak-sdk`) are documented in this file. The project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 1.1.0 — 2026-07-15
 
 ### Added
 
+- Added the customer-scoped Connector business-document API with send, stage,
+  list, detail, acknowledge, and event methods using ordinary company IDs.
+- Added business-level invoice responses through both direct and
+  customer-scoped `documents().respond(...)`; list/detail documents expose the
+  latest nullable response projection without Peppol codes or XML.
+- Made `client.connector()` the canonical Connector namespace; the Enterprise
+  alias remains silently supported. ePošťák approves credentials and Peppol
+  firms; the integrator chooses each stable `customerRef` in the dashboard.
+- Customer-scoped sends apply the exact backend ECMAScript `TrimString`
+  code-point set, then derive their 77-character key over length-prefixed UTF-8
+  `customerRef` and `externalId`; `U+0085` remains significant and explicit
+  keys require 1-255 UTF-8 bytes.
+- Keyed creation and server-idempotent lifecycle calls retry network errors,
+  `429`, and all `5xx` responses with an immutable body/key snapshot;
+  `Retry-After` is honored and `409` is never retried.
+- `EPostakException` now exposes `field`, `nextAction`, `retryable`,
+  `requestId`, and `retryAfter`; business events include
+  `document.cancelled`.
+- Added customer-scoped `sendDocument(documentId)` and
+  `cancelDocument(documentId)` lifecycle transitions for staged documents.
+- Added `client.connector().advanced()` as the explicit home for lower-level
+  Connector workflows. Existing top-level methods remain silent compatibility
+  aliases; `customers()` scopes dashboard-configured references and cannot
+  create firms.
+- Added one global Connector webhook per integrator with get/configure/delete,
+  secret rotation, customer-routed test delivery, and delivery history. Its
+  canonical event item exposes root `customerRef`; the nested value remains a
+  tolerated compatibility alias.
 - Added live JSON billing payload fields to `SendDocumentRequest`:
   `receiverStreet`, `receiverCity`, `receiverPostalCode`, `prepaidAmount`,
   `prepayments`, and advanced `LineItem` VAT/classification/control-statement
@@ -16,9 +44,7 @@ All notable changes to the official ePošťák Java SDK
   document types scoped to XML-mode payloads.
 - Added a send-time JSON-mode guard for missing `receiverName` or empty
   `items`, while keeping XML-mode sends exempt.
-- Added `client.connector().mapper(...)` and customer-scoped
-  `client.enterprise().connector().customers().forCustomer(customerRef).mapper(...)`
-  for the live `/connector/mapper` endpoint.
+- Added customer-scoped Mapper preview/normalization for `/connector/mapper`.
 - Added `client.box()` / `client.enterprise().box()` for the live ePošťák Box
   `/box/items` list, create with `BoxCreateRequest.payloadXml`, detail,
   schedule, send-now, retry, and cancel endpoints.
@@ -28,6 +54,9 @@ All notable changes to the official ePošťák Java SDK
 
 ### Fixed
 
+- Preserved `ConnectorCustomerDocumentsResource.get(String)` with its original
+  `Map<String, Object>` JVM descriptor; typed detail is additive as
+  `getBusinessDocument(String)`.
 - `SendDocumentRequest` now serializes send-request, attachment, line-item, and
   prepayment JSON fields with the live camelCase OpenAPI names.
 - `peppol().capabilities(...)` now sends the live request shape

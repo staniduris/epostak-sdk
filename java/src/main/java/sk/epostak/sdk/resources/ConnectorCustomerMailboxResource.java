@@ -15,8 +15,11 @@ public final class ConnectorCustomerMailboxResource {
         this.customerRef = customerRef;
     }
 
-    public Map<String, Object> repair() { return connector.repairMailbox(new ConnectorMailboxRepairRequest(customerRef)); }
+    public Map<String, Object> repair() {
+        return connector.advanced().repairMailbox(new ConnectorMailboxRepairRequest(customerRef));
+    }
+
     public ConnectorMailboxUpdateResponse updateSendPolicy(ConnectorSendPolicyOptions options) {
-        return connector.updateMailboxSendPolicy(customerRef, options);
+        return connector.advanced().updateMailboxSendPolicy(customerRef, options);
     }
 }

@@ -1,19 +1,96 @@
 # epostak
 
-Ruby SDK for the [ePosťák](https://epostak.sk) Enterprise API — send and receive e-invoices via the Slovak Peppol network.
+Ruby SDK for the [ePošťák APIs](https://epostak.sk/api/docs) — managed
+Connector workflows, the Enterprise API, and SAPI-SK interoperability.
 
 ## Major release API shape
 
-Ruby `1.0.0` is a breaking workflow-first release:
+Ruby `1.1.0` is the current workflow-first source release with the managed
+Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
-- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- Connector ERP/integrator flow: `client.connector.customers.for_customer("erp-customer").documents.send(...)`
 - Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.support_packet(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
 
-Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
-customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
-calls always send `X-Peppol-Participant-Id`.
+Connector is the recommended ERP path; Enterprise is the granular firm-scoped
+API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
+integrator, approves and Peppol-registers its firms, and issues Connector
+credentials. The integrator then chooses and stores a stable `customerRef` for
+each approved firm in the dashboard. The SDK cannot create or discover firms.
+
+Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
+then set `customerRef` in the integrator dashboard. Connector omits
+`X-Firm-Id`; SAPI always sends `X-Peppol-Participant-Id`.
+
+Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
+[Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## Connector quickstart
+
+```ruby
+require "epostak"
+
+connector_client = EPostak::Client.new(
+  client_id: ENV.fetch("EPOSTAK_CONNECTOR_CLIENT_ID"),
+  client_secret: ENV.fetch("EPOSTAK_CONNECTOR_CLIENT_SECRET")
+)
+customer = connector_client.connector.customers.for_customer("erp-acme")
+document = customer.documents.send({
+  externalId: "invoice-2026-0042",
+  type: "invoice",
+  number: "2026-0042",
+  recipient: { country: "SK", taxId: "2120123456" },
+  lines: [{ description: "Monthly licence", quantity: 1, unitPrice: 100, vatRate: 23 }]
+})
+```
+
+The integrator owns the stable `customerRef` after ePošťák has approved and
+Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+immediately by default, and derives a stable idempotency key from `customerRef`
+and `externalId`.
+
+```ruby
+events = customer.events.list(limit: 50)
+configured_webhook = connector_client.connector.webhook.configure(
+  "https://erp.example.com/webhooks/epostak",
+  ["document.received", "document.delivered"]
+)
+if configured_webhook["secret"]
+  # Persist this value in your server-side secret manager now. It is returned only once.
+  one_time_webhook_secret = configured_webhook["secret"]
+end
+connector_client.connector.webhook.test("erp-acme")
+```
+
+Push uses the same canonical event item as polling with `customerRef` at the
+root. `EPostak.verify_webhook_signature(...)` verifies HMAC-SHA256 over
+`timestamp + "." + raw_body`.
+
+### Acknowledge locally or respond to the supplier
+
+```ruby
+received_document_id = "document-id-from-list-or-event"
+customer.documents.acknowledge(received_document_id, "erp:#{received_document_id}")
+response = customer.documents.respond(
+  received_document_id,
+  { status: "accepted", note: "Imported and accepted" }
+)
+
+# Direct alternative (do not call both); customerRef is still mandatory:
+# connector_client.connector.documents.respond(
+#   received_document_id, "erp-acme", { status: "accepted" }
+# )
+```
+
+`acknowledge` only records that the inbound document was processed locally; it
+does not notify the supplier. `respond` sends the network business response via
+`POST /connector/documents/{documentId}/respond?customerRef=...`. Use only the
+business statuses `received`, `in_process`, `under_query`,
+`conditionally_accepted`, `rejected`, `accepted`, or `paid`, with an optional
+`note`. The Connector handles Peppol response codes and XML; do not send either.
+The result reports `response.delivery` as `sent` or `queued` and marks safe
+replays with `idempotent`.
 
 ## Enterprise API facade flow
 
@@ -49,20 +126,36 @@ allows.
 
 ## Recent changes
 
-**Unreleased** (2026-07-12)
+**Included in v1.1.0** (2026-07-14)
+- Connector is canonical at `client.connector`; the existing Enterprise
+  namespace alias remains silently supported
+- ePošťák approves the integrator and Peppol firms; the integrator stores its
+  own stable `customerRef` in the dashboard
+- Customer document creation snapshots the request, validates explicit
+  1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
+  only when safe; lifecycle calls are server-idempotent and `409` is never retried
+- `EPostak::Error` exposes `field`, `next_action`, `retryable`, `request_id`, and
+  `retry_after`
+- `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
+  points before hashing; `U+0085` is preserved
+- `document.cancelled` is a first-class business event
+
+**Included in v1.1.0** (2026-07-12)
 - JSON billing payloads now expose the live receiver address, `prepaidAmount`,
   `prepayments`, and advanced line-item VAT/classification fields from the
   Enterprise OpenAPI
 
-**Unreleased** (2026-07-01)
+**Included in v1.1.0** (2026-07-01)
 - `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`,
   and `client.enterprise.documents.support_packet(...)` cover the Enterprise
   API facade flow for validation, event pull/ack, and support packets
 
-**Unreleased** (2026-06-30)
-- `client.connector.mapper(...)` and customer-scoped
-  `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
-  cover `/connector/mapper`
+**Included in v1.1.0** (2026-06-30)
+- Customer-scoped
+  `client.connector.customers.for_customer(customer_ref).advanced.mapper(...)`
+  is the managed, preview-only Mapper flow. Top-level
+  `client.connector.advanced.mapper(...)` remains a legacy compatibility alias
+  and is unavailable with managed Connector credentials
 - `client.box` / `client.enterprise.box` covers ePošťák Box list, create with
   `payload_xml`, detail, schedule, send-now, retry, and cancel over
   `/box/items`
@@ -73,9 +166,10 @@ allows.
   Audit, and Integrator surfaces
 - `client.sapi.participants.for_participant(participant_id).documents` requires
   participant scoping before SAPI document send/receive/get/acknowledge
-- `client.enterprise.connector.customers.for_customer(customer_ref)` injects
+- `client.connector.customers.for_customer(customer_ref)` injects
   `customerRef` and keeps `X-Firm-Id` off customer-managed Connector calls
-- `client.enterprise.connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling
+- The Connector compatibility surface includes preflight, Zen input, Autopilot,
+  reconcile, mailbox, sync, document evidence, and event polling
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence
 - `client.enterprise.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
 - `client.enterprise.reporting.submissions(...)` covers `GET /reporting/submissions`
@@ -99,16 +193,16 @@ allows.
 
 ## Installation
 
-Add to your Gemfile:
+The Ruby SDK is currently distributed as reviewed source, not through
+RubyGems. Clone this repository and reference its `ruby/` directory from your
+Gemfile:
 
 ```ruby
-gem "epostak"
+gem "epostak", path: "/path/to/epostak-sdk/ruby"
 ```
 
-Or install directly:
-
 ```bash
-gem install epostak
+bundle install
 ```
 
 ## Quick start
@@ -119,114 +213,104 @@ require "epostak"
 client = EPostak::Client.new(client_id: "sk_live_xxxxx", client_secret: "your_secret")
 
 # Send an invoice
-result = client.enterprise.documents.send(
+result = client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-042",
   items: [
     { description: "Web development", quantity: 40, unit: "HUR", unitPrice: 80, vatRate: 23 }
   ]
-)
+})
 
 puts result["documentId"]
 ```
 
-Connector workflow mode for ERP teams:
+### Connector golden path for ERP developers
+
+Start from the stable `customerRef` configured by the integrator in the
+dashboard after ePošťák approves and Peppol-registers the firm. There is no SDK
+method for creating or discovering firms.
 
 ```ruby
-invoice = {
-  receiverPeppolId: "0245:1234567890",
-  document: {
-    receiverName: "Firma s.r.o.",
-    invoiceNumber: "FA-2026-001",
-    issueDate: "2026-06-04",
-    dueDate: "2026-06-18",
-    items: [
-      { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }
-    ]
-  }
-}
-
-preflight = client.enterprise.connector.preflight(invoice)
-unless preflight["ready"]
-  warn preflight.dig("repairReport", "blocking").inspect
-  raise "Invoice is not ready for Peppol delivery"
-end
-
-staged = client.enterprise.connector.stage_outbox(
-  items: [
-    {
-      externalId: "FA-2026-001",
-      idempotencyKey: "erp-fa-2026-001",
-      payload: invoice
-    }
+connector_client = EPostak::Client.new(
+  client_id: ENV.fetch("EPOSTAK_CONNECTOR_CLIENT_ID"),
+  client_secret: ENV.fetch("EPOSTAK_CONNECTOR_CLIENT_SECRET")
+)
+customer = connector_client.connector.customers.for_customer("erp-customer-1")
+document = customer.documents.send({
+  externalId: "FA-2026-001",
+  type: "invoice",
+  number: "FA-2026-001",
+  issueDate: "2026-07-14",
+  dueDate: "2026-07-28",
+  currency: "EUR",
+  recipient: { country: "SK", taxId: "2120123456" },
+  lines: [
+    { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 }
   ]
-)
+})
 
-sent = client.enterprise.connector.send_outbox_item(staged["items"].first["outboxId"])
-raise "Staged invoice was not sent" if sent["documentId"].nil?
-
-status = client.enterprise.connector.status(sent["documentId"])
-
-inbox = client.enterprise.connector.inbox(limit: 20)
-inbox["documents"].each do |doc|
-  client.enterprise.connector.ack(doc["documentId"])
+page = customer.documents.list(state: "needs_attention")
+events = customer.events.list(limit: 50)
+page["documents"].select { |item| item["direction"] == "inbound" }.each do |received|
+  customer.documents.acknowledge(received["id"], "erp:#{received['id']}")
 end
-
-# Evidence is shared with the Enterprise document API.
-evidence = client.enterprise.documents.evidence(sent["documentId"])
-puts "#{status["status"]} #{evidence["documentId"]}"
+ubl = customer.advanced.documents.ubl(document["id"])
+evidence = customer.advanced.documents.evidence(document["id"])
+evidence_bundle = customer.advanced.documents.evidence_bundle(document["id"])
+support_packet = customer.advanced.documents.support_packet(document["id"])
+puts "#{document['id']} #{events['nextCursor']}"
 ```
 
-For immediate send without staging:
+Every customer-scoped get, acknowledge, lifecycle, UBL, and evidence request
+appends the URL-encoded `customerRef` query. The server verifies the document
+against that exact approved firm and configured reference.
+
+The SDK injects `customerRef`, omits `X-Firm-Id`, and applies the backend
+ECMAScript `TrimString` set (`0009-000D`, `0020`, `00A0`, `1680`,
+`2000-200A`, `2028-2029`, `202F`, `205F`, `3000`, `FEFF`) to `customerRef`
+and `externalId`; `U+0085` is preserved. It then derives a stable bounded key
+as `connector:v1:` plus SHA-256 of the two UTF-8 values, each prefixed by its
+four-byte big-endian byte length. Explicit keys must be 1-255 UTF-8 bytes and
+are otherwise unchanged. Use
+`customer.documents.stage(...)` instead of `send(...)` when the ERP must hold a
+document for review, then call `customer.documents.send_document(document_id)`
+or `cancel_document(document_id)`.
+
+Mapper is a customer-scoped preview/normalization helper; it never stages or
+sends a document:
 
 ```ruby
-sent = client.enterprise.connector.send_document(invoice, idempotency_key: "erp-fa-2026-001-send")
-puts "#{sent["documentId"]} #{sent["status"]}"
+preview = customer.advanced.mapper({
+  templateKey: "pohoda-csv-v1",
+  sourceType: "csv",
+  sourceText: csv_text
+})
+normalized = preview["document"]
 ```
 
-Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
-ERP sync jobs one place to read exceptions:
+Managed Connector credentials support customer documents/events, one global
+webhook, audited document evidence, and Mapper preview. Legacy preflight, raw send, Outbox,
+Autopilot, reconciliation, mailbox, sync, and action helpers remain supported
+source-compatibility aliases; availability depends on the credential's product
+entitlement. The Connector property under the Enterprise namespace also
+remains silently supported.
+
+### Connector errors and retries
 
 ```ruby
-run = client.enterprise.connector.autopilot(
-  customerRef: "erp-customer-1",
-  mode: "shadow",
-  externalId: "FA-2026-001",
-  idempotencyKey: "erp-fa-2026-001",
-  payload: invoice
-)
-sent_run = client.enterprise.connector.send_autopilot_run(run["autopilotId"])
-exceptions = client.enterprise.connector.reconcile(status: "exceptions")
-puts "#{sent_run["lifecycleStatus"]} #{exceptions["total"]}"
+begin
+  customer.documents.send(invoice)
+rescue EPostak::Error => error
+  warn [error.code, error.message, error.field, error.next_action].inspect
+  warn [error.retryable, error.request_id, error.retry_after].inspect
+end
 ```
 
-Customer-scoped Connector calls are the preferred integrator shape when you
-already know the managed ERP customer:
-
-```ruby
-customer = client.enterprise.connector.customers.for_customer("erp-customer-1")
-run = customer.submit_document(
-  externalId: "FA-2026-001",
-  idempotencyKey: "erp-fa-2026-001",
-  payload: invoice
-)
-puts run["autopilotId"]
-```
-
-Common sandbox scenarios to test:
-
-- nonexistent participant or unsupported document type: `preflight["ready"] == false` with blocking `repairReport` items
-- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostak::Error`
-- duplicate idempotency key: `409 idempotency_conflict`
-- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.enterprise.connector.inbox(...)`, store the payload, then call `client.enterprise.connector.ack(document_id)`
-
-Batch workers can send queued items with:
-
-```ruby
-client.enterprise.connector.send_outbox_batch(limit: 50)
-```
+Keyed document creation retries network failures, `429`, and every `5xx` while
+reusing the exact body and key. Lifecycle send/cancel/acknowledge calls are
+server-idempotent and use the same policy. `Retry-After` is honored; `409` is
+always surfaced once and never retried automatically.
 
 ## SAPI-SK participant flow
 
@@ -251,10 +335,14 @@ participant.documents.send(
 
 ## Authentication
 
-The SDK supports two types of API keys:
+The SDK recognizes these credential contexts:
 
 - **Direct keys** (`sk_live_*`) — single firm, all requests scoped to your firm
-- **Integrator keys** (`sk_int_*`) — multi-tenant; Connector V2 uses `customerRef`, while legacy firm-scoped calls use `with_firm` or `X-Firm-Id`
+- **Enterprise integrator keys** (`sk_int_*`) — multi-tenant Enterprise access;
+  use `with_firm` or `X-Firm-Id`
+- **Connector credentials** — issued by ePošťák after integrator and firm
+  approval; the integrator configures `customerRef` for each approved Peppol
+  firm in the dashboard
 
 ```ruby
 # Direct key
@@ -276,9 +364,9 @@ client = EPostak::Client.new(
 )
 ```
 
-Connector V2 integrator calls do not need `firm_id`; pass your ERP customer key
-as `customerRef` on Connector requests. The SDK omits `X-Firm-Id` for those
-methods even when the client has `firm_id`.
+Managed Connector calls use Connector credentials and the integrator's stored
+`customerRef` for an ePošťák-approved Peppol firm and do not need `firm_id`.
+Enterprise credentials cannot provision or scout Connector firms.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -297,7 +385,7 @@ All methods return parsed JSON as Ruby hashes with string keys.
 #### Send a document
 
 ```ruby
-result = client.enterprise.documents.send(
+result = client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   receiverName: "Firma s.r.o.",
   invoiceNumber: "FV-2026-042",
@@ -306,17 +394,17 @@ result = client.enterprise.documents.send(
   items: [
     { description: "Consulting", quantity: 10, unit: "HUR", unitPrice: 100, vatRate: 23 }
   ]
-)
+})
 # => { "documentId" => "uuid", "peppolMessageId" => "...", "status" => "SENDING" }
 ```
 
 Send with raw UBL XML:
 
 ```ruby
-result = client.enterprise.documents.send(
+result = client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   xml: '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">...</Invoice>'
-)
+})
 ```
 
 #### Get a document
@@ -777,36 +865,39 @@ integrations should use `client.enterprise.payloads.extract`.
 
 ---
 
-## Integrator mode
+## Enterprise Integrator mode
 
-Integrator keys (`sk_int_*`) can manage multiple client firms. Use `with_firm` to scope requests:
+This section is only for Enterprise integrator credentials and firm-scoped
+Enterprise calls. It does not provision Connector. Use `with_firm` to scope
+requests:
 
 ```ruby
 integrator = EPostak::Client.new(client_id: "sk_int_xxxxx", client_secret: "your_secret")
 
 # List all managed firms
-firms = integrator.firms.list
+firms = integrator.enterprise.firms.list
 
 # Work with a specific firm
-# Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls stay
-# integrator-scoped and resolve the managed firm from customerRef.
+# This scopes only Enterprise integrator credentials. It does not provision
+# Connector. Use Connector credentials and choose each customerRef in the
+# dashboard after ePošťák approves the firm.
 firm_client = integrator.with_firm("firm-a-uuid")
-firm_client.enterprise.documents.send(
+firm_client.enterprise.documents.send({
   receiverPeppolId: "0245:1234567890",
   receiverName: "Firma s.r.o.",
   items: [{ description: "Service", quantity: 1, unitPrice: 500, vatRate: 23 }]
-)
+})
 
 # Switch to another firm
 other_client = integrator.with_firm("firm-b-uuid")
 other_client.enterprise.documents.inbox.list
 
 # Cross-firm endpoints (no with_firm needed)
-all_docs = integrator.documents.inbox.list_all(since: "2026-04-01T00:00:00Z")
-all_events = integrator.webhooks.queue.pull_all(limit: 200)
+all_docs = integrator.enterprise.documents.inbox.list_all(since: "2026-04-01T00:00:00Z")
+all_events = integrator.enterprise.webhooks.queue.pull_all(limit: 200)
 
 # Integrator API-key management (production supports list + deactivate)
-integrator_api = integrator.integrator
+integrator_api = integrator.enterprise.integrator
 keys = integrator_api.keys.list
 integrator_api.keys.deactivate(client_id: "sk_int_xxxxx...abcd")
 usage = integrator_api.licenses.info(limit: 100)

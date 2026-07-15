@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "endpoint": "/connector/webhook",
+  "configurationResponse": {
+    "webhook": {
+      "id": "wh-1",
+      "url": "https://erp.example/epostak",
+      "events": ["document.received"],
+      "active": true,
+      "failedAttempts": 0,
+      "createdAt": "2026-07-15T10:00:00Z",
+      "updatedAt": "2026-07-15T10:00:00Z"
+    },
+    "secret": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "testRequest": {
+    "customerRef": "erp-customer-1"
+  },
+  "testResponse": {
+    "deliveryId": "whd-1",
+    "status": "queued",
+    "event": {
+      "id": "evt-1",
+      "type": "document.received",
+      "customerRef": "erp-customer-1",
+      "documentId": "doc-1",
+      "state": "received",
+      "occurredAt": "2026-07-15T10:00:00Z",
+      "data": {
+        "customerRef": "erp-customer-1",
+        "direction": "inbound",
+        "type": "invoice",
+        "number": null,
+        "response": null
+      },
+      "test": true
+    }
+  },
+  "deliveriesResponse": {
+    "deliveries": [
+      {
+        "id": "whd-1",
+        "webhookId": "wh-1",
+        "eventId": "evt-1",
+        "customerRef": "erp-customer-1",
+        "type": "document.received",
+        "status": "SUCCESS",
+        "attempts": 1,
+        "responseStatus": 204,
+        "responseTimeMs": 83,
+        "lastAttemptAt": "2026-07-15T10:00:01Z",
+        "nextRetryAt": null,
+        "createdAt": "2026-07-15T10:00:00Z"
+      }
+    ],
+    "nextCursor": null,
+    "hasMore": false
+  }
+}

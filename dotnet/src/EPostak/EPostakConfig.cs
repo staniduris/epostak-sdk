@@ -1,7 +1,7 @@
 namespace EPostak;
 
 /// <summary>
-/// Configuration for the ePosťak Enterprise API client. Provide <see cref="ClientId"/>
+/// Configuration for the ePosťak API client. Provide <see cref="ClientId"/>
 /// and <see cref="ClientSecret"/> for OAuth JWT authentication. The SDK automatically
 /// mints and refreshes JWT tokens via the SAPI token endpoint.
 /// </summary>
@@ -14,6 +14,7 @@ namespace EPostak;
 /// <code>
 /// var config = new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx", FirmId = "firm-uuid-here" };
 /// </code>
+/// For customerRef-scoped Connector calls, use the integrator key without <c>FirmId</c>.
 /// </example>
 public sealed class EPostakConfig
 {
@@ -44,7 +45,8 @@ public sealed class EPostakConfig
     /// <summary>
     /// Maximum number of retries on 429 (Too Many Requests) and 5xx responses.
     /// Uses exponential backoff with jitter. Defaults to 3. Set to 0 to disable retries.
-    /// Only GET and DELETE requests are retried by default.
+    /// Only GET/DELETE requests are retried by default; explicitly server-idempotent
+    /// Connector operations opt in without changing Enterprise or SAPI mutations.
     /// </summary>
     public int MaxRetries { get; init; } = 3;
 }

@@ -1,23 +1,24 @@
 # ePošťák SDK
 
-Official SDKs for the [ePošťák Enterprise API](https://epostak.sk/api/docs/enterprise) — Peppol e-invoicing for Slovakia and the EU.
+Official SDKs for the [ePošťák APIs](https://epostak.sk/api/docs) — managed
+Connector workflows, the full Enterprise API, and SAPI-SK interoperability.
 
 ---
 
 ## Major Release
 
-This release makes the public API workflow-first across all SDK languages.
-Enterprise `/api/v1/*` calls live under `enterprise`; SAPI-SK `/sapi/v1/*`
-calls stay separate and require a participant scope before document
-operations.
+Connector is the recommended ERP path: business JSON, ordinary company or tax
+identifiers, one stable `customerRef`, polling, and one global webhook. Use
+Enterprise when you need granular firm-scoped protocol controls. Use SAPI-SK
+when strict participant-scoped interoperability is the requirement.
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
-- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for(...).submitDocument(...)`
+- Connector ERP/integrator flow: `client.connector.customers.for(...).documents.send(...)`
 - Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.supportPacket(...)`
 - ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
 
-TypeScript is `4.0.0`. Python, PHP, Ruby, Java, and .NET are `1.0.0`.
+TypeScript is `4.1.0`. Python, PHP, Ruby, Java, and .NET are `1.1.0`.
 
 ---
 
@@ -46,14 +47,19 @@ Non-breaking adoption: facade helpers are additive. Existing `/extract`,
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.0.0 | `npm install @epostak/sdk` |
-| Python | [`python/`](./python/) | `epostak` | 1.0.0 | Source on GitHub |
-| PHP | [`php/`](./php/) | `epostak/sdk` | 1.0.0 | Source on GitHub |
-| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.0.0 | Source on GitHub |
-| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.0.0 | Source on GitHub |
-| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.0.0 | Source on GitHub |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.1.0 | `npm install @epostak/sdk@^4.1.0` |
+| Python | [`python/`](./python/) | `epostak` | 1.1.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 1.1.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.1.0 | Source on GitHub |
+| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.1.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.1.0 | Source on GitHub |
 
-TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk). Other SDKs are available as source code — install directly from GitHub or copy into your project.
+The npm release is ready to announce only after `npm view @epostak/sdk version`
+returns `4.1.0` or newer; older npm releases do not contain this Connector
+surface. The normal current install is `npm install @epostak/sdk@^4.1.0`, with a
+local source fallback documented in [`typescript/README.md`](./typescript/README.md).
+The other five SDKs are source-only until their registry releases are explicitly
+published and verified; each language README contains a local-source install.
 
 ---
 
@@ -63,8 +69,8 @@ TypeScript SDK is published on [npm](https://www.npmjs.com/package/@epostak/sdk)
 import { EPostak } from "@epostak/sdk";
 
 const client = new EPostak({
-  clientId: "sk_live_xxxxx",
-  clientSecret: "sk_live_xxxxx",
+  clientId: "api-key-uuid-or-prefix",
+  clientSecret: "sk_live_xxxxx", // full secret, distinct from clientId
 });
 
 const result = await client.enterprise.documents.send({
@@ -79,69 +85,121 @@ const result = await client.enterprise.documents.send({
 });
 ```
 
-## Enterprise ERP/Integrator Flow
+## Connector ERP/Integrator Flow
 
-For ERP integrations, prefer `client.enterprise.connector` over raw HTTP. It exposes the
-golden path directly: preflight, Mapper, Autopilot, stage, send, status, inbox,
-ACK, reconcile, mailbox policy, sync, Connector document evidence, and action
-execution.
+ePošťák approves the integrator, approves its firms, and registers those firms
+in Peppol. The integrator then chooses and stores a stable ERP `customerRef`
+for each approved firm in the ePošťák dashboard. The SDK cannot create,
+discover, or register firms. Firm Settings keys and Enterprise OAuth remain a
+separate product surface.
 
-Connector V2 calls such as Autopilot, Mapper, Zen input, mailbox, sync, Connector
-documents, and actions use the integrator token plus `customerRef`; they do not
-need `X-Firm-Id`. Legacy Connector calls such as preflight, send, outbox,
-status, inbox, and events remain firm-scoped.
+Request Connector access and Peppol firm approval at `integracie@epostak.sk`.
+After approval, set `customerRef` in the integrator dashboard before using this
+flow.
+
+Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
+[Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
 
 ```typescript
-const invoice = {
-  receiverPeppolId: "0245:1234567890",
-  document: {
-    receiverName: "Firma s.r.o.",
-    invoiceNumber: "FA-2026-001",
-    issueDate: "2026-06-04",
-    dueDate: "2026-06-18",
-    items: [
-      { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 },
-    ],
-  },
-};
-
-const preflight = await client.enterprise.connector.preflight(invoice);
-if (!preflight.ready) throw new Error(preflight.repairReport.summary);
-
-const customer = client.enterprise.connector.customers.for("erp-customer-1");
-const autopilot = await customer.submitDocument({
-  mode: "shadow",
-  externalId: "FA-2026-001",
-  idempotencyKey: "erp-fa-2026-001",
-  payload: invoice,
+const connectorClient = new EPostak({
+  clientId: process.env.EPOSTAK_CONNECTOR_CLIENT_ID!,
+  clientSecret: process.env.EPOSTAK_CONNECTOR_CLIENT_SECRET!,
+  baseUrl: "https://dev.epostak.sk/api/v1", // Connector sandbox
 });
-const exceptions = await client.enterprise.connector.reconcile({ status: "exceptions" });
-
-const staged = await client.enterprise.connector.outbox.stage({
-  items: [
-    {
-      externalId: "FA-2026-001",
-      idempotencyKey: "erp-fa-2026-001",
-      payload: invoice,
-    },
+const customer = connectorClient.connector.customers.for("erp-customer-1");
+const document = await customer.documents.send({
+  externalId: "FA-2026-001",
+  type: "invoice",
+  number: "FA-2026-001",
+  issueDate: "2026-07-14",
+  dueDate: "2026-07-28",
+  currency: "EUR",
+  recipient: { country: "SK", taxId: "2120123456" },
+  lines: [
+    { description: "Služby", quantity: 1, unitPrice: 100, vatRate: 23 },
   ],
 });
-
-const sent = await client.enterprise.connector.outbox.send(staged.items[0].outboxId);
-const status = sent.documentId
-  ? await client.enterprise.connector.status(sent.documentId)
-  : null;
-
-const inbox = await client.enterprise.connector.inbox({ limit: 20 });
-for (const doc of inbox.documents) {
-  await client.enterprise.connector.ack(doc.documentId);
+const receivedPage = await customer.documents.list({
+  direction: "inbound",
+  state: "received",
+});
+const events = await customer.events.list({ limit: 50 });
+for (const received of receivedPage.documents) {
+  await customer.documents.acknowledge(received.id, `erp:${received.id}`);
 }
+console.log(document.id, events.nextCursor);
+```
 
-const evidence = sent.documentId
-  ? await client.enterprise.documents.evidence(sent.documentId)
-  : null;
-console.log(status?.status, evidence);
-console.log(autopilot.lifecycleStatus, exceptions.total);
+Every customer-scoped point operation appends the URL-encoded `customerRef`
+query parameter. The backend verifies that the document belongs to the
+approved firm mapped to that integrator-owned reference.
+
+### Inbound invoice lifecycle
+
+Acknowledging and responding are deliberately separate operations:
+
+```typescript
+const receivedDocumentId = "document-id-from-list-or-event";
+await customer.documents.acknowledge(receivedDocumentId, `erp:${receivedDocumentId}`);
+const response = await customer.documents.respond(receivedDocumentId, {
+  status: "accepted",
+  note: "Imported and accepted",
+});
+
+// Direct alternative (do not call both); customerRef is explicit:
+// await connectorClient.connector.documents.respond(
+//   receivedDocumentId, "erp-customer-1", { status: "accepted" },
+// );
+```
+
+`acknowledge` marks the inbound document as processed locally and never
+notifies the supplier. `respond` sends a network business response through
+`POST /connector/documents/{documentId}/respond?customerRef=...`. Its business
+status is one of `received`, `in_process`, `under_query`,
+`conditionally_accepted`, `rejected`, `accepted`, or `paid`; `note` is
+optional. Integrators never provide Peppol response codes or XML. The result
+reports delivery as `sent` or `queued` and marks safe replays as idempotent.
+
+When no explicit idempotency key is supplied, every SDK applies the backend
+ECMAScript `TrimString` contract to `customerRef` and `externalId`, then derives
+the same 77-character key: `connector:v1:` plus lowercase SHA-256 of both UTF-8
+values, each prefixed by its unsigned four-byte big-endian byte length. This
+trims code points `0009-000D`, `0020`, `00A0`, `1680`, `2000-200A`, `2028-2029`,
+`202F`, `205F`, `3000`, and `FEFF`; it deliberately preserves `U+0085`.
+Explicit keys must contain 1-255 UTF-8 bytes and pass through unchanged.
+
+The supported Connector golden-path surface is customer documents
+(`send`, `stage`, `get`, `list`, `acknowledge`, `respond`, `sendDocument`,
+`cancelDocument`) and customer events. Legacy preflight, raw send, Outbox,
+Autopilot, reconciliation, mailbox, sync, and action aliases remain supported
+for source compatibility. New examples use top-level `connector`; the existing
+`enterprise.connector` alias remains silent and supported.
+
+Configure one webhook for the whole integrator through `connector.webhook` or
+poll each customer through `customer.events`. Webhook payloads use the same
+canonical event item as polling and carry `customerRef` at the root. Verify
+`X-Webhook-Signature` over `timestamp + "." + rawBody` with HMAC-SHA256.
+
+```typescript
+const configuredWebhook = await connectorClient.connector.webhook.configure(
+  "https://erp.example.com/webhooks/epostak",
+  ["document.received", "document.delivered"],
+);
+if (configuredWebhook.secret) {
+  // Persist this value in your server-side secret manager now. It is returned only once.
+  const oneTimeWebhookSecret = configuredWebhook.secret;
+}
+await connectorClient.connector.webhook.test("erp-customer-1");
+```
+
+### Connector advanced tools
+
+Technical artifacts stay outside the golden path:
+
+```typescript
+const ubl = await customer.advanced.documents.ubl(document.id);
+const evidence = await customer.advanced.documents.evidence(document.id);
+const supportPacket = await customer.advanced.documents.supportPacket(document.id);
 ```
 
 ## SAPI-SK Interoperable Flow
@@ -192,9 +250,12 @@ Use `0245:DIČ` for all Slovak firms. The `9950:SK...` VAT-number form is **not*
 | Key prefix  | Use case                                           |
 | ----------- | -------------------------------------------------- |
 | `sk_live_*` | Direct access — acts on behalf of your own firm    |
-| `sk_int_*`  | Integrator access — acts on behalf of client firms |
+| `sk_int_*`  | Integrator access; exact capabilities depend on the provisioned product |
 
-Generate API keys in your ePošťák firm settings.
+Enterprise keys are generated in ePošťák firm Settings. Connector integrator
+credentials are issued by ePošťák only after manual approval; the integrator
+chooses each `customerRef` after firm approval. Enterprise keys cannot be
+reused to provision Connector access.
 
 ---
 
@@ -242,7 +303,10 @@ const credentials = await OAuth.exchangeCode({
 });
 ```
 
-Use this when the firm has no API key with you yet. Store the returned `client_id`, `client_secret`, and `firm_id`; use the `client_id`/`client_secret` with the regular `client.enterprise.auth.token({ clientId, clientSecret })` (`client_credentials`) flow to mint JWTs for `/api/v1/*` calls.
+Use this when an Enterprise firm has no API key with you yet. Store the returned
+`client_id`, `client_secret`, and `firm_id`; use the credentials with the regular
+`client.enterprise.auth.token(...)` flow for Enterprise `/api/v1/*` calls.
+This OAuth flow does not provision Connector credentials or customer links.
 
 See [MIGRATION.md](./MIGRATION.md) for the old top-level naming to workflow-first namespace mapping.
 
@@ -252,7 +316,8 @@ See [MIGRATION.md](./MIGRATION.md) for the old top-level naming to workflow-firs
 
 All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
-- **Connector** — ERP workflow mode: preflight repair report, Connector Mapper, Zen input, Autopilot lifecycle, reconciliation exceptions, mailbox repair/send policy, sync cursors, Connector document lifecycle/UBL/evidence manifests, action execution, send, outbox stage/list/detail/send/batch/cancel, status, inbox list/detail, inbox ACK, and events
+- **Connector** — managed customer documents and lifecycle, customer events,
+  document UBL/evidence, and Mapper preview/normalization
 - **Box** — durable Box items: list, create with `payloadXml`, detail, schedule, send-now, retry, and cancel
 - **Documents** — send, batch send, get, update, status, batch status, outbox, AS4 envelope, evidence, evidence bundle ZIP, PDF, UBL, respond, mark, parse, validate, preflight, convert, response list, event audit, Peppol document listing
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
@@ -267,9 +332,11 @@ All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 
 ---
 
-## Integrator Mode
+## Enterprise Integrator Mode
 
-Use `sk_int_*` keys for multi-tenant access. Integrator-only endpoints:
+This section is only for Enterprise multi-tenant credentials and firm-scoped
+Enterprise calls. It does not provision Connector credentials or customer
+links. Enterprise-only integrator endpoints:
 
 | Method              | Description                          |
 | ------------------- | ------------------------------------ |
@@ -291,11 +358,24 @@ All SDKs throw/raise a typed error (`EPostakError` / `EPostakException`) with:
 - `code` — Machine-readable error code (e.g. `VALIDATION_ERROR`)
 - `message` — Human-readable description
 - `details` — Additional context (validation errors, etc.)
+- `field` — Request field that needs correction, when supplied
+- `nextAction` — Stable server guidance for the caller
+- `retryable` — Whether the server classifies the failure as transient
+- `requestId` — Correlation ID from the response body or header
+- `retryAfter` — Parsed `Retry-After` delta seconds, when present
+
+Connector document creation retries transient network failures, `429`, and all
+`5xx` responses only when a non-empty `Idempotency-Key` was attached. Lifecycle
+send/cancel/acknowledge calls are server-idempotent and follow the same retry
+policy. The SDK honors `Retry-After`; `409` is always surfaced immediately and
+is never retried automatically.
 
 ---
 
 ## Documentation
 
+- [Connector guide](https://epostak.sk/api/docs/connector)
+- [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json)
 - [Enterprise API Docs](https://epostak.sk/api/docs/enterprise)
 - Each SDK directory contains a detailed README with language-specific examples
 

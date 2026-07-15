@@ -48,6 +48,18 @@ module EPostak
     #   returns one.
     attr_reader :request_id
 
+    # @return [String, nil] Request field that should be corrected.
+    attr_reader :field
+
+    # @return [String, nil] Remediation hint supplied by the API.
+    attr_reader :next_action
+
+    # @return [Boolean, nil] Whether the same business operation can be retried.
+    attr_reader :retryable
+
+    # @return [Integer, nil] Delta seconds from the `Retry-After` header.
+    attr_reader :retry_after
+
     # @return [String, nil] Required OAuth scope when the server rejects with
     #   `403 insufficient_scope`. Parsed from the
     #   `WWW-Authenticate: Bearer error="insufficient_scope" scope="..."`
@@ -97,6 +109,14 @@ module EPostak
       @instance = string_value(body, "instance")
 
       @request_id = extract_request_id(body, headers)
+      error_obj = fetch_key(body, "error")
+      if error_obj.is_a?(Hash)
+        @field = string_value(error_obj, "field")
+        @next_action = string_value(error_obj, "nextAction") || string_value(error_obj, "next_action")
+        retryable = fetch_key(error_obj, "retryable")
+        @retryable = retryable if retryable == true || retryable == false
+      end
+      @retry_after = extract_retry_after(headers)
       @required_scope = extract_required_scope(body, headers)
 
       super(msg)
@@ -107,7 +127,10 @@ module EPostak
     def fetch_key(hash, key)
       return nil unless hash.is_a?(Hash)
 
-      hash[key] || hash[key.to_sym]
+      return hash[key] if hash.key?(key)
+      return hash[key.to_sym] if hash.key?(key.to_sym)
+
+      nil
     end
 
     def string_key?(hash, key)
@@ -144,6 +167,14 @@ module EPostak
 
       err = fetch_key(body, "error")
       string_value(err, "required_scope") if err.is_a?(Hash)
+    end
+
+    def extract_retry_after(headers)
+      raw = header_value(headers, "retry-after")
+      raw = raw.first if raw.is_a?(Array)
+      return nil unless raw.is_a?(String) && raw.strip.match?(/\A\d+\z/)
+
+      Integer(raw.strip, 10)
     end
 
     def header_value(headers, name)

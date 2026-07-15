@@ -3,6 +3,7 @@
 require "faraday"
 require "faraday/multipart"
 require "json"
+require "time"
 
 module EPostak
   # Carries the last rate-limit information returned by the server.
@@ -45,11 +46,14 @@ module EPostak
     # @param body [Hash, nil] Request body (serialized as JSON)
     # @param query [Hash, nil] Query parameters
     # @param idempotency_key [String, nil] Optional `Idempotency-Key` header value
-    # @param retry_on_failure [Boolean, nil] Override default retry policy. When +true+,
-    #   non-idempotent methods (POST/PATCH/PUT) become retryable.
+    # @param retry_on_failure [Boolean, nil] Override HTTP-response retry policy. When
+    #   +true+, non-idempotent methods (POST/PATCH/PUT) become retryable on 429/5xx.
+    # @param retry_network_errors [Boolean] Retry transport failures as well. Reserved
+    #   for server-idempotent Connector operations so legacy Enterprise and SAPI
+    #   mutations still surface an ambiguous network failure immediately.
     # @return [Hash, nil] Parsed JSON response, or nil for 204 responses
     # @raise [EPostak::Error] On non-2xx responses or network errors
-    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil, headers: nil, base_url: nil, omit_firm_id: false)
+    def request(method, path, body: nil, query: nil, idempotency_key: nil, retry_on_failure: nil, retry_network_errors: false, headers: nil, base_url: nil, omit_firm_id: false)
       retryable =
         if retry_on_failure.nil?
           RETRYABLE_METHODS.include?(method)
@@ -57,24 +61,34 @@ module EPostak
           retry_on_failure
         end
       attempt = 0
+      serialized_body = body ? JSON.generate(body) : nil
 
       loop do
-        conn = base_url ? build_connection(base_url) : @conn
-        response = conn.run_request(method, normalize_path(path), nil, nil) do |req|
-          req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
-          req.headers.delete("X-Firm-Id") if omit_firm_id
-          req.params.update(compact_params(query)) if query
-          req.headers["Idempotency-Key"] = idempotency_key if idempotency_key
-          req.headers.update(headers) if headers
-          if body
-            req.headers["Content-Type"] = "application/json"
-            req.body = JSON.generate(body)
+        begin
+          conn = base_url ? build_connection(base_url) : @conn
+          response = conn.run_request(method, normalize_path(path), nil, nil) do |req|
+            req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
+            req.headers.delete("X-Firm-Id") if omit_firm_id
+            req.params.update(compact_params(query)) if query
+            req.headers["Idempotency-Key"] = idempotency_key unless idempotency_key.nil?
+            req.headers.update(headers) if headers
+            if serialized_body
+              req.headers["Content-Type"] = "application/json"
+              req.body = serialized_body
+            end
           end
+        rescue Faraday::Error => e
+          if retry_network_errors && retryable && attempt < @max_retries
+            sleep(calculate_delay(attempt))
+            attempt += 1
+            next
+          end
+          raise Error.new(0, { "error" => e.message })
         end
 
         status = response.status
 
-        # Retry on 429 or 5xx for retryable requests
+        # Retry on 429 or 5xx only for safe, keyed, or server-idempotent requests.
         if retryable && attempt < @max_retries && (status == 429 || status >= 500)
           delay = calculate_delay(attempt, response)
           sleep(delay)
@@ -84,8 +98,6 @@ module EPostak
 
         return handle_response(response)
       end
-    rescue Faraday::Error => e
-      raise Error.new(0, { "error" => e.message })
     end
 
     # Send a raw body (non-JSON) and return the parsed JSON response.
@@ -116,22 +128,41 @@ module EPostak
     # @param path [String] API endpoint path
     # @return [String] Raw response body bytes
     # @raise [EPostak::Error] On non-2xx responses
-    def request_raw(method, path, omit_firm_id: false)
-      response = @conn.run_request(method, normalize_path(path), nil, nil) do |req|
-        req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
-        req.headers.delete("X-Firm-Id") if omit_firm_id
+    def request_raw(method, path, omit_firm_id: false, query: nil)
+      retryable = RETRYABLE_METHODS.include?(method)
+      attempt = 0
+
+      loop do
+        begin
+          response = @conn.run_request(method, normalize_path(path), nil, nil) do |req|
+            req.headers["Authorization"] = "Bearer #{@token_manager.access_token}"
+            req.headers.delete("X-Firm-Id") if omit_firm_id
+            req.params.update(compact_params(query)) if query
+          end
+        rescue Faraday::Error => e
+          if retryable && attempt < @max_retries
+            sleep(calculate_delay(attempt))
+            attempt += 1
+            next
+          end
+          raise Error.new(0, { "error" => e.message })
+        end
+
+        if retryable && attempt < @max_retries && (response.status == 429 || response.status >= 500)
+          sleep(calculate_delay(attempt, response))
+          attempt += 1
+          next
+        end
+
+        capture_rate_limit(response.headers)
+
+        unless response.success?
+          error_body = parse_error_body(response)
+          raise EPostak.build_api_error(response.status, error_body, response.headers)
+        end
+
+        return response.body
       end
-
-      capture_rate_limit(response.headers)
-
-      unless response.success?
-        error_body = parse_error_body(response)
-        raise EPostak.build_api_error(response.status, error_body, response.headers)
-      end
-
-      response.body
-    rescue Faraday::Error => e
-      raise Error.new(0, { "error" => e.message })
     end
 
     # Perform a multipart file upload request.
@@ -173,11 +204,11 @@ module EPostak
 
     private
 
-    def calculate_delay(attempt, response)
+    def calculate_delay(attempt, response = nil)
       base_delay = 0.5
       max_delay = 30.0
 
-      if response.status == 429
+      if response
         retry_after = response.headers["Retry-After"] || response.headers["retry-after"]
         if retry_after
           seconds = Float(retry_after, exception: false)

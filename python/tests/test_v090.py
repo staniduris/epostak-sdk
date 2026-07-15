@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import datetime
 from typing import Any, Callable
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -32,7 +32,6 @@ def _mock_response(status: int, json_body: Any = None, headers: dict | None = No
     resp.headers = headers or {}
     resp.json.return_value = json_body or {}
     resp.text = text
-    resp.headers.get = lambda k, default=None: (headers or {}).get(k, default)
     return resp
 
 
@@ -211,6 +210,33 @@ def test_build_api_error_does_not_raise_for_other_422():
     assert type(err) is EPostakError
 
 
+def test_business_error_metadata_and_retry_after_seconds():
+    err = build_api_error(
+        409,
+        {"error": {
+            "code": "idempotency_in_flight",
+            "message": "Still processing",
+            "field": "externalId",
+            "nextAction": "retry",
+            "retryable": True,
+            "requestId": "req-body",
+        }},
+        {"Retry-After": "7", "X-Request-Id": "req-header"},
+    )
+    assert err.field == "externalId"
+    assert err.next_action == "retry"
+    assert err.retryable is True
+    assert err.request_id == "req-body"
+    assert err.retry_after == 7
+
+    validation = build_api_error(
+        422,
+        {"error": {"code": "validation_failed", "message": "Fix request", "retryable": False}},
+    )
+    assert validation.retryable is False
+    assert validation.retry_after is None
+
+
 def test_ubl_validation_error_is_epostak_error():
     err = UblValidationError(422, {})
     assert isinstance(err, EPostakError)
@@ -261,7 +287,6 @@ def test_connector_v2_omits_global_firm_id_header(call: Callable[[Any], Any]):
         pytest.param(lambda c: c.preflight({"invoiceNumber": "FA-1"}), id="preflight"),
         pytest.param(lambda c: c.send({"invoiceNumber": "FA-1"}), id="send"),
         pytest.param(lambda c: c.inbox(limit=20), id="inbox"),
-        pytest.param(lambda c: c.events(limit=20), id="events"),
     ],
 )
 def test_connector_legacy_keeps_global_firm_id_header(call: Callable[[Any], Any]):
@@ -271,6 +296,18 @@ def test_connector_legacy_keeps_global_firm_id_header(call: Callable[[Any], Any]
 
     sent_headers = http.request.call_args.kwargs["headers"]
     assert sent_headers["X-Firm-Id"] == "firm-1"
+
+
+def test_connector_customer_events_omit_firm_while_advanced_legacy_events_keep_it():
+    connector, http = _make_firm_scoped_connector()
+
+    connector.customers.for_customer("erp-customer-1").events.list(limit=10)
+    customer_headers = http.request.call_args.kwargs["headers"]
+    assert "X-Firm-Id" not in customer_headers
+
+    connector.advanced.events(limit=10)
+    legacy_headers = http.request.call_args.kwargs["headers"]
+    assert legacy_headers["X-Firm-Id"] == "firm-1"
 
 
 def test_connector_send_calls_correct_endpoint_with_idempotency_key():
@@ -303,11 +340,12 @@ def test_connector_inbox_and_events_use_cursor_params():
         )
 
     with patch.object(client.connector, "_request", return_value={"events": [], "hasMore": False}) as mock_req:
-        client.connector.events(limit=10)
+        client.connector.customers.for_customer("erp-customer-1").events.list(limit=10)
         mock_req.assert_called_once_with(
             "GET",
             "/connector/events",
-            params={"limit": "10"},
+            params={"customerRef": "erp-customer-1", "limit": "10"},
+            omit_firm_id=True,
         )
 
 
@@ -375,19 +413,19 @@ def test_connector_autopilot_and_reconcile_paths():
     }
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
-        client.connector.autopilot(body)
+        client.connector.advanced.autopilot(body)
         mock_req.assert_called_once_with("POST", "/connector/autopilot", json=body, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
-        client.connector.get_autopilot_run("auto-1")
+        client.connector.advanced.get_autopilot_run("auto-1")
         mock_req.assert_called_once_with("GET", "/connector/autopilot/auto-1", omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
-        client.connector.send_autopilot_run("auto-1")
+        client.connector.advanced.send_autopilot_run("auto-1")
         mock_req.assert_called_once_with("POST", "/connector/autopilot/auto-1/send", json={}, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"items": []}) as mock_req:
-        client.connector.reconcile(status="exceptions", since="2026-06-01T00:00:00.000Z")
+        client.connector.advanced.reconcile(status="exceptions", since="2026-06-01T00:00:00.000Z")
         mock_req.assert_called_once_with(
             "GET",
             "/connector/reconcile",
@@ -401,7 +439,7 @@ def test_connector_managed_v2_paths():
 
     with patch.object(client.connector, "_request", return_value={"ok": True}) as mock_req:
         body = {"templateKey": "pohoda-csv-v1", "sourceType": "csv", "sourceText": "Doklad"}
-        client.connector.mapper(body)
+        client.connector.advanced.mapper(body)
         mock_req.assert_called_once_with("POST", "/connector/mapper", json=body, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
@@ -442,21 +480,21 @@ def test_connector_managed_v2_paths():
 
     with patch.object(client.connector, "_request", return_value={"documentId": "doc-1"}) as mock_req:
         client.connector.get_document("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1", omit_firm_id=True)
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1", params={}, omit_firm_id=True)
 
     raw_response = MagicMock()
     raw_response.text = "<Invoice/>"
     with patch.object(client.connector, "_request", return_value=raw_response) as mock_req:
         assert client.connector.get_document_ubl("doc-1") == "<Invoice/>"
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/ubl", raw=True, omit_firm_id=True)
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/ubl", params={}, raw=True, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"events": []}) as mock_req:
         client.connector.get_document_evidence("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence", omit_firm_id=True)
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence", params={}, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"bundle": []}) as mock_req:
         client.connector.get_document_evidence_bundle("doc-1")
-        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence-bundle", omit_firm_id=True)
+        mock_req.assert_called_once_with("GET", "/connector/documents/doc-1/evidence-bundle", params={}, omit_firm_id=True)
 
     with patch.object(client.connector, "_request", return_value={"action": {}}) as mock_req:
         client.connector.run_action("action-1", {"note": "send now"})
@@ -499,9 +537,111 @@ def test_major_enterprise_namespace_exposes_full_platform_resources():
     assert client.enterprise.pull.outbound is client.outbound
     assert client.enterprise.connector is client.connector
     assert client.enterprise.webhooks is client.webhooks
+    assert client.connector.advanced.documents is not client.connector.documents
+    customer = client.connector.customers.for_customer("erp-customer-1")
+    assert customer.mailbox is customer.advanced.mailbox
+    with pytest.raises(ValueError, match="customerRef is required"):
+        client.connector.customers.for_customer("  ")
 
 
-def test_major_connector_customer_submit_document_defaults_to_stage_without_firm_id():
+def test_connector_global_webhook_facade_never_uses_firm_scope():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+    webhook = client.connector.webhook
+
+    stored_webhook = {
+        "id": "wh-1",
+        "url": "https://erp.example/hook",
+        "events": ["document.received"],
+        "active": True,
+        "failedAttempts": 0,
+        "createdAt": "2026-07-15T10:00:00Z",
+        "updatedAt": "2026-07-15T10:00:00Z",
+    }
+    with patch.object(client.connector, "_request", return_value={"webhook": stored_webhook}) as mock_req:
+        current = webhook.get()
+        assert current["webhook"]["id"] == "wh-1"
+        mock_req.assert_called_once_with("GET", "/connector/webhook", omit_firm_id=True)
+
+    with patch.object(client.connector, "_request", return_value={"webhook": stored_webhook, "secret": "a" * 64}) as mock_req:
+        configured = webhook.configure(
+            "  https://erp.example/hook  ",
+            ["document.received", "document.delivered"],
+        )
+        assert configured["secret"] == "a" * 64
+        mock_req.assert_called_once_with(
+            "PUT",
+            "/connector/webhook",
+            json={
+                "url": "https://erp.example/hook",
+                "events": ["document.received", "document.delivered"],
+            },
+            omit_firm_id=True,
+        )
+
+    with patch.object(client.connector, "_request", return_value={"secret": "whsec_new"}) as mock_req:
+        webhook.rotate_secret()
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/webhook/rotate-secret",
+            omit_firm_id=True,
+        )
+
+    pushed_event = {
+        "id": "evt-1",
+        "type": "document.delivered",
+        "customerRef": "erp-customer-1",
+        "documentId": "doc-1",
+        "state": "delivered",
+        "occurredAt": "2026-07-15T10:00:00Z",
+        "data": {"customerRef": "erp-customer-1", "direction": "outbound", "type": "invoice", "number": None, "response": None},
+        "test": True,
+    }
+    with patch.object(
+        client.connector,
+        "_request",
+        return_value={"deliveryId": "whd-1", "status": "queued", "event": pushed_event},
+    ) as mock_req:
+        result = webhook.test("\u00a0erp-customer-1\ufeff")
+        assert result["deliveryId"] == "whd-1"
+        assert result["event"]["customerRef"] == "erp-customer-1"
+        assert result["event"]["data"]["response"] is None
+        assert result["event"]["test"] is True
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/webhook/test",
+            json={"customerRef": "erp-customer-1"},
+            omit_firm_id=True,
+        )
+
+    with patch.object(
+        client.connector,
+        "_request",
+        return_value={"deliveries": [], "nextCursor": None, "hasMore": False},
+    ) as mock_req:
+        webhook.deliveries(cursor="next", limit=25, status="failed")
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/webhook/deliveries",
+            params={"cursor": "next", "limit": "25", "status": "FAILED"},
+            omit_firm_id=True,
+        )
+
+    with patch.object(client.connector, "_request", return_value=None) as mock_req:
+        webhook.delete()
+        mock_req.assert_called_once_with("DELETE", "/connector/webhook", omit_firm_id=True)
+
+    with pytest.raises(ValueError, match="webhook URL is required"):
+        webhook.configure("  ")
+    with pytest.raises(ValueError, match="customerRef is required"):
+        webhook.test("  ")
+
+
+def test_major_connector_customer_documents_send_defaults_to_send_without_firm_id():
     client = EPostak(
         client_id="sk_int_test",
         client_secret="sk_int_test",
@@ -509,26 +649,528 @@ def test_major_connector_customer_submit_document_defaults_to_stage_without_firm
         firm_id="firm-1",
     )
 
-    with patch.object(client.connector, "_request", return_value={"autopilotId": "auto-1"}) as mock_req:
-        client.enterprise.connector.customers.for_customer("erp-customer-1").submit_document(
+    with patch.object(client.connector, "_request", return_value={"id": "doc-1"}) as mock_req:
+        client.connector.customers.for_customer("erp-customer-1").documents.send(
             {
                 "externalId": "FA-1",
-                "idempotencyKey": "erp-fa-1",
-                "payload": {"invoiceNumber": "FA-1"},
+                "type": "invoice",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
             }
         )
         mock_req.assert_called_once_with(
             "POST",
-            "/connector/autopilot",
+            "/connector/documents",
             json={
                 "externalId": "FA-1",
-                "idempotencyKey": "erp-fa-1",
-                "payload": {"invoiceNumber": "FA-1"},
+                "type": "invoice",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
                 "customerRef": "erp-customer-1",
-                "mode": "stage",
+                "delivery": "send",
+            },
+            extra_headers={
+                "Idempotency-Key": "connector:v1:f7be06badbccd0670a25e6df7fd654fd45ae7291d5f5043257806adc0b107045"
+            },
+                omit_firm_id=True,
+                retry_on_failure=True,
+        )
+
+
+def test_connector_customer_stage_filtered_list_and_invoice_response_wire_contract():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+    stage_response = {"id": "doc-stage-1", "state": "queued"}
+    list_response = {"documents": [], "nextCursor": "cur-2", "hasMore": True}
+    respond_response = {
+        "id": "doc-in-1",
+        "customerRef": "erp-customer-1",
+        "response": {
+            "status": "accepted",
+            "direction": "sent",
+            "delivery": "queued",
+            "respondedAt": "2026-07-15T12:00:00Z",
+        },
+        "idempotent": True,
+    }
+
+    with patch.object(
+        client.connector,
+        "_request",
+        side_effect=[stage_response, list_response, respond_response],
+    ) as mock_req:
+        documents = client.connector.customers.for_customer("erp-customer-1").documents
+        documents.stage(
+            {
+                "externalId": "FA-STAGE-1",
+                "type": "invoice",
+                "number": "FA-STAGE-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
+            },
+            idempotency_key="connector-stage-key",
+        )
+        page = documents.list(
+            direction="inbound",
+            state="received",
+            type="invoice",
+            created_after="2026-07-01T00:00:00Z",
+            cursor="cur-1",
+            limit=25,
+        )
+        result = documents.respond(
+            "doc-in-1",
+            {"status": "accepted", "note": "Imported into ERP"},
+        )
+
+    document = {
+        "externalId": "FA-STAGE-1",
+        "type": "invoice",
+        "number": "FA-STAGE-1",
+        "recipient": {"country": "SK", "taxId": "2120123456"},
+        "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
+        "customerRef": "erp-customer-1",
+        "delivery": "stage",
+    }
+    assert mock_req.call_args_list == [
+        call(
+            "POST",
+            "/connector/documents",
+            json=document,
+            extra_headers={"Idempotency-Key": "connector-stage-key"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        ),
+        call(
+            "GET",
+            "/connector/documents",
+            params={
+                "customerRef": "erp-customer-1",
+                "direction": "inbound",
+                "state": "received",
+                "type": "invoice",
+                "createdAfter": "2026-07-01T00:00:00Z",
+                "cursor": "cur-1",
+                "limit": "25",
             },
             omit_firm_id=True,
+        ),
+        call(
+            "POST",
+            "/connector/documents/doc-in-1/respond",
+            params={"customerRef": "erp-customer-1"},
+            json={"status": "accepted", "note": "Imported into ERP"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        ),
+    ]
+    assert page["nextCursor"] == "cur-2"
+    assert page["hasMore"] is True
+    assert result["response"] == {
+        "status": "accepted",
+        "direction": "sent",
+        "delivery": "queued",
+        "respondedAt": "2026-07-15T12:00:00Z",
+    }
+    assert result["idempotent"] is True
+
+
+def test_connector_invoice_response_omits_none_note_from_wire_payload():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+
+    with patch.object(client.connector, "_request", return_value={"id": "doc-in-1"}) as mock_req:
+        client.connector.customers.for_customer("erp-customer-1").documents.respond(
+            "doc-in-1",
+            {"status": "accepted", "note": None},
         )
+
+    mock_req.assert_called_once_with(
+        "POST",
+        "/connector/documents/doc-in-1/respond",
+        params={"customerRef": "erp-customer-1"},
+        json={"status": "accepted"},
+        omit_firm_id=True,
+        retry_on_failure=True,
+    )
+
+
+def test_connector_submit_compatibility_alias_keeps_autopilot_stage_semantics_without_mutation():
+    client = _make_client()
+    body = {"externalId": "legacy-1", "payload": {"invoiceNumber": "FA-1"}}
+
+    with patch.object(client.connector, "_request", return_value={"autopilotId": "run-1"}) as mock_req:
+        client.connector.customers.for_customer("erp-customer-1").submit_document(body)
+
+    mock_req.assert_called_once_with(
+        "POST",
+        "/connector/autopilot",
+        json={
+            "externalId": "legacy-1",
+            "payload": {"invoiceNumber": "FA-1"},
+            "customerRef": "erp-customer-1",
+            "mode": "stage",
+        },
+        omit_firm_id=True,
+    )
+    assert "customerRef" not in body
+    assert "mode" not in body
+
+
+def test_connector_legacy_and_business_event_models_and_scopes_are_distinct():
+    from epostak.resources.connector import ConnectorAdvancedResource, ConnectorCustomerEventsResource
+
+    assert ConnectorCustomerEventsResource.list.__annotations__["return"] == "ConnectorBusinessEventsResponse"
+    assert ConnectorAdvancedResource.events.__annotations__["return"] == "ConnectorEventsResponse"
+
+    connector, _ = _make_firm_scoped_connector()
+    business_fixture = {
+        "events": [{
+            "id": "evt-1",
+            "customerRef": "erp-customer-1",
+            "state": "delivered",
+            "data": {"customerRef": "erp-customer-1", "direction": "outbound", "type": "invoice", "number": None, "response": None},
+        }],
+        "nextCursor": None,
+        "hasMore": False,
+    }
+    legacy_fixture = {
+        "events": [{"id": "legacy-1", "status": "DELIVERED", "data": {"transport": "as4"}}],
+        "nextCursor": None,
+        "hasMore": False,
+    }
+
+    with patch.object(connector, "_request", return_value=business_fixture) as mock_req:
+        business = connector.customers.for_customer("erp-customer-1").events.list()
+        assert mock_req.call_args.kwargs["omit_firm_id"] is True
+    assert business["events"][0]["state"] == "delivered"
+    assert business["events"][0]["customerRef"] == "erp-customer-1"
+    assert business["events"][0]["data"]["customerRef"] == "erp-customer-1"
+    assert business["events"][0]["data"]["number"] is None
+    assert business["events"][0]["data"]["response"] is None
+
+    with patch.object(connector, "_request", return_value=legacy_fixture) as mock_req:
+        legacy = connector.advanced.events()
+        assert "omit_firm_id" not in mock_req.call_args.kwargs
+    assert legacy["events"][0]["status"] == "DELIVERED"
+
+
+def test_connector_business_model_fixture_and_advanced_document_home():
+    client = _make_client()
+    body = {
+        "externalId": "FA-1",
+        "number": "FA-1",
+        "buyerReference": "PO-7",
+        "prepaidAmount": 50,
+        "recipient": {
+            "country": "SK",
+            "taxId": "2120123456",
+            "address": {"street": "Hlavna 1", "city": "Bratislava", "postalCode": "81101"},
+        },
+        "prepayments": [{"advanceInvoiceRef": "ADV-1", "amountWithVat": 50}],
+        "lines": [{
+            "description": "Licence",
+            "quantity": 1,
+            "unitPrice": 100,
+            "vatRate": 23,
+            "discount": 5,
+            "deliveryDate": "2026-07-14",
+        }],
+        "attachments": [{"fileName": "terms.pdf", "mimeType": "application/pdf", "content": "YQ=="}],
+    }
+    response = {
+        "id": "doc-1",
+        "customerRef": "erp-customer-1",
+        "direction": "outbound",
+        "type": "invoice",
+        "state": "queued",
+        "amounts": {"withoutTax": 100, "tax": 23, "total": 123, "due": 73},
+        "sender": {"name": "Sender", "country": "SK", "resolution": "verified"},
+        "recipient": {"name": "Buyer", "country": "SK", "resolution": "verified"},
+        "issueDate": "2026-07-14",
+        "dueDate": "2026-07-28",
+        "processedAt": "2026-07-14T10:00:00Z",
+        "processedReference": "ERP-OK",
+    }
+    with patch.object(client.connector, "_request", return_value=response) as mock_req:
+        result = client.connector.customers.for_customer("erp-customer-1").documents.send(body)
+    assert mock_req.call_args.kwargs["json"]["recipient"]["address"]["city"] == "Bratislava"
+    assert mock_req.call_args.kwargs["json"]["lines"][0]["discount"] == 5
+    assert result["amounts"]["due"] == 73
+    assert result["sender"]["name"] == "Sender"
+    assert result["processedReference"] == "ERP-OK"
+
+    customer = client.connector.customers.for_customer("erp-customer-1")
+    raw = MagicMock(text="<Invoice/>")
+    with patch.object(client.connector, "_request", return_value=raw) as mock_req:
+        assert customer.advanced.documents.ubl("doc-1") == "<Invoice/>"
+        mock_req.assert_called_once_with(
+            "GET",
+            "/connector/documents/doc-1/ubl",
+            params={"customerRef": "erp-customer-1"},
+            raw=True,
+            omit_firm_id=True,
+        )
+    assert "Compatibility alias" in (customer.documents.ubl.__doc__ or "")
+
+
+def test_connector_document_idempotency_key_vectors_and_explicit_override():
+    from epostak.resources.connector import _connector_document_idempotency_key
+
+    keys = [
+        _connector_document_idempotency_key("a:b", "c"),
+        _connector_document_idempotency_key("a", "b:c"),
+        _connector_document_idempotency_key("c" * 255, "e" * 255),
+        _connector_document_idempotency_key("\u00a0\ufeffzákazník😀\ufeff\u00a0", "\ufeffFA-žltý-1\u00a0"),
+        _connector_document_idempotency_key("\u0085zákazník😀\u0085", "\u0085FA-žltý-1\u0085"),
+    ]
+    assert keys == [
+        "connector:v1:540e8f1c5ae653a7d7e2fe88f7eb8dcabea924d661b1542ad191bb1848e0c33d",
+        "connector:v1:e482a79a788392ccae4952360dd438820641e4c162b4952b42d35e78260d70be",
+        "connector:v1:7182fd43682e0689adf34c908bc3ec162aaf1687c167fdbff714ff43daa4b111",
+        "connector:v1:eec0ca654af898913432fbc7b7441a05080f72099f6d2ff85852f78c7458fdfd",
+        "connector:v1:ff49689a9ece4c0319420ed07fc3a2a5b2e2e7bb6d4430a68557e372fdf70080",
+    ]
+    assert all(len(key) == 77 for key in keys)
+    assert keys[0] != keys[1]
+
+    client = _make_client()
+    with patch.object(client.connector, "_request", return_value={"id": "doc-1"}) as mock_req:
+        client.connector.customers.for_customer("customer").documents.send(
+            {
+                "externalId": "external",
+                "type": "invoice",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 1, "vatRate": 23}],
+            },
+            idempotency_key="caller-key",
+        )
+        assert mock_req.call_args.kwargs["extra_headers"] == {"Idempotency-Key": "caller-key"}
+
+    with patch.object(client.connector, "_request", return_value={"id": "doc-1"}) as mock_req:
+        client.connector.customers.for_customer("\u00a0\ufeffzákazník😀\ufeff\u00a0").documents.send(
+            {
+                "externalId": "\ufeffFA-žltý-1\u00a0",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 1, "vatRate": 23}],
+            }
+        )
+        assert mock_req.call_args.kwargs["json"]["customerRef"] == "zákazník😀"
+        assert mock_req.call_args.kwargs["json"]["externalId"] == "FA-žltý-1"
+        assert mock_req.call_args.kwargs["extra_headers"] == {
+            "Idempotency-Key": "connector:v1:eec0ca654af898913432fbc7b7441a05080f72099f6d2ff85852f78c7458fdfd"
+        }
+
+    with patch.object(client.connector, "_request", return_value={"id": "doc-1"}) as mock_req:
+        client.connector.customers.for_customer("\u0085zákazník😀\u0085").documents.send(
+            {
+                "externalId": "\u0085FA-žltý-1\u0085",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 1, "vatRate": 23}],
+            }
+        )
+        assert mock_req.call_args.kwargs["json"]["customerRef"] == "\u0085zákazník😀\u0085"
+        assert mock_req.call_args.kwargs["json"]["externalId"] == "\u0085FA-žltý-1\u0085"
+        assert mock_req.call_args.kwargs["extra_headers"] == {
+            "Idempotency-Key": "connector:v1:ff49689a9ece4c0319420ed07fc3a2a5b2e2e7bb6d4430a68557e372fdf70080"
+        }
+
+    with pytest.raises(ValueError, match="1-255 UTF-8 bytes"):
+        client.connector.customers.for_customer("customer").documents.send(
+            {
+                "externalId": "empty-key",
+                "number": "FA-1",
+                "recipient": {"country": "SK", "taxId": "2120123456"},
+                "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 1, "vatRate": 23}],
+            },
+            idempotency_key="",
+        )
+
+
+def test_connector_retries_keyed_and_lifecycle_posts_but_not_409():
+    client = _make_client()
+    client.connector._max_retries = 1
+    body = {
+        "externalId": "FA-retry",
+        "number": "FA-retry",
+        "recipient": {"country": "SK", "taxId": "2120123456"},
+        "lines": [{"description": "Original", "quantity": 1, "unitPrice": 1, "vatRate": 23}],
+    }
+    responses = [
+        _mock_response(503, {"error": {"code": "temporary", "message": "retry"}}, {"Retry-After": "0"}),
+        _mock_response(201, {"id": "doc-1", "state": "queued"}),
+    ]
+
+    def request_side_effect(*args: Any, **kwargs: Any) -> MagicMock:
+        response = responses.pop(0)
+        if response.status_code == 503:
+            body["lines"][0]["description"] = "Mutated"
+        return response
+
+    with patch.object(client.connector._client, "request", side_effect=request_side_effect) as request_mock, \
+         patch.object(client.connector, "_sleep_for_retry"):
+        client.connector.customers.for_customer("customer").documents.send(body)
+    assert request_mock.call_count == 2
+    first_json = request_mock.call_args_list[0].kwargs["json"]
+    second_json = request_mock.call_args_list[1].kwargs["json"]
+    assert first_json == second_json
+    assert first_json["lines"][0]["description"] == "Original"
+    assert request_mock.call_args_list[0].kwargs["headers"]["Idempotency-Key"] == request_mock.call_args_list[1].kwargs["headers"]["Idempotency-Key"]
+
+    lifecycle_responses = [
+        _mock_response(503, {"error": {"code": "temporary", "message": "retry"}}, {"Retry-After": "0"}),
+        _mock_response(200, {"id": "doc-1", "state": "cancelled"}),
+    ]
+    with patch.object(client.connector._client, "request", side_effect=lifecycle_responses) as lifecycle_mock, \
+         patch.object(client.connector, "_sleep_for_retry"):
+        client.connector.customers.for_customer("customer").documents.cancel_document("doc-1")
+    assert lifecycle_mock.call_count == 2
+
+    conflict = _mock_response(
+        409,
+        {"error": {"code": "idempotency_in_flight", "message": "busy", "retryable": True}},
+        {"Retry-After": "0"},
+    )
+    with patch.object(client.connector._client, "request", return_value=conflict) as conflict_mock, \
+         patch.object(client.connector, "_sleep_for_retry"):
+        with pytest.raises(EPostakError) as caught:
+            client.connector.customers.for_customer("customer").documents.send({**body, "externalId": "FA-conflict"})
+    assert caught.value.status == 409
+    assert conflict_mock.call_count == 1
+
+
+def test_connector_retries_transport_failure_but_sapi_post_surfaces_once():
+    import httpx
+
+    connector, connector_http = _make_firm_scoped_connector()
+    connector._max_retries = 1
+    connector_http.request.side_effect = [
+        httpx.ConnectError(
+            "socket reset",
+            request=httpx.Request("POST", "https://epostak.sk/api/v1/connector/documents"),
+        ),
+        _mock_response(201, {"id": "doc-transport", "state": "queued"}),
+    ]
+    body = {
+        "externalId": "FA-TRANSPORT-1",
+        "type": "invoice",
+        "number": "FA-TRANSPORT-1",
+        "recipient": {"country": "SK", "taxId": "2120123456"},
+        "lines": [{"description": "Licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
+    }
+
+    with patch.object(connector, "_sleep_for_retry"):
+        connector.customers.for_customer("erp-customer-1").documents.stage(
+            body,
+            idempotency_key="connector-transport-key",
+        )
+
+    assert connector_http.request.call_count == 2
+    first = connector_http.request.call_args_list[0]
+    second = connector_http.request.call_args_list[1]
+    assert first == second
+    assert first.args == ("POST", "https://epostak.sk/api/v1/connector/documents")
+    assert first.kwargs["headers"]["Idempotency-Key"] == "connector-transport-key"
+    assert "X-Firm-Id" not in first.kwargs["headers"]
+    assert first.kwargs["json"]["customerRef"] == "erp-customer-1"
+    assert first.kwargs["json"]["delivery"] == "stage"
+
+    from epostak.resources.sapi import SapiResource
+
+    sapi_http = MagicMock()
+    token_manager = MagicMock()
+    token_manager.get_access_token.return_value = "test-token"
+    sapi = SapiResource(
+        sapi_http,
+        "https://epostak.sk/api/v1",
+        token_manager,
+        "firm-1",
+        max_retries=1,
+    )
+    sapi_http.request.side_effect = httpx.ConnectError(
+        "socket reset",
+        request=httpx.Request("POST", "https://epostak.sk/sapi/v1/document/send"),
+    )
+
+    with pytest.raises(EPostakError) as caught:
+        sapi.participants.for_participant("0245:1234567890").documents.send(
+            {"xml": "<Invoice/>"},
+            idempotency_key="sapi-transport-key",
+        )
+    assert caught.value.status == 0
+    assert sapi_http.request.call_count == 1
+
+
+def test_connector_customer_documents_send_and_cancel_staged_without_body():
+    client = _make_client()
+    documents = client.connector.customers.for_customer("erp-customer-1").documents
+    with pytest.raises(ValueError, match="documentId is required"):
+        documents.send_document("  ")
+
+    with patch.object(client.connector, "_request", return_value={"id": "doc-1"}) as mock_req:
+        documents.send_document("doc-1")
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/documents/doc-1/send",
+            params={"customerRef": "erp-customer-1"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        )
+
+    with patch.object(client.connector, "_request", return_value={"id": "doc-2"}) as mock_req:
+        documents.cancel_document("doc-2")
+        mock_req.assert_called_once_with(
+            "POST",
+            "/connector/documents/doc-2/cancel",
+            params={"customerRef": "erp-customer-1"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        )
+
+
+def test_connector_customer_point_operations_bind_customer_ref():
+    client = _make_client()
+    customer = client.connector.customers.for_customer("customer A/1")
+    raw = MagicMock(text="<Invoice/>")
+    responses = [
+        {"id": "customer-b-doc"},
+        {"id": "customer-b-doc"},
+        {"id": "customer-b-doc"},
+        {"id": "customer-b-doc"},
+        raw,
+        {"events": []},
+        {"bundle": []},
+        {"packet": []},
+    ]
+    with patch.object(client.connector, "_request", side_effect=responses) as mock_req:
+        customer.documents.get("customer-b-doc")
+        customer.documents.acknowledge("customer-b-doc", "erp-import")
+        customer.documents.send_document("customer-b-doc")
+        customer.documents.cancel_document("customer-b-doc")
+        customer.advanced.documents.ubl("customer-b-doc")
+        customer.advanced.documents.evidence("customer-b-doc")
+        customer.advanced.documents.evidence_bundle("customer-b-doc")
+        customer.advanced.documents.support_packet("customer-b-doc")
+
+    for call in mock_req.call_args_list:
+        assert call.kwargs["params"] == {"customerRef": "customer A/1"}
+        assert call.kwargs["omit_firm_id"] is True
+    assert mock_req.call_args_list[1].kwargs["json"] == {"reference": "erp-import"}
+    assert "json" not in mock_req.call_args_list[2].kwargs
+    assert "json" not in mock_req.call_args_list[3].kwargs
 
 
 def test_major_connector_customer_mapper_injects_customer_ref_without_firm_id():
@@ -540,7 +1182,7 @@ def test_major_connector_customer_mapper_injects_customer_ref_without_firm_id():
     )
 
     with patch.object(client.connector, "_request", return_value={"ok": True}) as mock_req:
-        client.enterprise.connector.customers.for_customer("erp-customer-1").mapper(
+        client.connector.customers.for_customer("erp-customer-1").advanced.mapper(
             {
                 "templateKey": "pohoda-csv-v1",
                 "sourceType": "csv",
@@ -555,9 +1197,12 @@ def test_major_connector_customer_mapper_injects_customer_ref_without_firm_id():
                 "sourceType": "csv",
                 "sourceText": "Doklad,PeppolID\nFA-1,0245:1234567890",
                 "customerRef": "erp-customer-1",
+                "execute": "preview",
             },
             omit_firm_id=True,
         )
+    with pytest.raises(ValueError, match="only supports preview normalization"):
+        client.connector.customers.for_customer("erp-customer-1").advanced.mapper({"execute": "send"})  # type: ignore[typeddict-item]
 
 
 def test_major_sapi_participant_documents_send_sets_required_headers():

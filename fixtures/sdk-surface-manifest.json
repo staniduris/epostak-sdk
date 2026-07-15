@@ -1,0 +1,339 @@
+{
+  "version": 2,
+  "documentation": [
+    "README.md",
+    "typescript/README.md",
+    "python/README.md",
+    "php/README.md",
+    "ruby/README.md",
+    "java/README.md",
+    "dotnet/README.md",
+    "MIGRATION.md"
+  ],
+  "documentationContains": [
+    "https://epostak.sk/api/docs/connector",
+    "https://epostak.sk/api/openapi.connector.json",
+    "recommended ERP path",
+    "Enterprise",
+    "SAPI"
+  ],
+  "checks": [
+    {
+      "name": "TypeScript Connector",
+      "file": "typescript/src/resources/connector.ts",
+      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omitFirmId: true"]
+    },
+    {
+      "name": "Python Connector",
+      "file": "python/src/epostak/resources/connector.py",
+      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omit_firm_id=True"]
+    },
+    {
+      "name": "PHP Connector",
+      "file": "php/src/Resources/Connector.php",
+      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "'omitFirmId' => true"]
+    },
+    {
+      "name": "Ruby Connector",
+      "file": "ruby/lib/epostak/resources/connector.rb",
+      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omit_firm_id: true"]
+    },
+    {
+      "name": "Java Connector",
+      "file": "java/src/main/java/sk/epostak/sdk/resources/ConnectorWebhookResource.java",
+      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "getNoFirm", "putNoFirm"]
+    },
+    {
+      "name": ".NET Connector",
+      "file": "dotnet/src/EPostak/Resources/ConnectorWebhookResource.cs",
+      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omitFirmId: true", "[\"customerRef\"]"]
+    },
+    {
+      "name": "TypeScript legacy Connector events optional cursor",
+      "file": "typescript/src/types.ts",
+      "contains": ["export interface ConnectorEventsResponse {\n  events: ConnectorEvent[];\n  nextCursor?: string | null;"]
+    },
+    {
+      "name": "Java retry isolation",
+      "file": "java/src/test/java/sk/epostak/sdk/ConnectorFirmScopeTest.java",
+      "contains": ["connectorRetryOptInDoesNotChangeSapiSendBehavior"]
+    },
+    {
+      "name": ".NET retry isolation",
+      "file": "dotnet/tests/EPostak.Tests/ConnectorFirmScopeTests.cs",
+      "contains": ["ConnectorRetryOptInDoesNotChangeSapiSendBehavior"]
+    }
+  ],
+  "stableSurfaces": [
+    {
+      "sdk": "TypeScript",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "typescript/src/resources/enterprise.ts",
+          "contains": ["readonly auth: AuthResource", "readonly account: AccountResource", "readonly audit: AuditResource", "readonly box: BoxResource", "readonly documents: DocumentsResource", "readonly inbox: InboxResource", "readonly firms: FirmsResource", "readonly peppol: PeppolResource", "readonly webhooks: WebhooksResource", "readonly reporting: ReportingResource", "readonly extract: ExtractResource", "readonly integrator: IntegratorResource", "readonly connector: ConnectorResource", "readonly payloads: PayloadsResource", "readonly events: EventsResource", "readonly pull: EnterprisePullResource"]
+        },
+        { "name": "documents routes", "file": "typescript/src/resources/documents.ts", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "typescript/src/resources/documents.ts", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "typescript/src/resources/events.ts", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "typescript/src/resources/webhooks.ts", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "typescript/src/resources/peppol.ts", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "typescript/src/resources/firms.ts", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "typescript/src/resources/reporting.ts", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "typescript/src/resources/integrator.ts", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "typescript/src/resources/box.ts", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "typescript/src/resources/payloads.ts", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "typescript/src/resources/extract.ts", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "typescript/src/resources/inbound.ts", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "typescript/src/resources/outbound.ts", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "typescript/src/resources/account.ts", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "typescript/src/resources/audit.ts", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "typescript/src/resources/sapi.ts", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    },
+    {
+      "sdk": "Python",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "python/src/epostak/resources/enterprise.py",
+          "contains": ["self.auth = client.auth", "self.account = client.account", "self.audit = client.audit", "self.box = client.box", "self.documents = client.documents", "self.inbox = client.documents.inbox", "self.firms = client.firms", "self.peppol = client.peppol", "self.webhooks = client.webhooks", "self.reporting = client.reporting", "self.extract = client.extract", "self.integrator = client.integrator", "self.connector = client.connector", "self.payloads = client.payloads", "self.events = client.events", "self.pull = EnterprisePullResource"]
+        },
+        { "name": "documents routes", "file": "python/src/epostak/resources/documents.py", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "python/src/epostak/resources/documents.py", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "python/src/epostak/resources/events.py", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "python/src/epostak/resources/webhooks.py", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "python/src/epostak/resources/peppol.py", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "python/src/epostak/resources/firms.py", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "python/src/epostak/resources/reporting.py", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "python/src/epostak/resources/integrator.py", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "python/src/epostak/resources/box.py", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "python/src/epostak/resources/payloads.py", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "python/src/epostak/resources/extract.py", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "python/src/epostak/resources/inbound.py", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "python/src/epostak/resources/outbound.py", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "python/src/epostak/resources/account.py", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "python/src/epostak/resources/audit.py", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "python/src/epostak/resources/sapi.py", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    },
+    {
+      "sdk": "PHP",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "php/src/Resources/Enterprise.php",
+          "contains": ["public Auth $auth", "public Account $account", "public Audit $audit", "public Box $box", "public Documents $documents", "public Inbox $inbox", "public Firms $firms", "public Peppol $peppol", "public Webhooks $webhooks", "public Reporting $reporting", "public Extract $extract", "public Integrator $integrator", "public Connector $connector", "public Payloads $payloads", "public Events $events", "public EnterprisePull $pull"]
+        },
+        { "name": "documents routes", "file": "php/src/Resources/Documents.php", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "php/src/Resources/Inbox.php", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "php/src/Resources/Events.php", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "php/src/Resources/Webhooks.php", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "php/src/Resources/Peppol.php", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "php/src/Resources/Firms.php", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "php/src/Resources/Reporting.php", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "php/src/Resources/Integrator.php", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "php/src/Resources/Box.php", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "php/src/Resources/Payloads.php", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "php/src/Resources/Extract.php", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "php/src/Resources/Inbound.php", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "php/src/Resources/Outbound.php", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "php/src/Resources/Account.php", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "php/src/Resources/Audit.php", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "php/src/Resources/Sapi.php", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    },
+    {
+      "sdk": "Ruby",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "ruby/lib/epostak/resources/enterprise.rb",
+          "contains": [":auth", ":account", ":audit", ":documents", ":inbox", ":firms", ":peppol", ":webhooks", ":reporting", ":extract", ":integrator", ":connector", ":payloads", ":events", ":box", ":pull"]
+        },
+        { "name": "documents routes", "file": "ruby/lib/epostak/resources/documents.rb", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "ruby/lib/epostak/resources/inbox.rb", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "ruby/lib/epostak/resources/events.rb", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "ruby/lib/epostak/resources/webhooks.rb", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "ruby/lib/epostak/resources/peppol.rb", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "ruby/lib/epostak/resources/firms.rb", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "ruby/lib/epostak/resources/reporting.rb", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "ruby/lib/epostak/resources/integrator.rb", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "ruby/lib/epostak/resources/box.rb", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "ruby/lib/epostak/resources/payloads.rb", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "ruby/lib/epostak/resources/extract.rb", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "ruby/lib/epostak/resources/inbound.rb", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "ruby/lib/epostak/resources/outbound.rb", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "ruby/lib/epostak/resources/account.rb", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "ruby/lib/epostak/resources/audit.rb", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "ruby/lib/epostak/resources/sapi.rb", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    },
+    {
+      "sdk": "Java",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "java/src/main/java/sk/epostak/sdk/resources/EnterpriseResource.java",
+          "contains": ["AuthResource auth()", "AccountResource account()", "AuditResource audit()", "DocumentsResource documents()", "InboxResource inbox()", "FirmsResource firms()", "PeppolResource peppol()", "WebhooksResource webhooks()", "ReportingResource reporting()", "ExtractResource extract()", "IntegratorResource integrator()", "BoxResource box()", "ConnectorResource connector()", "PayloadsResource payloads()", "EventsResource events()", "EnterprisePullResource pull()"]
+        },
+        { "name": "documents routes", "file": "java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "java/src/main/java/sk/epostak/sdk/resources/InboxResource.java", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "java/src/main/java/sk/epostak/sdk/resources/PeppolResource.java", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "java/src/main/java/sk/epostak/sdk/resources/FirmsResource.java", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "java/src/main/java/sk/epostak/sdk/resources/ExtractResource.java", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "java/src/main/java/sk/epostak/sdk/resources/InboundResource.java", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "java/src/main/java/sk/epostak/sdk/resources/OutboundResource.java", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "java/src/main/java/sk/epostak/sdk/resources/AccountResource.java", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "java/src/main/java/sk/epostak/sdk/resources/AuditResource.java", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    },
+    {
+      "sdk": ".NET",
+      "product": "Enterprise and SAPI",
+      "checks": [
+        {
+          "name": "namespace resources",
+          "file": "dotnet/src/EPostak/Resources/EnterpriseResource.cs",
+          "contains": ["AuthResource Auth", "AccountResource Account", "AuditResource Audit", "DocumentsResource Documents", "InboxResource Inbox", "FirmsResource Firms", "PeppolResource Peppol", "WebhooksResource Webhooks", "ReportingResource Reporting", "ExtractResource Extract", "IntegratorResource Integrator", "BoxResource Box", "ConnectorResource Connector", "PayloadsResource Payloads", "EventsResource Events", "EnterprisePullResource Pull"]
+        },
+        { "name": "documents routes", "file": "dotnet/src/EPostak/Resources/DocumentsResource.cs", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "inbox routes", "file": "dotnet/src/EPostak/Resources/InboxResource.cs", "contains": ["/documents/inbox", "/acknowledge"] },
+        { "name": "events routes", "file": "dotnet/src/EPostak/Resources/EventsResource.cs", "contains": ["/events/pull", "/events/batch-ack"] },
+        { "name": "webhook routes", "file": "dotnet/src/EPostak/Resources/WebhooksResource.cs", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
+        { "name": "Peppol routes", "file": "dotnet/src/EPostak/Resources/PeppolResource.cs", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "firm routes", "file": "dotnet/src/EPostak/Resources/FirmsResource.cs", "contains": ["/firms", "/firms/assign"] },
+        { "name": "reporting routes", "file": "dotnet/src/EPostak/Resources/ReportingResource.cs", "contains": ["/reporting/statistics", "/reporting/submissions"] },
+        { "name": "integrator routes", "file": "dotnet/src/EPostak/Resources/IntegratorResource.cs", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
+        { "name": "Box routes", "file": "dotnet/src/EPostak/Resources/BoxResource.cs", "contains": ["/box/items", "/send-now", "/cancel"] },
+        { "name": "payload routes", "file": "dotnet/src/EPostak/Resources/PayloadsResource.cs", "contains": ["/payloads/extract", "/payloads/parse", "/payloads/convert", "/payloads/validate"] },
+        { "name": "extract routes", "file": "dotnet/src/EPostak/Resources/ExtractResource.cs", "contains": ["/extract/batch"] },
+        { "name": "inbound pull routes", "file": "dotnet/src/EPostak/Resources/InboundResource.cs", "contains": ["/inbound/documents", "/ubl", "/ack"] },
+        { "name": "outbound pull routes", "file": "dotnet/src/EPostak/Resources/OutboundResource.cs", "contains": ["/outbound/documents", "/mdn", "/outbound/events"] },
+        { "name": "account routes", "file": "dotnet/src/EPostak/Resources/AccountResource.cs", "contains": ["/licenses/info"] },
+        { "name": "audit routes", "file": "dotnet/src/EPostak/Resources/AuditResource.cs", "contains": ["/audit"] },
+        { "name": "SAPI strict routes", "file": "dotnet/src/EPostak/Resources/SapiResource.cs", "contains": ["X-Peppol-Participant-Id", "/sapi/v1/document/send", "/sapi/v1/document/receive", "/acknowledge"] }
+      ]
+    }
+  ],
+  "sourceRoots": [
+    "typescript/src",
+    "python/src",
+    "php/src",
+    "ruby/lib",
+    "java/src/main",
+    "dotnet/src/EPostak"
+  ],
+  "forbiddenSourcePatterns": [
+    "/connector/customers",
+    "@Deprecated",
+    "@deprecated",
+    "[Obsolete",
+    "warnings.warn"
+  ],
+  "contracts": {
+    "webhook": {
+      "fixture": "fixtures/connector-webhook-contract.json",
+      "testFiles": [
+        "typescript/src/test/index.test.ts",
+        "python/tests/test_v090.py",
+        "php/tests/connector_no_firm_id_test.php",
+        "ruby/spec/connector_spec.rb",
+        "java/src/test/java/sk/epostak/sdk/ConnectorFirmScopeTest.java",
+        "dotnet/tests/EPostak.Tests/ConnectorFirmScopeTests.cs"
+      ],
+      "testContains": ["connector/webhook", "failedAttempts", "deliveryId", "nextCursor", "hasMore", "customerRef"]
+    },
+    "invoiceResponse": {
+      "fixture": "fixtures/connector-invoice-response-contract.json",
+      "sourceChecks": [
+        {
+          "name": "TypeScript request wire behavior",
+          "file": "typescript/src/resources/connector.ts",
+          "contains": ["/respond", "conditionally_accepted", "omitFirmId: true", "retry: true"]
+        },
+        {
+          "name": "TypeScript response projection",
+          "file": "typescript/src/types.ts",
+          "contains": ["interface ConnectorBusinessInvoiceResponse", "reason: string | null", "response: ConnectorBusinessInvoiceResponse | null", "interface ConnectorInvoiceResponseResult", "delivery: \"sent\" | \"queued\"", "idempotent: boolean"]
+        },
+        {
+          "name": "Python request wire behavior",
+          "file": "python/src/epostak/resources/connector.py",
+          "contains": ["/respond", "conditionally_accepted", "omit_firm_id=True", "retry_on_failure=True"]
+        },
+        {
+          "name": "Python response projection",
+          "file": "python/src/epostak/types.py",
+          "contains": ["class ConnectorBusinessInvoiceResponse", "reason: Optional[str]", "response: Optional[\"ConnectorBusinessInvoiceResponse\"]", "class ConnectorInvoiceResponseResult", "Literal[\"sent\", \"queued\"]", "idempotent: bool"]
+        },
+        {
+          "name": "PHP request and enum",
+          "file": "php/src/Resources/Connector.php",
+          "contains": ["/respond", "conditionally_accepted", "'omitFirmId' => true", "'retryOnFailure' => true"]
+        },
+        {
+          "name": "Ruby request and enum",
+          "file": "ruby/lib/epostak/resources/connector.rb",
+          "contains": ["/respond", "conditionally_accepted", "omit_firm_id: true", "retry_on_failure: true"]
+        },
+        {
+          "name": "Java request enum",
+          "file": "java/src/main/java/sk/epostak/sdk/models/ConnectorInvoiceResponseRequest.java",
+          "contains": ["received", "in_process", "under_query", "conditionally_accepted", "rejected", "accepted", "paid"]
+        },
+        {
+          "name": "Java request wire behavior",
+          "file": "java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java",
+          "contains": ["/respond", "postIdempotentNoFirm"]
+        },
+        {
+          "name": "Java response projection",
+          "file": "java/src/main/java/sk/epostak/sdk/models/ConnectorBusinessInvoiceResponse.java",
+          "contains": ["status", "direction", "reason", "respondedAt"]
+        },
+        {
+          "name": "Java event response projection",
+          "file": "java/src/main/java/sk/epostak/sdk/models/ConnectorBusinessEventData.java",
+          "contains": ["customerRef", "direction", "type", "number", "ConnectorBusinessInvoiceResponse response"]
+        },
+        {
+          "name": "Java respond result",
+          "file": "java/src/main/java/sk/epostak/sdk/models/ConnectorInvoiceResponseResult.java",
+          "contains": ["customerRef", "ConnectorInvoiceResponseDelivery response", "boolean idempotent"]
+        },
+        {
+          "name": ".NET request wire behavior",
+          "file": "dotnet/src/EPostak/Resources/ConnectorResource.cs",
+          "contains": ["/respond", "conditionally_accepted", "RequestIdempotentAsync<ConnectorInvoiceResponseResult>"]
+        },
+        {
+          "name": ".NET response projection",
+          "file": "dotnet/src/EPostak/Models/Connector.cs",
+          "contains": ["class ConnectorBusinessInvoiceResponse", "class ConnectorBusinessEventData", "ConnectorBusinessInvoiceResponse? Response", "JsonPropertyName(\"reason\")", "class ConnectorInvoiceResponseResult", "JsonPropertyName(\"delivery\")", "JsonPropertyName(\"idempotent\")"]
+        }
+      ]
+    }
+  },
+  "idempotencyVectors": "fixtures/connector-document-submit-vectors.json",
+  "idempotencyVectorTestFiles": [
+    "typescript/src/test/index.test.ts",
+    "python/tests/test_v090.py",
+    "php/tests/connector_no_firm_id_test.php",
+    "ruby/spec/connector_spec.rb",
+    "java/src/test/java/sk/epostak/sdk/ConnectorFirmScopeTest.java",
+    "dotnet/tests/EPostak.Tests/ConnectorFirmScopeTests.cs"
+  ]
+}

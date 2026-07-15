@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "endpoint": "/connector/documents",
+  "omitFirmId": true,
+  "trimCodePoints": [
+    "0009-000D",
+    "0020",
+    "00A0",
+    "1680",
+    "2000-200A",
+    "2028-2029",
+    "202F",
+    "205F",
+    "3000",
+    "FEFF"
+  ],
+  "vectors": [
+    {
+      "name": "maximum-input-lengths",
+      "customerRefInputPattern": { "value": "c", "repeat": 255 },
+      "externalIdInputPattern": { "value": "e", "repeat": 255 },
+      "customerUtf8Bytes": 255,
+      "externalUtf8Bytes": 255,
+      "idempotencyKey": "connector:v1:7182fd43682e0689adf34c908bc3ec162aaf1687c167fdbff714ff43daa4b111"
+    },
+    {
+      "name": "nbsp-feff-trimmed",
+      "customerRefInput": "\u00a0\ufeffzákazník😀\ufeff\u00a0",
+      "externalIdInput": "\ufeffFA-žltý-1\u00a0",
+      "customerRef": "zákazník😀",
+      "externalId": "FA-žltý-1",
+      "customerUtf8Bytes": 14,
+      "externalUtf8Bytes": 11,
+      "idempotencyKey": "connector:v1:eec0ca654af898913432fbc7b7441a05080f72099f6d2ff85852f78c7458fdfd"
+    },
+    {
+      "name": "u0085-preserved",
+      "customerRefInput": "\u0085zákazník😀\u0085",
+      "externalIdInput": "\u0085FA-žltý-1\u0085",
+      "customerRef": "\u0085zákazník😀\u0085",
+      "externalId": "\u0085FA-žltý-1\u0085",
+      "customerUtf8Bytes": 18,
+      "externalUtf8Bytes": 15,
+      "idempotencyKey": "connector:v1:ff49689a9ece4c0319420ed07fc3a2a5b2e2e7bb6d4430a68557e372fdf70080"
+    }
+  ]
+}

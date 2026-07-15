@@ -42,7 +42,7 @@ public sealed class EPostakClient : IDisposable
     /// <summary>ePošťák Box durable execution layer for scheduled and retryable dispatch.</summary>
     public BoxResource Box { get; }
 
-    /// <summary>Connector workflow for ERP send, preflight, inbox polling, ack, and events.</summary>
+    /// <summary>Customer-scoped Connector documents/events; lower-level workflows are under <c>Connector.Advanced</c>.</summary>
     public ConnectorResource Connector { get; }
 
     /// <summary>Payload Assistant helpers for OCR, parse, convert, and validation.</summary>

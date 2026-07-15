@@ -50,6 +50,31 @@ RSpec.describe EPostak::UblValidationError do
     expect(err).not_to be_a(EPostak::UblValidationError)
   end
 
+  it "preserves business retry metadata and Retry-After seconds" do
+    err = EPostak.build_api_error(
+      409,
+      { "error" => {
+        "code" => "idempotency_in_flight",
+        "message" => "Still processing",
+        "field" => "externalId",
+        "nextAction" => "retry",
+        "retryable" => true,
+        "requestId" => "req-body",
+      } },
+      { "Retry-After" => "7", "X-Request-Id" => "req-header" },
+    )
+    expect([err.field, err.next_action, err.retryable, err.request_id, err.retry_after]).to eq(
+      ["externalId", "retry", true, "req-body", 7],
+    )
+
+    validation = EPostak.build_api_error(
+      422,
+      { "error" => { "code" => "validation_failed", "message" => "Fix request", "retryable" => false } },
+    )
+    expect(validation.retryable).to be(false)
+    expect(validation.retry_after).to be_nil
+  end
+
   describe "UBL_RULES constant" do
     it "is frozen" do
       expect(EPostak::UblValidationError::UBL_RULES).to be_frozen

@@ -65,7 +65,30 @@ public class DuplicateInvoiceNumberException extends EPostakException {
             List<String> conflictKey,
             ExistingDocument existingDocument
     ) {
-        super(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
+        this(status, message, code, details, type, title, detail, instance, requestId,
+                requiredScope, conflictKey, existingDocument, null, null, null, null);
+    }
+
+    public DuplicateInvoiceNumberException(
+            int status,
+            String message,
+            String code,
+            Object details,
+            String type,
+            String title,
+            String detail,
+            String instance,
+            String requestId,
+            String requiredScope,
+            List<String> conflictKey,
+            ExistingDocument existingDocument,
+            String field,
+            String nextAction,
+            Boolean retryable,
+            Integer retryAfter
+    ) {
+        super(status, message, code, details, type, title, detail, instance, requestId,
+                requiredScope, field, nextAction, retryable, retryAfter);
         this.conflictKey = conflictKey == null
             ? List.of("firmId", "invoiceNumber")
             : List.copyOf(conflictKey);

@@ -45,6 +45,14 @@ export class EPostakError extends Error {
   details?: unknown;
   /** Server-assigned request ID — set whenever the server emits `X-Request-Id`. */
   requestId?: string;
+  /** Request field that the caller should correct, when supplied by the API. */
+  field?: string;
+  /** Machine-readable or human-readable remediation hint from the API. */
+  nextAction?: string;
+  /** Whether the failed business operation can be retried without changing the request. */
+  retryable?: boolean;
+  /** Delta seconds from `Retry-After`, when the header is present and valid. */
+  retryAfter?: number;
 
   // RFC 7807 (application/problem+json) fields — populated when the server
   // returns a problem+json envelope. Otherwise undefined.
@@ -82,6 +90,11 @@ export class EPostakError extends Error {
       body !== null &&
       ("title" in body || "detail" in body) &&
       typeof body.error === "undefined";
+    const errorObj = body?.error;
+    const errorObjMap =
+      errorObj !== null && typeof errorObj === "object" && !Array.isArray(errorObj)
+        ? (errorObj as Record<string, unknown>)
+        : null;
 
     let msg = "API request failed";
     let code: string | undefined;
@@ -96,12 +109,6 @@ export class EPostakError extends Error {
       if (typeof body.code === "string") code = body.code;
       if ("errors" in body) details = body.errors;
     } else {
-      const errorObj = body?.error;
-      const errorObjMap =
-        errorObj !== null && typeof errorObj === "object"
-          ? (errorObj as Record<string, unknown>)
-          : null;
-
       msg =
         typeof errorObj === "string"
           ? errorObj
@@ -146,6 +153,22 @@ export class EPostakError extends Error {
       if (headerId) this.requestId = headerId;
     }
 
+    // Canonical business-error metadata lives in the nested `error` object.
+    if (typeof errorObjMap?.field === "string") {
+      this.field = errorObjMap.field;
+    }
+    const nextAction = errorObjMap?.nextAction ?? errorObjMap?.next_action;
+    if (typeof nextAction === "string") {
+      this.nextAction = nextAction;
+    }
+    if (typeof errorObjMap?.retryable === "boolean") {
+      this.retryable = errorObjMap.retryable;
+    }
+    const retryAfter = parseRetryAfter(headers);
+    if (retryAfter !== null) {
+      this.retryAfter = retryAfter;
+    }
+
     // Parse WWW-Authenticate for OAuth `insufficient_scope` rejections.
     this.requiredScope = parseRequiredScope(headers);
     if (!this.requiredScope) {
@@ -175,6 +198,13 @@ function parseRequiredScope(headers?: Headers): string | null {
   if (!/error\s*=\s*"?insufficient_scope/i.test(raw)) return null;
   const m = raw.match(/scope\s*=\s*"([^"]+)"/i);
   return m ? m[1] : null;
+}
+
+function parseRetryAfter(headers?: Headers): number | null {
+  const raw = headers?.get("retry-after")?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const seconds = Number(raw);
+  return Number.isSafeInteger(seconds) ? seconds : null;
 }
 
 /** Recipient identification on the existing duplicate invoice. */
@@ -302,7 +332,10 @@ export class UblValidationError extends EPostakError {
     message: string;
     rule: string;
     requestId?: string;
-  }) {
+    field?: string;
+    nextAction?: string;
+    retryable?: boolean;
+  }, headers?: Headers) {
     const errorBody: Record<string, unknown> = {
       code: "UBL_VALIDATION_ERROR",
       message: payload.message,
@@ -311,7 +344,10 @@ export class UblValidationError extends EPostakError {
     if (payload.requestId !== undefined) {
       errorBody.requestId = payload.requestId;
     }
-    super(422, { error: errorBody });
+    if (payload.field !== undefined) errorBody.field = payload.field;
+    if (payload.nextAction !== undefined) errorBody.nextAction = payload.nextAction;
+    if (payload.retryable !== undefined) errorBody.retryable = payload.retryable;
+    super(422, { error: errorBody }, headers);
     this.name = "UblValidationError";
     this.rule = payload.rule;
     if (payload.requestId !== undefined) this.requestId = payload.requestId;
@@ -338,14 +374,31 @@ export function buildApiError(
     return new DuplicateInvoiceNumberError(status, body, headers);
   }
   if (status === 422 && code === "UBL_VALIDATION_ERROR" && errorMap) {
-    const ublPayload: { message: string; rule: string; requestId?: string } = {
+    const ublPayload: {
+      message: string;
+      rule: string;
+      requestId?: string;
+      field?: string;
+      nextAction?: string;
+      retryable?: boolean;
+    } = {
       message: typeof errorMap.message === "string" ? errorMap.message : "UBL validation error",
       rule: typeof errorMap.rule === "string" ? errorMap.rule : "unknown",
     };
     if (typeof errorMap.requestId === "string") {
       ublPayload.requestId = errorMap.requestId;
     }
-    return new UblValidationError(ublPayload);
+    if (typeof errorMap.field === "string") {
+      ublPayload.field = errorMap.field;
+    }
+    const nextAction = errorMap.nextAction ?? errorMap.next_action;
+    if (typeof nextAction === "string") {
+      ublPayload.nextAction = nextAction;
+    }
+    if (typeof errorMap.retryable === "boolean") {
+      ublPayload.retryable = errorMap.retryable;
+    }
+    return new UblValidationError(ublPayload, headers);
   }
   return new EPostakError(status, body, headers);
 }

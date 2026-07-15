@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "endpointTemplate": "/connector/documents/{documentId}/respond?customerRef={customerRef}",
+  "statuses": [
+    "received",
+    "in_process",
+    "under_query",
+    "conditionally_accepted",
+    "rejected",
+    "accepted",
+    "paid"
+  ],
+  "request": {
+    "status": "conditionally_accepted",
+    "note": "Accepted after ERP review"
+  },
+  "response": {
+    "id": "doc-in-1",
+    "customerRef": "erp-customer-1",
+    "response": {
+      "status": "conditionally_accepted",
+      "direction": "sent",
+      "delivery": "queued",
+      "respondedAt": "2026-07-15T12:00:00Z"
+    },
+    "idempotent": true
+  },
+  "documentProjection": {
+    "response": {
+      "status": "conditionally_accepted",
+      "direction": "sent",
+      "reason": "Accepted after ERP review",
+      "respondedAt": "2026-07-15T12:00:00Z"
+    }
+  }
+}

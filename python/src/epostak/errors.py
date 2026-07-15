@@ -52,6 +52,27 @@ def _parse_required_scope(headers: Optional[Mapping[str, str]]) -> Optional[str]
     return m.group(1) if m else None
 
 
+def _parse_retry_after(headers: Optional[Mapping[str, str]]) -> Optional[int]:
+    """Parse a delta-seconds ``Retry-After`` response header."""
+    if not headers:
+        return None
+    try:
+        raw = headers.get("retry-after") or headers.get("Retry-After")  # type: ignore[union-attr]
+    except Exception:
+        raw = None
+    if raw is None:
+        try:
+            raw = next(
+                (value for key, value in headers.items() if str(key).lower() == "retry-after"),
+                None,
+            )
+        except Exception:
+            raw = None
+    if not isinstance(raw, str) or not raw.strip().isdigit():
+        return None
+    return int(raw.strip())
+
+
 class EPostakError(Exception):
     """Error raised when an API request fails.
 
@@ -97,6 +118,10 @@ class EPostakError(Exception):
     message: str
     details: Any
     request_id: Optional[str]
+    field: Optional[str]
+    next_action: Optional[str]
+    retryable: Optional[bool]
+    retry_after: Optional[int]
     type: Optional[str]
     title: Optional[str]
     detail: Optional[str]
@@ -183,6 +208,20 @@ class EPostakError(Exception):
             if isinstance(hdr, str) and hdr:
                 request_id = hdr
         self.request_id = request_id
+
+        # Canonical nested business-error metadata.
+        err = body.get("error") if isinstance(body, dict) else None
+        if isinstance(err, dict):
+            self.field = err.get("field") if isinstance(err.get("field"), str) else None
+            next_action = err.get("nextAction", err.get("next_action"))
+            self.next_action = next_action if isinstance(next_action, str) else None
+            retryable = err.get("retryable")
+            self.retryable = retryable if isinstance(retryable, bool) else None
+        else:
+            self.field = None
+            self.next_action = None
+            self.retryable = None
+        self.retry_after = _parse_retry_after(headers)
 
         # Parse WWW-Authenticate for OAuth `insufficient_scope` rejections.
         scope = _parse_required_scope(headers)

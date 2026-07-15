@@ -88,8 +88,8 @@ class EPostak
      *   - `clientId`     (required) OAuth client ID (`sk_live_*` or `sk_int_*`).
      *   - `clientSecret` (required) OAuth client secret.
      *   - `baseUrl`      (optional) Override the API base URL (default: https://epostak.sk/api/v1; use https://dev.epostak.sk/api/v1 for test).
-     *   - `firmId`       (optional) Scope all requests to this firm ID (required for `sk_int_*`).
-     *   - `maxRetries`   (optional) Maximum retries on 429/5xx responses (default: 3).
+     *   - `firmId`       (optional) Scope legacy Enterprise/SAPI calls to a firm. Omit it for Connector; customerRef selects the managed firm.
+     *   - `maxRetries`   (optional) Maximum retries for safe reads and explicitly server-idempotent Connector calls (default: 3).
      *
      * @throws \InvalidArgumentException If clientId or clientSecret is missing.
      *

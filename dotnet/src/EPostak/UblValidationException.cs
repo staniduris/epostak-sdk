@@ -78,9 +78,28 @@ public sealed class UblValidationException : EPostakException
         string? instance,
         string? requestId,
         string? requiredScope)
+        : this(status, message, rule, details, type, title, detail, instance, requestId, requiredScope, null, null, null, null)
+    {
+    }
+
+    internal UblValidationException(
+        int status,
+        string message,
+        string rule,
+        object? details,
+        string? type,
+        string? title,
+        string? detail,
+        string? instance,
+        string? requestId,
+        string? requiredScope,
+        string? field,
+        string? nextAction,
+        bool? retryable,
+        int? retryAfter)
         // Code stays "UBL_VALIDATION_ERROR" (always — that's the wire code);
         // the violated rule is exposed separately via Rule.
-        : base(status, message, "UBL_VALIDATION_ERROR", details, type, title, detail, instance, requestId, requiredScope)
+        : base(status, message, "UBL_VALIDATION_ERROR", details, type, title, detail, instance, requestId, requiredScope, field, nextAction, retryable, retryAfter)
     {
         Rule = rule;
     }

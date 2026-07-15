@@ -17,6 +17,7 @@ class Enterprise
 {
     public Inbox $inbox;
     public EnterprisePull $pull;
+    public Connector $connector;
 
     public function __construct(
         public Auth $auth,
@@ -30,12 +31,13 @@ class Enterprise
         public Extract $extract,
         public Account $account,
         public Integrator $integrator,
-        public Connector $connector,
+        Connector $connector,
         public Payloads $payloads,
         public Events $events,
         Inbound $inbound,
         Outbound $outbound
     ) {
+        $this->connector = $connector;
         $this->inbox = $documents->inbox;
         $this->pull = new EnterprisePull($inbound, $outbound);
     }

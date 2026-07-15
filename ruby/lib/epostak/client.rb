@@ -82,8 +82,8 @@ module EPostak
     # @param firm_id [String, nil] Firm UUID for legacy firm-scoped calls.
     #   Connector V2 resolves the managed firm from customerRef and omits
     #   +X-Firm-Id+.
-    # @param max_retries [Integer] Maximum retries on 429/5xx responses
-    #   (default: 3).
+    # @param max_retries [Integer] Maximum retries for safe reads and explicitly
+    #   server-idempotent Connector operations (default: 3).
     # @param token_manager [EPostak::TokenManager, nil] Shared token manager
     #   (used internally by {#with_firm}).
     #

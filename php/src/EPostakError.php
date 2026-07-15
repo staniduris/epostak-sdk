@@ -29,6 +29,10 @@ class EPostakError extends \Exception
     private ?string $errorCode;
     private mixed $details;
     private ?string $requestId;
+    private ?string $field;
+    private ?string $nextAction;
+    private ?bool $retryable;
+    private ?int $retryAfter;
     private ?string $type;
     private ?string $title;
     private ?string $detail;
@@ -49,6 +53,10 @@ class EPostakError extends \Exception
         $this->errorCode = null;
         $this->details = null;
         $this->requestId = null;
+        $this->field = null;
+        $this->nextAction = null;
+        $this->retryable = null;
+        $this->retryAfter = null;
         $this->type = null;
         $this->title = null;
         $this->detail = null;
@@ -125,6 +133,25 @@ class EPostakError extends \Exception
             }
         }
 
+        // Canonical nested business-error metadata.
+        $error = $body['error'] ?? null;
+        if (is_array($error)) {
+            if (isset($error['field']) && is_string($error['field'])) {
+                $this->field = $error['field'];
+            }
+            $nextAction = $error['nextAction'] ?? $error['next_action'] ?? null;
+            if (is_string($nextAction)) {
+                $this->nextAction = $nextAction;
+            }
+            if (array_key_exists('retryable', $error) && is_bool($error['retryable'])) {
+                $this->retryable = $error['retryable'];
+            }
+        }
+        $retryAfter = $this->headerLine($headers, 'retry-after');
+        if ($retryAfter !== null && ctype_digit(trim($retryAfter))) {
+            $this->retryAfter = (int) trim($retryAfter);
+        }
+
         // Parse WWW-Authenticate for OAuth `insufficient_scope` rejections.
         $this->requiredScope = $this->parseRequiredScope($headers);
         if ($this->requiredScope === null) {
@@ -156,6 +183,26 @@ class EPostakError extends \Exception
     public function getRequestId(): ?string
     {
         return $this->requestId;
+    }
+
+    public function getField(): ?string
+    {
+        return $this->field;
+    }
+
+    public function getNextAction(): ?string
+    {
+        return $this->nextAction;
+    }
+
+    public function isRetryable(): ?bool
+    {
+        return $this->retryable;
+    }
+
+    public function getRetryAfter(): ?int
+    {
+        return $this->retryAfter;
     }
 
     public function getType(): ?string

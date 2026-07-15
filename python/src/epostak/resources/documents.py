@@ -9,14 +9,14 @@ resource modules.
 from __future__ import annotations
 
 import datetime
+import copy
 import random
 import time
+import httpx
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import quote
 
 if TYPE_CHECKING:
-    import httpx
-
     from epostak.types import (
         AcknowledgeResponse,
         BatchSendResponse,
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     )
 
 _RETRY_METHODS = frozenset({"GET", "DELETE"})
-_RETRY_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 _BASE_DELAY = 0.5
 _MAX_DELAY = 30.0
 
@@ -110,11 +109,12 @@ class _BaseResource:
             headers["X-Firm-Id"] = self._firm_id
         return headers
 
-    def _should_retry(self, method: str, status_code: int) -> bool:
-        return method.upper() in _RETRY_METHODS and status_code in _RETRY_STATUS_CODES
+    def _should_retry(self, method: str, status_code: int, retry_on_failure: bool = False) -> bool:
+        retryable_method = method.upper() in _RETRY_METHODS or retry_on_failure
+        return retryable_method and (status_code == 429 or status_code >= 500)
 
     def _sleep_for_retry(self, attempt: int, response: Any = None) -> None:
-        # Respect Retry-After header on 429
+        # Respect Retry-After on every retryable response.
         retry_after: Optional[float] = None
         if response is not None:
             raw = response.headers.get("retry-after")
@@ -145,12 +145,15 @@ class _BaseResource:
         content: Any = None,
         extra_headers: Optional[Dict[str, str]] = None,
         omit_firm_id: bool = False,
+        retry_on_failure: bool = False,
     ) -> Any:
         from epostak.errors import EPostakError, build_api_error
 
         url = f"{self._base_url}{path}"
         last_exc: Optional[EPostakError] = None
 
+        # Snapshot nested JSON before token acquisition or the first retry.
+        request_json = copy.deepcopy(json)
         merged_headers = self._headers(omit_firm_id=omit_firm_id)
         if extra_headers:
             merged_headers.update(extra_headers)
@@ -162,18 +165,19 @@ class _BaseResource:
                     method,
                     url,
                     headers=merged_headers,
-                    json=json,
+                    json=request_json,
                     data=data,
                     files=files,
                     content=content,
                     params=params,
                     timeout=30.0,
                 )
-            except Exception as exc:
+            except httpx.RequestError as exc:
                 last_exc = EPostakError(0, {"error": str(exc)})
                 last_exc.__cause__ = exc
-                # Network errors are retryable for idempotent methods
-                if attempt < self._max_retries and method.upper() in _RETRY_METHODS:
+                # Network errors are retryable only for safe or explicitly
+                # idempotent operations.
+                if attempt < self._max_retries and (method.upper() in _RETRY_METHODS or retry_on_failure):
                     self._sleep_for_retry(attempt)
                     continue
                 raise last_exc from exc
@@ -185,7 +189,7 @@ class _BaseResource:
                     body = {"error": response.reason_phrase or "API request failed"}
                 last_exc = build_api_error(response.status_code, body, response.headers)
 
-                if attempt < self._max_retries and self._should_retry(method, response.status_code):
+                if attempt < self._max_retries and self._should_retry(method, response.status_code, retry_on_failure):
                     self._sleep_for_retry(attempt, response)
                     continue
                 raise last_exc

@@ -4,21 +4,97 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v1.0.0** — breaking workflow-first release. Enterprise `/api/v1/*`
-> resources are documented under `client.enterprise`; SAPI-SK document
-> operations require `client.sapi.participants.for_participant(...)`.
+> **v1.1.0** — current workflow-first source release with the managed Connector
+> surface. Enterprise `/api/v1/*` resources remain under `client.enterprise`;
+> SAPI-SK document operations remain under
+> `client.sapi.participants.for_participant(...)`.
 > See [CHANGELOG.md](./CHANGELOG.md) and [../MIGRATION.md](../MIGRATION.md).
 
 ## Major release API shape
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
-- Enterprise ERP/integrator flow: `client.enterprise.connector.customers.for_customer("erp-customer").submit_document(...)`
+- Connector ERP/integrator flow: `client.connector.customers.for_customer("erp-customer").documents.send(...)`
 - Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.support_packet(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for_participant("0245:1234567890").documents.send(...)`
 
-Enterprise `firm_id` applies only to firm-scoped Enterprise calls. Connector
-customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
-calls always send `X-Peppol-Participant-Id`.
+Connector is the recommended ERP path; Enterprise is the granular firm-scoped
+API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
+integrator, approves and Peppol-registers its firms, and issues Connector
+credentials. The integrator then chooses and stores a stable `customerRef` for
+each approved firm in the dashboard. The SDK cannot create or discover firms.
+
+Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
+then set `customerRef` in the integrator dashboard. Connector omits
+`X-Firm-Id`; SAPI always sends `X-Peppol-Participant-Id`.
+
+Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
+[Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## Connector quickstart
+
+```python
+import os
+from epostak import EPostak
+
+connector_client = EPostak(
+    client_id=os.environ["EPOSTAK_CONNECTOR_CLIENT_ID"],
+    client_secret=os.environ["EPOSTAK_CONNECTOR_CLIENT_SECRET"],
+)
+customer = connector_client.connector.customers.for_customer("erp-acme")
+document = customer.documents.send({
+    "externalId": "invoice-2026-0042",
+    "type": "invoice",
+    "number": "2026-0042",
+    "recipient": {"country": "SK", "taxId": "2120123456"},
+    "lines": [{"description": "Monthly licence", "quantity": 1, "unitPrice": 100, "vatRate": 23}],
+})
+```
+
+The integrator owns the stable `customerRef` after ePošťák has approved and
+Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+immediately by default, and derives a stable idempotency key from `customerRef`
+and `externalId`.
+
+```python
+events = customer.events.list(limit=50)
+configured_webhook = connector_client.connector.webhook.configure(
+    "https://erp.example.com/webhooks/epostak",
+    ["document.received", "document.delivered"],
+)
+if configured_webhook.get("secret"):
+    # Persist this value in your server-side secret manager now. It is returned only once.
+    one_time_webhook_secret = configured_webhook["secret"]
+connector_client.connector.webhook.test("erp-acme")
+```
+
+Push uses the same canonical event item as polling with `customerRef` at the
+root. `verify_webhook_signature` verifies HMAC-SHA256 over
+`timestamp + "." + raw_body`.
+
+### Acknowledge locally or respond to the supplier
+
+```python
+received_document_id = "document-id-from-list-or-event"
+customer.documents.acknowledge(received_document_id, f"erp:{received_document_id}")
+response = customer.documents.respond(received_document_id, {
+    "status": "accepted",
+    "note": "Imported and accepted",
+})
+
+# Direct alternative (do not call both); customerRef is still mandatory:
+# connector_client.connector.documents.respond(
+#     received_document_id, "erp-acme", {"status": "accepted"}
+# )
+```
+
+`acknowledge` only records that the inbound document was processed locally; it
+does not notify the supplier. `respond` sends the network business response via
+`POST /connector/documents/{documentId}/respond?customerRef=...`. Use only the
+business statuses `received`, `in_process`, `under_query`,
+`conditionally_accepted`, `rejected`, `accepted`, or `paid`, with an optional
+`note`. The Connector handles Peppol response codes and XML; do not send either.
+The result reports `response.delivery` as `sent` or `queued` and marks safe
+replays with `idempotent`.
 
 ## Enterprise API facade flow
 
@@ -54,13 +130,29 @@ allows.
 
 ## Recent changes
 
-### Unreleased — 2026-07-12
+### Included in v1.1.0 — 2026-07-14
+
+- Connector is canonical at `client.connector`; the existing Enterprise
+  namespace alias remains silently supported.
+- ePošťák approves the integrator and Peppol firms; the integrator stores its
+  own stable `customerRef` in the dashboard.
+- Customer document creation snapshots the request, validates explicit
+  1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
+  responses only when safe. Lifecycle calls are server-idempotent; `409` is
+  never retried.
+- `EPostakError` exposes `field`, `next_action`, `retryable`, `request_id`, and
+  `retry_after`.
+- `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
+  points before hashing; `U+0085` is preserved.
+- `document.cancelled` is a first-class business event type.
+
+### Included in v1.1.0 — 2026-07-12
 
 - JSON billing payloads now expose the live receiver address, `prepaidAmount`,
   `prepayments`, and advanced line-item VAT/classification fields from the
   Enterprise OpenAPI.
 
-### Unreleased — 2026-07-01
+### Included in v1.1.0 — 2026-07-01
 
 - Enterprise API facade helpers for Payload Assistant validation, pull/ack
   event handling, and document support packets:
@@ -68,11 +160,13 @@ allows.
   `client.enterprise.events.pull(...)`, and
   `client.enterprise.documents.support_packet(...)`.
 
-### Unreleased — 2026-06-30
+### Included in v1.1.0 — 2026-06-30
 
-- `client.connector.mapper(...)` and customer-scoped
-  `client.enterprise.connector.customers.for_customer(customer_ref).mapper(...)`
-  cover `/connector/mapper`.
+- Customer-scoped
+  `client.connector.customers.for_customer(customer_ref).advanced.mapper(...)`
+  is the managed, preview-only Mapper flow. Top-level
+  `client.connector.advanced.mapper(...)` remains a legacy compatibility alias
+  and is unavailable with managed Connector credentials.
 - `client.box` / `client.enterprise.box` covers ePošťák Box list, create with
   `payloadXml`, detail, schedule, send-now, retry, and cancel over
   `/box/items`.
@@ -84,10 +178,11 @@ allows.
   Audit, and Integrator surfaces.
 - `client.sapi.participants.for_participant(participant_id).documents` —
   participant-scoped SAPI document send/receive/get/acknowledge.
-- `client.enterprise.connector.customers.for_customer(customer_ref)` —
+- `client.connector.customers.for_customer(customer_ref)` —
   customer-scoped Connector helper that injects `customerRef` and omits
   `X-Firm-Id`.
-- `client.enterprise.connector` — Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- The Connector compatibility surface includes preflight, Zen input, Autopilot,
+  reconcile, mailbox, sync, document evidence, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - Static endpoint coverage expanded to 317 checks across TypeScript, Python, Ruby, PHP, .NET, and Java.
 
@@ -113,8 +208,11 @@ allows.
 
 ## Installation
 
+The Python SDK is currently distributed as reviewed source, not through PyPI:
+
 ```bash
-pip install epostak
+git clone https://github.com/staniduris/epostak-sdk.git
+python -m pip install ./epostak-sdk/python
 ```
 
 ---
@@ -122,7 +220,9 @@ pip install epostak
 ## Quick start
 
 ```python
-from epostak import EPostak
+import os
+
+from epostak import EPostak, EPostakError
 
 client = EPostak(client_id="sk_live_xxxxx", client_secret="sk_live_xxxxx")
 
@@ -141,95 +241,88 @@ print(result["documentId"], result["messageId"], result["payload_sha256"])
 
 ### Connector golden path for ERP developers
 
-Use `client.enterprise.connector` for the ERP workflow instead of building raw HTTP calls.
-The SDK handles OAuth token minting and refresh automatically after you create
-the client.
+Start from the stable `customerRef` configured by the integrator in the
+dashboard after ePošťák approves and Peppol-registers the firm. There is no SDK
+method for creating or discovering firms.
 
 ```python
-invoice = {
-    "receiverPeppolId": "0245:1234567890",
-    "document": {
-        "receiverName": "Firma s.r.o.",
-        "invoiceNumber": "FA-2026-001",
-        "issueDate": "2026-06-04",
-        "dueDate": "2026-06-18",
-        "items": [
-            {"description": "Služby", "quantity": 1, "unitPrice": 100, "vatRate": 23},
-        ],
-    },
-}
-
-preflight = client.enterprise.connector.preflight(invoice)
-if not preflight["ready"]:
-    print(preflight["repairReport"]["blocking"])
-    raise RuntimeError("Invoice is not ready for Peppol delivery")
-
-staged = client.enterprise.connector.stage_outbox({
-    "items": [{
-        "externalId": "FA-2026-001",
-        "idempotencyKey": "erp-fa-2026-001",
-        "payload": invoice,
-    }],
-})
-
-sent = client.enterprise.connector.send_outbox_item(staged["items"][0]["outboxId"])
-if not sent.get("documentId"):
-    raise RuntimeError("Staged invoice was not sent")
-
-status = client.enterprise.connector.status(sent["documentId"])
-
-inbox = client.enterprise.connector.inbox(limit=20)
-for doc in inbox["documents"]:
-    client.enterprise.connector.ack(doc["documentId"])
-
-# Evidence is shared with the Enterprise document API.
-evidence = client.enterprise.documents.evidence(sent["documentId"])
-print(status["status"], evidence)
-```
-
-For immediate send without staging:
-
-```python
-sent = client.enterprise.connector.send(invoice, idempotency_key="erp-fa-2026-001-send")
-print(sent["documentId"], sent["status"])
-```
-
-Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
-ERP sync jobs one place to read exceptions:
-
-```python
-run = client.enterprise.connector.autopilot({
-    "customerRef": "erp-customer-1",
-    "mode": "shadow",
+connector_client = EPostak(
+    client_id=os.environ["EPOSTAK_CONNECTOR_CLIENT_ID"],
+    client_secret=os.environ["EPOSTAK_CONNECTOR_CLIENT_SECRET"],
+)
+customer = connector_client.connector.customers.for_customer("erp-customer-1")
+document = customer.documents.send({
     "externalId": "FA-2026-001",
-    "idempotencyKey": "erp-fa-2026-001",
-    "payload": invoice,
+    "type": "invoice",
+    "number": "FA-2026-001",
+    "issueDate": "2026-07-14",
+    "dueDate": "2026-07-28",
+    "currency": "EUR",
+    "recipient": {"country": "SK", "taxId": "2120123456"},
+    "lines": [
+        {"description": "Služby", "quantity": 1, "unitPrice": 100, "vatRate": 23},
+    ],
 })
-sent_run = client.enterprise.connector.send_autopilot_run(run["autopilotId"])
-exceptions = client.enterprise.connector.reconcile(status="exceptions")
-print(sent_run["lifecycleStatus"], exceptions["total"])
+
+page = customer.documents.list(state="needs_attention")
+events = customer.events.list(limit=50)
+for received in (item for item in page["documents"] if item["direction"] == "inbound"):
+    customer.documents.acknowledge(received["id"], f"erp:{received['id']}")
+ubl = customer.advanced.documents.ubl(document["id"])
+evidence = customer.advanced.documents.evidence(document["id"])
+evidence_bundle = customer.advanced.documents.evidence_bundle(document["id"])
+support_packet = customer.advanced.documents.support_packet(document["id"])
+print(document["id"], events["nextCursor"])
 ```
 
-Customer-scoped Connector calls are the preferred integrator shape when you
-already know the managed ERP customer:
+Every customer-scoped get, acknowledge, lifecycle, UBL, and evidence request
+appends the URL-encoded `customerRef` query. The server verifies the document
+against that exact approved firm and configured reference.
+
+The SDK injects `customerRef`, omits `X-Firm-Id`, and applies the backend
+ECMAScript `TrimString` set (`0009-000D`, `0020`, `00A0`, `1680`,
+`2000-200A`, `2028-2029`, `202F`, `205F`, `3000`, `FEFF`) to `customerRef`
+and `externalId`; `U+0085` is preserved. It then derives a stable bounded key
+as `connector:v1:` plus SHA-256 of the two UTF-8 values, each prefixed by its
+four-byte big-endian byte length. Explicit keys must be 1-255 UTF-8 bytes and
+are otherwise unchanged. Use
+`customer.documents.stage(...)` instead of `send(...)` when the ERP must hold a
+document for review, then call `customer.documents.send_document(document_id)`
+or `cancel_document(document_id)`.
+
+Mapper is a customer-scoped preview/normalization helper; it never stages or
+sends a document:
 
 ```python
-customer = client.enterprise.connector.customers.for_customer("erp-customer-1")
-run = customer.submit_document({
-    "externalId": "FA-2026-001",
-    "idempotencyKey": "erp-fa-2026-001",
-    "payload": invoice,
+preview = customer.advanced.mapper({
+    "templateKey": "pohoda-csv-v1",
+    "sourceType": "csv",
+    "sourceText": csv_text,
 })
-print(run["autopilotId"])
+normalized = preview["document"]
 ```
 
-Common sandbox scenarios to test:
+Managed Connector credentials support customer documents/events, one global
+webhook, audited document evidence, and Mapper preview. Legacy preflight, raw send, Outbox,
+Autopilot, reconciliation, mailbox, sync, and action helpers remain supported
+source-compatibility aliases; availability depends on the credential's product
+entitlement. The Connector property under the Enterprise namespace also
+remains silently supported.
 
-- nonexistent participant or unsupported document type: `preflight["ready"] is False` with blocking `repairReport` items
-- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in the typed API error
-- duplicate idempotency key: `409 idempotency_conflict`
-- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.enterprise.connector.inbox(...)`, store the payload, then call `client.enterprise.connector.ack(document_id)`
+### Connector errors and retries
+
+```python
+try:
+    customer.documents.send(invoice)
+except EPostakError as error:
+    print(error.code, error.message, error.field, error.next_action)
+    print(error.retryable, error.request_id, error.retry_after)
+```
+
+Keyed document creation retries network failures, `429`, and every `5xx` while
+reusing the exact body and key. Lifecycle send/cancel/acknowledge calls are
+server-idempotent and use the same policy. `Retry-After` is honored; `409` is
+always surfaced once and never retried automatically.
 
 ---
 
@@ -268,7 +361,7 @@ Per Slovak PASR, only `0245:DIČ` is used. The `9950:SK...` VAT form is not supp
 | Key prefix  | Use case                                           |
 | ----------- | -------------------------------------------------- |
 | `sk_live_*` | Direct access — acts on behalf of your own firm    |
-| `sk_int_*`  | Integrator access — acts on behalf of client firms |
+| `sk_int_*`  | Product-scoped integrator access; ePošťák approves Connector firms and the integrator configures `customerRef` |
 
 ```python
 client = EPostak(
@@ -280,9 +373,11 @@ client = EPostak(
 )
 ```
 
-Connector V2 integrator calls do not need `firm_id`; pass your ERP customer key
-as `customerRef` on Connector requests. Use `firm_id` or `with_firm(...)` only
-for legacy Enterprise API calls that target one firm directly.
+Managed Connector calls use Connector credentials and the integrator's stored
+`customerRef` for an ePošťák-approved Peppol firm; they do not need `firm_id`.
+Ordinary Enterprise credentials cannot provision or scout Connector firms.
+Use `firm_id` or `with_firm(...)` only for Enterprise calls that target one firm
+directly.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -627,10 +722,11 @@ integrations should use `client.enterprise.payloads.extract`.
 
 ## Integrator mode
 
-Use this for legacy firm-scoped Enterprise API calls. Connector V2 calls
-(`autopilot`, `mapper`, `zen_input`, mailbox, sync, Connector documents, actions) stay
-integrator-scoped and resolve the managed firm from `customerRef`, so the SDK
-does not send `X-Firm-Id` for those methods even if this client has `firm_id`.
+This section is only for Enterprise integrator credentials and firm-scoped
+Enterprise calls. It does not provision Connector. Managed Connector uses its
+own approved credentials; the integrator chooses each stable `customerRef` in
+the dashboard after ePošťák approves the firm. Setting `firm_id` does not
+change the Connector entitlement.
 
 ```python
 # Option 1: firm_id in constructor
@@ -776,36 +872,58 @@ except EPostakError as err:
 | `box.send_now(item_id)`                                        | POST   | `/box/items/{itemId}/send-now`       |
 | `box.retry(item_id)`                                           | POST   | `/box/items/{itemId}/retry`          |
 | `box.cancel(item_id)`                                          | POST   | `/box/items/{itemId}/cancel`         |
-| `connector.preflight(body)`                                    | POST   | `/connector/preflight`               |
-| `connector.send(body, idempotency_key=...)`                    | POST   | `/connector/send`                    |
-| `connector.stage_outbox(body)`                                 | POST   | `/connector/outbox`                  |
-| `connector.list_outbox(**params)`                              | GET    | `/connector/outbox`                  |
-| `connector.get_outbox_item(outbox_id)`                         | GET    | `/connector/outbox/{outboxId}`       |
-| `connector.send_outbox_item(outbox_id, force=...)`             | POST   | `/connector/outbox/{outboxId}/send`  |
-| `connector.send_outbox_batch(ids=..., limit=...)`              | POST   | `/connector/outbox/send`             |
-| `connector.cancel_outbox_item(outbox_id)`                      | DELETE | `/connector/outbox/{outboxId}`       |
-| `connector.mapper(body)`                                       | POST   | `/connector/mapper`                  |
-| `connector.zen_input(body)`                                    | POST   | `/connector/zen-input`               |
-| `connector.autopilot(body)`                                    | POST   | `/connector/autopilot`               |
-| `connector.get_autopilot_run(autopilot_id)`                    | GET    | `/connector/autopilot/{autopilotId}` |
-| `connector.send_autopilot_run(autopilot_id)`                   | POST   | `/connector/autopilot/{autopilotId}/send` |
-| `connector.reconcile(status=..., since=...)`                   | GET    | `/connector/reconcile`               |
-| `connector.mailboxes()`                                        | GET    | `/connector/mailbox`                 |
-| `connector.repair_mailbox(body=None)`                          | POST   | `/connector/mailbox/repair`          |
-| `connector.update_mailbox_send_policy(customer_ref, body)`      | PATCH  | `/connector/mailbox/{customerRef}/send-policy` |
-| `connector.sync(customer_ref=..., cursor=..., limit=...)`       | GET    | `/connector/sync`                    |
+| `connector.customers.for_customer(ref).documents.send(body)`   | POST   | `/connector/documents`               |
+| `connector.customers.for_customer(ref).documents.stage(body)`  | POST   | `/connector/documents`               |
+| `connector.customers.for_customer(ref).documents.list(...)`    | GET    | `/connector/documents`               |
+| `connector.customers.for_customer(ref).documents.get(id)`      | GET    | `/connector/documents/{documentId}`  |
+| `connector.customers.for_customer(ref).documents.acknowledge(id, ref)` | POST | `/connector/documents/{documentId}/acknowledge` |
+| `connector.customers.for_customer(ref).documents.respond(id, body)` | POST | `/connector/documents/{documentId}/respond` |
+| `connector.customers.for_customer(ref).documents.send_document(id)` | POST | `/connector/documents/{documentId}/send` |
+| `connector.customers.for_customer(ref).documents.cancel_document(id)` | POST | `/connector/documents/{documentId}/cancel` |
+| `connector.customers.for_customer(ref).events.list(...)`       | GET    | `/connector/events`                  |
+| `connector.customers.for_customer(ref).advanced.mapper(body)`  | POST   | `/connector/mapper`                  |
+| `connector.customers.for_customer(ref).advanced.documents.ubl(id)` | GET | `/connector/documents/{documentId}/ubl` |
+| `connector.customers.for_customer(ref).advanced.documents.evidence(id)` | GET | `/connector/documents/{documentId}/evidence` |
+| `connector.customers.for_customer(ref).advanced.documents.evidence_bundle(id)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector.customers.for_customer(ref).advanced.documents.support_packet(id)` | GET | `/connector/documents/{documentId}/support-packet` |
+
+The remaining Connector rows are legacy compatibility helpers. They require a
+separately entitled legacy/Enterprise context and are not available to managed
+Connector credentials. Customer Mapper must be called through
+`customer.advanced.mapper(...)` and is preview-only.
+
+| Legacy compatibility method | Verb | Path |
+| --- | --- | --- |
+| `connector.advanced.preflight(body)`                           | POST   | `/connector/preflight`               |
+| `connector.advanced.send(body, idempotency_key=...)`           | POST   | `/connector/send`                    |
+| `connector.advanced.outbox.stage(body)`                        | POST   | `/connector/outbox`                  |
+| `connector.advanced.outbox.list(**params)`                     | GET    | `/connector/outbox`                  |
+| `connector.advanced.outbox.get(outbox_id)`                     | GET    | `/connector/outbox/{outboxId}`       |
+| `connector.advanced.outbox.send(outbox_id, force=...)`         | POST   | `/connector/outbox/{outboxId}/send`  |
+| `connector.advanced.outbox.send_batch(ids=..., limit=...)`     | POST   | `/connector/outbox/send`             |
+| `connector.advanced.outbox.cancel(outbox_id)`                  | DELETE | `/connector/outbox/{outboxId}`       |
+| `connector.advanced.mapper(body)`                              | POST   | `/connector/mapper`                  |
+| `connector.advanced.zen_input(body)`                           | POST   | `/connector/zen-input`               |
+| `connector.advanced.autopilot(body)`                           | POST   | `/connector/autopilot`               |
+| `connector.advanced.get_autopilot_run(autopilot_id)`           | GET    | `/connector/autopilot/{autopilotId}` |
+| `connector.advanced.send_autopilot_run(autopilot_id)`          | POST   | `/connector/autopilot/{autopilotId}/send` |
+| `connector.advanced.reconcile(status=..., since=...)`          | GET    | `/connector/reconcile`               |
+| `connector.advanced.mailboxes()`                               | GET    | `/connector/mailbox`                 |
+| `connector.advanced.repair_mailbox(body=None)`                 | POST   | `/connector/mailbox/repair`          |
+| `connector.advanced.update_mailbox_send_policy(customer_ref, body)` | PATCH | `/connector/mailbox/{customerRef}/send-policy` |
+| `connector.advanced.sync(customer_ref=..., cursor=..., limit=...)` | GET | `/connector/sync`                    |
 | `connector.get_document(document_id)`                          | GET    | `/connector/documents/{documentId}`  |
 | `connector.get_document_ubl(document_id)`                      | GET    | `/connector/documents/{documentId}/ubl` |
 | `connector.get_document_evidence(document_id)`                 | GET    | `/connector/documents/{documentId}/evidence` |
 | `connector.get_document_evidence_bundle(document_id)`          | GET    | `/connector/documents/{documentId}/evidence-bundle` |
 | `connector.get_document_support_packet(document_id)`           | GET    | `/connector/documents/{documentId}/support-packet` |
 | `connector.documents.support_packet(document_id)`              | GET    | `/connector/documents/{documentId}/support-packet` |
-| `connector.run_action(action_id, body=None)`                   | POST   | `/connector/actions/{actionId}`      |
-| `connector.status(document_id)`                                | GET    | `/connector/status/{documentId}`     |
-| `connector.inbox(**params)`                                    | GET    | `/connector/inbox`                   |
-| `connector.get_inbox_document(document_id)`                    | GET    | `/connector/inbox/{documentId}`      |
-| `connector.ack(document_id)`                                   | POST   | `/connector/inbox/{documentId}/ack`  |
-| `connector.events(**params)`                                   | GET    | `/connector/events`                  |
+| `connector.advanced.run_action(action_id, body=None)`          | POST   | `/connector/actions/{actionId}`      |
+| `connector.advanced.status(document_id)`                       | GET    | `/connector/status/{documentId}`     |
+| `connector.advanced.inbox(**params)`                           | GET    | `/connector/inbox`                   |
+| `connector.advanced.get_inbox_document(document_id)`           | GET    | `/connector/inbox/{documentId}`      |
+| `connector.advanced.ack(document_id)`                          | POST   | `/connector/inbox/{documentId}/ack`  |
+| `connector.advanced.events(**params)`                          | GET    | `/connector/events`                  |
 | `inbound.list(**params)`                                       | GET    | `/inbound/documents`                 |
 | `inbound.get(id)`                                              | GET    | `/inbound/documents/{id}`            |
 | `inbound.get_ubl(id)`                                          | GET    | `/inbound/documents/{id}/ubl`        |

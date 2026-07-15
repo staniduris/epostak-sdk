@@ -58,7 +58,29 @@ public class UblValidationException extends EPostakException {
             String requiredScope,
             String rule
     ) {
-        super(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
+        this(status, message, code, details, type, title, detail, instance, requestId,
+                requiredScope, rule, null, null, null, null);
+    }
+
+    public UblValidationException(
+            int status,
+            String message,
+            String code,
+            Object details,
+            String type,
+            String title,
+            String detail,
+            String instance,
+            String requestId,
+            String requiredScope,
+            String rule,
+            String field,
+            String nextAction,
+            Boolean retryable,
+            Integer retryAfter
+    ) {
+        super(status, message, code, details, type, title, detail, instance, requestId,
+                requiredScope, field, nextAction, retryable, retryAfter);
         this.rule = rule;
     }
 

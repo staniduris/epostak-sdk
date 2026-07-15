@@ -7,6 +7,7 @@ namespace EPostak;
 use EPostak\RateLimit;
 use EPostak\UblValidationException;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
@@ -96,6 +97,8 @@ class HttpClient
     {
         $omitFirmId = (bool) ($options['omitFirmId'] ?? false);
         unset($options['omitFirmId']);
+        $retryOnFailure = (bool) ($options['retryOnFailure'] ?? false);
+        unset($options['retryOnFailure']);
 
         $headers = [
             'Authorization' => 'Bearer ' . $this->tokenManager->getAccessToken(),
@@ -111,17 +114,41 @@ class HttpClient
             unset($options['headers']);
         }
 
+        // Connector mutating requests may be replayed after a retryable failure.
+        // Encode once and replay those exact bytes. Decoding back to an associative
+        // array would turn nested JSON objects (`{}`) into arrays (`[]`).
+        if ($retryOnFailure && array_key_exists('json', $options)) {
+            $snapshot = json_encode($options['json'], JSON_THROW_ON_ERROR);
+            unset($options['json']);
+            $options['body'] = $snapshot;
+
+            $hasContentType = false;
+            foreach ($headers as $name => $_value) {
+                if (strcasecmp((string) $name, 'Content-Type') === 0) {
+                    $hasContentType = true;
+                    break;
+                }
+            }
+            if (!$hasContentType) {
+                $headers['Content-Type'] = 'application/json';
+            }
+        }
+
         $options['headers'] = $headers;
 
         // Strip leading slash — Guzzle base_uri resolution needs relative paths
         $path = ltrim($path, '/');
 
-        $retryable = in_array(strtoupper($method), self::RETRYABLE_METHODS, true);
+        $retryable = $retryOnFailure || in_array(strtoupper($method), self::RETRYABLE_METHODS, true);
 
         for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             try {
                 $response = $this->client->request($method, $path, $options);
             } catch (GuzzleException $e) {
+                if ($e instanceof ConnectException && $retryable && $attempt < $this->maxRetries) {
+                    usleep((int) ($this->calculateDelay($attempt) * 1_000_000));
+                    continue;
+                }
                 throw new EPostakError(0, ['error' => $e->getMessage()]);
             }
 
@@ -130,7 +157,7 @@ class HttpClient
             // Capture rate-limit headers from every response
             $this->captureRateLimit($response->getHeaders());
 
-            // Retry on 429 or 5xx for safe methods
+            // Retry on 429 or 5xx only for safe, keyed, or server-idempotent requests.
             if ($retryable && $attempt < $this->maxRetries && ($statusCode === 429 || $statusCode >= 500)) {
                 $delay = $this->calculateDelay($attempt, $response);
                 usleep((int) ($delay * 1_000_000));
@@ -168,19 +195,19 @@ class HttpClient
      * Calculate the backoff delay for a retry attempt.
      *
      * Uses exponential backoff with jitter: min(base_delay * 2^attempt + jitter, 30s).
-     * Respects the Retry-After header on 429 responses.
+     * Respects Retry-After on every retryable response.
      *
      * @param int $attempt Current attempt number (0-based).
      * @param \Psr\Http\Message\ResponseInterface $response The HTTP response.
      * @return float Delay in seconds.
      */
-    private function calculateDelay(int $attempt, $response): float
+    private function calculateDelay(int $attempt, $response = null): float
     {
         $baseDelay = 0.5;
         $maxDelay = 30.0;
 
-        // Respect Retry-After header on 429
-        if ($response->getStatusCode() === 429 && $response->hasHeader('Retry-After')) {
+        // Respect Retry-After on every retryable response.
+        if ($response !== null && $response->hasHeader('Retry-After')) {
             $retryAfter = $response->getHeaderLine('Retry-After');
             if (is_numeric($retryAfter)) {
                 return min((float) $retryAfter, $maxDelay);
@@ -218,28 +245,44 @@ class HttpClient
 
         $path = ltrim($path, '/');
 
-        try {
-            $response = $this->client->request($method, $path, [
-                'headers' => $headers,
-            ]);
-        } catch (GuzzleException $e) {
-            throw new EPostakError(0, ['error' => $e->getMessage()]);
-        }
+        $retryable = in_array(strtoupper($method), self::RETRYABLE_METHODS, true);
 
-        $statusCode = $response->getStatusCode();
-
-        if ($statusCode >= 400) {
-            $body = $response->getBody()->getContents();
-            $decoded = [];
+        for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
             try {
-                $decoded = json_decode($body, true) ?? [];
-            } catch (\Throwable) {
-                $decoded = ['error' => $response->getReasonPhrase()];
+                $response = $this->client->request($method, $path, [
+                    'headers' => $headers,
+                ]);
+            } catch (GuzzleException $e) {
+                if ($retryable && $attempt < $this->maxRetries) {
+                    usleep((int) ($this->calculateDelay($attempt) * 1_000_000));
+                    continue;
+                }
+                throw new EPostakError(0, ['error' => $e->getMessage()]);
             }
-            throw self::buildApiError($statusCode, $decoded, $response->getHeaders());
+
+            $statusCode = $response->getStatusCode();
+            $this->captureRateLimit($response->getHeaders());
+
+            if ($retryable && $attempt < $this->maxRetries && ($statusCode === 429 || $statusCode >= 500)) {
+                usleep((int) ($this->calculateDelay($attempt, $response) * 1_000_000));
+                continue;
+            }
+
+            if ($statusCode >= 400) {
+                $body = $response->getBody()->getContents();
+                $decoded = [];
+                try {
+                    $decoded = json_decode($body, true) ?? [];
+                } catch (\Throwable) {
+                    $decoded = ['error' => $response->getReasonPhrase()];
+                }
+                throw self::buildApiError($statusCode, $decoded, $response->getHeaders());
+            }
+
+            return $response->getBody()->getContents();
         }
 
-        return $response->getBody()->getContents();
+        throw new EPostakError(0, ['error' => 'Max retries exceeded']);
     }
 
     /**

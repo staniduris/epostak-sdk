@@ -164,6 +164,17 @@ export async function request<T>(
   body?: unknown,
   options?: RequestOptions & { maxRetries?: number; onRateLimit?: (s: RateLimitState) => void },
 ): Promise<T> {
+  // Snapshot JSON bodies synchronously before token acquisition can yield.
+  // Callers may reuse or mutate nested request objects while OAuth refresh is
+  // in flight; the wire payload must represent call-time state.
+  let fetchBody: BodyInit | null = null;
+  const isJsonBody = body !== undefined && !(body instanceof FormData);
+  if (body instanceof FormData) {
+    fetchBody = body;
+  } else if (isJsonBody) {
+    fetchBody = JSON.stringify(body);
+  }
+
   const bearer =
     typeof tokenManagerOrKey === "string"
       ? tokenManagerOrKey
@@ -181,15 +192,8 @@ export async function request<T>(
     headers["Idempotency-Key"] = options.idempotencyKey;
   }
 
-  if (body !== undefined && !(body instanceof FormData)) {
+  if (isJsonBody) {
     headers["Content-Type"] = "application/json";
-  }
-
-  let fetchBody: BodyInit | null = null;
-  if (body instanceof FormData) {
-    fetchBody = body;
-  } else if (body !== undefined) {
-    fetchBody = JSON.stringify(body);
   }
 
   const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;

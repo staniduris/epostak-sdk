@@ -178,7 +178,9 @@ public final class EPostak {
     public BoxResource box() { return box; }
 
     /**
-     * Connector workflow for ERP send, preflight, inbox polling, ack, and events.
+     * Customer-scoped Connector documents and events for ERP integrations.
+     * Lower-level compatibility workflows are available via
+     * {@code connector().advanced()}.
      *
      * @return the Connector resource
      */
@@ -369,9 +371,9 @@ public final class EPostak {
         private String clientSecret;
         /** Base URL for the API. Defaults to {@code https://epostak.sk/api/v1}. */
         private String baseUrl;
-        /** Firm UUID for integrator key scoping. Optional. */
+        /** Firm UUID for legacy Enterprise/SAPI scoping. Omit for customerRef-scoped Connector calls. */
         private String firmId;
-        /** Maximum retries on 429/5xx for GET/DELETE. Defaults to 3. */
+        /** Maximum retries for GET/DELETE and server-idempotent Connector operations. Defaults to 3. */
         private int maxRetries = 3;
         /** Shared token manager (set internally by withFirm). */
         private TokenManager tokenManager;

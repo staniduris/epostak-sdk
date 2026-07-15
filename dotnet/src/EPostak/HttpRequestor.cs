@@ -13,6 +13,7 @@ namespace EPostak;
 /// </summary>
 internal sealed class HttpRequestor
 {
+    private static readonly HttpRequestOptionsKey<bool> RetryUnsafeOption = new("EPostak.RetryUnsafe");
     private readonly HttpClient _http;
     private readonly TokenManager _tokenManager;
     private readonly string? _firmId;
@@ -103,6 +104,38 @@ internal sealed class HttpRequestor
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
 
+    internal async Task<T> RequestIdempotentAsync<T>(HttpMethod method, string path, CancellationToken ct, bool omitFirmId = false)
+    {
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
+        request.Options.Set(RetryUnsafeOption, true);
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
+    internal async Task<T> RequestIdempotentAsync<T>(HttpMethod method, string path, object body, CancellationToken ct, bool omitFirmId = false)
+    {
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
+        request.Options.Set(RetryUnsafeOption, true);
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
+    internal async Task<T> RequestIdempotentAsync<T>(
+        HttpMethod method,
+        string path,
+        object body,
+        string idempotencyKey,
+        CancellationToken ct,
+        bool omitFirmId = false)
+    {
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
+        request.Options.Set(RetryUnsafeOption, true);
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        var json = JsonSerializer.Serialize(body, JsonOptions);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
     internal async Task<T> RequestAsync<T>(HttpMethod method, string path, object body, string? idempotencyKey, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
     {
         using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
@@ -121,9 +154,9 @@ internal sealed class HttpRequestor
     /// <param name="method">HTTP method.</param>
     /// <param name="path">API path appended to the base URL.</param>
     /// <param name="ct">Cancellation token.</param>
-    internal async Task RequestVoidAsync(HttpMethod method, string path, CancellationToken ct)
+    internal async Task RequestVoidAsync(HttpMethod method, string path, CancellationToken ct, bool omitFirmId = false)
     {
-        using var request = await BuildRequestAsync(method, path, ct).ConfigureAwait(false);
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
         await SendVoidAsync(request, ct).ConfigureAwait(false);
     }
 
@@ -227,19 +260,26 @@ internal sealed class HttpRequestor
     /// </summary>
     private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken ct)
     {
-        var retryable = RetryableMethods.Contains(request.Method);
+        var retryable = IsRetryableRequest(request);
+        var contentSnapshot = retryable && request.Content is not null
+            ? await request.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false)
+            : null;
 
         for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
             HttpResponseMessage response;
-            // Clone the request for retries (HttpRequestMessage can only be sent once)
-            using var req = attempt == 0 ? request : CloneRequest(request);
+            using var req = retryable ? CloneRequest(request, contentSnapshot) : request;
             try
             {
                 response = await _http.SendAsync(req, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
+                if (retryable && attempt < _maxRetries)
+                {
+                    await Task.Delay(GetRetryDelay(attempt, response: null), ct).ConfigureAwait(false);
+                    continue;
+                }
                 throw new EPostakException($"Network error: {ex.Message}", ex);
             }
 
@@ -273,18 +313,26 @@ internal sealed class HttpRequestor
     /// </summary>
     private async Task SendVoidAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        var retryable = RetryableMethods.Contains(request.Method);
+        var retryable = IsRetryableRequest(request);
+        var contentSnapshot = retryable && request.Content is not null
+            ? await request.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false)
+            : null;
 
         for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
             HttpResponseMessage response;
-            using var req = attempt == 0 ? request : CloneRequest(request);
+            using var req = retryable ? CloneRequest(request, contentSnapshot) : request;
             try
             {
                 response = await _http.SendAsync(req, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
+                if (retryable && attempt < _maxRetries)
+                {
+                    await Task.Delay(GetRetryDelay(attempt, response: null), ct).ConfigureAwait(false);
+                    continue;
+                }
                 throw new EPostakException($"Network error: {ex.Message}", ex);
             }
 
@@ -313,18 +361,26 @@ internal sealed class HttpRequestor
     /// </summary>
     private async Task<HttpResponseMessage> SendRawAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        var retryable = RetryableMethods.Contains(request.Method);
+        var retryable = IsRetryableRequest(request);
+        var contentSnapshot = retryable && request.Content is not null
+            ? await request.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false)
+            : null;
 
         for (var attempt = 0; attempt <= _maxRetries; attempt++)
         {
             HttpResponseMessage response;
-            using var req = attempt == 0 ? request : CloneRequest(request);
+            using var req = retryable ? CloneRequest(request, contentSnapshot) : request;
             try
             {
                 response = await _http.SendAsync(req, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
+                if (retryable && attempt < _maxRetries)
+                {
+                    await Task.Delay(GetRetryDelay(attempt, response: null), ct).ConfigureAwait(false);
+                    continue;
+                }
                 throw new EPostakException($"Network error: {ex.Message}", ex);
             }
 
@@ -358,7 +414,7 @@ internal sealed class HttpRequestor
     }
 
     /// <summary>
-    /// Calculate and await the backoff delay. Respects Retry-After header on 429.
+    /// Calculate and await the backoff delay. Respects Retry-After on every retryable response.
     /// Formula: min(base_delay * 2^attempt + jitter, 30s).
     /// </summary>
     private static async Task DelayForRetry(int attempt, HttpResponseMessage response, CancellationToken ct)
@@ -369,14 +425,14 @@ internal sealed class HttpRequestor
     /// <summary>
     /// Calculate the backoff delay as a TimeSpan. Safe to call before disposing the response.
     /// </summary>
-    private static TimeSpan GetRetryDelay(int attempt, HttpResponseMessage response)
+    private static TimeSpan GetRetryDelay(int attempt, HttpResponseMessage? response)
     {
         const double baseDelay = 0.5;
         const double maxDelay = 30.0;
 
         double delay;
 
-        if ((int)response.StatusCode == 429 && response.Headers.RetryAfter is not null)
+        if (response?.Headers.RetryAfter is not null)
         {
             if (response.Headers.RetryAfter.Delta is { } delta)
             {
@@ -400,12 +456,27 @@ internal sealed class HttpRequestor
     }
 
     /// <summary>Clone an HttpRequestMessage for retry (original can only be sent once).</summary>
-    private static HttpRequestMessage CloneRequest(HttpRequestMessage original)
+    private static bool IsRetryableRequest(HttpRequestMessage request) =>
+        RetryableMethods.Contains(request.Method) ||
+        request.Options.TryGetValue(RetryUnsafeOption, out var retryUnsafe) && retryUnsafe;
+
+    private static HttpRequestMessage CloneRequest(HttpRequestMessage original, byte[]? contentSnapshot)
     {
-        var clone = new HttpRequestMessage(original.Method, original.RequestUri);
+        var clone = new HttpRequestMessage(original.Method, original.RequestUri)
+        {
+            Version = original.Version,
+            VersionPolicy = original.VersionPolicy,
+        };
         foreach (var header in original.Headers)
             clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
-        clone.Content = original.Content;
+        if (original.Options.TryGetValue(RetryUnsafeOption, out var retryUnsafe))
+            clone.Options.Set(RetryUnsafeOption, retryUnsafe);
+        if (contentSnapshot is not null)
+        {
+            clone.Content = new ByteArrayContent(contentSnapshot);
+            foreach (var header in original.Content!.Headers)
+                clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
         return clone;
     }
 
@@ -427,6 +498,10 @@ internal sealed class HttpRequestor
         string? instance = null;
         string? requestId = null;
         string? requiredScope = null;
+        string? field = null;
+        string? nextAction = null;
+        bool? retryable = null;
+        int? retryAfter = null;
         List<string>? conflictKey = null;
         DuplicateInvoiceExistingDocument? existingDocument = null;
         string? ublRule = null;
@@ -483,6 +558,15 @@ internal sealed class HttpRequestor
                                 requiredScope = scopeProp.GetString();
                             if (errorProp.TryGetProperty("requestId", out var ridProp) && ridProp.ValueKind == JsonValueKind.String)
                                 requestId = ridProp.GetString();
+                            if (errorProp.TryGetProperty("field", out var fieldProp) && fieldProp.ValueKind == JsonValueKind.String)
+                                field = fieldProp.GetString();
+                            if (errorProp.TryGetProperty("nextAction", out var actionProp) && actionProp.ValueKind == JsonValueKind.String)
+                                nextAction = actionProp.GetString();
+                            else if (errorProp.TryGetProperty("next_action", out var snakeActionProp) && snakeActionProp.ValueKind == JsonValueKind.String)
+                                nextAction = snakeActionProp.GetString();
+                            if (errorProp.TryGetProperty("retryable", out var retryableProp)
+                                && retryableProp.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                                retryable = retryableProp.GetBoolean();
 
                             // 2026-05-12 audit: server emits error.rule for
                             // UBL_VALIDATION_ERROR (one of BR-02/BR-05/BR-06/
@@ -563,6 +647,13 @@ internal sealed class HttpRequestor
             }
         }
 
+        if (response.Headers.RetryAfter?.Delta is { } retryDelta)
+        {
+            var totalSeconds = retryDelta.TotalSeconds;
+            if (totalSeconds >= 0 && totalSeconds <= int.MaxValue)
+                retryAfter = (int)Math.Ceiling(totalSeconds);
+        }
+
         if (sawErrorObject && code == "DUPLICATE_INVOICE_NUMBER")
         {
             throw new DuplicateInvoiceNumberException(
@@ -577,7 +668,11 @@ internal sealed class HttpRequestor
                 requestId,
                 requiredScope,
                 conflictKey,
-                existingDocument);
+                existingDocument,
+                field,
+                nextAction,
+                retryable,
+                retryAfter);
         }
 
         if ((int)response.StatusCode == 422 && code == "UBL_VALIDATION_ERROR")
@@ -596,7 +691,11 @@ internal sealed class HttpRequestor
                 detail,
                 instance,
                 requestId,
-                requiredScope);
+                requiredScope,
+                field,
+                nextAction,
+                retryable,
+                retryAfter);
         }
 
         throw new EPostakException(
@@ -609,7 +708,11 @@ internal sealed class HttpRequestor
             detail,
             instance,
             requestId,
-            requiredScope);
+            requiredScope,
+            field,
+            nextAction,
+            retryable,
+            retryAfter);
     }
 
     /// <summary>

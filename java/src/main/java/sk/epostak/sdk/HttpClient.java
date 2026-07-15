@@ -201,6 +201,18 @@ public final class HttpClient {
         return request("POST", path, body, type, headers);
     }
 
+    public <T> T postIdempotentNoFirm(String path, Object body, Class<T> type, String idempotencyKey) {
+        Map<String, String> headers = idempotencyKey != null
+                ? Map.of("Idempotency-Key", idempotencyKey)
+                : Map.of();
+        return request("POST", path, body, type, headers, true, true);
+    }
+
+    /** POST for a server-declared idempotent lifecycle transition. */
+    public <T> T postRetryableNoFirm(String path, Object body, Class<T> type) {
+        return request("POST", path, body, type, Map.of(), true, true);
+    }
+
     /**
      * Perform a PATCH request with a JSON body and deserialize the response.
      *
@@ -233,6 +245,10 @@ public final class HttpClient {
         return request("PUT", path, body, type);
     }
 
+    public <T> T putNoFirm(String path, Object body, Class<T> type) {
+        return request("PUT", path, body, type, Map.of(), true);
+    }
+
     /**
      * Perform a DELETE request and deserialize the response.
      *
@@ -244,6 +260,10 @@ public final class HttpClient {
      */
     public <T> T delete(String path, Class<T> type) {
         return request("DELETE", path, null, type);
+    }
+
+    public <T> T deleteNoFirm(String path, Class<T> type) {
+        return request("DELETE", path, null, type, Map.of(), true);
     }
 
     /**
@@ -420,18 +440,35 @@ public final class HttpClient {
             builder.header("X-Firm-Id", firmId);
         }
 
-        HttpResponse<String> response;
-        try {
-            response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
-            throw new EPostakException(0, e.getMessage());
-        }
+        HttpRequest request = builder.build();
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            HttpResponse<String> response;
+            try {
+                response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new EPostakException(0, e.getMessage());
+            } catch (IOException e) {
+                if (attempt < maxRetries) {
+                    sleepForRetry(calculateDelayMs(attempt, null));
+                    continue;
+                }
+                throw new EPostakException(0, e.getMessage());
+            }
 
-        if (response.statusCode() >= 400) {
-            handleError(response.statusCode(), response.body(), response.headers());
+            int status = response.statusCode();
+            if (attempt < maxRetries && (status == 429 || status >= 500)) {
+                sleepForRetry(calculateDelayMs(attempt, response));
+                continue;
+            }
+
+            captureRateLimit(response.headers());
+            if (status >= 400) {
+                handleError(status, response.body(), response.headers());
+            }
+            return response.body();
         }
-        return response.body();
+        throw new EPostakException(0, "Max retries exceeded");
     }
 
     /**
@@ -470,7 +507,19 @@ public final class HttpClient {
     }
 
     private <T> T request(String method, String path, Object body, Class<T> type, Map<String, String> extraHeaders, boolean omitFirmId) {
-        return requestTyped(method, path, body, TypeToken.get(type), extraHeaders, omitFirmId);
+        return request(method, path, body, type, extraHeaders, omitFirmId, false);
+    }
+
+    private <T> T request(
+            String method,
+            String path,
+            Object body,
+            Class<T> type,
+            Map<String, String> extraHeaders,
+            boolean omitFirmId,
+            boolean retryUnsafe
+    ) {
+        return requestTyped(method, path, body, TypeToken.get(type), extraHeaders, omitFirmId, retryUnsafe);
     }
 
     @SuppressWarnings("unchecked")
@@ -493,6 +542,19 @@ public final class HttpClient {
             Map<String, String> extraHeaders,
             boolean omitFirmId
     ) {
+        return requestTyped(method, path, body, typeToken, extraHeaders, omitFirmId, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T requestTyped(
+            String method,
+            String path,
+            Object body,
+            TypeToken<T> typeToken,
+            Map<String, String> extraHeaders,
+            boolean omitFirmId,
+            boolean retryUnsafe
+    ) {
         HttpRequest.BodyPublisher publisher = (body != null)
                 ? HttpRequest.BodyPublishers.ofString(GSON.toJson(body), StandardCharsets.UTF_8)
                 : HttpRequest.BodyPublishers.noBody();
@@ -513,7 +575,7 @@ public final class HttpClient {
             builder.header(e.getKey(), e.getValue());
         }
 
-        return (T) executeTyped(builder.build(), typeToken.getType());
+        return (T) executeTyped(builder.build(), typeToken.getType(), retryUnsafe);
     }
 
     private <T> T execute(HttpRequest request, Class<T> type) {
@@ -523,28 +585,33 @@ public final class HttpClient {
     }
 
     private Object executeTyped(HttpRequest request, Type responseType) {
-        boolean retryable = RETRYABLE_METHODS.contains(request.method());
+        return executeTyped(request, responseType, false);
+    }
+
+    private Object executeTyped(HttpRequest request, Type responseType, boolean retryUnsafe) {
+        boolean retryable = RETRYABLE_METHODS.contains(request.method()) || retryUnsafe;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             HttpResponse<String> response;
             try {
                 response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            } catch (IOException | InterruptedException e) {
-                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new EPostakException(0, e.getMessage());
+            } catch (IOException e) {
+                if (retryable && attempt < maxRetries) {
+                    sleepForRetry(calculateDelayMs(attempt, null));
+                    continue;
+                }
                 throw new EPostakException(0, e.getMessage());
             }
 
             int status = response.statusCode();
 
-            // Retry on 429 or 5xx for safe methods
+            // Retry only safe requests and explicitly opted-in Connector operations.
             if (retryable && attempt < maxRetries && (status == 429 || status >= 500)) {
                 long delayMs = calculateDelayMs(attempt, response);
-                try {
-                    Thread.sleep(delayMs);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new EPostakException(0, "Retry interrupted");
-                }
+                sleepForRetry(delayMs);
                 continue;
             }
 
@@ -560,6 +627,11 @@ public final class HttpClient {
                 return null;
             }
 
+            // Void callers intentionally discard any defensive 200 response body.
+            if (responseType == Void.class) {
+                return null;
+            }
+
             return GSON.fromJson(response.body(), responseType);
         }
 
@@ -569,13 +641,13 @@ public final class HttpClient {
     /**
      * Calculate the backoff delay in milliseconds.
      * Uses exponential backoff with jitter: min(base_delay * 2^attempt + jitter, 30s).
-     * Respects the Retry-After header on 429 responses.
+     * Respects the Retry-After header on every retryable response.
      */
     private long calculateDelayMs(int attempt, HttpResponse<?> response) {
         double baseDelay = 0.5;
         double maxDelay = 30.0;
 
-        if (response.statusCode() == 429) {
+        if (response != null) {
             var retryAfter = response.headers().firstValue("Retry-After");
             if (retryAfter.isPresent()) {
                 try {
@@ -590,6 +662,15 @@ public final class HttpClient {
         double jitter = ThreadLocalRandom.current().nextDouble(); // 0–1s of jitter
         double delay = Math.min(baseDelay * Math.pow(2, attempt) + jitter, maxDelay);
         return (long) (delay * 1000);
+    }
+
+    private static void sleepForRetry(long delayMs) {
+        try {
+            Thread.sleep(delayMs);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new EPostakException(0, "Retry interrupted");
+        }
     }
 
     /**
@@ -622,6 +703,10 @@ public final class HttpClient {
         String instance = null;
         String requestId = null;
         String requiredScope = null;
+        String field = null;
+        String nextAction = null;
+        Boolean retryable = null;
+        Integer retryAfter = null;
         JsonObject errorObjForDup = null;
 
         try {
@@ -667,6 +752,18 @@ public final class HttpClient {
                         if (errorObj.has("required_scope") && errorObj.get("required_scope").isJsonPrimitive()) {
                             requiredScope = errorObj.get("required_scope").getAsString();
                         }
+                        if (errorObj.has("field") && errorObj.get("field").isJsonPrimitive()) {
+                            field = errorObj.get("field").getAsString();
+                        }
+                        if (errorObj.has("nextAction") && errorObj.get("nextAction").isJsonPrimitive()) {
+                            nextAction = errorObj.get("nextAction").getAsString();
+                        } else if (errorObj.has("next_action") && errorObj.get("next_action").isJsonPrimitive()) {
+                            nextAction = errorObj.get("next_action").getAsString();
+                        }
+                        if (errorObj.has("retryable") && errorObj.get("retryable").isJsonPrimitive()
+                                && errorObj.get("retryable").getAsJsonPrimitive().isBoolean()) {
+                            retryable = errorObj.get("retryable").getAsBoolean();
+                        }
                     }
                 } else if (obj.has("message") && obj.get("message").isJsonPrimitive()) {
                     message = obj.get("message").getAsString();
@@ -693,25 +790,37 @@ public final class HttpClient {
                 String www = headers.firstValue("www-authenticate").orElse(null);
                 requiredScope = parseRequiredScopeFromHeader(www);
             }
+            String retryAfterValue = headers.firstValue("retry-after").orElse(null);
+            if (retryAfterValue != null && retryAfterValue.trim().matches("\\d+")) {
+                try {
+                    retryAfter = Integer.valueOf(retryAfterValue.trim());
+                } catch (NumberFormatException ignored) {
+                    retryAfter = null;
+                }
+            }
         }
 
         if ("DUPLICATE_INVOICE_NUMBER".equals(code) && errorObjForDup != null) {
             throw buildDuplicateInvoiceException(
                 status, message, code, details, type, title, detail, instance,
-                requestId, requiredScope, errorObjForDup);
+                requestId, requiredScope, field, nextAction, retryable, retryAfter, errorObjForDup);
         }
         if ("UBL_VALIDATION_ERROR".equals(code)) {
             // Extract rule from first entry in details list or from the error detail field.
             String rule = extractUblRule(details, detail);
-            throw new UblValidationException(status, message, code, details, type, title, detail, instance, requestId, requiredScope, rule);
+            throw new UblValidationException(status, message, code, details, type, title, detail, instance,
+                    requestId, requiredScope, rule, field, nextAction, retryable, retryAfter);
         }
-        throw new EPostakException(status, message, code, details, type, title, detail, instance, requestId, requiredScope);
+        throw new EPostakException(status, message, code, details, type, title, detail, instance,
+                requestId, requiredScope, field, nextAction, retryable, retryAfter);
     }
 
     private static DuplicateInvoiceNumberException buildDuplicateInvoiceException(
             int status, String message, String code, Object details,
             String type, String title, String detail, String instance,
-            String requestId, String requiredScope, JsonObject errorObj) {
+            String requestId, String requiredScope,
+            String field, String nextAction, Boolean retryable, Integer retryAfter,
+            JsonObject errorObj) {
         java.util.List<String> conflictKey = null;
         if (errorObj.has("conflictKey") && errorObj.get("conflictKey").isJsonArray()) {
             conflictKey = new java.util.ArrayList<>();
@@ -743,7 +852,8 @@ public final class HttpClient {
 
         return new DuplicateInvoiceNumberException(
             status, message, code, details, type, title, detail, instance,
-            requestId, requiredScope, conflictKey, existing
+            requestId, requiredScope, conflictKey, existing,
+            field, nextAction, retryable, retryAfter
         );
     }
 

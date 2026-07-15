@@ -1,6 +1,7 @@
 # epostak/sdk
 
-Official PHP SDK for the [ePostak Enterprise API](https://epostak.sk/api/docs/enterprise) -- Peppol e-invoicing for Slovakia and the EU.
+Official PHP SDK for the [ePošťák APIs](https://epostak.sk/api/docs) -- managed
+Connector workflows, the Enterprise API, and SAPI-SK interoperability.
 
 Requires PHP 8.1+ and Guzzle 7.
 
@@ -8,16 +9,92 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ## Major release API shape
 
-PHP `1.0.0` is a breaking workflow-first release:
+PHP `1.1.0` is the current workflow-first source release with the managed
+Connector surface:
 
 - Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
-- Enterprise ERP/integrator flow: `$client->enterprise->connector->customers->for("erp-customer")->submitDocument(...)`
+- Connector ERP/integrator flow: `$client->connector->customers->for("erp-customer")->documents->send(...)`
 - Enterprise API facade flow: `$client->enterprise->payloads->validate(...)`, `$client->enterprise->events->pull(...)`, `$client->enterprise->documents->supportPacket(...)`
 - SAPI-SK interoperable flow: `$client->sapi->participants->for("0245:1234567890")->documents->send(...)`
 
-Enterprise `firmId` applies only to firm-scoped Enterprise calls. Connector
-customer-scoped calls inject `customerRef` and omit `X-Firm-Id`. SAPI document
-calls always send `X-Peppol-Participant-Id`.
+Connector is the recommended ERP path; Enterprise is the granular firm-scoped
+API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
+integrator, approves and Peppol-registers its firms, and issues Connector
+credentials. The integrator then chooses and stores a stable `customerRef` for
+each approved firm in the dashboard. The SDK cannot create or discover firms.
+
+Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
+then set `customerRef` in the integrator dashboard. Connector omits
+`X-Firm-Id`; SAPI always sends `X-Peppol-Participant-Id`.
+
+Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
+[Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## Connector quickstart
+
+```php
+use EPostak\EPostak;
+
+$connectorClient = new EPostak([
+    'clientId' => getenv('EPOSTAK_CONNECTOR_CLIENT_ID'),
+    'clientSecret' => getenv('EPOSTAK_CONNECTOR_CLIENT_SECRET'),
+]);
+$customer = $connectorClient->connector->customers->for('erp-acme');
+$document = $customer->documents->send([
+    'externalId' => 'invoice-2026-0042',
+    'type' => 'invoice',
+    'number' => '2026-0042',
+    'recipient' => ['country' => 'SK', 'taxId' => '2120123456'],
+    'lines' => [['description' => 'Monthly licence', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23]],
+]);
+```
+
+The integrator owns the stable `customerRef` after ePošťák has approved and
+Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+immediately by default, and derives a stable idempotency key from `customerRef`
+and `externalId`.
+
+```php
+$events = $customer->events->list(['limit' => 50]);
+$configuredWebhook = $connectorClient->connector->webhook->configure(
+    'https://erp.example.com/webhooks/epostak',
+    ['document.received', 'document.delivered']
+);
+if (isset($configuredWebhook['secret'])) {
+    // Persist this value in your server-side secret manager now. It is returned only once.
+    $oneTimeWebhookSecret = $configuredWebhook['secret'];
+}
+$connectorClient->connector->webhook->test('erp-acme');
+```
+
+Push uses the same canonical event item as polling with `customerRef` at the
+root. `WebhookSignature::verify(...)` verifies HMAC-SHA256 over
+`timestamp . '.' . rawBody`.
+
+### Acknowledge locally or respond to the supplier
+
+```php
+$receivedDocumentId = 'document-id-from-list-or-event';
+$customer->documents->acknowledge($receivedDocumentId, 'erp:' . $receivedDocumentId);
+$response = $customer->documents->respond($receivedDocumentId, [
+    'status' => 'accepted',
+    'note' => 'Imported and accepted',
+]);
+
+// Direct alternative (do not call both); customerRef is still mandatory:
+// $connectorClient->connector->documents->respond(
+//     $receivedDocumentId, 'erp-acme', ['status' => 'accepted']
+// );
+```
+
+`acknowledge` only records that the inbound document was processed locally; it
+does not notify the supplier. `respond` sends the network business response via
+`POST /connector/documents/{documentId}/respond?customerRef=...`. Use only the
+business statuses `received`, `in_process`, `under_query`,
+`conditionally_accepted`, `rejected`, `accepted`, or `paid`, with an optional
+`note`. The Connector handles Peppol response codes and XML; do not send either.
+The result reports `response.delivery` as `sent` or `queued` and marks safe
+replays with `idempotent`.
 
 ---
 
@@ -57,13 +134,28 @@ allows.
 
 ## Recent changes
 
-### Unreleased — 2026-07-12
+### Included in v1.1.0 — 2026-07-14
+
+- Connector is canonical at `$client->connector`; the existing Enterprise
+  namespace alias remains silently supported.
+- ePošťák approves the integrator and Peppol firms; the integrator stores its
+  own stable `customerRef` in the dashboard.
+- Customer document creation snapshots the request, validates explicit
+  1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
+  only when safe. Lifecycle calls are server-idempotent; `409` is never retried.
+- `EPostakError` exposes `getField()`, `getNextAction()`, `isRetryable()`,
+  `getRequestId()`, and `getRetryAfter()`.
+- `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
+  points before hashing; `U+0085` is preserved.
+- `document.cancelled` is a first-class business event.
+
+### Included in v1.1.0 — 2026-07-12
 
 - JSON billing payloads now expose the live receiver address, `prepaidAmount`,
   `prepayments`, and advanced line-item VAT/classification fields from the
   Enterprise OpenAPI.
 
-### Unreleased — 2026-07-01
+### Included in v1.1.0 — 2026-07-01
 
 - Enterprise API facade helpers for Payload Assistant validation, pull/ack
   event handling, and document support packets:
@@ -71,11 +163,13 @@ allows.
   `$client->enterprise->events->pull(...)`, and
   `$client->enterprise->documents->supportPacket(...)`.
 
-### Unreleased — 2026-06-30
+### Included in v1.1.0 — 2026-06-30
 
-- `$client->connector->mapper(...)` and customer-scoped
-  `$client->enterprise->connector->customers->for($customerRef)->mapper(...)`
-  cover `/connector/mapper`.
+- Customer-scoped
+  `$client->connector->customers->for($customerRef)->advanced->mapper(...)`
+  is the managed, preview-only Mapper flow. Top-level
+  `$client->connector->advanced->mapper(...)` remains a legacy compatibility
+  alias and is unavailable with managed Connector credentials.
 - `$client->box` / `$client->enterprise->box` covers ePošťák Box list, create
   with `payloadXml`, detail, schedule, send-now, retry, and cancel over
   `/box/items`.
@@ -87,9 +181,10 @@ allows.
   Audit, and Integrator surfaces.
 - `$client->sapi->participants->for($participantId)->documents` requires
   participant scoping before SAPI document send/receive/get/acknowledge.
-- `$client->enterprise->connector->customers->for($customerRef)` injects
+- `$client->connector->customers->for($customerRef)` injects
   `customerRef` and keeps `X-Firm-Id` off customer-managed Connector calls.
-- `$client->enterprise->connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
+- The Connector compatibility surface includes preflight, Zen input, Autopilot,
+  reconcile, mailbox, sync, document evidence, and event polling.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 
 ### v0.10.0 — 2026-05-18
@@ -104,8 +199,15 @@ allows.
 
 ## Installation
 
+The PHP SDK is currently distributed as reviewed source, not through Packagist.
+Clone this repository, then add its `php/` directory as a Composer path
+repository in your application:
+
 ```bash
-composer require epostak/sdk
+git clone https://github.com/staniduris/epostak-sdk.git
+cd /path/to/your-project
+composer config repositories.epostak path /path/to/epostak-sdk/php
+composer require epostak/sdk:^1.1
 ```
 
 ---
@@ -114,6 +216,7 @@ composer require epostak/sdk
 
 ```php
 use EPostak\EPostak;
+use EPostak\EPostakError;
 
 $client = new EPostak(['clientId' => 'sk_live_xxxxx', 'clientSecret' => 'your-client-secret']);
 
@@ -136,98 +239,93 @@ echo $result['status'];      // 'SENT'
 
 ### Connector golden path for ERP developers
 
-Use `$client->enterprise->connector` for the ERP workflow instead of building raw HTTP
-calls. The SDK handles OAuth token minting and refresh automatically after you
-create the client.
+Start from the stable `customerRef` configured by the integrator in the
+dashboard after ePošťák approves and Peppol-registers the firm. There is no SDK
+method for creating or discovering firms.
 
 ```php
-$invoice = [
-    'receiverPeppolId' => '0245:1234567890',
-    'document' => [
-        'receiverName' => 'Firma s.r.o.',
-        'invoiceNumber' => 'FA-2026-001',
-        'issueDate' => '2026-06-04',
-        'dueDate' => '2026-06-18',
-        'items' => [
-            ['description' => 'Služby', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23],
-        ],
+$connectorClient = new EPostak([
+    'clientId' => getenv('EPOSTAK_CONNECTOR_CLIENT_ID'),
+    'clientSecret' => getenv('EPOSTAK_CONNECTOR_CLIENT_SECRET'),
+]);
+$customer = $connectorClient->connector->customers->for('erp-customer-1');
+$document = $customer->documents->send([
+    'externalId' => 'FA-2026-001',
+    'type' => 'invoice',
+    'number' => 'FA-2026-001',
+    'issueDate' => '2026-07-14',
+    'dueDate' => '2026-07-28',
+    'currency' => 'EUR',
+    'recipient' => ['country' => 'SK', 'taxId' => '2120123456'],
+    'lines' => [
+        ['description' => 'Služby', 'quantity' => 1, 'unitPrice' => 100, 'vatRate' => 23],
     ],
-];
-
-$preflight = $client->enterprise->connector->preflight($invoice);
-if (!$preflight['ready']) {
-    var_dump($preflight['repairReport']['blocking']);
-    throw new RuntimeException('Invoice is not ready for Peppol delivery');
-}
-
-$staged = $client->enterprise->connector->stageOutbox([
-    'items' => [[
-        'externalId' => 'FA-2026-001',
-        'idempotencyKey' => 'erp-fa-2026-001',
-        'payload' => $invoice,
-    ]],
 ]);
 
-$sent = $client->enterprise->connector->sendOutboxItem($staged['items'][0]['outboxId']);
-if (empty($sent['documentId'])) {
-    throw new RuntimeException('Staged invoice was not sent');
+$page = $customer->documents->list(['state' => 'needs_attention']);
+$events = $customer->events->list(['limit' => 50]);
+foreach ($page['documents'] as $received) {
+    if ($received['direction'] === 'inbound') {
+        $customer->documents->acknowledge($received['id'], 'erp:' . $received['id']);
+    }
 }
+$ubl = $customer->advanced->documents->ubl($document['id']);
+$evidence = $customer->advanced->documents->evidence($document['id']);
+$evidenceBundle = $customer->advanced->documents->evidenceBundle($document['id']);
+$supportPacket = $customer->advanced->documents->supportPacket($document['id']);
+echo $document['id'] . ' ' . $events['nextCursor'];
+```
 
-$status = $client->enterprise->connector->status($sent['documentId']);
+Every customer-scoped get, acknowledge, lifecycle, UBL, and evidence request
+appends the URL-encoded `customerRef` query. The server verifies the document
+against that exact approved firm and configured reference.
 
-$inbox = $client->enterprise->connector->inbox(['limit' => 20]);
-foreach ($inbox['documents'] as $doc) {
-    $client->enterprise->connector->ack($doc['documentId']);
+The SDK injects `customerRef`, omits `X-Firm-Id`, and applies the backend
+ECMAScript `TrimString` set (`0009-000D`, `0020`, `00A0`, `1680`,
+`2000-200A`, `2028-2029`, `202F`, `205F`, `3000`, `FEFF`) to `customerRef`
+and `externalId`; `U+0085` is preserved. It then derives a stable bounded key
+as `connector:v1:` plus SHA-256 of the two UTF-8 values, each prefixed by its
+four-byte big-endian byte length. Explicit keys must be 1-255 UTF-8 bytes and
+are otherwise unchanged. Use
+`$customer->documents->stage(...)` instead of `send(...)` when the ERP must hold
+a document for review, then call `$customer->documents->sendDocument($id)` or
+`cancelDocument($id)`.
+
+Mapper is a customer-scoped preview/normalization helper; it never stages or
+sends a document:
+
+```php
+$preview = $customer->advanced->mapper([
+    'templateKey' => 'pohoda-csv-v1',
+    'sourceType' => 'csv',
+    'sourceText' => $csv,
+]);
+$normalized = $preview['document'];
+```
+
+Managed Connector credentials support customer documents/events, one global
+webhook, audited document evidence, and Mapper preview. Legacy preflight, raw send, Outbox,
+Autopilot, reconciliation, mailbox, sync, and action helpers remain supported
+source-compatibility aliases; availability depends on the credential's product
+entitlement. The Connector property under the Enterprise namespace also
+remains silently supported.
+
+### Connector errors and retries
+
+```php
+try {
+    $customer->documents->send($invoice);
+} catch (EPostakError $error) {
+    error_log((string) $error->getErrorCode() . ' ' . $error->getMessage());
+    error_log((string) $error->getField() . ' ' . (string) $error->getNextAction());
+    error_log(json_encode([$error->isRetryable(), $error->getRequestId(), $error->getRetryAfter()]));
 }
-
-// Evidence is shared with the Enterprise document API.
-$evidence = $client->enterprise->documents->evidence($sent['documentId']);
-echo $status['status'];
 ```
 
-For immediate send without staging:
-
-```php
-$sent = $client->enterprise->connector->send($invoice, 'erp-fa-2026-001-send');
-echo $sent['documentId'];
-```
-
-Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
-ERP sync jobs one place to read exceptions:
-
-```php
-$run = $client->enterprise->connector->autopilot([
-    'customerRef' => 'erp-customer-1',
-    'mode' => 'shadow',
-    'externalId' => 'FA-2026-001',
-    'idempotencyKey' => 'erp-fa-2026-001',
-    'payload' => $invoice,
-]);
-$sentRun = $client->enterprise->connector->sendAutopilotRun($run['autopilotId']);
-$exceptions = $client->enterprise->connector->reconcile(['status' => 'exceptions']);
-echo $sentRun['lifecycleStatus'] . ' ' . $exceptions['total'];
-```
-
-Customer-scoped Connector calls are the preferred integrator shape when you
-already know the managed ERP customer:
-
-```php
-$customer = $client->enterprise->connector->customers->for('erp-customer-1');
-$run = $customer->submitDocument([
-    'externalId' => 'FA-2026-001',
-    'idempotencyKey' => 'erp-fa-2026-001',
-    'payload' => $invoice,
-]);
-echo $run['autopilotId'];
-```
-
-Common sandbox scenarios to test:
-
-- nonexistent participant or unsupported document type: `$preflight['ready'] === false` with blocking `repairReport` items
-- invalid UBL or missing buyer/seller data: `preflight` or `send` returns validation details in `EPostakError`
-- duplicate idempotency key: `409 idempotency_conflict`
-- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `$client->enterprise->connector->inbox(...)`, store the payload, then call `$client->enterprise->connector->ack($documentId)`
+Keyed document creation retries network failures, `429`, and every `5xx` while
+reusing the exact body and key. Lifecycle send/cancel/acknowledge calls are
+server-idempotent and use the same policy. `Retry-After` is honored; `409` is
+always surfaced once and never retried automatically.
 
 ---
 
@@ -256,9 +354,11 @@ $participant->documents->send([
 | Key prefix  | Use case                                            |
 | ----------- | --------------------------------------------------- |
 | `sk_live_*` | Direct access -- acts on behalf of your own firm    |
-| `sk_int_*`  | Integrator access -- acts on behalf of client firms |
+| `sk_int_*`  | Product-scoped integrator access; ePošťák approves Connector firms and the integrator configures `customerRef` |
 
-Generate keys in your ePostak firm settings or via the dashboard.
+Generate Enterprise keys in ePošťák firm Settings or via the dashboard.
+ePošťák issues Connector credentials after approval; the integrator configures
+`customerRef` for each approved Peppol firm in the dashboard.
 
 ### Constructor options
 
@@ -271,9 +371,11 @@ $client = new EPostak([
 ]);
 ```
 
-Connector V2 integrator calls do not need `firmId`; pass your ERP customer key
-as `customerRef` on Connector requests. Use `firmId` or `withFirm(...)` only
-for legacy Enterprise API calls that target one firm directly.
+Managed Connector calls use Connector credentials and the integrator's stored
+`customerRef` for an ePošťák-approved Peppol firm and do not need `firmId`.
+Ordinary Enterprise credentials cannot provision or scout Connector firms. Use
+`firmId` or `withFirm(...)` only for Enterprise calls
+that target one firm directly.
 
 Production is the SDK default: Enterprise `https://epostak.sk/api/v1`, SAPI
 `https://epostak.sk/sapi/v1`, OAuth origin `https://epostak.sk`. For test
@@ -783,12 +885,13 @@ integrations should use `$client->enterprise->payloads->extract`.
 
 ---
 
-## Integrator Mode
+## Enterprise Integrator Mode
 
-Use `sk_int_*` keys to act on behalf of client firms. Integrator keys unlock multi-tenant endpoints.
-Use `firmId` only for legacy firm-scoped Enterprise API calls. Connector V2
-calls resolve the managed firm from `customerRef`, so the SDK does not send
-`X-Firm-Id` for those methods even if the client has `firmId`.
+This section describes Enterprise `sk_int_*` credentials and multi-tenant
+Enterprise endpoints only. It does not provision Connector. Managed Connector
+uses its own approved credentials; the integrator chooses each stable
+`customerRef` in the dashboard after ePošťák approves the firm. Setting
+`firmId` does not change the Connector entitlement.
 
 ```php
 // Option 1: pass firmId in constructor
@@ -799,8 +902,8 @@ $base = new EPostak(['clientId' => 'sk_int_xxxxx', 'clientSecret' => 'your-secre
 $clientA = $base->withFirm('firm-uuid-a');
 $clientB = $base->withFirm('firm-uuid-b');
 
-$clientA->documents->send([...]);
-$clientB->documents->inbox->list();
+$clientA->enterprise->documents->send([...]);
+$clientB->enterprise->documents->inbox->list();
 ```
 
 ### Integrator-only endpoints
@@ -940,36 +1043,58 @@ try {
 | `box->sendNow($itemId)`                                      | POST   | `/box/items/{itemId}/send-now`       |
 | `box->retry($itemId)`                                        | POST   | `/box/items/{itemId}/retry`          |
 | `box->cancel($itemId)`                                       | POST   | `/box/items/{itemId}/cancel`         |
-| `connector->preflight($body)`                                | POST   | `/connector/preflight`               |
-| `connector->send($body, $idempotencyKey)`                    | POST   | `/connector/send`                    |
-| `connector->stageOutbox($body)`                              | POST   | `/connector/outbox`                  |
-| `connector->listOutbox($params)`                             | GET    | `/connector/outbox`                  |
-| `connector->getOutboxItem($outboxId)`                        | GET    | `/connector/outbox/{outboxId}`       |
-| `connector->sendOutboxItem($outboxId, $force)`               | POST   | `/connector/outbox/{outboxId}/send`  |
-| `connector->sendOutboxBatch($body)`                          | POST   | `/connector/outbox/send`             |
-| `connector->cancelOutboxItem($outboxId)`                     | DELETE | `/connector/outbox/{outboxId}`       |
-| `connector->mapper($body)`                                    | POST   | `/connector/mapper`                  |
-| `connector->zenInput($body)`                                  | POST   | `/connector/zen-input`               |
-| `connector->autopilot($body)`                                | POST   | `/connector/autopilot`               |
-| `connector->getAutopilotRun($autopilotId)`                   | GET    | `/connector/autopilot/{autopilotId}` |
-| `connector->sendAutopilotRun($autopilotId)`                  | POST   | `/connector/autopilot/{autopilotId}/send` |
-| `connector->reconcile($params)`                              | GET    | `/connector/reconcile`               |
-| `connector->mailboxes()`                                      | GET    | `/connector/mailbox`                 |
-| `connector->repairMailbox($body)`                             | POST   | `/connector/mailbox/repair`          |
-| `connector->updateMailboxSendPolicy($customerRef, $body)`     | PATCH  | `/connector/mailbox/{customerRef}/send-policy` |
-| `connector->sync($params)`                                    | GET    | `/connector/sync`                    |
+| `connector->customers->for($ref)->documents->send($body)`    | POST   | `/connector/documents`               |
+| `connector->customers->for($ref)->documents->stage($body)`   | POST   | `/connector/documents`               |
+| `connector->customers->for($ref)->documents->list($params)`  | GET    | `/connector/documents`               |
+| `connector->customers->for($ref)->documents->get($id)`       | GET    | `/connector/documents/{documentId}`  |
+| `connector->customers->for($ref)->documents->acknowledge($id, $ref)` | POST | `/connector/documents/{documentId}/acknowledge` |
+| `connector->customers->for($ref)->documents->respond($id, $body)` | POST | `/connector/documents/{documentId}/respond` |
+| `connector->customers->for($ref)->documents->sendDocument($id)` | POST | `/connector/documents/{documentId}/send` |
+| `connector->customers->for($ref)->documents->cancelDocument($id)` | POST | `/connector/documents/{documentId}/cancel` |
+| `connector->customers->for($ref)->events->list($params)`     | GET    | `/connector/events`                  |
+| `connector->customers->for($ref)->advanced->mapper($body)`   | POST   | `/connector/mapper`                  |
+| `connector->customers->for($ref)->advanced->documents->ubl($id)` | GET | `/connector/documents/{documentId}/ubl` |
+| `connector->customers->for($ref)->advanced->documents->evidence($id)` | GET | `/connector/documents/{documentId}/evidence` |
+| `connector->customers->for($ref)->advanced->documents->evidenceBundle($id)` | GET | `/connector/documents/{documentId}/evidence-bundle` |
+| `connector->customers->for($ref)->advanced->documents->supportPacket($id)` | GET | `/connector/documents/{documentId}/support-packet` |
+
+The remaining Connector rows are legacy compatibility helpers. They require a
+separately entitled legacy/Enterprise context and are not available to managed
+Connector credentials. Customer Mapper must be called through
+`$customer->advanced->mapper(...)` and is preview-only.
+
+| Legacy compatibility method | Verb | Path |
+| --- | --- | --- |
+| `connector->advanced->preflight($body)`                      | POST   | `/connector/preflight`               |
+| `connector->advanced->send($body, $idempotencyKey)`          | POST   | `/connector/send`                    |
+| `connector->advanced->outbox->stage($body)`                  | POST   | `/connector/outbox`                  |
+| `connector->advanced->outbox->list($params)`                 | GET    | `/connector/outbox`                  |
+| `connector->advanced->outbox->get($outboxId)`                | GET    | `/connector/outbox/{outboxId}`       |
+| `connector->advanced->outbox->send($outboxId, $force)`       | POST   | `/connector/outbox/{outboxId}/send`  |
+| `connector->advanced->outbox->sendBatch($body)`              | POST   | `/connector/outbox/send`             |
+| `connector->advanced->outbox->cancel($outboxId)`             | DELETE | `/connector/outbox/{outboxId}`       |
+| `connector->advanced->mapper($body)`                         | POST   | `/connector/mapper`                  |
+| `connector->advanced->zenInput($body)`                       | POST   | `/connector/zen-input`               |
+| `connector->advanced->autopilot($body)`                      | POST   | `/connector/autopilot`               |
+| `connector->advanced->getAutopilotRun($autopilotId)`         | GET    | `/connector/autopilot/{autopilotId}` |
+| `connector->advanced->sendAutopilotRun($autopilotId)`        | POST   | `/connector/autopilot/{autopilotId}/send` |
+| `connector->advanced->reconcile($params)`                    | GET    | `/connector/reconcile`               |
+| `connector->advanced->mailboxes()`                           | GET    | `/connector/mailbox`                 |
+| `connector->advanced->repairMailbox($body)`                  | POST   | `/connector/mailbox/repair`          |
+| `connector->advanced->updateMailboxSendPolicy($customerRef, $body)` | PATCH | `/connector/mailbox/{customerRef}/send-policy` |
+| `connector->advanced->sync($params)`                         | GET    | `/connector/sync`                    |
 | `connector->getDocument($documentId)`                         | GET    | `/connector/documents/{documentId}`  |
 | `connector->getDocumentUbl($documentId)`                      | GET    | `/connector/documents/{documentId}/ubl` |
 | `connector->getDocumentEvidence($documentId)`                 | GET    | `/connector/documents/{documentId}/evidence` |
 | `connector->getDocumentEvidenceBundle($documentId)`           | GET    | `/connector/documents/{documentId}/evidence-bundle` |
 | `connector->getDocumentSupportPacket($documentId)`            | GET    | `/connector/documents/{documentId}/support-packet` |
 | `connector->documents->supportPacket($documentId)`            | GET    | `/connector/documents/{documentId}/support-packet` |
-| `connector->runAction($actionId, $body)`                      | POST   | `/connector/actions/{actionId}`      |
-| `connector->status($documentId)`                             | GET    | `/connector/status/{documentId}`     |
-| `connector->inbox($params)`                                  | GET    | `/connector/inbox`                   |
-| `connector->getInboxDocument($documentId)`                   | GET    | `/connector/inbox/{documentId}`      |
-| `connector->ack($documentId)`                                | POST   | `/connector/inbox/{documentId}/ack`  |
-| `connector->events($params)`                                 | GET    | `/connector/events`                  |
+| `connector->advanced->runAction($actionId, $body)`           | POST   | `/connector/actions/{actionId}`      |
+| `connector->advanced->status($documentId)`                   | GET    | `/connector/status/{documentId}`     |
+| `connector->advanced->inbox($params)`                        | GET    | `/connector/inbox`                   |
+| `connector->advanced->getInboxDocument($documentId)`         | GET    | `/connector/inbox/{documentId}`      |
+| `connector->advanced->ack($documentId)`                      | POST   | `/connector/inbox/{documentId}/ack`  |
+| `connector->advanced->events($params)`                       | GET    | `/connector/events`                  |
 | `sapi->participants->for($id)->documents->send($body, $key)` | POST | `/sapi/v1/document/send` |
 | `sapi->participants->for($id)->documents->receive($params)` | GET | `/sapi/v1/document/receive` |
 | `sapi->participants->for($id)->documents->get($documentId)` | GET | `/sapi/v1/document/receive/{id}` |

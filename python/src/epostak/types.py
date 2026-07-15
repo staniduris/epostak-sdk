@@ -240,6 +240,306 @@ class ConnectorEventsResponse(TypedDict, total=False):
     hasMore: bool
 
 
+ConnectorBusinessDocumentType = Literal[
+    "invoice",
+    "credit_note",
+    "self_billing_invoice",
+    "self_billing_credit_note",
+]
+ConnectorBusinessState = Literal[
+    "queued",
+    "sending",
+    "delivered",
+    "received",
+    "processed",
+    "needs_attention",
+    "failed",
+    "cancelled",
+]
+ConnectorBusinessEventType = Literal[
+    "document.queued",
+    "document.delivered",
+    "document.received",
+    "document.processed",
+    "document.needs_attention",
+    "document.cancelled",
+    "document.failed",
+]
+
+
+class _ConnectorBusinessEventDataRequired(TypedDict):
+    direction: Optional[Literal["outbound", "inbound"]]
+    type: ConnectorBusinessDocumentType
+    number: Optional[str]
+    response: Optional["ConnectorBusinessInvoiceResponse"]
+
+
+class ConnectorBusinessEventData(_ConnectorBusinessEventDataRequired, total=False):
+    customerRef: str
+
+
+class ConnectorBusinessEvent(TypedDict):
+    id: str
+    customerRef: str
+    documentId: str
+    type: ConnectorBusinessEventType
+    state: ConnectorBusinessState
+    occurredAt: str
+    data: ConnectorBusinessEventData
+
+
+class ConnectorWebhookTestEvent(ConnectorBusinessEvent):
+    test: Literal[True]
+
+
+class ConnectorWebhook(TypedDict):
+    id: str
+    url: str
+    events: List[ConnectorBusinessEventType]
+    active: bool
+    failedAttempts: int
+    createdAt: str
+    updatedAt: str
+
+
+class _ConnectorWebhookConfigurationRequired(TypedDict):
+    webhook: Optional[ConnectorWebhook]
+
+
+class ConnectorWebhookConfiguration(_ConnectorWebhookConfigurationRequired, total=False):
+    secret: str
+
+
+class ConnectorWebhookTestResponse(TypedDict):
+    deliveryId: str
+    status: Literal["queued"]
+    event: ConnectorWebhookTestEvent
+
+
+class ConnectorWebhookDelivery(TypedDict):
+    id: str
+    webhookId: str
+    eventId: Optional[str]
+    customerRef: Optional[str]
+    type: ConnectorBusinessEventType
+    status: Literal["PENDING", "SUCCESS", "FAILED", "RETRYING"]
+    attempts: int
+    responseStatus: Optional[int]
+    responseTimeMs: Optional[int]
+    lastAttemptAt: Optional[str]
+    nextRetryAt: Optional[str]
+    createdAt: str
+
+
+class ConnectorWebhookDeliveriesResponse(TypedDict):
+    deliveries: List[ConnectorWebhookDelivery]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class ConnectorBusinessEventsResponse(TypedDict):
+    events: List[ConnectorBusinessEvent]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class ConnectorBusinessAddress(TypedDict, total=False):
+    street: str
+    city: str
+    postalCode: str
+
+
+class _ConnectorBusinessRecipientRequired(TypedDict):
+    country: str
+
+
+class ConnectorBusinessRecipient(_ConnectorBusinessRecipientRequired, total=False):
+    name: str
+    companyId: str
+    taxId: str
+    vatId: str
+    networkId: str
+    address: ConnectorBusinessAddress
+
+
+class _ConnectorBusinessLineRequired(TypedDict):
+    description: str
+    quantity: float
+    unitPrice: float
+    vatRate: float
+
+
+class ConnectorBusinessLine(_ConnectorBusinessLineRequired, total=False):
+    unit: str
+    taxTreatment: str
+    discount: float
+    deliveryDate: str
+    lineType: str
+    advanceInvoiceReference: str
+    customsTariffCode: str
+    commodityClassificationCode: str
+    commodityClassificationListId: str
+    reverseChargeParagraphLetter: str
+    controlStatementType: str
+    controlStatementQuantity: float
+    controlStatementUnit: str
+
+
+class _ConnectorBusinessPrepaymentRequired(TypedDict):
+    amountWithVat: float
+
+
+class ConnectorBusinessPrepayment(_ConnectorBusinessPrepaymentRequired, total=False):
+    advanceInvoiceRef: str
+    taxDocumentRef: str
+    settlementDate: str
+    amountWithoutVat: float
+    vatAmount: float
+    vatRate: float
+    taxTreatment: str
+
+
+class _ConnectorBusinessAttachmentRequired(TypedDict):
+    fileName: str
+    mimeType: str
+    content: str
+
+
+class ConnectorBusinessAttachment(_ConnectorBusinessAttachmentRequired, total=False):
+    description: str
+
+
+class _ConnectorSubmitDocumentRequestRequired(TypedDict):
+    externalId: str
+    number: str
+    recipient: ConnectorBusinessRecipient
+    lines: List[ConnectorBusinessLine]
+
+
+class ConnectorBusinessDocumentRequest(_ConnectorSubmitDocumentRequestRequired, total=False):
+    type: ConnectorBusinessDocumentType
+    precedingDocumentNumber: str
+    issueDate: str
+    dueDate: str
+    currency: str
+    note: str
+    iban: str
+    paymentMethod: str
+    variableSymbol: str
+    buyerReference: str
+    prepaidAmount: float
+    prepayments: List[ConnectorBusinessPrepayment]
+    attachments: List[ConnectorBusinessAttachment]
+
+
+class ConnectorSubmitDocumentRequest(TypedDict, total=False):
+    """Autopilot submit payload retained for source compatibility."""
+
+    customerRef: str
+    mode: "ConnectorAutopilotMode"
+    externalId: Optional[str]
+    idempotencyKey: Optional[str]
+    payload: ConnectorSendRequest
+    send: "ConnectorSendPolicyOptions"
+    options: Dict[str, Any]
+
+
+class ConnectorBusinessAmounts(TypedDict, total=False):
+    withoutTax: Optional[float]
+    tax: Optional[float]
+    total: Optional[float]
+    due: Optional[float]
+
+
+class ConnectorBusinessParty(TypedDict, total=False):
+    name: Optional[str]
+    country: Optional[str]
+    companyId: Optional[str]
+    taxId: Optional[str]
+    vatId: Optional[str]
+    resolution: Optional[Literal["verified"]]
+
+
+class ConnectorBusinessInvoiceResponse(TypedDict):
+    """Latest business response projected on Connector list/detail results."""
+
+    status: "ConnectorInvoiceResponseStatus"
+    direction: Literal["sent", "received"]
+    reason: Optional[str]
+    respondedAt: Optional[str]
+
+
+class ConnectorBusinessDocument(TypedDict, total=False):
+    id: str
+    customerRef: str
+    externalId: Optional[str]
+    direction: Literal["outbound", "inbound"]
+    type: ConnectorBusinessDocumentType
+    number: Optional[str]
+    state: ConnectorBusinessState
+    replayed: bool
+    currency: Optional[str]
+    amounts: ConnectorBusinessAmounts
+    sender: ConnectorBusinessParty
+    recipient: ConnectorBusinessParty
+    issueDate: Optional[str]
+    dueDate: Optional[str]
+    processedAt: Optional[str]
+    processedReference: Optional[str]
+    createdAt: Optional[str]
+    updatedAt: Optional[str]
+    response: Optional[ConnectorBusinessInvoiceResponse]
+    links: Dict[str, str]
+
+
+class ConnectorBusinessDocumentListResponse(TypedDict):
+    documents: List[ConnectorBusinessDocument]
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class ConnectorBusinessAcknowledgeResponse(TypedDict):
+    id: str
+    customerRef: str
+    state: ConnectorBusinessState
+    processedAt: str
+    reference: str
+    idempotent: bool
+
+
+ConnectorInvoiceResponseStatus = Literal[
+    "received",
+    "in_process",
+    "under_query",
+    "conditionally_accepted",
+    "rejected",
+    "accepted",
+    "paid",
+]
+
+
+class _ConnectorInvoiceResponseRequestRequired(TypedDict):
+    status: ConnectorInvoiceResponseStatus
+
+
+class ConnectorInvoiceResponseRequest(_ConnectorInvoiceResponseRequestRequired, total=False):
+    note: str
+
+
+class ConnectorInvoiceResponseDelivery(TypedDict):
+    status: ConnectorInvoiceResponseStatus
+    direction: Literal["sent"]
+    delivery: Literal["sent", "queued"]
+    respondedAt: str
+
+
+class ConnectorInvoiceResponseResult(TypedDict):
+    id: str
+    customerRef: str
+    response: ConnectorInvoiceResponseDelivery
+    idempotent: bool
+
+
 ConnectorAutopilotMode = Literal["shadow", "stage", "send"]
 ConnectorAutopilotLifecycleStatus = Literal[
     "received",
@@ -302,6 +602,19 @@ class ConnectorMapperRequest(TypedDict, total=False):
     customerRef: str
     execute: ConnectorMapperExecute
     confirmed: bool
+    fieldMap: Dict[str, Any]
+    defaults: Dict[str, Any]
+
+
+class ConnectorMapperPreviewRequest(TypedDict, total=False):
+    """Customer-scoped Mapper preview/normalization input."""
+
+    templateKey: str
+    sourceType: ConnectorMapperSourceType
+    sourceText: str
+    sourceJson: Dict[str, Any]
+    customerRef: str
+    execute: Literal["preview"]
     fieldMap: Dict[str, Any]
     defaults: Dict[str, Any]
 

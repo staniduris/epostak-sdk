@@ -3,7 +3,7 @@ package sk.epostak.sdk.models;
 import java.util.List;
 
 /**
- * Cursor-paginated Connector events response.
+ * Cursor-paginated compatibility firm-scoped technical events response.
  */
 public record ConnectorEventsResponse(
         List<ConnectorEvent> events,

@@ -4,22 +4,50 @@ All notable changes to `epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 > **Note:** Previous entries in this file incorrectly listed versions as
-> `3.x.x`. The PHP SDK now follows the source package `0.x` version line in
-> this monorepo.
+> `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
+> release is `1.x`.
 
-## Unreleased
+## 1.1.0 — 2026-07-15
 
 ### Added
 
+- Added the customer-scoped Connector business-document API with send, stage,
+  list, detail, acknowledge, staged-document send/cancel, and event methods
+  using ordinary company IDs.
+- Added business-level invoice responses through both direct and
+  customer-scoped `documents->respond(...)`; list/detail documents expose the
+  latest nullable response projection without Peppol codes or XML.
+- Made `$client->connector` the canonical Connector namespace; the Enterprise
+  alias remains silently supported. ePošťák approves credentials and Peppol
+  firms; the integrator chooses each stable `customerRef` in the dashboard.
+- Added `connector->advanced` and customer `advanced` namespaces so legacy
+  protocol workflows no longer compete with the primary documents/events API;
+  existing direct methods remain silent compatibility aliases.
+- Added one global Connector webhook per integrator with get/configure/delete,
+  secret rotation, customer-routed test delivery, and delivery history. Its
+  canonical event item exposes root `customerRef`; the nested value remains a
+  tolerated compatibility alias.
+- Default Connector idempotency keys apply the exact backend ECMAScript
+  `TrimString` code-point set, then hash the length-prefixed
+  `(customerRef, externalId)` tuple into a deterministic 77-character key;
+  `U+0085` remains significant and explicit keys require 1-255 UTF-8 bytes.
+- Keyed creation and server-idempotent lifecycle calls retry network errors,
+  `429`, and all `5xx` responses with an immutable body/key snapshot;
+  `Retry-After` is honored and `409` is never retried.
+- `EPostakError` now exposes `getField()`, `getNextAction()`, `isRetryable()`,
+  `getRequestId()`, and `getRetryAfter()`; business events include
+  `document.cancelled`.
 - Documented live JSON billing payload fields for `documents->send(...)`:
   `receiverStreet`, `receiverCity`, `receiverPostalCode`, `prepaidAmount`,
   `prepayments`, and advanced line-item VAT/classification/control-statement
   fields.
 - Clarified that JSON-mode sends follow the live schema, require
   `receiverName`, and do not accept non-live `docType`.
-- Added `$client->connector->mapper(...)` and customer-scoped
-  `$client->enterprise->connector->customers->for($customerRef)->mapper(...)`
-  for the live `/connector/mapper` endpoint.
+- Added the managed, preview-only
+  `$client->connector->customers->for($customerRef)->advanced->mapper(...)`
+  flow for `/connector/mapper`. Top-level
+  `$client->connector->advanced->mapper(...)` remains a legacy compatibility
+  alias and is unavailable with managed Connector credentials.
 - Added `$client->box` / `$client->enterprise->box` for the live ePošťák Box
   `/box/items` list, create with `payloadXml`, detail, schedule, send-now,
   retry, and cancel endpoints.
@@ -29,6 +57,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Connector retries now replay the exact encoded JSON bytes and preserve nested
+  empty objects as `{}`.
 - `peppol->capabilities(...)` now sends the live request shape
   `{participant: {scheme, identifier}, documentType}` instead of the old flat
   `scheme`/`identifier` body.

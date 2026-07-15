@@ -222,6 +222,41 @@ export interface ConnectorEvent {
   data?: Record<string, unknown>;
 }
 
+export interface ConnectorBusinessEvent {
+  id: string;
+  /** Stable ERP routing key. Present at the root for polling and push webhooks. */
+  customerRef: string;
+  documentId: string;
+  type:
+    | "document.queued"
+    | "document.delivered"
+    | "document.received"
+    | "document.processed"
+    | "document.needs_attention"
+    | "document.cancelled"
+    | "document.failed"
+    | (string & {});
+  state: ConnectorBusinessState | (string & {});
+  occurredAt: string;
+  data: ConnectorBusinessEventData;
+  test?: true;
+  [key: string]: unknown;
+}
+
+export interface ConnectorBusinessEventData {
+  /** Compatibility alias; route new integrations by the root customerRef. */
+  customerRef?: string;
+  direction: "outbound" | "inbound" | (string & {}) | null;
+  type: ConnectorBusinessDocumentType | (string & {});
+  number: string | null;
+  /** Latest business-level invoice response, shared by polling and webhooks. */
+  response: ConnectorBusinessInvoiceResponse | null;
+  [key: string]: unknown;
+}
+
+/** Event filters accepted by the global Connector webhook. */
+export type ConnectorWebhookEvent = ConnectorBusinessEvent["type"];
+
 export interface ConnectorStatusResponse {
   documentId: string;
   status: string;
@@ -273,6 +308,12 @@ export interface ConnectorEventsResponse {
   hasMore: boolean;
 }
 
+export interface ConnectorBusinessEventsResponse {
+  events: ConnectorBusinessEvent[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export type ConnectorAutopilotMode = "shadow" | "stage" | "send";
 
 export type ConnectorAutopilotLifecycleStatus =
@@ -299,6 +340,97 @@ export interface ConnectorAutopilotRequest {
   options?: Record<string, unknown>;
 }
 
+export type ConnectorBusinessDocumentType =
+  | "invoice"
+  | "credit_note"
+  | "self_billing_invoice"
+  | "self_billing_credit_note";
+
+export type ConnectorBusinessState =
+  | "queued"
+  | "sending"
+  | "delivered"
+  | "received"
+  | "processed"
+  | "needs_attention"
+  | "failed"
+  | "cancelled";
+
+export interface ConnectorBusinessRecipient {
+  country: string;
+  name?: string;
+  companyId?: string;
+  taxId?: string;
+  vatId?: string;
+  networkId?: string;
+  address?: { street?: string; city?: string; postalCode?: string };
+}
+
+export interface ConnectorBusinessLine {
+  description: string;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;
+  vatRate: number;
+  taxTreatment?:
+    | "standard"
+    | "zero_rated"
+    | "reverse_charge"
+    | "exempt"
+    | "intra_community_supply"
+    | "export"
+    | "out_of_scope";
+  discount?: number;
+  deliveryDate?: string;
+  lineType?: string;
+  advanceInvoiceReference?: string;
+  customsTariffCode?: string;
+  commodityClassificationCode?: string;
+  commodityClassificationListId?: string;
+  reverseChargeParagraphLetter?: string;
+  controlStatementType?: string;
+  controlStatementQuantity?: number;
+  controlStatementUnit?: string;
+}
+
+export interface ConnectorBusinessPrepayment {
+  advanceInvoiceRef?: string;
+  taxDocumentRef?: string;
+  settlementDate?: string;
+  amountWithoutVat?: number;
+  vatAmount?: number;
+  amountWithVat: number;
+  vatRate?: number;
+  taxTreatment?: ConnectorBusinessLine["taxTreatment"];
+}
+
+export interface ConnectorBusinessAttachment {
+  fileName: string;
+  mimeType: string;
+  content: string;
+  description?: string;
+}
+
+export interface ConnectorBusinessDocumentRequest {
+  externalId: string;
+  type?: ConnectorBusinessDocumentType;
+  number: string;
+  precedingDocumentNumber?: string;
+  recipient: ConnectorBusinessRecipient;
+  issueDate?: string;
+  dueDate?: string;
+  currency?: string;
+  note?: string;
+  iban?: string;
+  paymentMethod?: string;
+  variableSymbol?: string;
+  buyerReference?: string;
+  prepaidAmount?: number;
+  prepayments?: ConnectorBusinessPrepayment[];
+  lines: ConnectorBusinessLine[];
+  attachments?: ConnectorBusinessAttachment[];
+}
+
 export interface ConnectorSubmitDocumentRequest {
   customerRef?: string;
   mode?: ConnectorAutopilotMode;
@@ -307,6 +439,158 @@ export interface ConnectorSubmitDocumentRequest {
   payload: ConnectorSendRequest;
   send?: ConnectorSendPolicyOptions;
   options?: Record<string, unknown>;
+}
+
+export interface ConnectorBusinessParty {
+  name: string | null;
+  country: string | null;
+  companyId: string | null;
+  taxId: string | null;
+  vatId: string | null;
+  resolution?: "verified";
+}
+
+/** Latest business-level invoice response projected on list/detail results. */
+export interface ConnectorBusinessInvoiceResponse {
+  status: ConnectorInvoiceResponseStatus;
+  direction: "sent" | "received";
+  reason: string | null;
+  respondedAt: string | null;
+}
+
+export interface ConnectorBusinessDocument {
+  id: string;
+  customerRef: string;
+  externalId: string | null;
+  direction: "outbound" | "inbound" | (string & {}) | null;
+  type: ConnectorBusinessDocumentType | (string & {});
+  number: string | null;
+  state: ConnectorBusinessState | (string & {});
+  currency?: string | null;
+  amounts?: {
+    withoutTax: number | null;
+    tax: number | null;
+    total: number | null;
+    due: number | null;
+  };
+  sender?: ConnectorBusinessParty;
+  recipient: ConnectorBusinessParty;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  processedAt?: string | null;
+  processedReference?: string | null;
+  replayed?: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+  response: ConnectorBusinessInvoiceResponse | null;
+  links: Record<string, string>;
+  [key: string]: unknown;
+}
+
+/** Stored configuration of the single global Connector push webhook. */
+export interface ConnectorWebhook {
+  id: string;
+  url: string;
+  events: ConnectorWebhookEvent[];
+  active: boolean;
+  failedAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+}
+
+/** GET/PUT envelope; secret is returned once, only when the webhook is created. */
+export interface ConnectorWebhookConfiguration {
+  webhook: ConnectorWebhook | null;
+  secret?: string;
+}
+
+export interface ConnectorWebhookDeliveriesParams {
+  cursor?: string;
+  limit?: number;
+  status?: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+}
+
+export interface ConnectorWebhookDelivery {
+  id: string;
+  webhookId: string;
+  eventId: string | null;
+  customerRef: string | null;
+  type: ConnectorWebhookEvent;
+  status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+  attempts: number;
+  responseStatus: number | null;
+  responseTimeMs: number | null;
+  lastAttemptAt: string | null;
+  nextRetryAt: string | null;
+  createdAt: string;
+}
+
+/** Cursor-paged delivery history for the global Connector webhook. */
+export interface ConnectorWebhookDeliveriesResponse {
+  deliveries: ConnectorWebhookDelivery[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export type ConnectorWebhookTestEvent = ConnectorBusinessEvent & { test: true };
+
+/** Result of queueing a signed test delivery for one approved customerRef. */
+export interface ConnectorWebhookTestResponse {
+  deliveryId: string;
+  status: "queued";
+  event: ConnectorWebhookTestEvent;
+}
+
+export interface ConnectorBusinessDocumentListParams {
+  direction?: "outbound" | "inbound";
+  state?: ConnectorBusinessState;
+  type?: ConnectorBusinessDocumentType;
+  createdAfter?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ConnectorBusinessDocumentListResponse {
+  documents: ConnectorBusinessDocument[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface ConnectorBusinessAcknowledgeResponse {
+  id: string;
+  customerRef: string;
+  state: ConnectorBusinessState;
+  processedAt: string;
+  reference: string;
+  idempotent: boolean;
+}
+
+/** Business-level response to an inbound Connector invoice. */
+export type ConnectorInvoiceResponseStatus =
+  | "received"
+  | "in_process"
+  | "under_query"
+  | "conditionally_accepted"
+  | "rejected"
+  | "accepted"
+  | "paid";
+
+export interface ConnectorInvoiceResponseRequest {
+  status: ConnectorInvoiceResponseStatus;
+  note?: string;
+}
+
+export interface ConnectorInvoiceResponseResult {
+  id: string;
+  customerRef: string;
+  response: {
+    status: ConnectorInvoiceResponseStatus;
+    direction: "sent";
+    delivery: "sent" | "queued";
+    respondedAt: string;
+  };
+  idempotent: boolean;
 }
 
 export interface ConnectorAutopilotRunResponse {
@@ -347,6 +631,15 @@ export interface ConnectorMapperRequest {
   defaults?: Record<string, unknown>;
   [key: string]: unknown;
 }
+
+/** Customer-scoped Mapper is preview/normalization only. */
+export type ConnectorMapperPreviewRequest = Omit<
+  ConnectorMapperRequest,
+  "customerRef" | "execute" | "confirmed"
+> & {
+  customerRef?: string;
+  execute?: "preview";
+};
 
 export type ConnectorMapperResponse = Record<string, unknown>;
 

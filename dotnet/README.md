@@ -1,31 +1,137 @@
 # ePostak .NET SDK
 
-Official .NET SDK for the [ePostak](https://epostak.sk) Enterprise API. Send and receive Peppol e-invoices in Slovakia.
+Official .NET SDK for the [ePošťák APIs](https://epostak.sk/api/docs): managed
+Connector workflows, the Enterprise API, and SAPI-SK interoperability.
 
 ## Installation
 
+The .NET SDK is currently distributed as reviewed source, not through NuGet.
+Clone this repository and add a project reference:
+
 ```shell
-dotnet add package EPostak
-```
-
-Or add to your `.csproj`:
-
-```xml
-<PackageReference Include="EPostak" Version="1.0.0" />
+git clone https://github.com/staniduris/epostak-sdk.git
+dotnet add /path/to/your-project.csproj reference /path/to/epostak-sdk/dotnet/src/EPostak/EPostak.csproj
 ```
 
 ## Major release API shape
 
-.NET `1.0.0` is a breaking workflow-first release:
+.NET `1.1.0` is the current workflow-first source release with the managed
+Connector surface:
 
 - Enterprise direct firm flow: `client.Enterprise.Documents.SendAsync(...)`
-- Enterprise ERP/integrator flow: `client.Enterprise.Connector.Customers.For("erp-customer").SubmitDocumentAsync(...)`
+- Connector ERP/integrator flow: `client.Connector.Customers.For("erp-customer").Documents.SendAsync(...)`
 - Enterprise API facade flow: `client.Enterprise.Payloads.ValidateAsync(...)`, `client.Enterprise.Events.PullAsync(...)`, `client.Enterprise.Documents.SupportPacketAsync(...)`
 - SAPI-SK interoperable flow: `client.Sapi.Participants.For("0245:1234567890").Documents.SendAsync(...)`
 
-Enterprise `FirmId` applies only to firm-scoped Enterprise calls. Connector
-customer-scoped calls inject `CustomerRef` and omit `X-Firm-Id`. SAPI document
-calls always send `X-Peppol-Participant-Id`.
+Connector is the recommended ERP path; Enterprise is the granular firm-scoped
+API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
+integrator, approves and Peppol-registers its firms, and issues Connector
+credentials. The integrator then chooses and stores a stable `CustomerRef` for
+each approved firm in the dashboard. The SDK cannot create or discover firms.
+
+Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
+then set `CustomerRef` in the integrator dashboard. Connector omits
+`X-Firm-Id`; SAPI always sends `X-Peppol-Participant-Id`.
+
+Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
+[Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## Connector quickstart
+
+```csharp
+var connectorClient = new EPostakClient(new EPostakConfig
+{
+    ClientId = Environment.GetEnvironmentVariable("EPOSTAK_CONNECTOR_CLIENT_ID")!,
+    ClientSecret = Environment.GetEnvironmentVariable("EPOSTAK_CONNECTOR_CLIENT_SECRET")!,
+});
+var customer = connectorClient.Connector.Customers.For("erp-acme");
+var document = await customer.Documents.SendAsync(new ConnectorBusinessDocumentRequest
+{
+    ExternalId = "invoice-2026-0042",
+    Type = "invoice",
+    Number = "2026-0042",
+    Recipient = new ConnectorBusinessRecipient { Country = "SK", TaxId = "2120123456" },
+    Lines = [new ConnectorBusinessLine { Description = "Monthly licence", Quantity = 1, UnitPrice = 100, VatRate = 23 }],
+});
+var detail = await customer.Documents.GetBusinessDocumentAsync(document.Id);
+var events = await customer.Events.ListAsync(new ConnectorListParams { Limit = 50 });
+var ubl = await customer.Advanced.Documents.UblAsync(document.Id);
+var evidence = await customer.Advanced.Documents.EvidenceAsync(document.Id);
+var evidenceBundle = await customer.Advanced.Documents.EvidenceBundleAsync(document.Id);
+var supportPacket = await customer.Advanced.Documents.SupportPacketAsync(document.Id);
+```
+
+`GetBusinessDocumentAsync(id)` is the typed detail API for new integrations.
+The inherited `GetAsync(id)` remains available with its original
+`Task<Dictionary<string, object?>>` return type for source and assembly
+compatibility; both calls are customer-scoped.
+
+Every customer-scoped get, acknowledge, lifecycle, UBL, and evidence request
+appends the URL-encoded `customerRef` query. The server verifies the document
+against the approved firm mapped to that integrator-owned reference.
+
+The integrator owns the stable `CustomerRef` after ePošťák has approved and
+Peppol-registered the firm. The SDK cannot create or discover firms. It injects `CustomerRef`, sends
+immediately by default, and applies the backend ECMAScript `TrimString` set
+(`0009-000D`, `0020`, `00A0`, `1680`, `2000-200A`, `2028-2029`, `202F`,
+`205F`, `3000`, `FEFF`) to `CustomerRef` and `ExternalId`; `U+0085` is
+preserved. It then derives `connector:v1:` plus lowercase SHA-256 over both
+UTF-8 values, each prefixed by its four-byte big-endian byte length. Generated
+keys are 77 ASCII characters; explicit keys must be 1-255 UTF-8 bytes and are
+otherwise unchanged.
+For approval queues, call `Documents.StageAsync(request)` and then either
+`SendDocumentAsync(staged.Id)` or `CancelDocumentAsync(staged.Id)`.
+
+Managed Connector credentials support customer documents/events, one global
+webhook, audited document evidence, and customer-scoped Mapper preview. Legacy
+helpers and `Enterprise.Connector` remain silently supported for source
+compatibility.
+
+```csharp
+var polled = await customer.Events.ListAsync(new ConnectorListParams { Limit = 50 });
+var configuredWebhook = await connectorClient.Connector.Webhook.ConfigureAsync(
+    "https://erp.example.com/webhooks/epostak",
+    ["document.received", "document.delivered"]);
+if (configuredWebhook.Secret is not null)
+{
+    // Persist this value in your server-side secret manager now. It is returned only once.
+    var oneTimeWebhookSecret = configuredWebhook.Secret;
+}
+await connectorClient.Connector.Webhook.TestAsync("erp-acme");
+```
+
+Push uses the same canonical event item as polling with `CustomerRef` at the
+root. `WebhookSignature.Verify(...)` verifies HMAC-SHA256 over
+`timestamp + "." + rawBody`.
+
+### Acknowledge locally or respond to the supplier
+
+```csharp
+var receivedDocumentId = "document-id-from-list-or-event";
+await customer.Documents.AcknowledgeAsync(receivedDocumentId, $"erp:{receivedDocumentId}");
+var response = await customer.Documents.RespondAsync(
+    receivedDocumentId,
+    new ConnectorInvoiceResponseRequest
+    {
+        Status = "accepted",
+        Note = "Imported and accepted",
+    });
+
+// Direct alternative (do not call both); CustomerRef is still mandatory:
+// await connectorClient.Connector.Documents.RespondAsync(
+//     receivedDocumentId, "erp-acme",
+//     new ConnectorInvoiceResponseRequest { Status = "accepted" });
+```
+
+`AcknowledgeAsync` only records that the inbound document was processed
+locally; it does not notify the supplier. `RespondAsync` sends the network
+business response via
+`POST /connector/documents/{documentId}/respond?customerRef=...`. Use only the
+business statuses `received`, `in_process`, `under_query`,
+`conditionally_accepted`, `rejected`, `accepted`, or `paid`, with an optional
+`Note`. The Connector handles Peppol response codes and XML; do not send either.
+The result reports `Response.Delivery` as `sent` or `queued` and marks safe
+replays with `Idempotent`.
 
 ## Enterprise API facade flow
 
@@ -63,24 +169,47 @@ window allows.
 
 ## Recent changes
 
-### Unreleased — 2026-07-12
+### Included in v1.1.0 — 2026-07-14
 
+- Connector is canonical at `client.Connector`; the Enterprise namespace alias
+  is supported compatibility only.
+- Connector credentials are approved by ePošťák; the integrator chooses each
+  stable `CustomerRef` in the dashboard after firm approval. Enterprise keys
+  and OAuth do not grant Connector access.
+- Customer document creation snapshots the request, validates explicit
+  1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
+  only when safe. Lifecycle calls are server-idempotent; `409` is never retried.
+- `EPostakException` exposes `Field`, `NextAction`, `Retryable`, `RequestId`,
+  and `RetryAfter`.
+- Identity hashing uses the exact backend ECMAScript `TrimString` code points;
+  `U+0085` is preserved.
+- `document.cancelled` is a first-class business event.
+
+### Included in v1.1.0 — 2026-07-12
+
+- Connector now leads with
+  `client.Connector.Customers.For(customerRef).Documents/Events`. Lower-level
+  workflows live under `client.Connector.Advanced`; existing top-level methods
+  remain supported compatibility aliases. There is no customer creation API in
+  the SDK.
 - JSON billing payloads now expose the live receiver address, `PrepaidAmount`,
   `Prepayments`, and advanced line-item VAT/classification fields from the
   Enterprise OpenAPI.
 
-### Unreleased — 2026-07-01
+### Included in v1.1.0 — 2026-07-01
 
 - `client.Enterprise.Payloads.ValidateAsync(...)`,
   `client.Enterprise.Events.PullAsync(...)`, and
   `client.Enterprise.Documents.SupportPacketAsync(...)` cover the Enterprise
   API facade flow for validation, event pull/ack, and support packets.
 
-### Unreleased — 2026-06-30
+### Included in v1.1.0 — 2026-06-30
 
-- `client.Connector.MapperAsync(...)` and customer-scoped
-  `client.Enterprise.Connector.Customers.For(customerRef).MapperAsync(...)`
-  cover `/connector/mapper`.
+- Customer-scoped
+  `client.Connector.Customers.For(customerRef).Advanced.MapperAsync(...)` is
+  the managed, preview-only Mapper flow. Top-level
+  `client.Connector.Advanced.MapperAsync(...)` remains a supported
+  compatibility alias and is unavailable with managed Connector credentials.
 - `client.Box` / `client.Enterprise.Box` covers ePošťák Box list, create with
   `BoxCreateRequest.PayloadXml`, detail, schedule, send-now, retry, and cancel
   over `/box/items`.
@@ -92,10 +221,14 @@ window allows.
   Audit, and Integrator surfaces.
 - `client.Sapi.Participants.For(participantId).Documents` requires participant
   scoping before SAPI document send/receive/get/acknowledge.
-- `client.Enterprise.Connector.Customers.For(customerRef)` injects
+- `client.Connector.Customers.For(customerRef)` injects
   `CustomerRef` and keeps `X-Firm-Id` off customer-managed Connector calls.
-- `client.Enterprise.Connector` covers Connector preflight, Zen input, Autopilot lifecycle, reconcile, mailbox policy, sync, Connector documents/UBL/evidence, action execution, send, outbox, status, inbox, ACK, and event polling.
-- Connector V2 calls such as Autopilot, Zen input, mailbox, sync, Connector documents, and actions use the integrator token plus `CustomerRef`; the SDK omits `X-Firm-Id` for those methods even when `FirmId` is configured. Legacy Connector calls such as preflight, send, outbox, status, inbox, and events remain firm-scoped.
+- The Connector compatibility surface includes preflight, Zen input, Autopilot,
+  reconcile, mailbox, sync, document evidence, and event polling.
+- Managed Connector calls use approved Connector credentials and integrator-
+  chosen `CustomerRef` values and omit `X-Firm-Id`. Enterprise integrator
+  credentials and OAuth do not grant Connector access; compatibility helpers
+  are not available with Connector credentials.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - `client.Enterprise.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
 - `client.Enterprise.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
@@ -164,7 +297,7 @@ var client = new EPostakClient(new EPostakConfig
     // Optional: override base URL for the test environment; omit for production
     BaseUrl = "https://dev.epostak.sk/api/v1",
 
-    // Optional: firm ID for integrator keys (sk_int_*)
+    // Optional: firm ID for Enterprise integrator credentials only
     FirmId = "firm-uuid-here"
 });
 ```
@@ -175,9 +308,11 @@ calls, set `BaseUrl` to `https://dev.epostak.sk/api/v1`; SAPI derives
 `https://dev.epostak.sk/sapi/v1`, and OAuth helpers need
 `origin: "https://dev.epostak.sk"` because OAuth is outside `/api/v1`.
 
-### Integrator (multi-tenant) usage
+### Enterprise Integrator (multi-tenant) usage
 
-If you use an integrator key (`sk_int_*`), scope requests to a specific firm:
+This section is only for Enterprise integrator credentials and firm-scoped
+Enterprise calls. It does not provision Connector. Scope requests to a
+specific firm:
 
 ```csharp
 var client = new EPostakClient(new EPostakConfig { ClientId = "sk_int_xxxxx", ClientSecret = "sk_int_xxxxx" });
@@ -200,132 +335,84 @@ var client = new EPostakClient(new EPostakConfig { ClientId = "sk_live_xxxxx", C
 
 ### Connector
 
-```csharp
-var invoice = new Dictionary<string, object?>
-{
-    ["receiverPeppolId"] = "0245:1234567890",
-    ["document"] = new Dictionary<string, object?>
-    {
-        ["receiverName"] = "Firma s.r.o.",
-        ["invoiceNumber"] = "FA-2026-001",
-        ["issueDate"] = "2026-06-04",
-        ["dueDate"] = "2026-06-18",
-        ["items"] = new[]
-        {
-            new { description = "Služby", quantity = 1, unitPrice = 100, vatRate = 23 }
-        }
-    }
-};
+The primary Connector surface is customer-scoped and uses business data.
+ePošťák approves and Peppol-registers the firm; the integrator then chooses its
+stable `CustomerRef` in the dashboard. The SDK does not expose signup or
+customer creation.
 
-var preflight = await client.Enterprise.Connector.PreflightAsync(new ConnectorPreflightRequest
+```csharp
+var connectorClient = new EPostakClient(new EPostakConfig
 {
-    ReceiverPeppolId = "0245:1234567890",
-    Document = (Dictionary<string, object?>)invoice["document"]!
+    ClientId = Environment.GetEnvironmentVariable("EPOSTAK_CONNECTOR_CLIENT_ID")!,
+    ClientSecret = Environment.GetEnvironmentVariable("EPOSTAK_CONNECTOR_CLIENT_SECRET")!,
 });
+var customer = connectorClient.Connector.Customers.For("erp-customer-1");
 
-if (!preflight.Ready)
+var sent = await customer.Documents.SendAsync(new ConnectorBusinessDocumentRequest
 {
-    throw new InvalidOperationException(preflight.RepairReport.Summary);
-}
-
-var staged = await client.Enterprise.Connector.StageOutboxAsync(new ConnectorOutboxStageRequest
-{
-    Items =
-    [
-        new ConnectorOutboxStageItem
-        {
-            ExternalId = "FA-2026-001",
-            IdempotencyKey = "erp-fa-2026-001",
-            Payload = invoice
-        }
-    ]
-});
-
-var sent = await client.Enterprise.Connector.SendOutboxItemAsync(staged.Items[0].OutboxId);
-if (string.IsNullOrEmpty(sent.DocumentId))
-{
-    throw new InvalidOperationException("Staged invoice was not sent");
-}
-
-var status = await client.Enterprise.Connector.StatusAsync(sent.DocumentId);
-
-var inbox = await client.Enterprise.Connector.InboxAsync(new ConnectorListParams { Limit = 20 });
-foreach (var doc in inbox.Documents)
-{
-    await client.Enterprise.Connector.AckAsync(doc.DocumentId);
-}
-
-// Evidence is shared with the Enterprise document API.
-var evidence = await client.Enterprise.Documents.EvidenceAsync(sent.DocumentId);
-Console.WriteLine($"{status.Status} {evidence.DocumentId}");
-```
-
-For immediate send without staging:
-
-```csharp
-var request = new ConnectorSendRequest
-{
-    Data =
-    {
-        ["receiverPeppolId"] = invoice["receiverPeppolId"],
-        ["document"] = invoice["document"]
-    }
-};
-
-var immediate = await client.Enterprise.Connector.SendAsync(request, idempotencyKey: "erp-fa-2026-001-send");
-Console.WriteLine($"{immediate.DocumentId} {immediate.Status}");
-```
-
-Connector v2 Autopilot stores a durable lifecycle run and reconciliation gives
-ERP sync jobs one place to read exceptions:
-
-```csharp
-var run = await client.Enterprise.Connector.AutopilotAsync(new ConnectorAutopilotRequest
-{
-    CustomerRef = "erp-customer-1",
-    Mode = "shadow",
     ExternalId = "FA-2026-001",
-    IdempotencyKey = "erp-fa-2026-001",
-    Payload = invoice
+    Number = "FA-2026-001",
+    Recipient = new ConnectorBusinessRecipient { Country = "SK", TaxId = "2120123456" },
+    Lines = [new ConnectorBusinessLine { Description = "Služby", Quantity = 1, UnitPrice = 100, VatRate = 23 }],
 });
-var sentRun = await client.Enterprise.Connector.SendAutopilotRunAsync(run.AutopilotId);
-var exceptions = await client.Enterprise.Connector.ReconcileAsync(new ConnectorReconcileParams
+var detail = await customer.Documents.GetBusinessDocumentAsync(sent.Id);
+
+var inbox = await customer.Documents.ListAsync(new ConnectorBusinessDocumentListParams
 {
-    Status = "exceptions"
+    Direction = "inbound",
+    Limit = 20,
 });
-Console.WriteLine($"{sentRun.LifecycleStatus} {exceptions.Total}");
+foreach (var document in inbox.Documents)
+{
+    await customer.Documents.AcknowledgeAsync(document.Id, $"erp-import-{document.Id}");
+}
+
+var events = await customer.Events.ListAsync(new ConnectorListParams { Limit = 50 });
 ```
 
-Customer-scoped Connector calls are the preferred integrator shape when you
-already know the managed ERP customer:
+For a stage-first workflow, the lifecycle transitions are also customer-scoped
+and send no request body:
 
 ```csharp
-var customerRun = await client.Enterprise.Connector.Customers.For("erp-customer-1")
-    .SubmitDocumentAsync(new ConnectorSubmitDocumentRequest
-    {
-        ExternalId = "FA-2026-001",
-        IdempotencyKey = "erp-fa-2026-001",
-        Payload = invoice
-    });
-Console.WriteLine(customerRun.AutopilotId);
+var staged = await customer.Documents.StageAsync(request);
+var sentLater = await customer.Documents.SendDocumentAsync(staged.Id);
+// Or, before delivery: await customer.Documents.CancelDocumentAsync(staged.Id);
 ```
 
-Common sandbox scenarios to test:
-
-- nonexistent participant or unsupported document type: `preflight.Ready == false` with blocking `RepairReport` items
-- invalid UBL or missing buyer/seller data: `PreflightAsync` or `SendAsync` returns validation details in `EPostakException`
-- duplicate idempotency key: `409 idempotency_conflict`
-- expired token: the SDK refreshes automatically; persistent auth failures surface as API errors
-- received invoice processing: poll `client.Enterprise.Connector.InboxAsync(...)`, store the payload, then call `client.Enterprise.Connector.AckAsync(documentId)`
-
-Batch workers can send queued items with:
+Mapper is a customer-scoped preview/normalization helper; it never stages or
+sends a document:
 
 ```csharp
-await client.Enterprise.Connector.SendOutboxBatchAsync(new ConnectorOutboxBatchSendRequest
+var preview = await customer.Advanced.MapperAsync(new Dictionary<string, object?>
 {
-    Limit = 50
+    ["templateKey"] = "pohoda-csv-v1",
+    ["sourceType"] = "csv",
+    ["sourceText"] = csv,
 });
 ```
+
+Legacy preflight, raw send/status, inbox, outbox, Autopilot, Zen, reconcile,
+mailbox, sync, and action helpers remain supported source-compatibility aliases
+but are not callable with managed Connector credentials.
+
+#### Connector errors and retries
+
+```csharp
+try
+{
+    await customer.Documents.SendAsync(request);
+}
+catch (EPostakException error)
+{
+    Console.Error.WriteLine($"{error.Code} {error.Message} {error.Field} {error.NextAction}");
+    Console.Error.WriteLine($"{error.Retryable} {error.RequestId} {error.RetryAfter}");
+}
+```
+
+Keyed document creation retries network failures, `429`, and every `5xx` while
+reusing the exact body and key. Lifecycle send/cancel/acknowledge calls are
+server-idempotent and use the same policy. `Retry-After` is honored; `409` is
+always surfaced once and never retried automatically.
 
 ### SAPI-SK participant flow
 

@@ -104,10 +104,10 @@ class EPostak:
         firm_id: Firm UUID for legacy firm-scoped calls. Connector V2 methods
             resolve the managed firm from ``customerRef`` and omit
             ``X-Firm-Id``.
-        max_retries: Maximum number of retry attempts for failed requests
-            (default 3). Retries use exponential backoff with jitter and
-            apply to GET/DELETE requests that receive HTTP 429 or 5xx
-            responses. Set to 0 to disable retries.
+        max_retries: Maximum retry attempts (default 3). Exponential backoff
+            applies to safe GET/DELETE calls and explicitly server-idempotent
+            Connector operations on network, HTTP 429, or 5xx failures. Set
+            to 0 to disable retries.
 
     Example::
 

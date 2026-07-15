@@ -46,6 +46,10 @@ public class EPostakException extends RuntimeException {
 
     /** Server-assigned request id (from response body or {@code X-Request-Id}). */
     private final String requestId;
+    private final String field;
+    private final String nextAction;
+    private final Boolean retryable;
+    private final Integer retryAfter;
     /**
      * Required OAuth scope when the server rejects with {@code 403 insufficient_scope}.
      * Parsed from the {@code WWW-Authenticate: Bearer error="insufficient_scope"
@@ -78,7 +82,11 @@ public class EPostakException extends RuntimeException {
             String detail,
             String instance,
             String requestId,
-            String requiredScope
+            String requiredScope,
+            String field,
+            String nextAction,
+            Boolean retryable,
+            Integer retryAfter
     ) {
         super(message);
         this.status = status;
@@ -90,6 +98,27 @@ public class EPostakException extends RuntimeException {
         this.instance = instance;
         this.requestId = requestId;
         this.requiredScope = requiredScope;
+        this.field = field;
+        this.nextAction = nextAction;
+        this.retryable = retryable;
+        this.retryAfter = retryAfter;
+    }
+
+    /** Source-compatible constructor without business retry metadata. */
+    public EPostakException(
+            int status,
+            String message,
+            String code,
+            Object details,
+            String type,
+            String title,
+            String detail,
+            String instance,
+            String requestId,
+            String requiredScope
+    ) {
+        this(status, message, code, details, type, title, detail, instance,
+                requestId, requiredScope, null, null, null, null);
     }
 
     /**
@@ -188,6 +217,14 @@ public class EPostakException extends RuntimeException {
         return requestId;
     }
 
+    public String getField() { return field; }
+
+    public String getNextAction() { return nextAction; }
+
+    public Boolean isRetryable() { return retryable; }
+
+    public Integer getRetryAfter() { return retryAfter; }
+
     /**
      * Required OAuth scope when the server rejects with {@code 403 insufficient_scope}.
      *
@@ -211,6 +248,9 @@ public class EPostakException extends RuntimeException {
         if (requestId != null) {
             sb.append(", requestId='").append(requestId).append('\'');
         }
+        if (field != null) sb.append(", field='").append(field).append('\'');
+        if (retryable != null) sb.append(", retryable=").append(retryable);
+        if (retryAfter != null) sb.append(", retryAfter=").append(retryAfter);
         if (requiredScope != null) {
             sb.append(", requiredScope='").append(requiredScope).append('\'');
         }

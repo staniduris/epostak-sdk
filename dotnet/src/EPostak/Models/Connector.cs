@@ -22,6 +22,11 @@ public sealed class ConnectorSendRequest
     public Dictionary<string, object?> Data { get; set; } = [];
 }
 
+/// <summary>
+/// Autopilot submit payload kept for source compatibility. New
+/// business-document integrations use <see cref="ConnectorBusinessDocumentRequest"/>
+/// with a customer-scoped Documents resource.
+/// </summary>
 public sealed class ConnectorSubmitDocumentRequest
 {
     [JsonPropertyName("customerRef")]
@@ -44,6 +49,397 @@ public sealed class ConnectorSubmitDocumentRequest
 
     [JsonPropertyName("options")]
     public Dictionary<string, object?>? Options { get; set; }
+}
+
+/// <summary>Strict OpenAPI business request for customer Documents.Send/Stage.</summary>
+public sealed class ConnectorBusinessDocumentRequest
+{
+    [JsonPropertyName("customerRef")]
+    public string? CustomerRef { get; internal set; }
+
+    [JsonPropertyName("delivery")]
+    public string? Delivery { get; internal set; }
+
+    [JsonPropertyName("externalId")]
+    public string ExternalId { get; set; } = "";
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "invoice";
+
+    [JsonPropertyName("number")]
+    public string Number { get; set; } = "";
+
+    [JsonPropertyName("precedingDocumentNumber")]
+    public string? PrecedingDocumentNumber { get; set; }
+
+    [JsonPropertyName("recipient")]
+    public ConnectorBusinessRecipient Recipient { get; set; } = new();
+
+    [JsonPropertyName("issueDate")]
+    public string? IssueDate { get; set; }
+
+    [JsonPropertyName("dueDate")]
+    public string? DueDate { get; set; }
+
+    [JsonPropertyName("currency")]
+    public string? Currency { get; set; }
+
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+
+    [JsonPropertyName("iban")]
+    public string? Iban { get; set; }
+
+    [JsonPropertyName("paymentMethod")]
+    public string? PaymentMethod { get; set; }
+
+    [JsonPropertyName("variableSymbol")]
+    public string? VariableSymbol { get; set; }
+
+    [JsonPropertyName("buyerReference")]
+    public string? BuyerReference { get; set; }
+
+    [JsonPropertyName("prepaidAmount")]
+    public decimal? PrepaidAmount { get; set; }
+
+    [JsonPropertyName("prepayments")]
+    public List<ConnectorBusinessPrepayment> Prepayments { get; set; } = [];
+
+    [JsonPropertyName("lines")]
+    public List<ConnectorBusinessLine> Lines { get; set; } = [];
+
+    [JsonPropertyName("attachments")]
+    public List<ConnectorBusinessAttachment> Attachments { get; set; } = [];
+}
+
+public sealed class ConnectorBusinessRecipient
+{
+    [JsonPropertyName("country")]
+    public string Country { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("companyId")]
+    public string? CompanyId { get; set; }
+
+    [JsonPropertyName("taxId")]
+    public string? TaxId { get; set; }
+
+    [JsonPropertyName("vatId")]
+    public string? VatId { get; set; }
+
+    [JsonPropertyName("networkId")]
+    public string? NetworkId { get; set; }
+
+    [JsonPropertyName("address")]
+    public ConnectorBusinessAddress? Address { get; set; }
+}
+
+public sealed class ConnectorBusinessAddress
+{
+    [JsonPropertyName("street")]
+    public string? Street { get; set; }
+
+    [JsonPropertyName("city")]
+    public string? City { get; set; }
+
+    [JsonPropertyName("postalCode")]
+    public string? PostalCode { get; set; }
+}
+
+public sealed class ConnectorBusinessLine
+{
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("quantity")]
+    public decimal Quantity { get; set; }
+
+    [JsonPropertyName("unit")]
+    public string? Unit { get; set; }
+
+    [JsonPropertyName("unitPrice")]
+    public decimal UnitPrice { get; set; }
+
+    [JsonPropertyName("vatRate")]
+    public decimal VatRate { get; set; }
+
+    [JsonPropertyName("taxTreatment")]
+    public string? TaxTreatment { get; set; }
+
+    [JsonPropertyName("discount")]
+    public decimal? Discount { get; set; }
+
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    [JsonPropertyName("lineType")]
+    public string? LineType { get; set; }
+
+    [JsonPropertyName("advanceInvoiceReference")]
+    public string? AdvanceInvoiceReference { get; set; }
+
+    [JsonPropertyName("customsTariffCode")]
+    public string? CustomsTariffCode { get; set; }
+
+    [JsonPropertyName("commodityClassificationCode")]
+    public string? CommodityClassificationCode { get; set; }
+
+    [JsonPropertyName("commodityClassificationListId")]
+    public string? CommodityClassificationListId { get; set; }
+
+    [JsonPropertyName("reverseChargeParagraphLetter")]
+    public string? ReverseChargeParagraphLetter { get; set; }
+
+    [JsonPropertyName("controlStatementType")]
+    public string? ControlStatementType { get; set; }
+
+    [JsonPropertyName("controlStatementQuantity")]
+    public decimal? ControlStatementQuantity { get; set; }
+
+    [JsonPropertyName("controlStatementUnit")]
+    public string? ControlStatementUnit { get; set; }
+}
+
+public sealed class ConnectorBusinessPrepayment
+{
+    [JsonPropertyName("advanceInvoiceRef")]
+    public string? AdvanceInvoiceRef { get; set; }
+
+    [JsonPropertyName("taxDocumentRef")]
+    public string? TaxDocumentRef { get; set; }
+
+    [JsonPropertyName("settlementDate")]
+    public string? SettlementDate { get; set; }
+
+    [JsonPropertyName("amountWithoutVat")]
+    public decimal? AmountWithoutVat { get; set; }
+
+    [JsonPropertyName("vatAmount")]
+    public decimal? VatAmount { get; set; }
+
+    [JsonPropertyName("amountWithVat")]
+    public decimal AmountWithVat { get; set; }
+
+    [JsonPropertyName("vatRate")]
+    public decimal? VatRate { get; set; }
+
+    [JsonPropertyName("taxTreatment")]
+    public string? TaxTreatment { get; set; }
+}
+
+public sealed class ConnectorBusinessAttachment
+{
+    [JsonPropertyName("fileName")]
+    public string FileName { get; set; } = "";
+
+    [JsonPropertyName("mimeType")]
+    public string MimeType { get; set; } = "";
+
+    [JsonPropertyName("content")]
+    public string Content { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+}
+
+public sealed class ConnectorBusinessDocument
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
+
+    [JsonPropertyName("direction")]
+    public string Direction { get; set; } = "";
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("number")]
+    public string? Number { get; set; }
+
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "";
+
+    [JsonPropertyName("replayed")]
+    public bool? Replayed { get; set; }
+
+    [JsonPropertyName("currency")]
+    public string? Currency { get; set; }
+
+    [JsonPropertyName("amounts")]
+    public ConnectorBusinessAmounts? Amounts { get; set; }
+
+    [JsonPropertyName("sender")]
+    public ConnectorBusinessParty? Sender { get; set; }
+
+    [JsonPropertyName("recipient")]
+    public ConnectorBusinessParty? Recipient { get; set; }
+
+    [JsonPropertyName("issueDate")]
+    public string? IssueDate { get; set; }
+
+    [JsonPropertyName("dueDate")]
+    public string? DueDate { get; set; }
+
+    [JsonPropertyName("processedAt")]
+    public string? ProcessedAt { get; set; }
+
+    [JsonPropertyName("processedReference")]
+    public string? ProcessedReference { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string? CreatedAt { get; set; }
+
+    [JsonPropertyName("updatedAt")]
+    public string? UpdatedAt { get; set; }
+
+    [JsonPropertyName("response")]
+    public ConnectorBusinessInvoiceResponse? Response { get; set; }
+
+    [JsonPropertyName("links")]
+    public Dictionary<string, string> Links { get; set; } = [];
+}
+
+/// <summary>Latest business-level invoice response projected on list/detail results.</summary>
+public sealed class ConnectorBusinessInvoiceResponse
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("direction")]
+    public string Direction { get; set; } = "";
+
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("respondedAt")]
+    public string? RespondedAt { get; set; }
+}
+
+public sealed class ConnectorBusinessAmounts
+{
+    [JsonPropertyName("withoutTax")]
+    public decimal? WithoutTax { get; set; }
+
+    [JsonPropertyName("tax")]
+    public decimal? Tax { get; set; }
+
+    [JsonPropertyName("total")]
+    public decimal? Total { get; set; }
+
+    [JsonPropertyName("due")]
+    public decimal? Due { get; set; }
+}
+
+public sealed class ConnectorBusinessParty
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("country")]
+    public string? Country { get; set; }
+
+    [JsonPropertyName("companyId")]
+    public string? CompanyId { get; set; }
+
+    [JsonPropertyName("taxId")]
+    public string? TaxId { get; set; }
+
+    [JsonPropertyName("vatId")]
+    public string? VatId { get; set; }
+
+    [JsonPropertyName("resolution")]
+    public string? Resolution { get; set; }
+}
+
+public sealed class ConnectorBusinessDocumentListParams
+{
+    public string? Direction { get; set; }
+    public string? State { get; set; }
+    public string? Type { get; set; }
+    public string? CreatedAfter { get; set; }
+    public string? Cursor { get; set; }
+    public int? Limit { get; set; }
+}
+
+public sealed class ConnectorBusinessDocumentListResponse
+{
+    [JsonPropertyName("documents")]
+    public List<ConnectorBusinessDocument> Documents { get; set; } = [];
+
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; set; }
+}
+
+public sealed class ConnectorBusinessAcknowledgeResponse
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "";
+
+    [JsonPropertyName("processedAt")]
+    public string ProcessedAt { get; set; } = "";
+
+    [JsonPropertyName("reference")]
+    public string Reference { get; set; } = "";
+
+    [JsonPropertyName("idempotent")]
+    public bool Idempotent { get; set; }
+}
+
+/// <summary>Business-level response to an inbound Connector invoice.</summary>
+public sealed class ConnectorInvoiceResponseRequest
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+}
+
+public sealed class ConnectorInvoiceResponseDelivery
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("direction")]
+    public string Direction { get; set; } = "";
+
+    [JsonPropertyName("delivery")]
+    public string Delivery { get; set; } = "";
+
+    [JsonPropertyName("respondedAt")]
+    public string RespondedAt { get; set; } = "";
+}
+
+public sealed class ConnectorInvoiceResponseResult
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("response")]
+    public ConnectorInvoiceResponseDelivery Response { get; set; } = new();
+
+    [JsonPropertyName("idempotent")]
+    public bool Idempotent { get; set; }
 }
 
 public sealed class ConnectorRepairItem
@@ -154,6 +550,163 @@ public sealed class ConnectorEvent
     public Dictionary<string, object?>? Data { get; set; }
 }
 
+/// <summary>Canonical customer-scoped Connector business event.</summary>
+public sealed class ConnectorBusinessEvent
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("documentId")]
+    public string DocumentId { get; set; } = "";
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "";
+
+    [JsonPropertyName("occurredAt")]
+    public string OccurredAt { get; set; } = "";
+
+    [JsonPropertyName("data")]
+    public ConnectorBusinessEventData Data { get; set; } = new();
+
+    [JsonPropertyName("test")]
+    public bool? Test { get; set; }
+}
+
+/// <summary>Business-only event data shared by Connector polling and push webhooks.</summary>
+public sealed class ConnectorBusinessEventData
+{
+    [JsonPropertyName("customerRef")]
+    public string CustomerRef { get; set; } = "";
+
+    [JsonPropertyName("direction")]
+    public string? Direction { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("number")]
+    public string? Number { get; set; }
+
+    [JsonPropertyName("response")]
+    public ConnectorBusinessInvoiceResponse? Response { get; set; }
+
+    /// <summary>Dictionary-style compatibility accessor for existing event consumers.</summary>
+    public object? this[string key] => key switch
+    {
+        "customerRef" => CustomerRef,
+        "direction" => Direction,
+        "type" => Type,
+        "number" => Number,
+        "response" => Response,
+        _ => null,
+    };
+
+    public bool ContainsKey(string key)
+        => key is "customerRef" or "direction" or "type" or "number" or "response";
+}
+
+public sealed class ConnectorWebhook
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = "";
+
+    [JsonPropertyName("events")]
+    public List<string> Events { get; set; } = [];
+
+    [JsonPropertyName("active")]
+    public bool Active { get; set; }
+
+    [JsonPropertyName("failedAttempts")]
+    public int FailedAttempts { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = "";
+
+    [JsonPropertyName("updatedAt")]
+    public string UpdatedAt { get; set; } = "";
+}
+
+public sealed class ConnectorWebhookConfiguration
+{
+    [JsonPropertyName("webhook")]
+    public ConnectorWebhook? Webhook { get; set; }
+
+    [JsonPropertyName("secret")]
+    public string? Secret { get; set; }
+}
+
+public sealed class ConnectorWebhookTestResponse
+{
+    [JsonPropertyName("deliveryId")]
+    public string DeliveryId { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("event")]
+    public ConnectorBusinessEvent Event { get; set; } = new();
+}
+
+public sealed class ConnectorWebhookDelivery
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("webhookId")]
+    public string WebhookId { get; set; } = "";
+
+    [JsonPropertyName("eventId")]
+    public string? EventId { get; set; }
+
+    [JsonPropertyName("customerRef")]
+    public string? CustomerRef { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("attempts")]
+    public int Attempts { get; set; }
+
+    [JsonPropertyName("responseStatus")]
+    public int? ResponseStatus { get; set; }
+
+    [JsonPropertyName("responseTimeMs")]
+    public int? ResponseTimeMs { get; set; }
+
+    [JsonPropertyName("lastAttemptAt")]
+    public string? LastAttemptAt { get; set; }
+
+    [JsonPropertyName("nextRetryAt")]
+    public string? NextRetryAt { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public string CreatedAt { get; set; } = "";
+}
+
+public sealed class ConnectorWebhookDeliveriesResponse
+{
+    [JsonPropertyName("deliveries")]
+    public List<ConnectorWebhookDelivery> Deliveries { get; set; } = [];
+
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; set; }
+}
+
 public sealed class ConnectorStatusResponse
 {
     [JsonPropertyName("documentId")]
@@ -245,6 +798,19 @@ public sealed class ConnectorEventsResponse
 {
     [JsonPropertyName("events")]
     public List<ConnectorEvent> Events { get; set; } = [];
+
+    [JsonPropertyName("nextCursor")]
+    public string? NextCursor { get; set; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; set; }
+}
+
+/// <summary>Canonical customer-scoped business event page.</summary>
+public sealed class ConnectorBusinessEventsResponse
+{
+    [JsonPropertyName("events")]
+    public List<ConnectorBusinessEvent> Events { get; set; } = [];
 
     [JsonPropertyName("nextCursor")]
     public string? NextCursor { get; set; }

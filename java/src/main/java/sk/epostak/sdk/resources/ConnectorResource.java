@@ -4,20 +4,36 @@ import com.google.gson.reflect.TypeToken;
 import sk.epostak.sdk.HttpClient;
 import sk.epostak.sdk.models.*;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Connector workflow endpoints for ERP teams.
+ * Customer-scoped Connector documents and events for ERP teams.
  * <p>
- * Connector is a polling-first workflow over the Enterprise API. It uses the
- * same credentials, firm scoping, and documentId as the full Enterprise API.
+ * Start from {@link #customers()} after ePošťák approves the firm and the
+ * integrator stores its own stable customer reference in the dashboard.
+ * Lower-level compatibility and orchestration APIs are grouped under
+ * {@link #advanced()}.
  */
 public final class ConnectorResource {
+    private static final String TRIM_STRING_CHARS =
+            "\\x{0009}-\\x{000D}\\x{0020}\\x{00A0}\\x{1680}\\x{2000}-\\x{200A}" +
+            "\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}";
+
+    static String trimString(String value) {
+        return value.replaceAll("^[" + TRIM_STRING_CHARS + "]+|[" + TRIM_STRING_CHARS + "]+$", "");
+    }
 
     private final HttpClient http;
     private final ConnectorDocumentsResource documents;
     private final ConnectorCustomersResource customers;
+    private final ConnectorAdvancedResource advanced;
+    private final ConnectorWebhookResource webhook;
 
     /**
      * Creates a new Connector resource.
@@ -28,6 +44,8 @@ public final class ConnectorResource {
         this.http = http;
         this.documents = new ConnectorDocumentsResource(this);
         this.customers = new ConnectorCustomersResource(this);
+        this.advanced = new ConnectorAdvancedResource(this);
+        this.webhook = new ConnectorWebhookResource(http);
     }
 
     public ConnectorDocumentsResource documents() {
@@ -38,11 +56,86 @@ public final class ConnectorResource {
         return customers;
     }
 
-    public ConnectorAutopilotRunResponse submitDocument(ConnectorSubmitDocumentRequest request) {
-        if (request.mode() == null) {
-            request.mode("stage");
+    /**
+     * Advanced and compatibility Connector workflows.
+     * <p>
+     * New ERP integrations should start from {@link #customers()} and use the
+     * customer-scoped documents and events resources. This surface keeps the
+     * lower-level preflight, outbox, Autopilot, mapper, mailbox, and sync APIs
+     * available when an integration explicitly needs them.
+     *
+     * @return advanced Connector operations
+     */
+    public ConnectorAdvancedResource advanced() {
+        return advanced;
+    }
+
+    /** Single global push webhook shared by all managed Connector firms. */
+    public ConnectorWebhookResource webhook() {
+        return webhook;
+    }
+
+    ConnectorBusinessDocument submitCustomerDocument(
+            String customerRef,
+            ConnectorBusinessDocumentRequest request,
+            String delivery,
+            String idempotencyKey
+    ) {
+        if (customerRef == null || request.externalId() == null) {
+            throw new IllegalArgumentException("Connector externalId is required");
         }
-        return http.postNoFirm("/connector/autopilot", request.toMap(), ConnectorAutopilotRunResponse.class);
+        String normalizedCustomerRef = trimString(customerRef);
+        String normalizedExternalId = trimString(request.externalId());
+        if (normalizedCustomerRef.isEmpty()) {
+            throw new IllegalArgumentException("Connector customerRef is required");
+        }
+        if (normalizedExternalId.isEmpty()) {
+            throw new IllegalArgumentException("Connector externalId is required");
+        }
+        String key = idempotencyKey != null
+                ? validateIdempotencyKey(idempotencyKey)
+                : defaultIdempotencyKey(normalizedCustomerRef, normalizedExternalId);
+        return http.postIdempotentNoFirm(
+                "/connector/documents",
+                request.toMap(normalizedCustomerRef, delivery, normalizedExternalId),
+                ConnectorBusinessDocument.class,
+                key
+        );
+    }
+
+    /**
+     * Autopilot-stage submit compatibility alias retained with its original
+     * request and response semantics.
+     */
+    public ConnectorAutopilotRunResponse submitDocument(ConnectorSubmitDocumentRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>(request.toMap());
+        if (request.mode() == null) body.put("mode", "stage");
+        return http.postNoFirm("/connector/autopilot", body, ConnectorAutopilotRunResponse.class);
+    }
+
+    private static String defaultIdempotencyKey(String customerRef, String externalId) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            updateLengthPrefixed(digest, trimString(customerRef));
+            updateLengthPrefixed(digest, trimString(externalId));
+            return "connector:v1:" + HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
+    }
+
+    private static String validateIdempotencyKey(String value) {
+        int byteLength = value.getBytes(StandardCharsets.UTF_8).length;
+        if (trimString(value).isEmpty() || byteLength > 255) {
+            throw new IllegalArgumentException("Connector idempotency key must be 1-255 UTF-8 bytes");
+        }
+        return value;
+    }
+
+    private static void updateLengthPrefixed(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
+        digest.update(bytes);
     }
 
     /**
@@ -149,13 +242,27 @@ public final class ConnectorResource {
         return http.get("/connector/events" + HttpClient.buildQuery(qp), ConnectorEventsResponse.class);
     }
 
-    /**
-     * List Connector polling events with default parameters.
-     *
-     * @return first Connector events page
-     */
+    /** Compatibility firm-scoped technical event feed with default params. */
     public ConnectorEventsResponse events() {
         return events(ConnectorListParams.empty());
+    }
+
+    /** Compatibility alias for the customer-scoped business event feed. */
+    public ConnectorBusinessEventsResponse events(String customerRef, ConnectorListParams params) {
+        return listCustomerEvents(customerRef, params);
+    }
+
+    ConnectorBusinessEventsResponse listCustomerEvents(String customerRef, ConnectorListParams params) {
+        if (customerRef == null || customerRef.isBlank()) {
+            throw new IllegalArgumentException("Connector customerRef is required");
+        }
+        Map<String, Object> qp = new LinkedHashMap<>();
+        qp.put("customerRef", customerRef);
+        if (params != null) {
+            qp.put("cursor", params.cursor());
+            qp.put("limit", params.limit());
+        }
+        return http.getNoFirm("/connector/events" + HttpClient.buildQuery(qp), ConnectorBusinessEventsResponse.class);
     }
 
     /**
@@ -427,6 +534,94 @@ public final class ConnectorResource {
         );
     }
 
+    Map<String, Object> getCustomerDocument(String documentId, String customerRef) {
+        return http.getTypedNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + customerRefQuery(customerRef),
+                new TypeToken<Map<String, Object>>() {
+                }
+        );
+    }
+
+    ConnectorBusinessDocument getBusinessDocument(String documentId, String customerRef) {
+        return http.getNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + customerRefQuery(customerRef),
+                ConnectorBusinessDocument.class
+        );
+    }
+
+    ConnectorBusinessDocumentListResponse listCustomerDocuments(
+            String customerRef,
+            ConnectorBusinessDocumentListParams params
+    ) {
+        Map<String, Object> qp = new LinkedHashMap<>();
+        qp.put("customerRef", customerRef);
+        if (params != null) {
+            qp.put("direction", params.direction());
+            qp.put("state", params.state());
+            qp.put("type", params.type());
+            qp.put("createdAfter", params.createdAfter());
+            qp.put("cursor", params.cursor());
+            qp.put("limit", params.limit());
+        }
+        return http.getNoFirm(
+                "/connector/documents" + HttpClient.buildQuery(qp),
+                ConnectorBusinessDocumentListResponse.class
+        );
+    }
+
+    ConnectorBusinessAcknowledgeResponse acknowledgeDocument(String documentId, String reference, String customerRef) {
+        if (reference == null || reference.isBlank()) {
+            throw new IllegalArgumentException("Connector reference is required");
+        }
+        return http.postRetryableNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/acknowledge" + customerRefQuery(customerRef),
+                Map.of("reference", reference),
+                ConnectorBusinessAcknowledgeResponse.class
+        );
+    }
+
+    ConnectorInvoiceResponseResult respondDocument(
+            String documentId,
+            String customerRef,
+            ConnectorInvoiceResponseRequest request
+    ) {
+        if (documentId == null || documentId.isBlank()) {
+            throw new IllegalArgumentException("Connector documentId is required");
+        }
+        String normalizedCustomerRef = customerRef == null ? "" : trimString(customerRef);
+        if (normalizedCustomerRef.isEmpty()) {
+            throw new IllegalArgumentException("Connector customerRef is required");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", request.status());
+        if (request.note() != null) body.put("note", request.note());
+        return http.postRetryableNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId.trim()) + "/respond"
+                        + customerRefQuery(normalizedCustomerRef),
+                body,
+                ConnectorInvoiceResponseResult.class
+        );
+    }
+
+    ConnectorBusinessDocument sendDocument(String documentId, String customerRef) {
+        return transitionDocument(documentId, "send", customerRef);
+    }
+
+    ConnectorBusinessDocument cancelDocument(String documentId, String customerRef) {
+        return transitionDocument(documentId, "cancel", customerRef);
+    }
+
+    private ConnectorBusinessDocument transitionDocument(String documentId, String action, String customerRef) {
+        if (documentId == null || documentId.isBlank()) {
+            throw new IllegalArgumentException("Connector documentId is required");
+        }
+        return http.postRetryableNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/" + action + customerRefQuery(customerRef),
+                null,
+                ConnectorBusinessDocument.class
+        );
+    }
+
     /**
      * Download a Connector document UBL XML body.
      *
@@ -434,7 +629,13 @@ public final class ConnectorResource {
      * @return UBL XML
      */
     public String getDocumentUbl(String documentId) {
-        return http.getStringNoFirm("/connector/documents/" + HttpClient.encode(documentId) + "/ubl");
+        return getDocumentUbl(documentId, null);
+    }
+
+    String getDocumentUbl(String documentId, String customerRef) {
+        return http.getStringNoFirm(
+                "/connector/documents/" + HttpClient.encode(documentId) + "/ubl" + customerRefQuery(customerRef)
+        );
     }
 
     /**
@@ -444,8 +645,12 @@ public final class ConnectorResource {
      * @return evidence payload
      */
     public Map<String, Object> getDocumentEvidence(String documentId) {
+        return getDocumentEvidence(documentId, null);
+    }
+
+    Map<String, Object> getDocumentEvidence(String documentId, String customerRef) {
         return http.getTypedNoFirm(
-                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence",
+                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence" + customerRefQuery(customerRef),
                 new TypeToken<Map<String, Object>>() {
                 }
         );
@@ -458,16 +663,24 @@ public final class ConnectorResource {
      * @return evidence bundle manifest
      */
     public Map<String, Object> getDocumentEvidenceBundle(String documentId) {
+        return getDocumentEvidenceBundle(documentId, null);
+    }
+
+    Map<String, Object> getDocumentEvidenceBundle(String documentId, String customerRef) {
         return http.getTypedNoFirm(
-                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence-bundle",
+                "/connector/documents/" + HttpClient.encode(documentId) + "/evidence-bundle" + customerRefQuery(customerRef),
                 new TypeToken<Map<String, Object>>() {
                 }
         );
     }
 
     public Map<String, Object> getDocumentSupportPacket(String documentId) {
+        return getDocumentSupportPacket(documentId, null);
+    }
+
+    Map<String, Object> getDocumentSupportPacket(String documentId, String customerRef) {
         return http.getTypedNoFirm(
-                "/connector/documents/" + HttpClient.encode(documentId) + "/support-packet",
+                "/connector/documents/" + HttpClient.encode(documentId) + "/support-packet" + customerRefQuery(customerRef),
                 new TypeToken<Map<String, Object>>() {
                 }
         );
@@ -475,6 +688,12 @@ public final class ConnectorResource {
 
     public Map<String, Object> supportPacket(String documentId) {
         return getDocumentSupportPacket(documentId);
+    }
+
+    private static String customerRefQuery(String customerRef) {
+        Map<String, Object> qp = new LinkedHashMap<>();
+        qp.put("customerRef", customerRef);
+        return HttpClient.buildQuery(qp);
     }
 
     /**

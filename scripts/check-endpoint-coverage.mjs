@@ -1,868 +1,275 @@
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
 
 const root = path.resolve(import.meta.dirname, "..");
+const manifestPath = path.join(root, "fixtures/sdk-surface-manifest.json");
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const failures = [];
 
-const checks = [
-  ["README.md", "Enterprise API facade flow"],
-  ["README.md", "Non-breaking adoption"],
-  ["README.md", "payloads.validate"],
-  ["README.md", "events.pull"],
-  ["README.md", "documents.supportPacket"],
-  ["typescript/README.md", "Enterprise API facade flow"],
-  ["typescript/README.md", "Non-breaking adoption"],
-  ["typescript/README.md", "client.enterprise.payloads.validate"],
-  ["typescript/README.md", "client.enterprise.payloads.extract"],
-  ["typescript/README.md", "send_payload"],
-  ["typescript/README.md", "client.enterprise.events.pull"],
-  ["typescript/README.md", "client.enterprise.documents.supportPacket"],
-  ["python/README.md", "Enterprise API facade flow"],
-  ["python/README.md", "Non-breaking adoption"],
-  ["python/README.md", "client.enterprise.payloads.validate"],
-  ["python/README.md", "client.enterprise.payloads.extract"],
-  ["python/README.md", "send_payload"],
-  ["python/README.md", "client.enterprise.events.pull"],
-  ["python/README.md", "client.enterprise.documents.support_packet"],
-  ["ruby/README.md", "Enterprise API facade flow"],
-  ["ruby/README.md", "Non-breaking adoption"],
-  ["ruby/README.md", "client.enterprise.payloads.validate"],
-  ["ruby/README.md", "client.enterprise.payloads.extract"],
-  ["ruby/README.md", "send_payload"],
-  ["ruby/README.md", "client.enterprise.events.pull"],
-  ["ruby/README.md", "client.enterprise.documents.support_packet"],
-  ["php/README.md", "Enterprise API facade flow"],
-  ["php/README.md", "Non-breaking adoption"],
-  ["php/README.md", "$client->enterprise->payloads->validate"],
-  ["php/README.md", "$client->enterprise->payloads->extract"],
-  ["php/README.md", "send_payload"],
-  ["php/README.md", "$client->enterprise->events->pull"],
-  ["php/README.md", "$client->enterprise->documents->supportPacket"],
-  ["dotnet/README.md", "Enterprise API facade flow"],
-  ["dotnet/README.md", "Non-breaking adoption"],
-  ["dotnet/README.md", "client.Enterprise.Payloads.ValidateAsync"],
-  ["dotnet/README.md", "client.Enterprise.Payloads.ExtractAsync"],
-  ["dotnet/README.md", "send_payload"],
-  ["dotnet/README.md", "client.Enterprise.Events.PullAsync"],
-  ["dotnet/README.md", "client.Enterprise.Documents.SupportPacketAsync"],
-  ["dotnet/README.md", "### Events pull facade"],
-  ["java/README.md", "Enterprise API facade flow"],
-  ["java/README.md", "Non-breaking adoption"],
-  ["java/README.md", "client.enterprise().payloads().validate"],
-  ["java/README.md", "client.enterprise().payloads().extract"],
-  ["java/README.md", "send_payload"],
-  ["java/README.md", "client.enterprise().events().pull"],
-  ["java/README.md", "client.enterprise().documents().supportPacket"],
-  ["java/README.md", "| `documents().supportPacket(id)`"],
-  ["java/README.md", "| `connector().getDocumentSupportPacket(documentId)`"],
-  ["java/README.md", "| `connector().documents().supportPacket(documentId)`"],
-  ["java/README.md", "### Events pull facade"],
-  ["typescript/src/client.ts", "enterprise: EnterpriseResource"],
-  ["typescript/src/client.ts", "this.enterprise = new EnterpriseResource"],
-  ["typescript/src/resources/enterprise.ts", "readonly documents: DocumentsResource"],
-  ["typescript/src/resources/enterprise.ts", "readonly pull: EnterprisePullResource"],
-  ["typescript/src/resources/enterprise.ts", "readonly connector: ConnectorResource"],
-  ["typescript/src/client.ts", "sapi: SapiResource"],
-  ["typescript/src/client.ts", "sapi = new SapiResource"],
-  ["typescript/src/resources/sapi.ts", "participants: SapiParticipantsResource"],
-  ["typescript/src/resources/sapi.ts", "for(participantId: string): SapiParticipantResource"],
-  ["typescript/src/resources/sapi.ts", "\"X-Peppol-Participant-Id\""],
-  ["typescript/src/resources/sapi.ts", "/sapi/v1/document/send"],
-  ["typescript/src/resources/sapi.ts", "/sapi/v1/document/receive"],
-  ["typescript/src/resources/sapi.ts", "/acknowledge"],
-  ["typescript/src/resources/peppol.ts", "/company/search"],
-  ["typescript/src/resources/peppol.ts", "/peppol/participants/resolve"],
-  ["typescript/src/resources/documents.ts", "/peppol-documents"],
-  ["typescript/src/resources/account.ts", "/licenses/info"],
-  ["typescript/src/resources/documents.ts", "evidenceBundle"],
-  ["typescript/src/resources/documents.ts", "/evidence-bundle"],
-  ["typescript/src/resources/documents.ts", "statusBatch"],
-  ["typescript/src/resources/documents.ts", "/documents/status/batch"],
-  ["typescript/src/resources/outbound.ts", "getMdn"],
-  ["typescript/src/resources/outbound.ts", "/mdn"],
-  ["typescript/src/resources/webhooks.ts", "mode"],
-  ["typescript/src/resources/webhooks.ts", "count"],
-  ["typescript/src/resources/webhooks.ts", "testRunId"],
-  ["typescript/src/resources/webhooks.ts", "/webhook-dead-letter"],
-  ["typescript/src/resources/reporting.ts", "submissions"],
-  ["typescript/src/resources/reporting.ts", "/reporting/submissions"],
-  ["typescript/src/resources/integrator.ts", "keys = new IntegratorKeysResource"],
-  ["typescript/src/resources/integrator.ts", "/integrator/keys"],
-  ["typescript/src/resources/integrator.ts", "this.request(\"DELETE\", \"/integrator/keys\""],
-  ["typescript/src/client.ts", "connector: ConnectorResource"],
-  ["typescript/src/client.ts", "connector = new ConnectorResource"],
-  ["typescript/src/client.ts", "payloads: PayloadsResource"],
-  ["typescript/src/client.ts", "payloads = new PayloadsResource"],
-  ["typescript/src/client.ts", "events: EventsResource"],
-  ["typescript/src/client.ts", "events = new EventsResource"],
-  ["typescript/src/resources/payloads.ts", "extract("],
-  ["typescript/src/resources/payloads.ts", "/payloads/extract"],
-  ["typescript/src/resources/payloads.ts", "extractBatch("],
-  ["typescript/src/resources/payloads.ts", "/payloads/extract/batch"],
-  ["typescript/src/resources/payloads.ts", "parse("],
-  ["typescript/src/resources/payloads.ts", "/payloads/parse"],
-  ["typescript/src/resources/payloads.ts", "convert("],
-  ["typescript/src/resources/payloads.ts", "/payloads/convert"],
-  ["typescript/src/resources/payloads.ts", "validate("],
-  ["typescript/src/resources/payloads.ts", "/payloads/validate"],
-  ["typescript/src/resources/events.ts", "pull("],
-  ["typescript/src/resources/events.ts", "/events/pull"],
-  ["typescript/src/resources/events.ts", "ack("],
-  ["typescript/src/resources/events.ts", "/events/${encodeURIComponent(eventId)}/ack"],
-  ["typescript/src/resources/events.ts", "batchAck("],
-  ["typescript/src/resources/events.ts", "/events/batch-ack"],
-  ["typescript/src/resources/documents.ts", "supportPacket"],
-  ["typescript/src/resources/documents.ts", "/support-packet"],
-  ["typescript/src/resources/connector.ts", "supportPacket"],
-  ["typescript/src/resources/connector.ts", "/support-packet"],
-  ["typescript/src/types.ts", "export interface ExtractMissingField"],
-  ["typescript/src/types.ts", "send_payload?: Record<string, unknown> | null"],
-  ["typescript/src/types.ts", "send_payload_missing_fields?: string[]"],
-  ["typescript/src/types.ts", "send_ready?: boolean"],
-  ["typescript/src/types.ts", "missing_fields?: ExtractMissingField[]"],
-  ["typescript/src/types.ts", "field_sources?: Record<string, ExtractFieldSource>"],
-  ["typescript/src/types.ts", "next_action?: ExtractNextAction"],
-  ["typescript/src/types.ts", "receiverName: string"],
-  ["typescript/src/types.ts", "receiverStreet?: string"],
-  ["typescript/src/types.ts", "receiverCity?: string"],
-  ["typescript/src/types.ts", "receiverPostalCode?: string"],
-  ["typescript/src/types.ts", "prepaidAmount?: number"],
-  ["typescript/src/types.ts", "prepayments?: Prepayment[]"],
-  ["typescript/src/types.ts", "taxTreatment?: string"],
-  ["typescript/src/types.ts", "tax_treatment?: string"],
-  ["typescript/src/types.ts", "advanceInvoiceReference?: string"],
-  ["typescript/src/types.ts", "controlStatementQuantity?: number"],
-  ["python/src/epostak/types.py", "receiverStreet: str"],
-  ["python/src/epostak/types.py", "receiverCity: str"],
-  ["python/src/epostak/types.py", "receiverPostalCode: str"],
-  ["python/src/epostak/types.py", "prepaidAmount: float"],
-  ["python/src/epostak/types.py", "prepayments: List[Prepayment]"],
-  ["python/src/epostak/types.py", "taxTreatment: str"],
-  ["python/src/epostak/types.py", "tax_treatment: str"],
-  ["python/src/epostak/types.py", "advanceInvoiceReference: str"],
-  ["python/src/epostak/types.py", "controlStatementQuantity: float"],
-  ["python/src/epostak/types.py", "class SendDocumentJsonRequest(_SendDocumentBase):"],
-  ["python/src/epostak/types.py", "receiverName: str  # Receiver company name required by the live JSON schema"],
-  ["python/src/epostak/types.py", "SendDocumentRequest = Union[SendDocumentJsonRequest, SendDocumentXmlRequest]"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"receiverStreet\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"receiverCity\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"receiverPostalCode\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"prepaidAmount\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"prepayments\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"taxTreatment\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"advanceInvoiceReference\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "JsonPropertyName(\"controlStatementQuantity\")"],
-  ["dotnet/src/EPostak/Models/Documents.cs", "public required decimal AmountWithVat { get; set; }"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "ValidateSendRequest(request)"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "JSON-mode send requires ReceiverName"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"receiverPeppolId\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"receiverStreet\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"receiverCity\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"receiverPostalCode\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"prepaidAmount\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "private final List<Prepayment> prepayments"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"unitPrice\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"fileName\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"taxTreatment\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"advanceInvoiceReference\")"],
-  ["java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java", "SerializedName(\"controlStatementQuantity\")"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "validateSendRequest(request)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "JSON-mode send requires receiverName"],
-  ["typescript/src/client.ts", "box: BoxResource"],
-  ["typescript/src/client.ts", "box = new BoxResource"],
-  ["typescript/src/resources/enterprise.ts", "readonly box: BoxResource"],
-  ["typescript/src/resources/box.ts", "/box/items"],
-  ["typescript/src/resources/box.ts", "/box/items/${encodeURIComponent(itemId)}"],
-  ["typescript/src/resources/box.ts", "/box/items/${encodeURIComponent(itemId)}/schedule"],
-  ["typescript/src/resources/box.ts", "/box/items/${encodeURIComponent(itemId)}/send-now"],
-  ["typescript/src/resources/box.ts", "/box/items/${encodeURIComponent(itemId)}/retry"],
-  ["typescript/src/resources/box.ts", "/box/items/${encodeURIComponent(itemId)}/cancel"],
-  ["typescript/src/resources/connector.ts", "customers: ConnectorCustomersResource"],
-  ["typescript/src/resources/connector.ts", "readonly documents: ConnectorDocumentsResource"],
-  ["typescript/src/resources/connector.ts", "this.documents = new ConnectorDocumentsResource(this)"],
-  ["typescript/src/resources/connector.ts", "submitDocument("],
-  ["typescript/src/resources/connector.ts", "withCustomerRef(this.customerRef"],
-  ["typescript/src/resources/connector.ts", "/connector/preflight"],
-  ["typescript/src/resources/connector.ts", "/connector/send"],
-  ["typescript/src/resources/connector.ts", "/connector/status/"],
-  ["typescript/src/resources/connector.ts", "/connector/inbox"],
-  ["typescript/src/resources/connector.ts", "/connector/inbox/${encodeURIComponent(documentId)}"],
-  ["typescript/src/resources/connector.ts", "/connector/inbox/${encodeURIComponent(documentId)}/ack"],
-  ["typescript/src/resources/connector.ts", "/connector/events"],
-  ["typescript/src/resources/connector.ts", "/connector/outbox"],
-  ["typescript/src/resources/connector.ts", "/connector/outbox/${encodeURIComponent(outboxId)}"],
-  ["typescript/src/resources/connector.ts", "/connector/outbox/${encodeURIComponent(outboxId)}/send"],
-  ["typescript/src/resources/connector.ts", "/connector/outbox/send"],
-  ["typescript/src/resources/connector.ts", "/connector/autopilot"],
-  ["typescript/src/resources/connector.ts", "/connector/autopilot/${encodeURIComponent(autopilotId)}"],
-  ["typescript/src/resources/connector.ts", "/connector/autopilot/${encodeURIComponent(autopilotId)}/send"],
-  ["typescript/src/resources/connector.ts", "/connector/reconcile"],
-  ["typescript/src/resources/connector.ts", "/connector/mapper"],
-  ["typescript/src/resources/connector.ts", "/connector/zen-input"],
-  ["typescript/src/resources/connector.ts", "/connector/mailbox"],
-  ["typescript/src/resources/connector.ts", "/connector/mailbox/repair"],
-  ["typescript/src/resources/connector.ts", "/connector/mailbox/${encodeURIComponent(customerRef)}/send-policy"],
-  ["typescript/src/resources/connector.ts", "/connector/sync"],
-  ["typescript/src/resources/connector.ts", "/connector/documents/${encodeURIComponent(documentId)}"],
-  ["typescript/src/resources/connector.ts", "/connector/documents/${encodeURIComponent(documentId)}/ubl"],
-  ["typescript/src/resources/connector.ts", "/connector/documents/${encodeURIComponent(documentId)}/evidence"],
-  ["typescript/src/resources/connector.ts", "/connector/documents/${encodeURIComponent(documentId)}/evidence-bundle"],
-  ["typescript/src/resources/connector.ts", "/connector/actions/${encodeURIComponent(actionId)}"],
-
-  ["python/src/epostak/client.py", "self.enterprise = EnterpriseResource"],
-  ["python/src/epostak/resources/enterprise.py", "self.documents = client.documents"],
-  ["python/src/epostak/resources/enterprise.py", "self.pull = EnterprisePullResource"],
-  ["python/src/epostak/resources/enterprise.py", "self.connector = client.connector"],
-  ["python/src/epostak/client.py", "self.sapi = SapiResource"],
-  ["python/src/epostak/resources/sapi.py", "self.participants = SapiParticipantsResource"],
-  ["python/src/epostak/resources/sapi.py", "def for_participant(self, participant_id: str)"],
-  ["python/src/epostak/resources/sapi.py", "\"X-Peppol-Participant-Id\""],
-  ["python/src/epostak/resources/sapi.py", "/sapi/v1/document/send"],
-  ["python/src/epostak/resources/sapi.py", "/sapi/v1/document/receive"],
-  ["python/src/epostak/resources/sapi.py", "/acknowledge"],
-  ["python/src/epostak/resources/peppol.py", "/company/search"],
-  ["python/src/epostak/resources/peppol.py", "/peppol/participants/resolve"],
-  ["python/src/epostak/resources/documents.py", "/peppol-documents"],
-  ["python/src/epostak/resources/account.py", "/licenses/info"],
-  ["python/src/epostak/resources/documents.py", "evidence_bundle"],
-  ["python/src/epostak/resources/documents.py", "/evidence-bundle"],
-  ["python/src/epostak/resources/documents.py", "status_batch"],
-  ["python/src/epostak/resources/documents.py", "/documents/status/batch"],
-  ["python/src/epostak/resources/outbound.py", "get_mdn"],
-  ["python/src/epostak/resources/outbound.py", "/mdn"],
-  ["python/src/epostak/resources/webhooks.py", "mode"],
-  ["python/src/epostak/resources/webhooks.py", "count"],
-  ["python/src/epostak/resources/webhooks.py", "testRunId"],
-  ["python/src/epostak/resources/webhooks.py", "/webhook-dead-letter"],
-  ["python/src/epostak/resources/reporting.py", "submissions"],
-  ["python/src/epostak/resources/reporting.py", "/reporting/submissions"],
-  ["python/src/epostak/resources/integrator.py", "self.keys = IntegratorKeysResource"],
-  ["python/src/epostak/resources/integrator.py", "/integrator/keys"],
-  ["python/src/epostak/resources/integrator.py", "\"DELETE\", \"/integrator/keys\""],
-  ["python/src/epostak/client.py", "self.connector = ConnectorResource"],
-  ["python/src/epostak/client.py", "self.payloads = PayloadsResource"],
-  ["python/src/epostak/client.py", "self.events = EventsResource"],
-  ["python/src/epostak/resources/payloads.py", "def extract("],
-  ["python/src/epostak/resources/payloads.py", "/payloads/extract"],
-  ["python/src/epostak/resources/payloads.py", "def extract_batch("],
-  ["python/src/epostak/resources/payloads.py", "/payloads/extract/batch"],
-  ["python/src/epostak/resources/payloads.py", "def parse("],
-  ["python/src/epostak/resources/payloads.py", "/payloads/parse"],
-  ["python/src/epostak/resources/payloads.py", "def convert("],
-  ["python/src/epostak/resources/payloads.py", "/payloads/convert"],
-  ["python/src/epostak/resources/payloads.py", "def validate("],
-  ["python/src/epostak/resources/payloads.py", "/payloads/validate"],
-  ["python/src/epostak/resources/events.py", "def pull("],
-  ["python/src/epostak/resources/events.py", "/events/pull"],
-  ["python/src/epostak/resources/events.py", "def ack("],
-  ["python/src/epostak/resources/events.py", "/events/{quote(event_id, safe='')}/ack"],
-  ["python/src/epostak/resources/events.py", "def batch_ack("],
-  ["python/src/epostak/resources/events.py", "/events/batch-ack"],
-  ["python/src/epostak/resources/documents.py", "def support_packet("],
-  ["python/src/epostak/resources/documents.py", "/support-packet"],
-  ["python/src/epostak/resources/connector.py", "support_packet"],
-  ["python/src/epostak/resources/connector.py", "/support-packet"],
-  ["python/src/epostak/types.py", "class ExtractMissingField(TypedDict, total=False):"],
-  ["python/src/epostak/types.py", "send_payload: Optional[Dict[str, Any]]"],
-  ["python/src/epostak/types.py", "send_payload_missing_fields: List[str]"],
-  ["python/src/epostak/types.py", "send_ready: bool"],
-  ["python/src/epostak/types.py", "missing_fields: List[ExtractMissingField]"],
-  ["python/src/epostak/types.py", "field_sources: Dict[str, ExtractFieldSource]"],
-  ["python/src/epostak/types.py", "next_action: ExtractNextAction"],
-  ["python/src/epostak/client.py", "self.box = BoxResource"],
-  ["python/src/epostak/resources/enterprise.py", "self.box = client.box"],
-  ["python/src/epostak/resources/box.py", "/box/items"],
-  ["python/src/epostak/resources/box.py", "/box/items/{quote(item_id, safe='')}"],
-  ["python/src/epostak/resources/box.py", "/box/items/{quote(item_id, safe='')}/schedule"],
-  ["python/src/epostak/resources/box.py", "/box/items/{quote(item_id, safe='')}/send-now"],
-  ["python/src/epostak/resources/box.py", "/box/items/{quote(item_id, safe='')}/retry"],
-  ["python/src/epostak/resources/box.py", "/box/items/{quote(item_id, safe='')}/cancel"],
-  ["python/src/epostak/resources/connector.py", "self.customers = ConnectorCustomersResource"],
-  ["python/src/epostak/resources/connector.py", "self.documents = ConnectorDocumentsResource(self)"],
-  ["python/src/epostak/resources/connector.py", "class ConnectorDocumentsResource"],
-  ["python/src/epostak/resources/connector.py", "def submit_document(self, body: Dict[str, Any])"],
-  ["python/src/epostak/resources/connector.py", "scoped[\"customerRef\"] = customer_ref"],
-  ["python/src/epostak/resources/connector.py", "/connector/preflight"],
-  ["python/src/epostak/resources/connector.py", "/connector/send"],
-  ["python/src/epostak/resources/connector.py", "/connector/status/"],
-  ["python/src/epostak/resources/connector.py", "/connector/inbox"],
-  ["python/src/epostak/resources/connector.py", "/connector/inbox/{quote(document_id, safe='')}"],
-  ["python/src/epostak/resources/connector.py", "/connector/inbox/{quote(document_id, safe='')}/ack"],
-  ["python/src/epostak/resources/connector.py", "/connector/events"],
-  ["python/src/epostak/resources/connector.py", "/connector/outbox"],
-  ["python/src/epostak/resources/connector.py", "/connector/outbox/{quote(outbox_id, safe='')}"],
-  ["python/src/epostak/resources/connector.py", "/connector/outbox/{quote(outbox_id, safe='')}/send"],
-  ["python/src/epostak/resources/connector.py", "/connector/outbox/send"],
-  ["python/src/epostak/resources/connector.py", "/connector/autopilot"],
-  ["python/src/epostak/resources/connector.py", "/connector/autopilot/{quote(autopilot_id, safe='')}"],
-  ["python/src/epostak/resources/connector.py", "/connector/autopilot/{quote(autopilot_id, safe='')}/send"],
-  ["python/src/epostak/resources/connector.py", "/connector/reconcile"],
-  ["python/src/epostak/resources/connector.py", "/connector/mapper"],
-  ["python/src/epostak/resources/connector.py", "/connector/zen-input"],
-  ["python/src/epostak/resources/connector.py", "/connector/mailbox"],
-  ["python/src/epostak/resources/connector.py", "/connector/mailbox/repair"],
-  ["python/src/epostak/resources/connector.py", "/connector/mailbox/{quote(customer_ref, safe='')}/send-policy"],
-  ["python/src/epostak/resources/connector.py", "/connector/sync"],
-  ["python/src/epostak/resources/connector.py", "/connector/documents/{quote(document_id, safe='')}"],
-  ["python/src/epostak/resources/connector.py", "/connector/documents/{quote(document_id, safe='')}/ubl"],
-  ["python/src/epostak/resources/connector.py", "/connector/documents/{quote(document_id, safe='')}/evidence"],
-  ["python/src/epostak/resources/connector.py", "/connector/documents/{quote(document_id, safe='')}/evidence-bundle"],
-  ["python/src/epostak/resources/connector.py", "/connector/actions/{quote(action_id, safe='')}"],
-
-  ["ruby/lib/epostak/client.rb", "@enterprise = Resources::Enterprise.new"],
-  ["ruby/lib/epostak/resources/enterprise.rb", "@documents = client.documents"],
-  ["ruby/lib/epostak/resources/enterprise.rb", "@pull = EnterprisePull.new"],
-  ["ruby/lib/epostak/resources/enterprise.rb", "@connector = client.connector"],
-  ["ruby/lib/epostak/resources/enterprise.rb", "@box = client.box"],
-  ["ruby/lib/epostak/client.rb", "@sapi"],
-  ["ruby/lib/epostak/resources/sapi.rb", "@participants = SapiParticipants.new"],
-  ["ruby/lib/epostak/resources/sapi.rb", "def for_participant(participant_id)"],
-  ["ruby/lib/epostak/resources/sapi.rb", "\"X-Peppol-Participant-Id\""],
-  ["ruby/lib/epostak/resources/sapi.rb", "/sapi/v1/document/send"],
-  ["ruby/lib/epostak/resources/sapi.rb", "/sapi/v1/document/receive"],
-  ["ruby/lib/epostak/resources/sapi.rb", "/acknowledge"],
-  ["ruby/lib/epostak/resources/peppol.rb", "/company/search"],
-  ["ruby/lib/epostak/resources/peppol.rb", "/peppol/participants/resolve"],
-  ["ruby/lib/epostak/resources/documents.rb", "/peppol-documents"],
-  ["ruby/lib/epostak/resources/account.rb", "/licenses/info"],
-  ["ruby/lib/epostak/resources/documents.rb", "evidence_bundle"],
-  ["ruby/lib/epostak/resources/documents.rb", "/evidence-bundle"],
-  ["ruby/lib/epostak/resources/documents.rb", "status_batch"],
-  ["ruby/lib/epostak/resources/documents.rb", "/documents/status/batch"],
-  ["ruby/lib/epostak/resources/outbound.rb", "get_mdn"],
-  ["ruby/lib/epostak/resources/outbound.rb", "/mdn"],
-  ["ruby/lib/epostak/resources/webhooks.rb", "mode"],
-  ["ruby/lib/epostak/resources/webhooks.rb", "count"],
-  ["ruby/lib/epostak/resources/webhooks.rb", "testRunId"],
-  ["ruby/lib/epostak/resources/webhooks.rb", "/webhook-dead-letter"],
-  ["ruby/lib/epostak/resources/reporting.rb", "submissions"],
-  ["ruby/lib/epostak/resources/reporting.rb", "/reporting/submissions"],
-  ["ruby/lib/epostak/resources/integrator.rb", "@keys"],
-  ["ruby/lib/epostak/resources/integrator.rb", "/integrator/keys"],
-  ["ruby/lib/epostak/resources/integrator.rb", ":delete, \"/integrator/keys\""],
-  ["ruby/lib/epostak/client.rb", "@connector"],
-  ["ruby/lib/epostak/client.rb", "@payloads"],
-  ["ruby/lib/epostak/client.rb", "@events"],
-  ["ruby/lib/epostak/resources/payloads.rb", "def extract("],
-  ["ruby/lib/epostak/resources/payloads.rb", "/payloads/extract"],
-  ["ruby/lib/epostak/resources/payloads.rb", "def extract_batch("],
-  ["ruby/lib/epostak/resources/payloads.rb", "/payloads/extract/batch"],
-  ["ruby/lib/epostak/resources/payloads.rb", "def parse("],
-  ["ruby/lib/epostak/resources/payloads.rb", "/payloads/parse"],
-  ["ruby/lib/epostak/resources/payloads.rb", "def convert("],
-  ["ruby/lib/epostak/resources/payloads.rb", "/payloads/convert"],
-  ["ruby/lib/epostak/resources/payloads.rb", "def validate("],
-  ["ruby/lib/epostak/resources/payloads.rb", "/payloads/validate"],
-  ["ruby/lib/epostak/resources/events.rb", "def pull("],
-  ["ruby/lib/epostak/resources/events.rb", "/events/pull"],
-  ["ruby/lib/epostak/resources/events.rb", "def ack("],
-  ["ruby/lib/epostak/resources/events.rb", "/events/#{encode(event_id)}/ack"],
-  ["ruby/lib/epostak/resources/events.rb", "def batch_ack("],
-  ["ruby/lib/epostak/resources/events.rb", "/events/batch-ack"],
-  ["ruby/lib/epostak/resources/documents.rb", "support_packet"],
-  ["ruby/lib/epostak/resources/documents.rb", "/support-packet"],
-  ["ruby/lib/epostak/resources/connector.rb", "support_packet"],
-  ["ruby/lib/epostak/resources/connector.rb", "/support-packet"],
-  ["ruby/lib/epostak/client.rb", "@box"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items/#{encode(item_id)}"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items/#{encode(item_id)}/schedule"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items/#{encode(item_id)}/send-now"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items/#{encode(item_id)}/retry"],
-  ["ruby/lib/epostak/resources/box.rb", "/box/items/#{encode(item_id)}/cancel"],
-  ["ruby/lib/epostak/resources/connector.rb", "@customers = ConnectorCustomers.new"],
-  ["ruby/lib/epostak/resources/connector.rb", "@documents = ConnectorDocuments.new(self)"],
-  ["ruby/lib/epostak/resources/connector.rb", "class ConnectorDocuments"],
-  ["ruby/lib/epostak/resources/connector.rb", "def submit_document(body)"],
-  ["ruby/lib/epostak/resources/connector.rb", "body.merge(customerRef: customer_ref)"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/preflight"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/send"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/status/"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/inbox"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/inbox/#{encode(document_id)}"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/inbox/#{encode(document_id)}/ack"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/events"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/#{encode(outbox_id)}"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/#{encode(outbox_id)}/send"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/outbox/send"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/autopilot"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/autopilot/#{encode(autopilot_id)}"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/autopilot/#{encode(autopilot_id)}/send"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/reconcile"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/mapper"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/zen-input"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/mailbox"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/mailbox/repair"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/mailbox/#{encode(customer_ref)}/send-policy"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/sync"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/documents/#{encode(document_id)}"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/documents/#{encode(document_id)}/ubl"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/documents/#{encode(document_id)}/evidence"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/documents/#{encode(document_id)}/evidence-bundle"],
-  ["ruby/lib/epostak/resources/connector.rb", "/connector/actions/#{encode(action_id)}"],
-
-  ["php/src/EPostak.php", "public Enterprise $enterprise"],
-  ["php/src/EPostak.php", "$this->enterprise = new Enterprise"],
-  ["php/src/Resources/Enterprise.php", "public Documents $documents"],
-  ["php/src/Resources/Enterprise.php", "public EnterprisePull $pull"],
-  ["php/src/Resources/Enterprise.php", "public Connector $connector"],
-  ["php/src/Resources/Enterprise.php", "public Box $box"],
-  ["php/src/EPostak.php", "public Sapi $sapi"],
-  ["php/src/Resources/Sapi.php", "public SapiParticipants $participants"],
-  ["php/src/Resources/Sapi.php", "public function for(string $participantId)"],
-  ["php/src/Resources/Sapi.php", "'X-Peppol-Participant-Id'"],
-  ["php/src/Resources/Sapi.php", "/sapi/v1/document/send"],
-  ["php/src/Resources/Sapi.php", "/sapi/v1/document/receive"],
-  ["php/src/Resources/Sapi.php", "/acknowledge"],
-  ["php/src/Resources/Peppol.php", "/company/search"],
-  ["php/src/Resources/Peppol.php", "/peppol/participants/resolve"],
-  ["php/src/Resources/Documents.php", "/peppol-documents"],
-  ["php/src/Resources/Account.php", "/licenses/info"],
-  ["php/src/Resources/Documents.php", "evidenceBundle"],
-  ["php/src/Resources/Documents.php", "/evidence-bundle"],
-  ["php/src/Resources/Documents.php", "statusBatch"],
-  ["php/src/Resources/Documents.php", "/documents/status/batch"],
-  ["php/src/Resources/Outbound.php", "getMdn"],
-  ["php/src/Resources/Outbound.php", "/mdn"],
-  ["php/src/Resources/Webhooks.php", "mode"],
-  ["php/src/Resources/Webhooks.php", "count"],
-  ["php/src/Resources/Webhooks.php", "testRunId"],
-  ["php/src/Resources/Webhooks.php", "/webhook-dead-letter"],
-  ["php/src/Resources/Reporting.php", "submissions"],
-  ["php/src/Resources/Reporting.php", "/reporting/submissions"],
-  ["php/src/Resources/Integrator.php", "public IntegratorKeys $keys"],
-  ["php/src/Resources/Integrator.php", "/integrator/keys"],
-  ["php/src/Resources/Integrator.php", "'DELETE', '/integrator/keys'"],
-  ["php/src/EPostak.php", "public Connector $connector"],
-  ["php/src/EPostak.php", "public Payloads $payloads"],
-  ["php/src/EPostak.php", "public Events $events"],
-  ["php/src/Resources/Payloads.php", "function extract("],
-  ["php/src/Resources/Payloads.php", "/payloads/extract"],
-  ["php/src/Resources/Payloads.php", "function extractBatch("],
-  ["php/src/Resources/Payloads.php", "/payloads/extract/batch"],
-  ["php/src/Resources/Payloads.php", "function parse("],
-  ["php/src/Resources/Payloads.php", "/payloads/parse"],
-  ["php/src/Resources/Payloads.php", "function convert("],
-  ["php/src/Resources/Payloads.php", "/payloads/convert"],
-  ["php/src/Resources/Payloads.php", "function validate("],
-  ["php/src/Resources/Payloads.php", "/payloads/validate"],
-  ["php/src/Resources/Events.php", "function pull("],
-  ["php/src/Resources/Events.php", "/events/pull"],
-  ["php/src/Resources/Events.php", "function ack("],
-  ["php/src/Resources/Events.php", "/events/' . urlencode($eventId) . '/ack"],
-  ["php/src/Resources/Events.php", "function batchAck("],
-  ["php/src/Resources/Events.php", "/events/batch-ack"],
-  ["php/src/Resources/Documents.php", "supportPacket"],
-  ["php/src/Resources/Documents.php", "/support-packet"],
-  ["php/src/Resources/Connector.php", "supportPacket"],
-  ["php/src/Resources/Connector.php", "/support-packet"],
-  ["php/src/EPostak.php", "public Box $box"],
-  ["php/src/Resources/Box.php", "/box/items"],
-  ["php/src/Resources/Box.php", "/box/items/' . urlencode($itemId)"],
-  ["php/src/Resources/Box.php", "/box/items/' . urlencode($itemId) . '/schedule"],
-  ["php/src/Resources/Box.php", "/box/items/' . urlencode($itemId) . '/send-now"],
-  ["php/src/Resources/Box.php", "/box/items/' . urlencode($itemId) . '/retry"],
-  ["php/src/Resources/Box.php", "/box/items/' . urlencode($itemId) . '/cancel"],
-  ["php/src/Resources/Connector.php", "public ConnectorCustomers $customers"],
-  ["php/src/Resources/Connector.php", "public ConnectorDocuments $documents"],
-  ["php/src/Resources/Connector.php", "$this->documents = new ConnectorDocuments($this)"],
-  ["php/src/Resources/Connector.php", "public function submitDocument(array $body): array"],
-  ["php/src/Resources/Connector.php", "$body['customerRef'] = $customerRef"],
-  ["php/src/Resources/Connector.php", "/connector/preflight"],
-  ["php/src/Resources/Connector.php", "/connector/send"],
-  ["php/src/Resources/Connector.php", "/connector/status/"],
-  ["php/src/Resources/Connector.php", "/connector/inbox"],
-  ["php/src/Resources/Connector.php", "/connector/inbox/' . urlencode($documentId)"],
-  ["php/src/Resources/Connector.php", "/connector/inbox/' . urlencode($documentId) . '/ack"],
-  ["php/src/Resources/Connector.php", "/connector/events"],
-  ["php/src/Resources/Connector.php", "/connector/outbox"],
-  ["php/src/Resources/Connector.php", "/connector/outbox/' . urlencode($outboxId)"],
-  ["php/src/Resources/Connector.php", "/connector/outbox/' . urlencode($outboxId) . '/send"],
-  ["php/src/Resources/Connector.php", "/connector/outbox/send"],
-  ["php/src/Resources/Connector.php", "/connector/autopilot"],
-  ["php/src/Resources/Connector.php", "/connector/autopilot/' . urlencode($autopilotId)"],
-  ["php/src/Resources/Connector.php", "/connector/autopilot/' . urlencode($autopilotId) . '/send"],
-  ["php/src/Resources/Connector.php", "/connector/reconcile"],
-  ["php/src/Resources/Connector.php", "/connector/mapper"],
-  ["php/src/Resources/Connector.php", "/connector/zen-input"],
-  ["php/src/Resources/Connector.php", "/connector/mailbox"],
-  ["php/src/Resources/Connector.php", "/connector/mailbox/repair"],
-  ["php/src/Resources/Connector.php", "/connector/mailbox/' . urlencode($customerRef) . '/send-policy"],
-  ["php/src/Resources/Connector.php", "/connector/sync"],
-  ["php/src/Resources/Connector.php", "/connector/documents/' . urlencode($documentId)"],
-  ["php/src/Resources/Connector.php", "/connector/documents/' . urlencode($documentId) . '/ubl"],
-  ["php/src/Resources/Connector.php", "/connector/documents/' . urlencode($documentId) . '/evidence"],
-  ["php/src/Resources/Connector.php", "/connector/documents/' . urlencode($documentId) . '/evidence-bundle"],
-  ["php/src/Resources/Connector.php", "/connector/actions/' . urlencode($actionId)"],
-
-  ["dotnet/src/EPostak/EPostakClient.cs", "public EnterpriseResource Enterprise"],
-  ["dotnet/src/EPostak/EPostakClient.cs", "Enterprise = new EnterpriseResource"],
-  ["dotnet/src/EPostak/Resources/EnterpriseResource.cs", "public DocumentsResource Documents"],
-  ["dotnet/src/EPostak/Resources/EnterpriseResource.cs", "public EnterprisePullResource Pull"],
-  ["dotnet/src/EPostak/Resources/EnterpriseResource.cs", "public ConnectorResource Connector"],
-  ["dotnet/src/EPostak/Resources/EnterpriseResource.cs", "public BoxResource Box"],
-  ["dotnet/src/EPostak/EPostakClient.cs", "public SapiResource Sapi"],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "public SapiParticipantsResource Participants"],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "public SapiParticipantResource For(string participantId)"],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "\"X-Peppol-Participant-Id\""],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "/sapi/v1/document/send"],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "/sapi/v1/document/receive"],
-  ["dotnet/src/EPostak/Resources/SapiResource.cs", "/acknowledge"],
-  ["dotnet/src/EPostak/Resources/PeppolResource.cs", "/company/search"],
-  ["dotnet/src/EPostak/Resources/PeppolResource.cs", "/peppol/participants/resolve"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/peppol-documents"],
-  ["dotnet/src/EPostak/Resources/AccountResource.cs", "/licenses/info"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "EvidenceBundleAsync"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/evidence-bundle"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "StatusBatchAsync"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/documents/status/batch"],
-  ["dotnet/src/EPostak/Resources/OutboundResource.cs", "GetMdnAsync"],
-  ["dotnet/src/EPostak/Resources/OutboundResource.cs", "/mdn"],
-  ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "Mode"],
-  ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "Count"],
-  ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "TestRunId"],
-  ["dotnet/src/EPostak/Resources/WebhooksResource.cs", "/webhook-dead-letter"],
-  ["dotnet/src/EPostak/Resources/ReportingResource.cs", "SubmissionsAsync"],
-  ["dotnet/src/EPostak/Resources/ReportingResource.cs", "/reporting/submissions"],
-  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "IntegratorKeysResource Keys"],
-  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "/integrator/keys"],
-  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "HttpMethod.Delete, \"/integrator/keys\""],
-  ["dotnet/src/EPostak/EPostakClient.cs", "public ConnectorResource Connector"],
-  ["dotnet/src/EPostak/EPostakClient.cs", "public PayloadsResource Payloads"],
-  ["dotnet/src/EPostak/EPostakClient.cs", "public EventsResource Events"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "ExtractAsync"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "/payloads/extract"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "ExtractBatchAsync"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "/payloads/extract/batch"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "ParseAsync"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "/payloads/parse"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "ConvertAsync"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "/payloads/convert"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "ValidateAsync"],
-  ["dotnet/src/EPostak/Resources/PayloadsResource.cs", "/payloads/validate"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "PullAsync"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "/events/pull"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "AckAsync"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "/events/{Uri.EscapeDataString(eventId)}/ack"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "BatchAckAsync"],
-  ["dotnet/src/EPostak/Resources/EventsResource.cs", "/events/batch-ack"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "SupportPacketAsync"],
-  ["dotnet/src/EPostak/Resources/DocumentsResource.cs", "/support-packet"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "SupportPacketAsync"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/support-packet"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public sealed class ExtractMissingField"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "[JsonPropertyName(\"send_payload\")]"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public Dictionary<string, object>? SendPayload"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "[JsonPropertyName(\"send_payload_missing_fields\")]"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public List<string> SendPayloadMissingFields"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "[JsonPropertyName(\"send_ready\")]"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public bool? SendReady"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public List<ExtractMissingField> MissingFields"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public Dictionary<string, ExtractFieldSource> FieldSources"],
-  ["dotnet/src/EPostak/Models/Extract.cs", "public ExtractNextAction? NextAction"],
-  ["dotnet/src/EPostak/EPostakClient.cs", "public BoxResource Box"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items/{Uri.EscapeDataString(itemId)}"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items/{Uri.EscapeDataString(itemId)}/schedule"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items/{Uri.EscapeDataString(itemId)}/send-now"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items/{Uri.EscapeDataString(itemId)}/retry"],
-  ["dotnet/src/EPostak/Resources/BoxResource.cs", "/box/items/{Uri.EscapeDataString(itemId)}/cancel"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "public ConnectorCustomersResource Customers"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "public ConnectorDocumentsResource Documents"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "Documents = new ConnectorDocumentsResource(this)"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "SubmitDocumentAsync"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "request.CustomerRef = _customerRef"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/preflight"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/send"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/status/"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/inbox"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/inbox/{Uri.EscapeDataString(documentId)}"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/inbox/{Uri.EscapeDataString(documentId)}/ack"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/events"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/{Uri.EscapeDataString(outboxId)}"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/{Uri.EscapeDataString(outboxId)}/send"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/outbox/send"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/autopilot"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/autopilot/{Uri.EscapeDataString(autopilotId)}"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/autopilot/{Uri.EscapeDataString(autopilotId)}/send"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/reconcile"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/mapper"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/zen-input"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/mailbox"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/mailbox/repair"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/mailbox/{Uri.EscapeDataString(customerRef)}/send-policy"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/sync"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/documents/{Uri.EscapeDataString(documentId)}"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/documents/{Uri.EscapeDataString(documentId)}/ubl"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/documents/{Uri.EscapeDataString(documentId)}/evidence"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/documents/{Uri.EscapeDataString(documentId)}/evidence-bundle"],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "/connector/actions/{Uri.EscapeDataString(actionId)}"],
-
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final EnterpriseResource enterprise"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "public EnterpriseResource enterprise()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EnterpriseResource.java", "public DocumentsResource documents()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EnterpriseResource.java", "public EnterprisePullResource pull()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EnterpriseResource.java", "public ConnectorResource connector()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EnterpriseResource.java", "public BoxResource box()"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final SapiResource sapi"],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "private final SapiParticipantsResource participants"],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiParticipantsResource.java", "forParticipant(String participantId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "\"X-Peppol-Participant-Id\""],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "/sapi/v1/document/send"],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "/sapi/v1/document/receive"],
-  ["java/src/main/java/sk/epostak/sdk/resources/SapiResource.java", "/acknowledge"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PeppolResource.java", "/company/search"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PeppolResource.java", "/peppol/participants/resolve"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/peppol-documents"],
-  ["java/src/main/java/sk/epostak/sdk/resources/AccountResource.java", "/licenses/info"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "evidenceBundle"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/evidence-bundle"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "statusBatch"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/documents/status/batch"],
-  ["java/src/main/java/sk/epostak/sdk/resources/OutboundResource.java", "getMdn"],
-  ["java/src/main/java/sk/epostak/sdk/resources/OutboundResource.java", "/mdn"],
-  ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "mode"],
-  ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "count"],
-  ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "testRunId"],
-  ["java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "/webhook-dead-letter"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "submissions"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "/reporting/submissions"],
-  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "IntegratorKeysResource keys"],
-  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "/integrator/keys"],
-  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "http.delete(\"/integrator/keys\""],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final ConnectorResource connector"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final PayloadsResource payloads"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final EventsResource events"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "extract("],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "/payloads/extract"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "extractBatch("],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "/payloads/extract/batch"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "parse("],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "/payloads/parse"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "convert("],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "/payloads/convert"],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "validate("],
-  ["java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java", "/payloads/validate"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "pull("],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "/events/pull"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "ack("],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "/events/\" + HttpClient.encode(eventId) + \"/ack"],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "batchAck("],
-  ["java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "/events/batch-ack"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "supportPacket"],
-  ["java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java", "/support-packet"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "supportPacket"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/support-packet"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractMissingField.java", "public record ExtractMissingField("],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractFieldSource.java", "public record ExtractFieldSource("],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractNextAction.java", "public record ExtractNextAction("],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"send_payload\") Map<String, Object> sendPayload"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"send_payload_missing_fields\") List<String> sendPayloadMissingFields"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"send_ready\") Boolean sendReady"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"missing_fields\") List<ExtractMissingField> missingFields"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"field_sources\") Map<String, ExtractFieldSource> fieldSources"],
-  ["java/src/main/java/sk/epostak/sdk/models/ExtractResult.java", "@SerializedName(\"next_action\") ExtractNextAction nextAction"],
-  ["java/src/main/java/sk/epostak/sdk/models/BatchExtractResult.java", "@SerializedName(\"send_payload\") Map<String, Object> sendPayload"],
-  ["java/src/main/java/sk/epostak/sdk/models/BatchExtractResult.java", "@SerializedName(\"send_ready\") Boolean sendReady"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "public ConnectorResource connector()"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "private final BoxResource box"],
-  ["java/src/main/java/sk/epostak/sdk/EPostak.java", "public BoxResource box()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items/\" + HttpClient.encode(itemId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items/\" + HttpClient.encode(itemId) + \"/schedule"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items/\" + HttpClient.encode(itemId) + \"/send-now"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items/\" + HttpClient.encode(itemId) + \"/retry"],
-  ["java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "/box/items/\" + HttpClient.encode(itemId) + \"/cancel"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "private final ConnectorCustomersResource customers"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "private final ConnectorDocumentsResource documents"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "public ConnectorDocumentsResource documents()"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "submitDocument(ConnectorSubmitDocumentRequest request)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorCustomerResource.java", "request.customerRef(customerRef)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/preflight"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/send"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/status/"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/inbox"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/inbox/\" + HttpClient.encode(documentId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/inbox/\" + HttpClient.encode(documentId) + \"/ack"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/events"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/\" + HttpClient.encode(outboxId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/\" + HttpClient.encode(outboxId) + \"/send"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/outbox/send"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/autopilot"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/autopilot/\" + HttpClient.encode(autopilotId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/autopilot/\" + HttpClient.encode(autopilotId) + \"/send"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/reconcile"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/mapper"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/zen-input"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/mailbox"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/mailbox/repair"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/mailbox/\" + HttpClient.encode(customerRef) + \"/send-policy"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/sync"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/documents/\" + HttpClient.encode(documentId)"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/documents/\" + HttpClient.encode(documentId) + \"/ubl"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/documents/\" + HttpClient.encode(documentId) + \"/evidence"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/documents/\" + HttpClient.encode(documentId) + \"/evidence-bundle"],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "/connector/actions/\" + HttpClient.encode(actionId)"],
-
-  ["typescript/src/types.ts", "export interface ConnectorAutopilotRequest"],
-  ["typescript/src/types.ts", "export interface ConnectorAutopilotRunResponse"],
-  ["typescript/src/types.ts", "export interface ConnectorMapperRequest"],
-  ["typescript/src/types.ts", "export interface ConnectorReconcileResponse"],
-  ["typescript/src/types.ts", "export interface ConnectorZenInputRequest"],
-  ["typescript/src/types.ts", "export interface ConnectorSyncResponse"],
-  ["python/src/epostak/types.py", "class ConnectorAutopilotRequest"],
-  ["python/src/epostak/types.py", "class ConnectorAutopilotRunResponse"],
-  ["python/src/epostak/types.py", "class ConnectorMapperRequest"],
-  ["python/src/epostak/types.py", "class ConnectorReconcileResponse"],
-  ["python/src/epostak/types.py", "class ConnectorZenInputRequest"],
-  ["python/src/epostak/types.py", "class ConnectorSyncResponse"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorAutopilotRequest"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorAutopilotRunResponse"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorMapperRequest"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorReconcileResponse"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorZenInputRequest"],
-  ["dotnet/src/EPostak/Models/Connector.cs", "public sealed class ConnectorSyncResponse"],
-  ["java/src/main/java/sk/epostak/sdk/models/ConnectorAutopilotRequest.java", "public record ConnectorAutopilotRequest("],
-  ["java/src/main/java/sk/epostak/sdk/models/ConnectorAutopilotRunResponse.java", "public record ConnectorAutopilotRunResponse("],
-  ["java/src/main/java/sk/epostak/sdk/models/ConnectorReconcileResponse.java", "public record ConnectorReconcileResponse("],
-  ["java/src/main/java/sk/epostak/sdk/models/ConnectorSyncResponse.java", "public record ConnectorSyncResponse("],
-  ["java/src/main/java/sk/epostak/sdk/models/ConnectorActionResponse.java", "public record ConnectorActionResponse("],
-];
-
-const missing = [];
-
-for (const [relative, needle] of checks) {
-  const file = path.join(root, relative);
-  if (!fs.existsSync(file)) {
-    missing.push(`${relative}: file missing`);
-    continue;
+function read(relativePath) {
+  const absolutePath = path.join(root, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    failures.push(`${relativePath}: file is missing`);
+    return "";
   }
-  const text = fs.readFileSync(file, "utf8");
-  if (!text.includes(needle)) {
-    missing.push(`${relative}: missing ${needle}`);
+  return fs.readFileSync(absolutePath, "utf8");
+}
+
+function readJson(relativePath) {
+  const source = read(relativePath);
+  if (!source) return {};
+  try {
+    return JSON.parse(source);
+  } catch (error) {
+    failures.push(`${relativePath}: invalid JSON (${error.message})`);
+    return {};
   }
 }
 
-if (missing.length > 0) {
-  console.error(missing.join("\n"));
-  process.exit(1);
-}
-
-const forbidden = [
-  ["dotnet/README.md", "### Webhook Queue (polling)"],
-  ["dotnet/README.md", "client.Enterprise.Extract.SingleAsync"],
-  ["java/README.md", "### Webhook Pull Queue"],
-  ["java/README.md", "client.enterprise().extract().single"],
-  ["typescript/README.md", "client.enterprise.extract.single"],
-  ["python/README.md", "client.enterprise.extract.single"],
-  ["ruby/README.md", "client.enterprise.extract.single"],
-  ["php/README.md", "$client->enterprise->extract->single"],
-  ["typescript/src/resources/integrator.ts", "POST\", \"/integrator/keys"],
-  ["python/src/epostak/resources/integrator.py", "\"POST\", \"/integrator/keys"],
-  ["ruby/lib/epostak/resources/integrator.rb", ":post, \"/integrator/keys"],
-  ["php/src/Resources/Integrator.php", "'POST', '/integrator/keys"],
-  ["dotnet/src/EPostak/Resources/IntegratorResource.cs", "HttpMethod.Post, \"/integrator/keys"],
-  ["java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "http.post(\"/integrator/keys"],
-];
-
-const forbiddenHits = [];
-
-for (const [relative, needle] of forbidden) {
-  const file = path.join(root, relative);
-  if (!fs.existsSync(file)) continue;
-  const text = fs.readFileSync(file, "utf8");
-  if (text.includes(needle)) {
-    forbiddenHits.push(`${relative}: forbidden ${needle}`);
+function requireText(relativePath, source, needle, label = "required surface") {
+  if (!source.includes(needle)) {
+    failures.push(`${relativePath}: missing ${label} ${JSON.stringify(needle)}`);
   }
 }
 
-const forbiddenBlocks = [
-  [
-    "typescript/src/types.ts",
-    "export interface ConnectorOutboxStageRequest",
-    "export interface ConnectorOutboxItem",
-    "idempotencyKey",
-  ],
-  [
-    "typescript/src/types.ts",
-    "export interface SendDocumentJsonRequest",
-    "export interface Prepayment",
-    "docType",
-  ],
-  [
-    "python/src/epostak/types.py",
-    "class ConnectorOutboxStageRequest",
-    "class ConnectorOutboxItem",
-    "idempotencyKey",
-  ],
-  [
-    "dotnet/src/EPostak/Models/Connector.cs",
-    "public sealed class ConnectorOutboxStageRequest",
-    "public sealed class ConnectorOutboxItem",
-    "idempotencyKey",
-  ],
-  [
-    "java/src/main/java/sk/epostak/sdk/models/ConnectorOutboxStageRequest.java",
-    "public record ConnectorOutboxStageRequest(",
-    ") {}",
-    "idempotencyKey",
-  ],
-];
-
-for (const [relative, start, end, needle] of forbiddenBlocks) {
-  const file = path.join(root, relative);
-  if (!fs.existsSync(file)) continue;
-  const text = fs.readFileSync(file, "utf8");
-  const startAt = text.indexOf(start);
-  if (startAt < 0) {
-    forbiddenHits.push(`${relative}: missing block start ${start}`);
-    continue;
+function requireExactKeys(value, expectedKeys, label) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    failures.push(`${label}: expected an object`);
+    return;
   }
-  const endAt = text.indexOf(end, startAt + start.length);
-  const block = text.slice(startAt, endAt < 0 ? undefined : endAt);
-  if (block.includes(needle)) {
-    forbiddenHits.push(`${relative}: forbidden ${needle} in ${start}`);
+  const actual = Object.keys(value).sort();
+  const expected = [...expectedKeys].sort();
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    failures.push(`${label}: expected exact keys ${expected.join(", ")}; got ${actual.join(", ")}`);
   }
 }
 
-const occurrenceChecks = [
-  ["typescript/src/utils/request.ts", "omitFirmId", 2],
-  ["typescript/src/resources/connector.ts", "omitFirmId: true", 15],
-  ["python/src/epostak/resources/documents.py", "omit_firm_id", 3],
-  ["python/src/epostak/resources/connector.py", "omit_firm_id=True", 15],
-  ["php/src/HttpClient.php", "$omitFirmId", 4],
-  ["php/src/Resources/Connector.php", "'omitFirmId' => true", 14],
-  ["php/src/Resources/Connector.php", "requestRaw('GET', '/connector/documents/' . urlencode($documentId) . '/ubl', true)", 1],
-  ["ruby/lib/epostak/http_client.rb", "omit_firm_id", 4],
-  ["ruby/lib/epostak/resources/connector.rb", "omit_firm_id: true", 15],
-  ["dotnet/src/EPostak/HttpRequestor.cs", "omitFirmId", 9],
-  ["dotnet/src/EPostak/Resources/ConnectorResource.cs", "omitFirmId: true", 15],
-  ["java/src/main/java/sk/epostak/sdk/HttpClient.java", "NoFirm", 5],
-  ["java/src/main/java/sk/epostak/sdk/resources/ConnectorResource.java", "NoFirm", 15],
-];
-
-for (const [relative, needle, minCount] of occurrenceChecks) {
-  const file = path.join(root, relative);
-  if (!fs.existsSync(file)) {
-    forbiddenHits.push(`${relative}: file missing for occurrence check`);
-    continue;
+function requireEnum(value, allowed, label) {
+  if (!allowed.includes(value)) {
+    failures.push(`${label}: expected one of ${allowed.join(", ")}; got ${JSON.stringify(value)}`);
   }
-  const text = fs.readFileSync(file, "utf8");
-  const count = text.split(needle).length - 1;
-  if (count < minCount) {
-    forbiddenHits.push(
-      `${relative}: expected at least ${minCount} occurrences of ${needle}, found ${count}`,
+}
+
+function requireNonBlankString(value, label) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    failures.push(`${label}: expected a non-blank string`);
+  }
+}
+
+function sourceFiles(relativeRoot) {
+  const absoluteRoot = path.join(root, relativeRoot);
+  const files = [];
+  const sourceExtensions = new Set([".ts", ".py", ".php", ".rb", ".java", ".cs"]);
+  if (!fs.existsSync(absoluteRoot)) return files;
+
+  for (const entry of fs.readdirSync(absoluteRoot, { withFileTypes: true })) {
+    const relativePath = path.join(relativeRoot, entry.name);
+    if (entry.isDirectory()) files.push(...sourceFiles(relativePath));
+    else if (sourceExtensions.has(path.extname(entry.name))) files.push(relativePath);
+  }
+  return files;
+}
+
+function runCheck(check, prefix = "") {
+  const source = read(check.file);
+  const label = prefix ? `${prefix} ${check.name}` : check.name;
+  for (const needle of check.contains) requireText(check.file, source, needle, label);
+}
+
+for (const relativePath of manifest.documentation) {
+  const source = read(relativePath);
+  for (const needle of manifest.documentationContains) {
+    requireText(relativePath, source, needle, "documentation contract");
+  }
+}
+
+for (const check of manifest.checks) runCheck(check);
+
+for (const surface of manifest.stableSurfaces) {
+  for (const check of surface.checks) runCheck(check, `${surface.sdk} ${surface.product}`);
+}
+
+for (const relativeRoot of manifest.sourceRoots) {
+  for (const relativePath of sourceFiles(relativeRoot)) {
+    const source = read(relativePath);
+    for (const forbidden of manifest.forbiddenSourcePatterns) {
+      if (source.includes(forbidden)) {
+        failures.push(`${relativePath}: forbidden compatibility pattern ${JSON.stringify(forbidden)}`);
+      }
+    }
+  }
+}
+
+const webhookContractPath = manifest.contracts.webhook.fixture;
+const webhookContract = readJson(webhookContractPath);
+requireExactKeys(
+  webhookContract,
+  ["version", "endpoint", "configurationResponse", "testRequest", "testResponse", "deliveriesResponse"],
+  `${webhookContractPath} root`,
+);
+if (webhookContract.version !== 1) failures.push(`${webhookContractPath}: unsupported version`);
+if (webhookContract.endpoint !== "/connector/webhook") {
+  failures.push(`${webhookContractPath}: invalid global webhook endpoint`);
+}
+
+const configuration = webhookContract.configurationResponse ?? {};
+requireExactKeys(configuration, ["webhook", "secret"], `${webhookContractPath} configurationResponse`);
+requireExactKeys(
+  configuration.webhook ?? {},
+  ["id", "url", "events", "active", "failedAttempts", "createdAt", "updatedAt"],
+  `${webhookContractPath} configurationResponse.webhook`,
+);
+requireNonBlankString(configuration.webhook?.id, `${webhookContractPath} webhook.id`);
+requireNonBlankString(configuration.webhook?.url, `${webhookContractPath} webhook.url`);
+if (!Array.isArray(configuration.webhook?.events) || configuration.webhook.events.length === 0) {
+  failures.push(`${webhookContractPath}: webhook.events must be a non-empty array`);
+}
+if (typeof configuration.webhook?.active !== "boolean") {
+  failures.push(`${webhookContractPath}: webhook.active must be boolean`);
+}
+if (!Number.isInteger(configuration.webhook?.failedAttempts) || configuration.webhook.failedAttempts < 0) {
+  failures.push(`${webhookContractPath}: webhook.failedAttempts must be a non-negative integer`);
+}
+if (!/^[0-9a-f]{64}$/.test(configuration.secret ?? "")) {
+  failures.push(`${webhookContractPath}: create-time secret must be a 64-character hex value`);
+}
+
+requireExactKeys(webhookContract.testRequest ?? {}, ["customerRef"], `${webhookContractPath} testRequest`);
+requireNonBlankString(webhookContract.testRequest?.customerRef, `${webhookContractPath} testRequest.customerRef`);
+const webhookTest = webhookContract.testResponse ?? {};
+requireExactKeys(webhookTest, ["deliveryId", "status", "event"], `${webhookContractPath} testResponse`);
+if (webhookTest.status !== "queued") failures.push(`${webhookContractPath}: test status must be queued`);
+const webhookEvent = webhookTest.event ?? {};
+requireExactKeys(
+  webhookEvent,
+  ["id", "type", "customerRef", "documentId", "state", "occurredAt", "data", "test"],
+  `${webhookContractPath} testResponse.event`,
+);
+requireExactKeys(
+  webhookEvent.data ?? {},
+  ["customerRef", "direction", "type", "number", "response"],
+  `${webhookContractPath} testResponse.event.data`,
+);
+if (webhookEvent.data?.response !== null) {
+  failures.push(`${webhookContractPath}: test event data.response must be null`);
+}
+if (webhookEvent.test !== true) failures.push(`${webhookContractPath}: test event must expose test=true`);
+if (
+  webhookEvent.customerRef !== webhookContract.testRequest?.customerRef ||
+  webhookEvent.data?.customerRef !== webhookEvent.customerRef
+) {
+  failures.push(`${webhookContractPath}: root and compatibility data customerRef values must match testRequest`);
+}
+
+const deliveryPage = webhookContract.deliveriesResponse ?? {};
+requireExactKeys(deliveryPage, ["deliveries", "nextCursor", "hasMore"], `${webhookContractPath} deliveriesResponse`);
+if (!Array.isArray(deliveryPage.deliveries) || deliveryPage.deliveries.length === 0) {
+  failures.push(`${webhookContractPath}: deliveriesResponse.deliveries must contain an example`);
+} else {
+  for (const [index, delivery] of deliveryPage.deliveries.entries()) {
+    requireExactKeys(
+      delivery,
+      [
+        "id", "webhookId", "eventId", "customerRef", "type", "status", "attempts",
+        "responseStatus", "responseTimeMs", "lastAttemptAt", "nextRetryAt", "createdAt",
+      ],
+      `${webhookContractPath} deliveriesResponse.deliveries[${index}]`,
     );
+    requireEnum(delivery.status, ["PENDING", "SUCCESS", "FAILED", "RETRYING"], `${webhookContractPath} delivery.status`);
+  }
+}
+if (typeof deliveryPage.hasMore !== "boolean") {
+  failures.push(`${webhookContractPath}: deliveriesResponse.hasMore must be boolean`);
+}
+
+for (const relativePath of manifest.contracts.webhook.testFiles) {
+  const source = read(relativePath);
+  for (const needle of manifest.contracts.webhook.testContains) {
+    requireText(relativePath, source, needle, "global webhook response-shape test");
   }
 }
 
-if (forbiddenHits.length > 0) {
-  console.error(forbiddenHits.join("\n"));
+const invoiceContractPath = manifest.contracts.invoiceResponse.fixture;
+const invoiceContract = readJson(invoiceContractPath);
+requireExactKeys(
+  invoiceContract,
+  ["version", "endpointTemplate", "statuses", "request", "response", "documentProjection"],
+  `${invoiceContractPath} root`,
+);
+if (invoiceContract.version !== 1) failures.push(`${invoiceContractPath}: unsupported version`);
+if (invoiceContract.endpointTemplate !== "/connector/documents/{documentId}/respond?customerRef={customerRef}") {
+  failures.push(`${invoiceContractPath}: invalid respond endpoint template`);
+}
+const invoiceStatuses = [
+  "received",
+  "in_process",
+  "under_query",
+  "conditionally_accepted",
+  "rejected",
+  "accepted",
+  "paid",
+];
+if (JSON.stringify(invoiceContract.statuses) !== JSON.stringify(invoiceStatuses)) {
+  failures.push(`${invoiceContractPath}: statuses must match the canonical business enum`);
+}
+requireExactKeys(invoiceContract.request ?? {}, ["status", "note"], `${invoiceContractPath} request`);
+requireEnum(invoiceContract.request?.status, invoiceStatuses, `${invoiceContractPath} request.status`);
+const invoiceResponse = invoiceContract.response ?? {};
+requireExactKeys(invoiceResponse, ["id", "customerRef", "response", "idempotent"], `${invoiceContractPath} response`);
+requireExactKeys(
+  invoiceResponse.response ?? {},
+  ["status", "direction", "delivery", "respondedAt"],
+  `${invoiceContractPath} response.response`,
+);
+requireEnum(invoiceResponse.response?.status, invoiceStatuses, `${invoiceContractPath} response.response.status`);
+if (invoiceResponse.response?.direction !== "sent") {
+  failures.push(`${invoiceContractPath}: respond result direction must be sent`);
+}
+requireEnum(invoiceResponse.response?.delivery, ["sent", "queued"], `${invoiceContractPath} response.response.delivery`);
+if (typeof invoiceResponse.idempotent !== "boolean") {
+  failures.push(`${invoiceContractPath}: response.idempotent must be boolean`);
+}
+const projection = invoiceContract.documentProjection?.response ?? {};
+requireExactKeys(
+  invoiceContract.documentProjection ?? {},
+  ["response"],
+  `${invoiceContractPath} documentProjection`,
+);
+requireExactKeys(
+  projection,
+  ["status", "direction", "reason", "respondedAt"],
+  `${invoiceContractPath} documentProjection.response`,
+);
+requireEnum(projection.status, invoiceStatuses, `${invoiceContractPath} documentProjection.response.status`);
+requireEnum(projection.direction, ["sent", "received"], `${invoiceContractPath} documentProjection.response.direction`);
+
+for (const check of manifest.contracts.invoiceResponse.sourceChecks) {
+  runCheck(check, "Connector invoice response contract");
+}
+
+const vectors = readJson(manifest.idempotencyVectors);
+if (vectors.endpoint !== "/connector/documents" || vectors.omitFirmId !== true) {
+  failures.push(`${manifest.idempotencyVectors}: invalid Connector transport contract`);
+}
+for (const vector of vectors.vectors ?? []) {
+  if (!/^connector:v1:[0-9a-f]{64}$/.test(vector.idempotencyKey)) {
+    failures.push(`${manifest.idempotencyVectors}: invalid key for ${vector.name}`);
+  }
+  for (const relativePath of manifest.idempotencyVectorTestFiles) {
+    requireText(relativePath, read(relativePath), vector.idempotencyKey, `idempotency vector ${vector.name}`);
+  }
+}
+
+if (failures.length > 0) {
+  console.error(`SDK surface manifest failed with ${failures.length} issue(s):`);
+  for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
+const stableCheckCount = manifest.stableSurfaces.reduce((count, surface) => count + surface.checks.length, 0);
 console.log(
-  `Endpoint coverage OK (${checks.length} checks, ${forbidden.length} forbidden checks, ${forbiddenBlocks.length} forbidden block checks, ${occurrenceChecks.length} occurrence checks)`,
+  `SDK surface manifest passed: ${manifest.checks.length} product checks, ` +
+  `${stableCheckCount} stable Enterprise/SAPI checks, ${manifest.documentation.length} docs, ` +
+  `2 response contracts, ${vectors.vectors.length} shared vectors.`,
 );
