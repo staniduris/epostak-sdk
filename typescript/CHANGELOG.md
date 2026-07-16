@@ -3,6 +3,16 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 4.1.1-rc.1 — 2026-07-16
+
+### Changed
+
+- Canonical `client.payloads.*`, `client.events.*`, and `supportPacket()` are
+  now the default Enterprise API path.
+- Nine compatibility methods retain signatures and response shapes while
+  delegating to canonical routes, with migration deprecation docs.
+- Endpoint coverage now validates frozen and current OpenAPI contracts.
+
 ## 4.1.0 — 2026-07-15
 
 ### Added

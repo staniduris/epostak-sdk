@@ -222,8 +222,9 @@ module EPostak
       #
       # @param id [String] Document UUID
       # @return [String] Raw ZIP bytes
+      # @deprecated Use {#support_packet}. Binary bytes stay unchanged.
       def evidence_bundle(id)
-        @http.request_raw(:get, "/documents/#{encode(id)}/evidence-bundle")
+        @http.request_raw(:get, "/documents/#{encode(id)}/support-packet")
       end
 
       # Download the support/evidence ZIP packet for a document.
@@ -265,8 +266,9 @@ module EPostak
       #     items: [{ description: "Test", quantity: 1, unitPrice: 100, vatRate: 23 }]
       #   )
       #   puts "Invalid!" unless result["valid"]
+      # @deprecated Use +client.payloads.validate+. See the Enterprise Core migration guide.
       def validate(body)
-        @http.request(:post, "/documents/validate", body: body)
+        @http.request(:post, "/payloads/validate", body: body)
       end
 
       # Check if a Peppol receiver is registered and supports the target document
@@ -310,13 +312,14 @@ module EPostak
       #     document: "<Invoice>...</Invoice>"
       #   )
       #   puts result["document"] # => Parsed invoice hash
+      # @deprecated Use +client.payloads.convert+. See the Enterprise Core migration guide.
       def convert(input_format:, output_format:, document:)
         body = {
           input_format: input_format,
           output_format: output_format,
           document: document
         }
-        @http.request(:post, "/documents/convert", body: body)
+        @http.request(:post, "/payloads/convert", body: body)
       end
 
       # Send up to 100 documents in a single request.
@@ -369,8 +372,9 @@ module EPostak
       # @example
       #   parsed = client.documents.parse(File.read("invoice.xml"))
       #   puts parsed["invoiceNumber"]
+      # @deprecated Use +client.payloads.parse+. See the Enterprise Core migration guide.
       def parse(xml)
-        @http.request_with_body(:post, "/documents/parse", xml, content_type: "application/xml")
+        @http.request_with_body(:post, "/payloads/parse", xml, content_type: "application/xml")
       end
 
       # Manually mark a document's lifecycle state.

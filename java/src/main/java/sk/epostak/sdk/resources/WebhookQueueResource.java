@@ -47,12 +47,14 @@ public final class WebhookQueueResource {
      * @param eventType optional event type filter (e.g. {@code "document.received"}), or {@code null} for all
      * @return the queue response with items and a {@code hasMore} flag
      * @throws sk.epostak.sdk.EPostakException if the request fails
+     * @deprecated Use {@link EventsResource#pull(Integer, String)}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public WebhookQueueResponse pull(Integer limit, String eventType) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("limit", limit);
         params.put("event_type", eventType);
-        return http.get("/webhook-queue" + HttpClient.buildQuery(params), WebhookQueueResponse.class);
+        return http.get("/events/pull" + HttpClient.buildQuery(params), WebhookQueueResponse.class);
     }
 
     /**
@@ -60,7 +62,9 @@ public final class WebhookQueueResource {
      *
      * @return the queue response (limit 20, all event types)
      * @throws sk.epostak.sdk.EPostakException if the request fails
+     * @deprecated Use {@link EventsResource#pull()}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public WebhookQueueResponse pull() {
         return pull(null, null);
     }
@@ -71,9 +75,11 @@ public final class WebhookQueueResource {
      * @param eventId the event UUID to acknowledge
      * @return acknowledgement confirmation with {@code acknowledged = true}
      * @throws sk.epostak.sdk.EPostakException if the event is not found or the request fails
+     * @deprecated Use {@link EventsResource#ack(String)}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public AckResponse ack(String eventId) {
-        return http.delete("/webhook-queue/" + HttpClient.encode(eventId), AckResponse.class);
+        return http.post("/events/" + HttpClient.encode(eventId) + "/ack", null, AckResponse.class);
     }
 
     /**
@@ -82,10 +88,12 @@ public final class WebhookQueueResource {
      * @param eventIds list of event UUIDs to acknowledge
      * @return response containing the count of acknowledged events
      * @throws sk.epostak.sdk.EPostakException if the request fails
+     * @deprecated Use {@link EventsResource#batchAck(List)}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public BatchAckResponse batchAck(List<String> eventIds) {
         Map<String, Object> body = Map.of("event_ids", eventIds);
-        return http.post("/webhook-queue/batch-ack", body, BatchAckResponse.class);
+        return http.post("/events/batch-ack", body, BatchAckResponse.class);
     }
 
     /**

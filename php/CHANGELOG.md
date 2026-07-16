@@ -7,6 +7,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
 > release is `1.x`.
 
+## 1.1.2-RC1 — 2026-07-16
+
+### Changed
+
+- Canonical `payloads`, `events`, and `supportPacket()` are now the default
+  Enterprise API path.
+- Nine compatibility methods retain signatures and response shapes while
+  delegating to canonical routes, with migration deprecation docs.
+- Endpoint coverage now validates frozen and current OpenAPI contracts.
+
 ## 1.1.1 — 2026-07-16
 
 ### Fixed

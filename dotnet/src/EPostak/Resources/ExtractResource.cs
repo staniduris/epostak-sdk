@@ -32,13 +32,14 @@ public sealed class ExtractResource
     /// Console.WriteLine($"UBL XML length: {result.UblXml.Length} chars");
     /// </code>
     /// </example>
+    [Obsolete("Use Payloads.ExtractAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<ExtractResult> SingleAsync(Stream stream, string mimeType, string? fileName = null, CancellationToken ct = default)
     {
         var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(stream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
         content.Add(streamContent, "file", fileName ?? "document");
-        return _http.RequestMultipartAsync<ExtractResult>(HttpMethod.Post, "/extract", content, ct);
+        return _http.RequestMultipartAsync<ExtractResult>(HttpMethod.Post, "/payloads/extract", content, ct);
     }
 
     /// <summary>
@@ -59,6 +60,7 @@ public sealed class ExtractResource
     /// Console.WriteLine($"Batch {result.BatchId}: {result.Successful}/{result.Total} successful");
     /// </code>
     /// </example>
+    [Obsolete("Use Payloads.ExtractBatchAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<BatchExtractResult> BatchAsync(IEnumerable<ExtractFile> files, CancellationToken ct = default)
     {
         var content = new MultipartFormDataContent();
@@ -68,6 +70,6 @@ public sealed class ExtractResource
             streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.MimeType);
             content.Add(streamContent, "files", file.FileName ?? "document");
         }
-        return _http.RequestMultipartAsync<BatchExtractResult>(HttpMethod.Post, "/extract/batch", content, ct);
+        return _http.RequestMultipartAsync<BatchExtractResult>(HttpMethod.Post, "/payloads/extract/batch", content, ct);
     }
 }

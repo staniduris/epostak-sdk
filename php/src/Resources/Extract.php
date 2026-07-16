@@ -33,6 +33,7 @@ class Extract
      * @param string|null $fileName Override the filename sent to the API (defaults to basename of filePath).
      * @return array Extracted document data with confidence scores.
      * @throws EPostakError On API error.
+     * @deprecated Use $client->payloads->extract(). See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      *
      * @example
      *   $data = $client->extract->single('/tmp/invoice.pdf', 'application/pdf');
@@ -49,7 +50,7 @@ class Extract
             ],
         ];
 
-        return $this->http->requestMultipart('POST', '/extract', $multipart);
+        return $this->http->requestMultipart('POST', '/payloads/extract', $multipart);
     }
 
     /**
@@ -59,6 +60,7 @@ class Extract
      *   Each entry requires `filePath` and `mimeType`; `fileName` is optional.
      * @return array Array of extraction results, one per uploaded file.
      * @throws EPostakError On API error.
+     * @deprecated Use $client->payloads->extractBatch(). See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
     public function batch(array $files): array
     {
@@ -73,6 +75,6 @@ class Extract
             ];
         }
 
-        return $this->http->requestMultipart('POST', '/extract/batch', $multipart);
+        return $this->http->requestMultipart('POST', '/payloads/extract/batch', $multipart);
     }
 }

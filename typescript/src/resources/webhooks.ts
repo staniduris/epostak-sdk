@@ -53,15 +53,21 @@ export class WebhookQueueResource extends BaseResource {
    *   event_type: 'document.received',
    * });
    * ```
+   *
+   * @deprecated Use `client.events.pull(...)`. The legacy `items` response is
+   * preserved. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
    */
-  pull(params?: WebhookQueueParams): Promise<WebhookQueueResponse> {
-    return this.request(
+  async pull(params?: WebhookQueueParams): Promise<WebhookQueueResponse> {
+    const response = await this.request<
+      WebhookQueueResponse & { events?: WebhookQueueResponse["items"] }
+    >(
       "GET",
-      `/webhook-queue${buildQuery({
+      `/events/pull${buildQuery({
         limit: params?.limit,
         event_type: params?.event_type,
       })}`,
     );
+    return { ...response, items: response.items ?? response.events ?? [] };
   }
 
   /**
@@ -74,12 +80,11 @@ export class WebhookQueueResource extends BaseResource {
    * ```typescript
    * await client.webhooks.queue.ack('event-uuid');
    * ```
+   *
+   * @deprecated Use `client.events.ack(...)`. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
    */
   ack(eventId: string): Promise<{ acknowledged: boolean }> {
-    return this.request(
-      "DELETE",
-      `/webhook-queue/${encodeURIComponent(eventId)}`,
-    );
+    return this.request("POST", `/events/${encodeURIComponent(eventId)}/ack`);
   }
 
   /**
@@ -94,9 +99,11 @@ export class WebhookQueueResource extends BaseResource {
    * // Process all events...
    * const { acknowledged } = await client.webhooks.queue.batchAck(events.map(e => e.event_id));
    * ```
+   *
+   * @deprecated Use `client.events.batchAck(...)`. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
    */
   batchAck(eventIds: string[]): Promise<{ acknowledged: number }> {
-    return this.request("POST", "/webhook-queue/batch-ack", {
+    return this.request("POST", "/events/batch-ack", {
       event_ids: eventIds,
     });
   }
@@ -305,11 +312,14 @@ export class WebhooksResource extends BaseResource {
    * console.log(result.success, result.responseTime + 'ms');
    * ```
    */
-  test(id: string, options?: {
-    event?: WebhookEvent;
-    count?: number;
-    mode?: "direct" | "queued";
-  }): Promise<WebhookTestResponse> {
+  test(
+    id: string,
+    options?: {
+      event?: WebhookEvent;
+      count?: number;
+      mode?: "direct" | "queued";
+    },
+  ): Promise<WebhookTestResponse> {
     const qs = buildQuery({
       event: options?.event,
       count: options?.count,
@@ -360,7 +370,9 @@ export class WebhooksResource extends BaseResource {
     );
   }
 
-  deadLetters(params?: WebhookDeadLetterParams): Promise<WebhookDeadLetterResponse> {
+  deadLetters(
+    params?: WebhookDeadLetterParams,
+  ): Promise<WebhookDeadLetterResponse> {
     return this.request(
       "GET",
       `/webhook-dead-letter${buildQuery({
@@ -373,7 +385,9 @@ export class WebhooksResource extends BaseResource {
     );
   }
 
-  replayDeadLetter(deliveryId: string): Promise<WebhookDeadLetterReplayResponse> {
+  replayDeadLetter(
+    deliveryId: string,
+  ): Promise<WebhookDeadLetterReplayResponse> {
     return this.request(
       "POST",
       `/webhook-dead-letter/${encodeURIComponent(deliveryId)}/replay`,

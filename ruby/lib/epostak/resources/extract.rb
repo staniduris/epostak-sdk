@@ -26,6 +26,7 @@ module EPostak
       # @param mime_type [String] MIME type of the file (e.g. "application/pdf", "image/png")
       # @param file_name [String] Original file name for reference (default: "document")
       # @return [Hash] Extracted data with "confidence" score and "ubl_xml" string
+      # @deprecated Use +client.payloads.extract+. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
       #
       # @example From a file path
       #   result = client.extract.single("invoice.pdf", "application/pdf")
@@ -38,7 +39,7 @@ module EPostak
       #   result = client.extract.single(io, "image/png", file_name: "scan.png")
       def single(file_path_or_io, mime_type, file_name: "document")
         io = resolve_io(file_path_or_io)
-        @http.request_multipart("/extract", [
+        @http.request_multipart("/payloads/extract", [
           { field: "file", io: io, mime_type: mime_type, filename: file_name }
         ])
       end
@@ -51,6 +52,7 @@ module EPostak
       #   - +:mime_type+ [String] - MIME type
       #   - +:file_name+ [String] - Optional file name (default: "document")
       # @return [Hash] Batch result with "results" array, "successful" and "total" counts
+      # @deprecated Use +client.payloads.extract_batch+. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
       #
       # @example
       #   result = client.extract.batch([
@@ -67,7 +69,7 @@ module EPostak
             filename: f[:file_name] || "document"
           }
         end
-        @http.request_multipart("/extract/batch", parts)
+        @http.request_multipart("/payloads/extract/batch", parts)
       end
 
       private

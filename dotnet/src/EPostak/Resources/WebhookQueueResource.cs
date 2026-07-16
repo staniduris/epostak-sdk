@@ -36,12 +36,13 @@ public sealed class WebhookQueueResource
     /// }
     /// </code>
     /// </example>
+    [Obsolete("Use Events.PullAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<WebhookQueueResponse> PullAsync(WebhookQueueParams? @params = null, CancellationToken ct = default)
     {
         var qs = HttpRequestor.BuildQuery(
             ("limit", @params?.Limit?.ToString()),
             ("event_type", @params?.EventType));
-        return _http.RequestAsync<WebhookQueueResponse>(HttpMethod.Get, $"/webhook-queue{qs}", ct);
+        return _http.RequestAsync<WebhookQueueResponse>(HttpMethod.Get, $"/events/pull{qs}", ct);
     }
 
     /// <summary>
@@ -57,8 +58,9 @@ public sealed class WebhookQueueResource
     /// Console.WriteLine(result.Acknowledged); // true
     /// </code>
     /// </example>
+    [Obsolete("Use Events.AckAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<AckResponse> AckAsync(string eventId, CancellationToken ct = default)
-        => _http.RequestAsync<AckResponse>(HttpMethod.Delete, $"/webhook-queue/{Uri.EscapeDataString(eventId)}", ct);
+        => _http.RequestAsync<AckResponse>(HttpMethod.Post, $"/events/{Uri.EscapeDataString(eventId)}/ack", ct);
 
     /// <summary>
     /// Acknowledge and remove multiple events from the queue in a single request.
@@ -76,8 +78,9 @@ public sealed class WebhookQueueResource
     /// Console.WriteLine($"Acknowledged {result.Acknowledged} events");
     /// </code>
     /// </example>
+    [Obsolete("Use Events.BatchAckAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<BatchAckResponse> BatchAckAsync(IEnumerable<string> eventIds, CancellationToken ct = default)
-        => _http.RequestAsync<BatchAckResponse>(HttpMethod.Post, "/webhook-queue/batch-ack", new { event_ids = eventIds }, ct);
+        => _http.RequestAsync<BatchAckResponse>(HttpMethod.Post, "/events/batch-ack", new { event_ids = eventIds }, ct);
 
     /// <summary>
     /// Pull pending events across all firms managed by the integrator.

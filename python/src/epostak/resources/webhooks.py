@@ -41,6 +41,9 @@ class WebhookQueueResource(_BaseResource):
     ) -> WebhookQueueResponse:
         """Fetch pending webhook events from the pull queue.
 
+        Deprecated: use ``client.events.pull(...)``. The legacy ``items``
+        response remains preserved. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation.
+
         Args:
             limit: Max items to return, 1-100 (default 20).
             event_type: Filter by event type, e.g. ``"document.received"``.
@@ -55,10 +58,16 @@ class WebhookQueueResource(_BaseResource):
                 print(item["event_id"], item["event"], item["payload"])
         """
         params = _build_query({"limit": limit, "event_type": event_type})
-        return self._request("GET", "/webhook-queue", params=params)
+        response = self._request("GET", "/events/pull", params=params)
+        if "items" not in response and isinstance(response.get("events"), list):
+            return {**response, "items": response["events"]}
+        return response
 
     def ack(self, event_id: str) -> Dict[str, Any]:
         """Acknowledge a single webhook event (removes it from the queue).
+
+        Deprecated: use ``client.events.ack(...)``. See
+        https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation.
 
         Args:
             event_id: The event UUID to acknowledge.
@@ -71,10 +80,13 @@ class WebhookQueueResource(_BaseResource):
             result = client.webhooks.queue.ack("event-uuid")
             assert result["acknowledged"] is True
         """
-        return self._request("DELETE", f"/webhook-queue/{quote(event_id, safe='')}")
+        return self._request("POST", f"/events/{quote(event_id, safe='')}/ack")
 
     def batch_ack(self, event_ids: List[str]) -> Dict[str, Any]:
         """Batch acknowledge webhook events (removes them from the queue).
+
+        Deprecated: use ``client.events.batch_ack(...)``. See
+        https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation.
 
         Args:
             event_ids: List of event UUIDs to acknowledge.
@@ -88,7 +100,7 @@ class WebhookQueueResource(_BaseResource):
             result = client.webhooks.queue.batch_ack(ids)
             print(result["acknowledged"])
         """
-        return self._request("POST", "/webhook-queue/batch-ack", json={"event_ids": event_ids})
+        return self._request("POST", "/events/batch-ack", json={"event_ids": event_ids})
 
     def pull_all(
         self,

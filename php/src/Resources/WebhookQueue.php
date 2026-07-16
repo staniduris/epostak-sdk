@@ -51,6 +51,7 @@ class WebhookQueue
      *   has_more: bool
      * } Pending events and pagination flag.
      * @throws EPostakError On API error.
+     * @deprecated Use $client->events->pull(). The items response is preserved. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      *
      * @example
      *   $result = $client->webhooks->queue->pull(['limit' => 50]);
@@ -65,7 +66,11 @@ class WebhookQueue
             'limit' => $params['limit'] ?? null,
             'event_type' => $params['event_type'] ?? null,
         ]);
-        return $this->http->request('GET', '/webhook-queue' . $qs);
+        $response = $this->http->request('GET', '/events/pull' . $qs);
+        if (!array_key_exists('items', $response) && isset($response['events']) && is_array($response['events'])) {
+            $response['items'] = $response['events'];
+        }
+        return $response;
     }
 
     /**
@@ -74,10 +79,11 @@ class WebhookQueue
      * @param string $eventId Event UUID to acknowledge.
      * @return array{acknowledged: true} Acknowledgement confirmation.
      * @throws EPostakError On API error.
+     * @deprecated Use $client->events->ack(). See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
     public function ack(string $eventId): array
     {
-        return $this->http->request('DELETE', '/webhook-queue/' . urlencode($eventId));
+        return $this->http->request('POST', '/events/' . urlencode($eventId) . '/ack');
     }
 
     /**
@@ -88,10 +94,11 @@ class WebhookQueue
      * @param string[] $eventIds Array of event UUIDs to acknowledge (max 1000).
      * @return array{acknowledged: int} Count of acknowledged events.
      * @throws EPostakError On API error.
+     * @deprecated Use $client->events->batchAck(). See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
     public function batchAck(array $eventIds): array
     {
-        return $this->http->request('POST', '/webhook-queue/batch-ack', [
+        return $this->http->request('POST', '/events/batch-ack', [
             'json' => ['event_ids' => $eventIds],
         ]);
     }

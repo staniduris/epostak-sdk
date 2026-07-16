@@ -30,6 +30,9 @@ class ExtractResource(_BaseResource):
     ) -> ExtractResult:
         """Extract structured data from a single file.
 
+        Deprecated: use ``client.payloads.extract(...)``. This method delegates
+        to the canonical route. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation.
+
         Args:
             file: File content as raw bytes.
             mime_type: MIME type -- ``"application/pdf"``, ``"image/jpeg"``,
@@ -48,13 +51,16 @@ class ExtractResource(_BaseResource):
             print(result["confidence"], result["extraction"])
         """
         files = [("file", (file_name, file, mime_type))]
-        return self._request("POST", "/extract", files=files)
+        return self._request("POST", "/payloads/extract", files=files)
 
     def batch(
         self,
         files: List[Dict[str, Any]],
     ) -> BatchExtractResult:
         """Extract structured data from multiple files (up to 10).
+
+        Deprecated: use ``client.payloads.extract_batch(...)``. This method
+        delegates to the canonical route. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation.
 
         Args:
             files: List of dicts, each with keys ``file`` (bytes), ``mime_type`` (str),
@@ -76,4 +82,4 @@ class ExtractResource(_BaseResource):
         for f in files:
             name = f.get("file_name", "document")
             upload_files.append(("files", (name, f["file"], f["mime_type"])))
-        return self._request("POST", "/extract/batch", files=upload_files)
+        return self._request("POST", "/payloads/extract/batch", files=upload_files)

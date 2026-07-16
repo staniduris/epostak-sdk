@@ -41,6 +41,9 @@ export class ExtractResource extends BaseResource {
    *   });
    * }
    * ```
+   *
+   * @deprecated Use `client.payloads.extract(...)`. This method delegates to
+   * the canonical route. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
    */
   single(
     file: Buffer | Blob,
@@ -53,7 +56,7 @@ export class ExtractResource extends BaseResource {
         ? file
         : new Blob([new Uint8Array(file)], { type: mimeType });
     form.append("file", blob, fileName);
-    return this.request("POST", "/extract", form);
+    return this.request("POST", "/payloads/extract", form);
   }
 
   /**
@@ -73,6 +76,9 @@ export class ExtractResource extends BaseResource {
    * ]);
    * console.log(`${result.successful}/${result.total} extracted successfully`);
    * ```
+   *
+   * @deprecated Use `client.payloads.extractBatch(...)`. This method delegates
+   * to the canonical route. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
    */
   batch(
     files: Array<{ file: Buffer | Blob; mimeType: string; fileName?: string }>,
@@ -85,6 +91,6 @@ export class ExtractResource extends BaseResource {
           : new Blob([new Uint8Array(file)], { type: mimeType });
       form.append("files", blob, fileName ?? "document");
     }
-    return this.request("POST", "/extract/batch", form);
+    return this.request("POST", "/payloads/extract/batch", form);
   }
 }

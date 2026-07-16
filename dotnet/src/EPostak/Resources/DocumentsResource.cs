@@ -241,8 +241,9 @@ public sealed class DocumentsResource
         => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/envelope", ct);
 
     /// <summary>Download the audit evidence ZIP bundle for a document.</summary>
+    [Obsolete("Use SupportPacketAsync. Binary bytes and response headers are preserved.", false)]
     public Task<byte[]> EvidenceBundleAsync(string id, CancellationToken ct = default)
-        => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/evidence-bundle", ct);
+        => _http.RequestBytesAsync(HttpMethod.Get, $"/documents/{Uri.EscapeDataString(id)}/support-packet", ct);
 
     /// <summary>Download the support/evidence ZIP packet for a document.</summary>
     public Task<byte[]> SupportPacketAsync(string id, CancellationToken ct = default)
@@ -311,8 +312,9 @@ public sealed class DocumentsResource
     ///     Console.WriteLine($"Warnings: {string.Join(", ", result.Warnings)}");
     /// </code>
     /// </example>
+    [Obsolete("Use Payloads.ValidateAsync. See the Enterprise Core migration guide.", false)]
     public Task<ValidationResult> ValidateAsync(SendDocumentRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<ValidationResult>(HttpMethod.Post, "/documents/validate", request, ct);
+        => _http.RequestAsync<ValidationResult>(HttpMethod.Post, "/payloads/validate", request, ct);
 
     /// <summary>
     /// Check whether a receiver is registered on the Peppol network and can accept a given
@@ -352,8 +354,9 @@ public sealed class DocumentsResource
     /// });
     /// </code>
     /// </example>
+    [Obsolete("Use Payloads.ConvertAsync. See the Enterprise Core migration guide.", false)]
     public Task<ConvertResult> ConvertAsync(ConvertRequest request, CancellationToken ct = default)
-        => _http.RequestAsync<ConvertResult>(HttpMethod.Post, "/documents/convert", request, ct);
+        => _http.RequestAsync<ConvertResult>(HttpMethod.Post, "/payloads/convert", request, ct);
 
     /// <summary>
     /// Send multiple documents in a single call. Items are processed independently --
@@ -407,8 +410,9 @@ public sealed class DocumentsResource
     /// Console.WriteLine(json.GetProperty("invoiceNumber").GetString());
     /// </code>
     /// </example>
+    [Obsolete("Use Payloads.ParseAsync. See the Enterprise Core migration guide.", false)]
     public Task<ParsedInvoice> ParseAsync(string xml, CancellationToken ct = default)
-        => _http.RequestRawAsync<ParsedInvoice>(HttpMethod.Post, "/documents/parse", xml, "application/xml", ct);
+        => _http.RequestRawAsync<ParsedInvoice>(HttpMethod.Post, "/payloads/parse", xml, "application/xml", ct);
 
     /// <summary>
     /// Mark the processing state of an inbound document. <paramref name="state"/> must be

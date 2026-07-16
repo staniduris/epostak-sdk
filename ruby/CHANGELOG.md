@@ -5,6 +5,16 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
+## 1.1.1.rc1 — 2026-07-16
+
+### Changed
+
+- Canonical `payloads`, `events`, and `support_packet` are now the default
+  Enterprise API path.
+- Nine compatibility methods retain signatures and response shapes while
+  delegating to canonical routes, with migration deprecation docs.
+- Endpoint coverage now validates frozen and current OpenAPI contracts.
+
 ## 1.1.0 — 2026-07-15
 
 ### Added

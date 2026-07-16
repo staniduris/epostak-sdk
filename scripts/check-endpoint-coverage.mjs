@@ -6,6 +6,38 @@ const root = path.resolve(import.meta.dirname, "..");
 const manifestPath = path.join(root, "fixtures/sdk-surface-manifest.json");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const failures = [];
+const lifecycleMetadataFiles = new Set([
+  "typescript/src/resources/documents.ts",
+  "typescript/src/resources/extract.ts",
+  "typescript/src/resources/webhooks.ts",
+  "python/src/epostak/resources/documents.py",
+  "python/src/epostak/resources/extract.py",
+  "python/src/epostak/resources/webhooks.py",
+  "php/src/Resources/Documents.php",
+  "php/src/Resources/Extract.php",
+  "php/src/Resources/WebhookQueue.php",
+  "ruby/lib/epostak/resources/documents.rb",
+  "ruby/lib/epostak/resources/extract.rb",
+  "ruby/lib/epostak/resources/webhook_queue.rb",
+  "java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java",
+  "java/src/main/java/sk/epostak/sdk/resources/ExtractResource.java",
+  "java/src/main/java/sk/epostak/sdk/resources/WebhookQueueResource.java",
+  "dotnet/src/EPostak/Resources/DocumentsResource.cs",
+  "dotnet/src/EPostak/Resources/ExtractResource.cs",
+  "dotnet/src/EPostak/Resources/WebhookQueueResource.cs",
+]);
+const migrationPairs = [
+  ["post", "/extract", "/payloads/extract"],
+  ["post", "/extract/batch", "/payloads/extract/batch"],
+  ["post", "/documents/parse", "/payloads/parse"],
+  ["post", "/documents/convert", "/payloads/convert"],
+  ["post", "/documents/validate", "/payloads/validate"],
+  ["get", "/webhook-queue", "/events/pull"],
+  ["delete", "/webhook-queue/{eventId}", "/events/{eventId}/ack"],
+  ["post", "/webhook-queue/batch-ack", "/events/batch-ack"],
+  ["get", "/documents/{id}/evidence-bundle", "/documents/{id}/support-packet"],
+];
+
 
 function read(relativePath) {
   const absolutePath = path.join(root, relativePath);
@@ -24,6 +56,129 @@ function readJson(relativePath) {
   } catch (error) {
     failures.push(`${relativePath}: invalid JSON (${error.message})`);
     return {};
+  }
+}
+
+async function loadOpenApi(location, label) {
+  try {
+    if (/^https?:\/\//.test(location)) {
+      const response = await fetch(location);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    }
+    return JSON.parse(fs.readFileSync(path.resolve(location), "utf8"));
+  } catch (error) {
+    failures.push(`${label} OpenAPI ${location}: ${error.message}`);
+    return null;
+  }
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonical(value[key])]),
+  );
+}
+
+function contractFacet(spec, apiPath, method, label) {
+  const operation = spec?.paths?.[apiPath]?.[method];
+  if (!operation) {
+    failures.push(`${label}: missing ${method.toUpperCase()} ${apiPath}`);
+    return null;
+  }
+  const referencedSchemas = {};
+  const pending = [];
+  const scan = (value) => {
+    if (Array.isArray(value)) return value.forEach(scan);
+    if (!value || typeof value !== "object") return;
+    if (
+      typeof value.$ref === "string" &&
+      value.$ref.startsWith("#/components/schemas/")
+    ) {
+      pending.push(value.$ref.slice("#/components/schemas/".length));
+    }
+    Object.values(value).forEach(scan);
+  };
+  const parameters = (operation.parameters ?? []).map((parameter) => ({
+    name: parameter.name,
+    in: parameter.in,
+    required: parameter.required === true,
+    schema: parameter.schema ?? null,
+  }));
+  const requestBody = operation.requestBody
+    ? {
+        required: operation.requestBody.required === true,
+        content: operation.requestBody.content ?? {},
+      }
+    : null;
+  const responses = Object.fromEntries(
+    Object.entries(operation.responses ?? {}).map(([status, response]) => [
+      status,
+      {
+        headers: response.headers ?? {},
+        content: response.content ?? {},
+      },
+    ]),
+  );
+  scan(parameters);
+  scan(requestBody);
+  scan(responses);
+  while (pending.length > 0) {
+    const name = pending.pop();
+    if (Object.hasOwn(referencedSchemas, name)) continue;
+    const schema = spec.components?.schemas?.[name];
+    if (!schema) {
+      failures.push(
+        `${label}: unresolved schema ${name} for ${method.toUpperCase()} ${apiPath}`,
+      );
+      continue;
+    }
+    referencedSchemas[name] = schema;
+    scan(schema);
+  }
+  return canonical({
+    security: operation.security ?? spec.security ?? [],
+    parameters,
+    requestBody,
+    responses,
+    referencedSchemas,
+  });
+}
+
+async function checkEnterpriseOpenApiContracts() {
+  const frozenLocation =
+    process.env.EPOSTAK_FROZEN_OPENAPI ??
+    "https://epostak.sk/api/openapi.enterprise.json";
+  const currentLocation =
+    process.env.EPOSTAK_CURRENT_OPENAPI ??
+    "https://dev.epostak.sk/api/openapi.enterprise-full.json";
+  const [frozen, current] = await Promise.all([
+    loadOpenApi(frozenLocation, "frozen"),
+    loadOpenApi(currentLocation, "current"),
+  ]);
+  if (!frozen || !current) return;
+
+  for (const [legacyMethod, legacyPath, canonicalPath] of migrationPairs) {
+    const canonicalMethod = legacyMethod === "delete" ? "post" : legacyMethod;
+    for (const [method, apiPath] of [
+      [legacyMethod, legacyPath],
+      [canonicalMethod, canonicalPath],
+    ]) {
+      const frozenFacet = contractFacet(frozen, apiPath, method, "frozen");
+      const currentFacet = contractFacet(current, apiPath, method, "current");
+      if (
+        frozenFacet &&
+        currentFacet &&
+        JSON.stringify(frozenFacet) !== JSON.stringify(currentFacet)
+      ) {
+        failures.push(
+          `OpenAPI contract drift: ${method.toUpperCase()} ${apiPath} changed auth, required fields, responses, or schemas`,
+        );
+      }
+    }
   }
 }
 
@@ -84,6 +239,8 @@ for (const relativePath of manifest.documentation) {
   }
 }
 
+await checkEnterpriseOpenApiContracts();
+
 for (const check of manifest.checks) runCheck(check);
 
 for (const surface of manifest.stableSurfaces) {
@@ -94,11 +251,130 @@ for (const relativeRoot of manifest.sourceRoots) {
   for (const relativePath of sourceFiles(relativeRoot)) {
     const source = read(relativePath);
     for (const forbidden of manifest.forbiddenSourcePatterns) {
+      if (
+        ["@Deprecated", "@deprecated", "[Obsolete"].includes(forbidden) &&
+        lifecycleMetadataFiles.has(relativePath)
+      ) {
+        continue;
+      }
       if (source.includes(forbidden)) {
         failures.push(`${relativePath}: forbidden compatibility pattern ${JSON.stringify(forbidden)}`);
       }
     }
   }
+}
+
+for (const check of [
+  {
+    file: "typescript/src/resources/extract.ts",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "@deprecated"],
+  },
+  {
+    file: "typescript/src/resources/documents.ts",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "@deprecated",
+    ],
+  },
+  {
+    file: "typescript/src/resources/webhooks.ts",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "@deprecated"],
+  },
+  {
+    file: "python/src/epostak/resources/extract.py",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "Deprecated:"],
+  },
+  {
+    file: "python/src/epostak/resources/documents.py",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "Deprecated",
+    ],
+  },
+  {
+    file: "python/src/epostak/resources/webhooks.py",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "Deprecated:"],
+  },
+  {
+    file: "php/src/Resources/Extract.php",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "@deprecated"],
+  },
+  {
+    file: "php/src/Resources/Documents.php",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "@deprecated",
+    ],
+  },
+  {
+    file: "php/src/Resources/WebhookQueue.php",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "@deprecated"],
+  },
+  {
+    file: "ruby/lib/epostak/resources/extract.rb",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "@deprecated"],
+  },
+  {
+    file: "ruby/lib/epostak/resources/documents.rb",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "@deprecated",
+    ],
+  },
+  {
+    file: "ruby/lib/epostak/resources/webhook_queue.rb",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "@deprecated"],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/resources/ExtractResource.java",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "@Deprecated"],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/resources/DocumentsResource.java",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "@Deprecated",
+    ],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/resources/WebhookQueueResource.java",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "@Deprecated"],
+  },
+  {
+    file: "dotnet/src/EPostak/Resources/ExtractResource.cs",
+    contains: ["/payloads/extract", "/payloads/extract/batch", "[Obsolete"],
+  },
+  {
+    file: "dotnet/src/EPostak/Resources/DocumentsResource.cs",
+    contains: [
+      "/payloads/parse",
+      "/payloads/convert",
+      "/payloads/validate",
+      "/support-packet",
+      "[Obsolete",
+    ],
+  },
+  {
+    file: "dotnet/src/EPostak/Resources/WebhookQueueResource.cs",
+    contains: ["/events/pull", "/events/batch-ack", "/ack", "[Obsolete"],
+  },
+]) {
+  runCheck(check, "Enterprise migration adapter");
 }
 
 const webhookContractPath = manifest.contracts.webhook.fixture;
@@ -271,5 +547,5 @@ const stableCheckCount = manifest.stableSurfaces.reduce((count, surface) => coun
 console.log(
   `SDK surface manifest passed: ${manifest.checks.length} product checks, ` +
   `${stableCheckCount} stable Enterprise/SAPI checks, ${manifest.documentation.length} docs, ` +
-  `2 response contracts, ${vectors.vectors.length} shared vectors.`,
+  `2 response contracts, ${vectors.vectors.length} shared vectors, and 18 frozen/current Enterprise OpenAPI operations.`,
 );

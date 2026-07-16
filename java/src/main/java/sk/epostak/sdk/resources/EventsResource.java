@@ -30,7 +30,7 @@ public final class EventsResource {
     }
 
     public AckResponse ack(String eventId) {
-        return http.post("/events/" + HttpClient.encode(eventId) + "/ack", Map.of(), AckResponse.class);
+        return http.post("/events/" + HttpClient.encode(eventId) + "/ack", null, AckResponse.class);
     }
 
     public BatchAckResponse batchAck(List<String> eventIds) {

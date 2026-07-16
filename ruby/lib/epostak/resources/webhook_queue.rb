@@ -31,31 +31,39 @@ module EPostak
       # @param limit [Integer, nil] Maximum number of events to return
       # @param event_type [String, nil] Filter by event type (e.g. "document.received")
       # @return [Hash] Response with "items" array (each has event_id, firm_id, event, created_at, payload) and "has_more" bool
+      # @deprecated Use +client.events.pull+. The +items+ response is preserved. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 20, event_type: "document.received")
       #   response["items"].each { |item| puts item["event"] }
       def pull(limit: nil, event_type: nil)
         query = { limit: limit, event_type: event_type }
-        @http.request(:get, "/webhook-queue", query: query)
+        response = @http.request(:get, "/events/pull", query: query)
+        if response.is_a?(Hash) && !response.key?("items") && response["events"].is_a?(Array)
+          response.merge("items" => response["events"])
+        else
+          response
+        end
       end
 
       # Acknowledge (remove) a single event from the queue after processing.
       #
       # @param event_id [String] The event ID to acknowledge
       # @return [Hash] { "acknowledged" => true }
+      # @deprecated Use +client.events.ack+. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
       #
       # @example
       #   result = client.webhooks.queue.ack("event-uuid")
       #   puts result["acknowledged"] # => true
       def ack(event_id)
-        @http.request(:delete, "/webhook-queue/#{encode(event_id)}")
+        @http.request(:post, "/events/#{encode(event_id)}/ack")
       end
 
       # Acknowledge (remove) multiple events from the queue in a single request.
       #
       # @param event_ids [Array<String>] Array of event IDs to acknowledge
       # @return [Hash] { "acknowledged" => N } with count of acknowledged events
+      # @deprecated Use +client.events.batch_ack+. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
       #
       # @example
       #   response = client.webhooks.queue.pull(limit: 50)
@@ -63,7 +71,7 @@ module EPostak
       #   result = client.webhooks.queue.batch_ack(ids)
       #   puts "Acknowledged: #{result['acknowledged']}"
       def batch_ack(event_ids)
-        @http.request(:post, "/webhook-queue/batch-ack", body: { event_ids: event_ids })
+        @http.request(:post, "/events/batch-ack", body: { event_ids: event_ids })
       end
 
       # Pull events across all managed firms (integrator endpoint).

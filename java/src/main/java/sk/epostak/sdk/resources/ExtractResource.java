@@ -47,9 +47,11 @@ public final class ExtractResource {
      *                  {@code "image/png"}, or {@code "image/webp"}
      * @return the extraction result with parsed fields, UBL XML, and confidence score
      * @throws sk.epostak.sdk.EPostakException if the file type is unsupported or the request fails
+     * @deprecated Use {@link PayloadsResource#extract(byte[], String, String)}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public ExtractResult single(byte[] fileBytes, String fileName, String mimeType) {
-        return http.postMultipart("/extract", fileBytes, fileName, mimeType, ExtractResult.class);
+        return http.postMultipart("/payloads/extract", fileBytes, fileName, mimeType, ExtractResult.class);
     }
 
     /**
@@ -58,12 +60,14 @@ public final class ExtractResource {
      * @param files list of file inputs to extract (max 10)
      * @return the batch extraction result with per-file results
      * @throws sk.epostak.sdk.EPostakException if the request fails or any file type is unsupported
+     * @deprecated Use {@link PayloadsResource#extractBatch(List)}. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public BatchExtractResult batch(List<FileInput> files) {
         List<HttpClient.FileUpload> uploads = files.stream()
                 .map(f -> new HttpClient.FileUpload(f.data(), f.fileName(), f.mimeType()))
                 .toList();
-        return http.postMultipartBatch("/extract/batch", uploads, BatchExtractResult.class);
+        return http.postMultipartBatch("/payloads/extract/batch", uploads, BatchExtractResult.class);
     }
 
     /**

@@ -395,10 +395,11 @@ export class DocumentsResource extends BaseResource {
     return Buffer.from(await res.arrayBuffer());
   }
 
+  /** @deprecated Use `supportPacket(id)`. Binary bytes and response headers are preserved. */
   async evidenceBundle(id: string): Promise<Buffer> {
     const res = await this.request<Response>(
       "GET",
-      `/documents/${encodeURIComponent(id)}/evidence-bundle`,
+      `/documents/${encodeURIComponent(id)}/support-packet`,
       undefined,
       { rawResponse: true },
     );
@@ -482,8 +483,9 @@ export class DocumentsResource extends BaseResource {
    * }
    * ```
    */
+  /** @deprecated Use `client.payloads.validate(body)`. See the Enterprise Core migration guide. */
   validate(body: ValidateDocumentRequest): Promise<ValidationResult> {
-    return this.request("POST", "/documents/validate", body);
+    return this.request("POST", "/payloads/validate", body);
   }
 
   /**
@@ -538,8 +540,9 @@ export class DocumentsResource extends BaseResource {
    * });
    * ```
    */
+  /** @deprecated Use `client.payloads.convert(body)`. See the Enterprise Core migration guide. */
   convert(body: ConvertRequest): Promise<ConvertResult> {
-    return this.request("POST", "/documents/convert", body);
+    return this.request("POST", "/payloads/convert", body);
   }
 
   /**
@@ -604,8 +607,9 @@ export class DocumentsResource extends BaseResource {
    * const { invoice, extras, allowances } = await client.documents.parse(ublXml);
    * ```
    */
+  /** @deprecated Use `client.payloads.parse(xml)`. See the Enterprise Core migration guide. */
   parse(xml: string): Promise<ParsedUblDocument> {
-    return this.request("POST", "/documents/parse", { xml });
+    return this.request("POST", "/payloads/parse", { xml });
   }
 
   /**
@@ -696,5 +700,4 @@ export class DocumentsResource extends BaseResource {
       body,
     );
   }
-
 }

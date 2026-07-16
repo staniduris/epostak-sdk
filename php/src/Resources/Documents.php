@@ -218,9 +218,10 @@ class Documents
         return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/envelope');
     }
 
+    /** @deprecated Use supportPacket(); binary bytes and headers are preserved. */
     public function evidenceBundle(string $id): string
     {
-        return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/evidence-bundle');
+        return $this->http->requestRaw('GET', '/documents/' . urlencode($id) . '/support-packet');
     }
 
     public function supportPacket(string $id): string
@@ -270,9 +271,10 @@ class Documents
      * @return array Validation result with `valid` boolean and `errors` array.
      * @throws EPostakError On API error.
      */
+    /** @deprecated Use $client->payloads->validate(). */
     public function validate(array $body): array
     {
-        return $this->http->request('POST', '/documents/validate', [
+        return $this->http->request('POST', '/payloads/validate', [
             'json' => $body,
         ]);
     }
@@ -319,9 +321,10 @@ class Documents
      *   $result = $client->documents->convert('ubl', 'json', '<Invoice xmlns="...">...</Invoice>');
      *   print_r($result['document']); // associative array
      */
+    /** @deprecated Use $client->payloads->convert(). */
     public function convert(string $inputFormat, string $outputFormat, array|string $document): array
     {
-        return $this->http->request('POST', '/documents/convert', [
+        return $this->http->request('POST', '/payloads/convert', [
             'json' => [
                 'input_format' => $inputFormat,
                 'output_format' => $outputFormat,
@@ -389,9 +392,10 @@ class Documents
      *   $parsed = $client->documents->parse(file_get_contents('invoice.xml'));
      *   echo $parsed['invoiceNumber'];
      */
+    /** @deprecated Use $client->payloads->parse(). */
     public function parse(string $xml): array
     {
-        return $this->http->request('POST', '/documents/parse', [
+        return $this->http->request('POST', '/payloads/parse', [
             'headers' => ['Content-Type' => 'application/xml'],
             'body' => $xml,
         ]);

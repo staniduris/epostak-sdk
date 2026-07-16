@@ -18,7 +18,7 @@ public sealed class EventsResource
     }
 
     public Task<AckResponse> AckAsync(string eventId, CancellationToken ct = default)
-        => _http.RequestAsync<AckResponse>(HttpMethod.Post, $"/events/{Uri.EscapeDataString(eventId)}/ack", new { }, ct);
+        => _http.RequestAsync<AckResponse>(HttpMethod.Post, $"/events/{Uri.EscapeDataString(eventId)}/ack", ct);
 
     public Task<BatchAckResponse> BatchAckAsync(IEnumerable<string> eventIds, CancellationToken ct = default)
         => _http.RequestAsync<BatchAckResponse>(HttpMethod.Post, "/events/batch-ack", new { event_ids = eventIds }, ct);

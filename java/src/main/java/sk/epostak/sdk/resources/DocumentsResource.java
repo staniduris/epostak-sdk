@@ -260,8 +260,9 @@ public final class DocumentsResource {
      * @param id the document UUID
      * @return raw ZIP bytes
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public byte[] evidenceBundle(String id) {
-        return http.getBytes("/documents/" + HttpClient.encode(id) + "/evidence-bundle");
+        return http.getBytes("/documents/" + HttpClient.encode(id) + "/support-packet");
     }
 
     public byte[] supportPacket(String id) {
@@ -302,11 +303,12 @@ public final class DocumentsResource {
      * @return the validation result with per-rule errors and warnings
      * @throws sk.epostak.sdk.EPostakException if the request fails or the validator is unavailable
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public ValidationResult validate(String ublXml) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("format", "ubl");
         body.put("document", ublXml);
-        return http.post("/documents/validate", body, ValidationResult.class);
+        return http.post("/payloads/validate", body, ValidationResult.class);
     }
 
     /**
@@ -317,11 +319,12 @@ public final class DocumentsResource {
      * @return the validation result with per-rule errors and warnings
      * @throws sk.epostak.sdk.EPostakException if the request fails or the validator is unavailable
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public ValidationResult validateJson(Object jsonDocument) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("format", "json");
         body.put("document", jsonDocument);
-        return http.post("/documents/validate", body, ValidationResult.class);
+        return http.post("/payloads/validate", body, ValidationResult.class);
     }
 
     /**
@@ -377,12 +380,13 @@ public final class DocumentsResource {
      * @return the conversion result containing {@code outputFormat}, {@code document}, and {@code warnings}
      * @throws sk.epostak.sdk.EPostakException if the conversion fails or the request fails
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public ConvertResult convert(String inputFormat, String outputFormat, Object document) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("input_format", inputFormat);
         body.put("output_format", outputFormat);
         body.put("document", document);
-        return http.post("/documents/convert", body, ConvertResult.class);
+        return http.post("/payloads/convert", body, ConvertResult.class);
     }
 
     /**
@@ -444,8 +448,9 @@ public final class DocumentsResource {
      * @return the parsed invoice and any non-fatal warnings
      * @throws sk.epostak.sdk.EPostakException if the XML cannot be parsed or the request fails
      */
+    @Deprecated(since = "1.1.1", forRemoval = false)
     public ParsedInvoice parse(String xml) {
-        return http.postRaw("/documents/parse", xml, "application/xml", ParsedInvoice.class);
+        return http.postRaw("/payloads/parse", xml, "application/xml", ParsedInvoice.class);
     }
 
     /**

@@ -586,8 +586,8 @@ class DocumentsResource(_BaseResource):
         return response.content
 
     def evidence_bundle(self, id: str) -> bytes:
-        """Download the audit evidence ZIP bundle for a document."""
-        response = self._request("GET", f"/documents/{quote(id, safe='')}/evidence-bundle", raw=True)
+        """Deprecated alias for :meth:`support_packet`; binary bytes stay unchanged."""
+        response = self._request("GET", f"/documents/{quote(id, safe='')}/support-packet", raw=True)
         return response.content
 
     def support_packet(self, id: str) -> bytes:
@@ -643,6 +643,9 @@ class DocumentsResource(_BaseResource):
     def validate(self, body: Dict[str, Any]) -> ValidationResult:
         """Validate a document without sending. Same body format as ``send()``.
 
+        Deprecated: use ``client.payloads.validate(...)``. See the Enterprise
+        Core migration guide.
+
         Args:
             body: Document data -- same format as :meth:`send`.
 
@@ -660,7 +663,7 @@ class DocumentsResource(_BaseResource):
             if result["valid"]:
                 print("Document is valid")
         """
-        return self._request("POST", "/documents/validate", json=body)
+        return self._request("POST", "/payloads/validate", json=body)
 
     def preflight(
         self,
@@ -695,6 +698,9 @@ class DocumentsResource(_BaseResource):
     ) -> ConvertResult:
         """Convert a document between JSON and UBL XML.
 
+        Deprecated: use ``client.payloads.convert(...)``. See the Enterprise
+        Core migration guide.
+
         Args:
             input_format: Format of ``document``: ``"json"`` or ``"ubl"``.
             output_format: Desired output format: ``"ubl"`` or ``"json"``.
@@ -728,7 +734,7 @@ class DocumentsResource(_BaseResource):
             "output_format": output_format,
             "document": document,
         }
-        return self._request("POST", "/documents/convert", json=body)
+        return self._request("POST", "/payloads/convert", json=body)
 
     def send_batch(
         self,
@@ -779,6 +785,9 @@ class DocumentsResource(_BaseResource):
     def parse(self, xml: str) -> Dict[str, Any]:
         """Parse a UBL XML invoice into a structured JSON representation.
 
+        Deprecated: use ``client.payloads.parse(...)``. See the Enterprise Core
+        migration guide.
+
         Convenience wrapper around the ``/documents/parse`` endpoint that
         streams the XML as the raw request body with
         ``Content-Type: application/xml``.
@@ -797,7 +806,7 @@ class DocumentsResource(_BaseResource):
         """
         return self._request(
             "POST",
-            "/documents/parse",
+            "/payloads/parse",
             content=xml.encode("utf-8") if isinstance(xml, str) else xml,
             extra_headers={"Content-Type": "application/xml"},
         )
