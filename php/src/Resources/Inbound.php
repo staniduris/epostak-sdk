@@ -35,11 +35,12 @@ class Inbound
      *   sender?: string,
      *   next_cursor?: string
      * } $params Optional filters:
-     *   - `since`       ISO 8601 datetime; return documents received after this time.
+     *   - `since`       Opaque cursor from the previous response's `next_cursor`.
      *   - `limit`       Max items to return (1–500, default 100).
      *   - `kind`        Document type filter (e.g. 'invoice', 'credit_note').
      *   - `sender`      Filter by sender Peppol ID.
-     *   - `next_cursor` Cursor from the previous response for pagination.
+     *   - `next_cursor` Deprecated input alias for `since`; retained for
+     *                   backwards compatibility.
      * @return array{documents: array, next_cursor: ?string, has_more: bool}
      * @throws EPostakError On API error.
      *
@@ -49,17 +50,18 @@ class Inbound
      *       echo $doc['id'] . ': ' . ($doc['kind'] ?? 'invoice') . PHP_EOL;
      *   }
      *   if ($page['has_more']) {
-     *       $next = $client->inbound->list(['next_cursor' => $page['next_cursor']]);
+     *       $next = $client->inbound->list(['since' => $page['next_cursor']]);
      *   }
      */
     public function list(array $params = []): array
     {
         $qs = HttpClient::buildQuery([
-            'since' => $params['since'] ?? null,
+            // The API returns the cursor as `next_cursor`, but accepts it on
+            // the next request only through the `since` query parameter.
+            'since' => $params['since'] ?? $params['next_cursor'] ?? null,
             'limit' => $params['limit'] ?? null,
             'kind' => $params['kind'] ?? null,
             'sender' => $params['sender'] ?? null,
-            'next_cursor' => $params['next_cursor'] ?? null,
         ]);
         return $this->http->request('GET', '/inbound/documents' . $qs);
     }

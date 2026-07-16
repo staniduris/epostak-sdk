@@ -1,5 +1,12 @@
 # Changelog
 
+## [PHP inbound cursor patch] — 2026-07-16
+
+- Released PHP `1.1.1` with corrected Enterprise inbound pull pagination.
+- The cursor returned as `next_cursor` is now serialized as the documented
+  `since` query parameter on the next request; the previous PHP input key is
+  retained as a backwards-compatible alias.
+
 ## [Live JSON billing payload SDK sync] — 2026-07-12
 
 - Synced the live Enterprise OpenAPI JSON billing payload surface across

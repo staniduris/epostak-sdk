@@ -9,7 +9,7 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ## Major release API shape
 
-PHP `1.1.0` is the current workflow-first source release with the managed
+PHP `1.1.1` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
@@ -133,6 +133,12 @@ allows.
 ---
 
 ## Recent changes
+
+### Included in v1.1.1 — 2026-07-16
+
+- Fixed Enterprise inbound pull pagination so the cursor returned as
+  `next_cursor` is sent on the next request through the documented `since`
+  query parameter. The old PHP input key remains a compatibility alias.
 
 ### Included in v1.1.0 — 2026-07-14
 

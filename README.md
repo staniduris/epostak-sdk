@@ -18,7 +18,7 @@ when strict participant-scoped interoperability is the requirement.
 - ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
 
-TypeScript is `4.1.0`. Python, PHP, Ruby, Java, and .NET are `1.1.0`.
+TypeScript is `4.1.0`. PHP is `1.1.1`. Python, Ruby, Java, and .NET are `1.1.0`.
 
 ---
 
@@ -49,7 +49,7 @@ Non-breaking adoption: facade helpers are additive. Existing `/extract`,
 |-|-|-|-|-|
 | TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.1.0 | `npm install @epostak/sdk@^4.1.0` |
 | Python | [`python/`](./python/) | `epostak` | 1.1.0 | Source on GitHub |
-| PHP | [`php/`](./php/) | `epostak/sdk` | 1.1.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 1.1.1 | Source on GitHub |
 | C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.1.0 | Source on GitHub |
 | Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.1.0 | Source on GitHub |
 | Ruby | [`ruby/`](./ruby/) | `epostak` | 1.1.0 | Source on GitHub |

@@ -7,6 +7,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
 > release is `1.x`.
 
+## 1.1.1 — 2026-07-16
+
+### Fixed
+
+- `inbound->list(...)` now sends the pagination cursor through the documented
+  `since` query parameter. The previous `next_cursor` input remains accepted as
+  a backwards-compatible alias but is serialized as `since`.
+
 ## 1.1.0 — 2026-07-15
 
 ### Added
