@@ -641,6 +641,28 @@ def test_connector_global_webhook_facade_never_uses_firm_scope():
         webhook.test("  ")
 
 
+def test_connector_webhook_debugger_replay_and_suite_never_use_firm_scope():
+    client = EPostak(
+        client_id="sk_int_test",
+        client_secret="sk_int_test",
+        base_url="https://dev.epostak.sk/api/v1",
+        firm_id="firm-1",
+    )
+    webhook = client.connector.webhook
+    with patch.object(client.connector, "_request", return_value={}) as mock_req:
+        webhook.get_delivery("delivery 1")
+        webhook.replay_delivery("delivery 1", "replay-key")
+        webhook.run_test_suite("erp-acme", "suite-key")
+        webhook.get_test_suite("run 1")
+
+    assert mock_req.call_args_list == [
+        call("GET", "/connector/webhook/deliveries/delivery%201", omit_firm_id=True),
+        call("POST", "/connector/webhook/deliveries/delivery%201/replay", json={"confirmSuccessfulReplay": False}, extra_headers={"Idempotency-Key": "replay-key"}, omit_firm_id=True, retry_on_failure=True),
+        call("POST", "/connector/webhook/test-suite", json={"customerRef": "erp-acme"}, extra_headers={"Idempotency-Key": "suite-key"}, omit_firm_id=True, retry_on_failure=True),
+        call("GET", "/connector/webhook/test-suite/run%201", omit_firm_id=True),
+    ]
+
+
 def test_major_connector_customer_documents_send_defaults_to_send_without_firm_id():
     client = EPostak(
         client_id="sk_int_test",

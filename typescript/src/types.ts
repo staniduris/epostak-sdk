@@ -509,6 +509,11 @@ export interface ConnectorWebhookDeliveriesParams {
   cursor?: string;
   limit?: number;
   status?: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+  customerRef?: string;
+  type?: ConnectorWebhookEvent;
+  test?: boolean;
+  from?: string;
+  to?: string;
 }
 
 export interface ConnectorWebhookDelivery {
@@ -524,6 +529,15 @@ export interface ConnectorWebhookDelivery {
   lastAttemptAt: string | null;
   nextRetryAt: string | null;
   createdAt: string;
+  documentId?: string | null;
+  test?: boolean;
+  testScenario?: ConnectorWebhookTestScenario | null;
+  diagnosisCode?: ConnectorWebhookDiagnosisCode | null;
+  nextAction?: string | null;
+  replayedFromId?: string | null;
+  canReplay?: boolean;
+  attemptHistoryComplete?: boolean;
+  links?: Record<string, string>;
 }
 
 /** Cursor-paged delivery history for the global Connector webhook. */
@@ -540,6 +554,93 @@ export interface ConnectorWebhookTestResponse {
   deliveryId: string;
   status: "queued";
   event: ConnectorWebhookTestEvent;
+}
+
+export type ConnectorWebhookDiagnosisCode =
+  | "RECEIVER_AUTH_REJECTED" | "RECEIVER_URL_NOT_FOUND" | "RECEIVER_PAYLOAD_REJECTED"
+  | "RECEIVER_RATE_LIMITED" | "RECEIVER_UNAVAILABLE" | "RECEIVER_TIMEOUT"
+  | "RECEIVER_NETWORK_ERROR" | "ENDPOINT_BLOCKED" | "AUTHORIZATION_CHANGED"
+  | "RETRIES_EXHAUSTED" | "QUEUE_PUBLICATION_FAILED" | "UNKNOWN_DELIVERY_ERROR";
+
+export type ConnectorWebhookTestScenario =
+  | "success" | "deduplication" | "retry_503" | "rate_limit_429"
+  | "terminal_422" | "timeout" | "signature";
+
+export interface ConnectorWebhookDeliveryAttempt {
+  id: string;
+  number: number;
+  outcome: "STARTED" | "SUCCESS" | "RETRY_SCHEDULED" | "TERMINAL_FAILURE" | "AUTHORIZATION_CANCELLED";
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  endpoint: string | null;
+  requestTimestamp: string | null;
+  requestBodySha256: string | null;
+  responseStatus: number | null;
+  responseContentType: string | null;
+  responseBody: string | null;
+  responseBodySha256: string | null;
+  responseBodyTruncated: boolean;
+  retryable: boolean | null;
+  retryAfterMs: number | null;
+  nextRetryAt: string | null;
+  diagnosisCode: ConnectorWebhookDiagnosisCode | null;
+  errorMessage: string | null;
+}
+
+export interface ConnectorWebhookDeliveryDetail {
+  delivery: ConnectorWebhookDelivery;
+  payload: ConnectorBusinessEvent;
+  rawBody: string | null;
+  rawBodySha256: string | null;
+  attemptHistoryComplete: boolean;
+  endpoint: string | null;
+  signature: { algorithm: "HMAC-SHA256"; signedValue: "{X-Webhook-Timestamp}.{rawBody}"; signaturePersisted: false };
+  attempts: ConnectorWebhookDeliveryAttempt[];
+}
+
+export interface ConnectorWebhookReplayResult {
+  accepted: true;
+  deduplicated: boolean;
+  replayedFrom: string;
+  deliveryId: string;
+  webhookId: string;
+  eventId: string | null;
+  status: ConnectorWebhookDelivery["status"];
+  links: Record<string, string>;
+}
+
+export interface ConnectorWebhookTestSuiteRequest {
+  customerRef: string;
+  event?: ConnectorWebhookEvent;
+  scenarios?: ConnectorWebhookTestScenario[];
+}
+
+export interface ConnectorWebhookTestSuiteAccepted {
+  testRunId: string;
+  status: "RUNNING";
+  deduplicated: boolean;
+  deliveryIds: string[];
+  expiresAt: string;
+  links: Record<string, string>;
+}
+
+export interface ConnectorWebhookTestSuiteStatus {
+  testRunId: string;
+  event: ConnectorWebhookEvent;
+  status: "RUNNING" | "ACTION_REQUIRED" | "COMPLETED" | "FAILED" | "EXPIRED";
+  scenarios: Array<{
+    scenario: ConnectorWebhookTestScenario;
+    complete: boolean;
+    passed: boolean | null;
+    failureReason: string | null;
+    actionRequired: "REPLAY_TEST_DELIVERY" | null;
+    replayDeliveryId: string | null;
+    deliveries: Array<Pick<ConnectorWebhookDelivery, "id" | "status" | "attempts" | "responseStatus" | "nextRetryAt"> & { detail: string }>;
+  }>;
+  createdAt: string;
+  expiresAt: string;
+  links: Record<string, string>;
 }
 
 export interface ConnectorBusinessDocumentListParams {

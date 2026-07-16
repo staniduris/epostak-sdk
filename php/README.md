@@ -1126,6 +1126,18 @@ Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test En
 - **`webhooks->test()`** — now accepts `['event' => '...']` array and
   forwards the event type as a query parameter (server priority per PR #114).
 
+## Connector webhook debugger
+
+Inspect the exact signed body and attempt timeline, then use idempotent replay
+after fixing the receiver. `runTestSuite` exercises all receiver scenarios.
+
+```php
+$failed = $connectorClient->connector->webhook->listDeliveries(['status' => 'FAILED']);
+$detail = $connectorClient->connector->webhook->getDelivery($failed['deliveries'][0]['id']);
+$connectorClient->connector->webhook->replayDelivery($detail['delivery']['id'], 'erp:replay:1');
+$connectorClient->connector->webhook->runTestSuite('erp-acme', 'erp:suite:1');
+```
+
 ---
 
 ## Full API Documentation

@@ -717,10 +717,58 @@ class ConnectorWebhook
             'cursor' => $params['cursor'] ?? null,
             'limit' => $params['limit'] ?? null,
             'status' => isset($params['status']) ? strtoupper((string) $params['status']) : null,
+            'customerRef' => $params['customerRef'] ?? null,
+            'type' => $params['type'] ?? null,
+            'test' => isset($params['test']) ? ($params['test'] ? 'true' : 'false') : null,
+            'from' => $params['from'] ?? null,
+            'to' => $params['to'] ?? null,
         ]);
         return $this->http->request('GET', '/connector/webhook/deliveries' . $qs, [
             'omitFirmId' => true,
         ]);
+    }
+
+    public function listDeliveries(array $filters = []): array
+    {
+        return $this->deliveries($filters);
+    }
+
+    public function getDelivery(string $deliveryId): array
+    {
+        return $this->http->request('GET', '/connector/webhook/deliveries/' . rawurlencode($deliveryId), ['omitFirmId' => true]);
+    }
+
+    public function replayDelivery(string $deliveryId, string $idempotencyKey, bool $confirmSuccessfulReplay = false): array
+    {
+        $key = trim($idempotencyKey);
+        if ($key === '') throw new \InvalidArgumentException('Connector replay idempotencyKey is required');
+        return $this->http->request('POST', '/connector/webhook/deliveries/' . rawurlencode($deliveryId) . '/replay', [
+            'json' => ['confirmSuccessfulReplay' => $confirmSuccessfulReplay],
+            'headers' => ['Idempotency-Key' => $key],
+            'omitFirmId' => true,
+            'retryOnFailure' => true,
+        ]);
+    }
+
+    public function runTestSuite(string $customerRef, string $idempotencyKey, ?string $event = null, ?array $scenarios = null): array
+    {
+        $customerRef = connector_trim_string($customerRef);
+        $key = trim($idempotencyKey);
+        if ($customerRef === '' || $key === '') throw new \InvalidArgumentException('Connector customerRef and idempotencyKey are required');
+        $body = ['customerRef' => $customerRef];
+        if ($event !== null) $body['event'] = $event;
+        if ($scenarios !== null) $body['scenarios'] = array_values($scenarios);
+        return $this->http->request('POST', '/connector/webhook/test-suite', [
+            'json' => $body,
+            'headers' => ['Idempotency-Key' => $key],
+            'omitFirmId' => true,
+            'retryOnFailure' => true,
+        ]);
+    }
+
+    public function getTestSuite(string $testRunId): array
+    {
+        return $this->http->request('GET', '/connector/webhook/test-suite/' . rawurlencode($testRunId), ['omitFirmId' => true]);
     }
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "documentation": [
     "README.md",
     "typescript/README.md",
@@ -15,38 +15,41 @@
     "https://epostak.sk/api/openapi.connector.json",
     "recommended ERP path",
     "Enterprise",
-    "SAPI"
+    "SAPI",
+    "webhook debugger",
+    "exact signed body",
+    "replay"
   ],
   "checks": [
     {
       "name": "TypeScript Connector",
       "file": "typescript/src/resources/connector.ts",
-      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omitFirmId: true"]
+      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "getDelivery", "runTestSuite", "omitFirmId: true"]
     },
     {
       "name": "Python Connector",
       "file": "python/src/epostak/resources/connector.py",
-      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omit_firm_id=True"]
+      "contains": ["/connector/documents", "class ConnectorWebhookResource", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "get_delivery", "run_test_suite", "omit_firm_id=True"]
     },
     {
       "name": "PHP Connector",
       "file": "php/src/Resources/Connector.php",
-      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "'omitFirmId' => true"]
+      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "getDelivery", "runTestSuite", "'omitFirmId' => true"]
     },
     {
       "name": "Ruby Connector",
       "file": "ruby/lib/epostak/resources/connector.rb",
-      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omit_firm_id: true"]
+      "contains": ["/connector/documents", "class ConnectorWebhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "get_delivery", "run_test_suite", "omit_firm_id: true"]
     },
     {
       "name": "Java Connector",
       "file": "java/src/main/java/sk/epostak/sdk/resources/ConnectorWebhookResource.java",
-      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "getNoFirm", "putNoFirm"]
+      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "getDelivery", "runTestSuite", "getNoFirm", "putNoFirm"]
     },
     {
       "name": ".NET Connector",
       "file": "dotnet/src/EPostak/Resources/ConnectorWebhookResource.cs",
-      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "omitFirmId: true", "[\"customerRef\"]"]
+      "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "GetDeliveryAsync", "RunTestSuiteAsync", "omitFirmId: true", "[\"customerRef\"]"]
     },
     {
       "name": "TypeScript legacy Connector events optional cursor",
@@ -254,7 +257,7 @@
         "java/src/test/java/sk/epostak/sdk/ConnectorFirmScopeTest.java",
         "dotnet/tests/EPostak.Tests/ConnectorFirmScopeTests.cs"
       ],
-      "testContains": ["connector/webhook", "failedAttempts", "deliveryId", "nextCursor", "hasMore", "customerRef"]
+      "testContains": ["connector/webhook", "failedAttempts", "deliveryId", "nextCursor", "hasMore", "customerRef", "test-suite", "replay", "Idempotency-Key"]
     },
     "invoiceResponse": {
       "fixture": "fixtures/connector-invoice-response-contract.json",

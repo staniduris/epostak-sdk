@@ -1,15 +1,14 @@
 package sk.epostak.sdk.models;
 
-/** One global Connector webhook delivery attempt. */
-public record ConnectorWebhookDelivery(
+import java.util.Map;
+
+/** Enriched Connector debugger delivery summary. */
+public record ConnectorWebhookDebuggerDelivery(
         String id,
         String webhookId,
         String eventId,
-        String documentId,
         String customerRef,
         String type,
-        boolean test,
-        String testScenario,
         String status,
         int attempts,
         Integer responseStatus,
@@ -17,10 +16,13 @@ public record ConnectorWebhookDelivery(
         String lastAttemptAt,
         String nextRetryAt,
         String createdAt,
-        String replayedFromId,
-        boolean attemptHistoryComplete,
+        String documentId,
+        Boolean test,
+        String testScenario,
         String diagnosisCode,
         String nextAction,
-        boolean canReplay,
-        java.util.Map<String, String> links
+        String replayedFromId,
+        Boolean canReplay,
+        Boolean attemptHistoryComplete,
+        Map<String, String> links
 ) {}

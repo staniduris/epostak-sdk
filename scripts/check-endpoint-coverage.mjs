@@ -381,10 +381,14 @@ const webhookContractPath = manifest.contracts.webhook.fixture;
 const webhookContract = readJson(webhookContractPath);
 requireExactKeys(
   webhookContract,
-  ["version", "endpoint", "configurationResponse", "testRequest", "testResponse", "deliveriesResponse"],
+  [
+    "version", "endpoint", "configurationResponse", "testRequest", "testResponse",
+    "deliveriesFilter", "deliveriesResponse", "detailResponse", "replayRequest",
+    "replayResponse", "testSuiteRequest", "testSuiteAccepted", "testSuiteStatus",
+  ],
   `${webhookContractPath} root`,
 );
-if (webhookContract.version !== 1) failures.push(`${webhookContractPath}: unsupported version`);
+if (webhookContract.version !== 2) failures.push(`${webhookContractPath}: unsupported version`);
 if (webhookContract.endpoint !== "/connector/webhook") {
   failures.push(`${webhookContractPath}: invalid global webhook endpoint`);
 }
@@ -411,7 +415,7 @@ if (!/^[0-9a-f]{64}$/.test(configuration.secret ?? "")) {
   failures.push(`${webhookContractPath}: create-time secret must be a 64-character hex value`);
 }
 
-requireExactKeys(webhookContract.testRequest ?? {}, ["customerRef"], `${webhookContractPath} testRequest`);
+requireExactKeys(webhookContract.testRequest ?? {}, ["customerRef", "event", "scenario"], `${webhookContractPath} testRequest`);
 requireNonBlankString(webhookContract.testRequest?.customerRef, `${webhookContractPath} testRequest.customerRef`);
 const webhookTest = webhookContract.testResponse ?? {};
 requireExactKeys(webhookTest, ["deliveryId", "status", "event"], `${webhookContractPath} testResponse`);
@@ -419,7 +423,7 @@ if (webhookTest.status !== "queued") failures.push(`${webhookContractPath}: test
 const webhookEvent = webhookTest.event ?? {};
 requireExactKeys(
   webhookEvent,
-  ["id", "type", "customerRef", "documentId", "state", "occurredAt", "data", "test"],
+  ["id", "type", "customerRef", "documentId", "state", "occurredAt", "data", "test", "testScenario"],
   `${webhookContractPath} testResponse.event`,
 );
 requireExactKeys(
@@ -449,6 +453,8 @@ if (!Array.isArray(deliveryPage.deliveries) || deliveryPage.deliveries.length ==
       [
         "id", "webhookId", "eventId", "customerRef", "type", "status", "attempts",
         "responseStatus", "responseTimeMs", "lastAttemptAt", "nextRetryAt", "createdAt",
+        "documentId", "test", "testScenario", "diagnosisCode", "nextAction",
+        "replayedFromId", "canReplay", "attemptHistoryComplete", "links",
       ],
       `${webhookContractPath} deliveriesResponse.deliveries[${index}]`,
     );
@@ -457,6 +463,70 @@ if (!Array.isArray(deliveryPage.deliveries) || deliveryPage.deliveries.length ==
 }
 if (typeof deliveryPage.hasMore !== "boolean") {
   failures.push(`${webhookContractPath}: deliveriesResponse.hasMore must be boolean`);
+}
+
+const detail = webhookContract.detailResponse ?? {};
+requireExactKeys(
+  detail,
+  ["delivery", "payload", "rawBody", "rawBodySha256", "attemptHistoryComplete", "endpoint", "signature", "attempts"],
+  `${webhookContractPath} detailResponse`,
+);
+if (!/^[0-9a-f]{64}$/.test(detail.rawBodySha256 ?? "")) {
+  failures.push(`${webhookContractPath}: detail rawBodySha256 must be a SHA-256 hex value`);
+}
+if (!Array.isArray(detail.attempts) || detail.attempts.length === 0) {
+  failures.push(`${webhookContractPath}: detail attempts must contain evidence`);
+}
+
+requireExactKeys(
+  webhookContract.replayRequest ?? {},
+  ["idempotencyKey", "confirmSuccessfulReplay"],
+  `${webhookContractPath} replayRequest`,
+);
+requireNonBlankString(webhookContract.replayRequest?.idempotencyKey, `${webhookContractPath} replayRequest.idempotencyKey`);
+requireExactKeys(
+  webhookContract.replayResponse ?? {},
+  ["accepted", "deduplicated", "replayedFrom", "deliveryId", "webhookId", "eventId", "status", "links"],
+  `${webhookContractPath} replayResponse`,
+);
+if (webhookContract.replayResponse?.eventId !== webhookContract.testResponse?.event?.id) {
+  failures.push(`${webhookContractPath}: replay must preserve the original business event id`);
+}
+
+requireExactKeys(
+  webhookContract.testSuiteRequest ?? {},
+  ["customerRef", "event", "scenarios"],
+  `${webhookContractPath} testSuiteRequest`,
+);
+if (!Array.isArray(webhookContract.testSuiteRequest?.scenarios) || webhookContract.testSuiteRequest.scenarios.length !== 7) {
+  failures.push(`${webhookContractPath}: test suite must document all seven scenarios`);
+}
+requireExactKeys(
+  webhookContract.testSuiteAccepted ?? {},
+  ["testRunId", "status", "deduplicated", "deliveryIds", "expiresAt", "links"],
+  `${webhookContractPath} testSuiteAccepted`,
+);
+requireExactKeys(
+  webhookContract.testSuiteAccepted?.links ?? {},
+  ["detail", "debugger"],
+  `${webhookContractPath} testSuiteAccepted.links`,
+);
+requireExactKeys(
+  webhookContract.testSuiteStatus ?? {},
+  ["testRunId", "event", "status", "scenarios", "createdAt", "expiresAt", "links"],
+  `${webhookContractPath} testSuiteStatus`,
+);
+requireExactKeys(
+  webhookContract.testSuiteStatus?.links ?? {},
+  ["detail", "debugger"],
+  `${webhookContractPath} testSuiteStatus.links`,
+);
+for (const [index, scenario] of (webhookContract.testSuiteStatus?.scenarios ?? []).entries()) {
+  requireExactKeys(
+    scenario,
+    ["scenario", "complete", "passed", "failureReason", "actionRequired", "replayDeliveryId", "deliveries"],
+    `${webhookContractPath} testSuiteStatus.scenarios[${index}]`,
+  );
 }
 
 for (const relativePath of manifest.contracts.webhook.testFiles) {

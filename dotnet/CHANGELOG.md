@@ -3,6 +3,13 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — 2026-07-16
+
+### Added
+
+- Added Connector webhook debugger methods and typed models for filtered
+  history, exact signed-body detail, idempotent replay, and the test suite.
+
 ## 1.1.1-rc.1 — 2026-07-16
 
 ### Changed

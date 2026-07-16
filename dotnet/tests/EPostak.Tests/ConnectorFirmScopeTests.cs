@@ -86,6 +86,10 @@ public sealed class ConnectorFirmScopeTests
         await client.Connector.Webhook.RotateSecretAsync();
         var test = await client.Connector.Webhook.TestAsync("\u00A0\uFEFFerp-customer-1\uFEFF\u00A0");
         var deliveries = await client.Connector.Webhook.DeliveriesAsync("next", 25, "FAILED");
+        await client.Connector.Webhook.GetDeliveryAsync("delivery-1");
+        await client.Connector.Webhook.ReplayDeliveryAsync("delivery-1", "replay-key");
+        await client.Connector.Webhook.RunTestSuiteAsync("erp-customer-1", "suite-key");
+        await client.Connector.Webhook.GetTestSuiteAsync("run-1");
         await client.Connector.Webhook.DeleteAsync();
 
         Assert.Equal(
@@ -96,12 +100,18 @@ public sealed class ConnectorFirmScopeTests
                 (HttpMethod.Post, "/api/v1/connector/webhook/rotate-secret"),
                 (HttpMethod.Post, "/api/v1/connector/webhook/test"),
                 (HttpMethod.Get, "/api/v1/connector/webhook/deliveries?cursor=next&limit=25&status=FAILED"),
+                (HttpMethod.Get, "/api/v1/connector/webhook/deliveries/delivery-1"),
+                (HttpMethod.Post, "/api/v1/connector/webhook/deliveries/delivery-1/replay"),
+                (HttpMethod.Post, "/api/v1/connector/webhook/test-suite"),
+                (HttpMethod.Get, "/api/v1/connector/webhook/test-suite/run-1"),
                 (HttpMethod.Delete, "/api/v1/connector/webhook"),
             },
             handler.ApiRequests.Select(request => (request.Method, request.Uri.PathAndQuery)));
         Assert.All(handler.ApiRequests, request => Assert.DoesNotContain("X-Firm-Id", request.Headers.Keys));
         Assert.Contains("https://erp.example/epostak", handler.ApiRequests[1].Body);
         Assert.Contains("\"customerRef\":\"erp-customer-1\"", handler.ApiRequests[3].Body);
+        Assert.Equal("replay-key", handler.ApiRequests[6].Headers["Idempotency-Key"]);
+        Assert.Equal("suite-key", handler.ApiRequests[7].Headers["Idempotency-Key"]);
         Assert.Equal("wh-1", current.Webhook?.Id);
         Assert.Equal(new string('a', 64), configured.Secret);
         Assert.Equal("whd-1", test.DeliveryId);

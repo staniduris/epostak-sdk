@@ -1250,6 +1250,35 @@ describe("major release workflow namespaces", () => {
     assert.throws(() => client.connector.webhook.test(" "), /customerRef is required/);
   });
 
+  it("debugs and replays Connector webhooks without firm scope", async () => {
+    const client = makeClient({ firmId: "firm-1" });
+    const requests: Array<{ path: string; firmId: string | null; idempotencyKey: string | null }> = [];
+    mockFetch(async (input, init) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname.endsWith("/auth/token")) {
+        return makeMockResponse({ access_token: "tok", refresh_token: "ref", token_type: "Bearer", expires_in: 900 });
+      }
+      const headers = new Headers(init?.headers);
+      requests.push({ path: `${url.pathname}${url.search}`, firmId: headers.get("X-Firm-Id"), idempotencyKey: headers.get("Idempotency-Key") });
+      return makeMockResponse({});
+    });
+
+    await client.connector.webhook.getDelivery("delivery 1");
+    await client.connector.webhook.replayDelivery("delivery 1", "replay-key");
+    await client.connector.webhook.runTestSuite({ customerRef: "erp-acme" }, "suite-key");
+    await client.connector.webhook.getTestSuite("run 1");
+
+    assert.deepStrictEqual(requests.map((request) => request.path), [
+      "/api/v1/connector/webhook/deliveries/delivery%201",
+      "/api/v1/connector/webhook/deliveries/delivery%201/replay",
+      "/api/v1/connector/webhook/test-suite",
+      "/api/v1/connector/webhook/test-suite/run%201",
+    ]);
+    assert.ok(requests.every((request) => request.firmId === null));
+    assert.strictEqual(requests[1].idempotencyKey, "replay-key");
+    assert.strictEqual(requests[2].idempotencyKey, "suite-key");
+  });
+
   it("submits customer-scoped Connector documents without X-Firm-Id", async () => {
     const client = makeClient({ firmId: "firm-1" });
     let capturedBody = "";

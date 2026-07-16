@@ -110,6 +110,10 @@ final class ConnectorFirmScopeTest {
             client.connector().webhook().rotateSecret();
             var testDelivery = client.connector().webhook().test("\u00A0\uFEFFerp-customer-1\uFEFF\u00A0");
             var deliveries = client.connector().webhook().deliveries("next", 25, "FAILED");
+            client.connector().webhook().getDelivery("delivery-1");
+            client.connector().webhook().replayDelivery("delivery-1", "replay-key", false);
+            client.connector().webhook().runTestSuite("erp-customer-1", null, null, "suite-key");
+            client.connector().webhook().getTestSuite("run-1");
             client.connector().webhook().delete();
 
             List<CapturedRequest> requests = server.requests().stream()
@@ -121,14 +125,20 @@ final class ConnectorFirmScopeTest {
                     "/api/v1/connector/webhook/rotate-secret",
                     "/api/v1/connector/webhook/test",
                     "/api/v1/connector/webhook/deliveries",
+                    "/api/v1/connector/webhook/deliveries/delivery-1",
+                    "/api/v1/connector/webhook/deliveries/delivery-1/replay",
+                    "/api/v1/connector/webhook/test-suite",
+                    "/api/v1/connector/webhook/test-suite/run-1",
                     "/api/v1/connector/webhook"
             ), requests.stream().map(CapturedRequest::path).toList());
-            assertEquals(List.of("GET", "PUT", "POST", "POST", "GET", "DELETE"),
+            assertEquals(List.of("GET", "PUT", "POST", "POST", "GET", "GET", "POST", "POST", "GET", "DELETE"),
                     requests.stream().map(CapturedRequest::method).toList());
             assertEquals(true, requests.stream().allMatch(request -> request.firmId() == null));
             assertEquals(true, requests.get(1).body().contains("https://erp.example/epostak"));
             assertEquals(true, requests.get(3).body().contains("\"customerRef\":\"erp-customer-1\""));
             assertEquals("cursor=next&limit=25&status=FAILED", requests.get(4).rawQuery());
+            assertEquals("replay-key", requests.get(6).idempotencyKey());
+            assertEquals("suite-key", requests.get(7).idempotencyKey());
             assertEquals("wh-1", currentWebhook.webhook().id());
             assertEquals("a".repeat(64), configuredWebhook.secret());
             assertEquals("whd-1", testDelivery.deliveryId());

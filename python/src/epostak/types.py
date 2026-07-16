@@ -320,8 +320,11 @@ class ConnectorWebhookDelivery(TypedDict):
     id: str
     webhookId: str
     eventId: Optional[str]
+    documentId: Optional[str]
     customerRef: Optional[str]
     type: ConnectorBusinessEventType
+    test: bool
+    testScenario: Optional[str]
     status: Literal["PENDING", "SUCCESS", "FAILED", "RETRYING"]
     attempts: int
     responseStatus: Optional[int]
@@ -329,6 +332,79 @@ class ConnectorWebhookDelivery(TypedDict):
     lastAttemptAt: Optional[str]
     nextRetryAt: Optional[str]
     createdAt: str
+    replayedFromId: Optional[str]
+    attemptHistoryComplete: bool
+    diagnosisCode: Optional[str]
+    nextAction: Optional[str]
+    canReplay: bool
+    links: Dict[str, str]
+
+
+ConnectorWebhookTestScenario = Literal["success", "deduplication", "retry_503", "rate_limit_429", "terminal_422", "timeout", "signature"]
+ConnectorWebhookDiagnosisCode = Literal["RECEIVER_AUTH_REJECTED", "RECEIVER_URL_NOT_FOUND", "RECEIVER_PAYLOAD_REJECTED", "RECEIVER_RATE_LIMITED", "RECEIVER_UNAVAILABLE", "RECEIVER_TIMEOUT", "RECEIVER_NETWORK_ERROR", "ENDPOINT_BLOCKED", "AUTHORIZATION_CHANGED", "RETRIES_EXHAUSTED", "QUEUE_PUBLICATION_FAILED", "UNKNOWN_DELIVERY_ERROR"]
+
+
+class ConnectorWebhookDeliveryAttempt(TypedDict, total=False):
+    id: str
+    number: int
+    outcome: str
+    startedAt: str
+    completedAt: Optional[str]
+    durationMs: Optional[int]
+    endpoint: Optional[str]
+    requestTimestamp: Optional[str]
+    requestBodySha256: Optional[str]
+    responseStatus: Optional[int]
+    responseContentType: Optional[str]
+    responseBody: Optional[str]
+    responseBodySha256: Optional[str]
+    responseBodyTruncated: bool
+    retryable: Optional[bool]
+    retryAfterMs: Optional[int]
+    nextRetryAt: Optional[str]
+    diagnosisCode: Optional[ConnectorWebhookDiagnosisCode]
+    errorMessage: Optional[str]
+
+
+class ConnectorWebhookDeliveryDetail(TypedDict):
+    delivery: ConnectorWebhookDelivery
+    payload: ConnectorBusinessEvent
+    rawBody: Optional[str]
+    rawBodySha256: Optional[str]
+    attemptHistoryComplete: bool
+    endpoint: Optional[str]
+    signature: Dict[str, Any]
+    attempts: List[ConnectorWebhookDeliveryAttempt]
+
+
+class ConnectorWebhookReplayResult(TypedDict):
+    accepted: Literal[True]
+    deduplicated: bool
+    replayedFrom: str
+    deliveryId: str
+    webhookId: str
+    eventId: Optional[str]
+    status: str
+    links: Dict[str, str]
+
+
+class ConnectorWebhookTestSuiteAccepted(TypedDict):
+    testRunId: str
+    status: Literal["RUNNING"]
+    deduplicated: bool
+    deliveryIds: List[str]
+    expiresAt: str
+    links: Dict[str, str]
+
+
+class ConnectorWebhookTestSuiteStatus(TypedDict):
+    testRunId: str
+    event: ConnectorBusinessEventType
+    status: Literal["RUNNING", "ACTION_REQUIRED", "COMPLETED", "FAILED", "EXPIRED"]
+    scenarios: List[Dict[str, Any]]
+    createdAt: str
+    expiresAt: str
+    links: Dict[str, str]
 
 
 class ConnectorWebhookDeliveriesResponse(TypedDict):

@@ -320,6 +320,21 @@ namespace EPostak\Tests {
         false
     );
     assertRequest(fn() => $connector->webhook->delete(), 'DELETE', 'connector/webhook', false);
+
+    assertRequest(fn() => $connector->webhook->getDelivery('delivery 1'), 'GET', 'connector/webhook/deliveries/delivery%201', false);
+    Client::$requests = [];
+    $connector->webhook->replayDelivery('delivery 1', 'replay-key');
+    $replayRequest = oneRequest();
+    assertTrue($replayRequest['path'] === 'connector/webhook/deliveries/delivery%201/replay', 'Expected Connector replay path.');
+    assertTrue(($replayRequest['options']['headers']['Idempotency-Key'] ?? null) === 'replay-key', 'Expected replay Idempotency-Key.');
+    assertTrue(firmHeader($replayRequest['options']['headers'] ?? []) === null, 'Did not expect X-Firm-Id on replay.');
+    Client::$requests = [];
+    $connector->webhook->runTestSuite('erp-acme', 'suite-key');
+    $suiteRequest = oneRequest();
+    assertTrue($suiteRequest['path'] === 'connector/webhook/test-suite', 'Expected Connector test-suite path.');
+    assertTrue(($suiteRequest['options']['headers']['Idempotency-Key'] ?? null) === 'suite-key', 'Expected test-suite Idempotency-Key.');
+    assertTrue(firmHeader($suiteRequest['options']['headers'] ?? []) === null, 'Did not expect X-Firm-Id on test-suite.');
+    assertRequest(fn() => $connector->webhook->getTestSuite('run 1'), 'GET', 'connector/webhook/test-suite/run%201', false);
     try {
         $connector->webhook->configure('  ');
         fail('Expected blank Connector webhook URL to be rejected.');

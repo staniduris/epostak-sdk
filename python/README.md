@@ -940,6 +940,18 @@ Connector credentials. Customer Mapper must be called through
 
 Production Enterprise paths are relative to `https://epostak.sk/api/v1`; test Enterprise paths use `https://dev.epostak.sk/api/v1`. SAPI uses the same host, for example `https://epostak.sk/sapi/v1` or `https://dev.epostak.sk/sapi/v1`.
 
+## Connector webhook debugger
+
+Inspect the exact signed body and attempt timeline, then use idempotent replay
+after fixing the receiver. `run_test_suite` exercises all receiver scenarios.
+
+```python
+failed = connector_client.connector.webhook.list_deliveries(status="FAILED")
+detail = connector_client.connector.webhook.get_delivery(failed["deliveries"][0]["id"])
+connector_client.connector.webhook.replay_delivery(detail["delivery"]["id"], "erp:replay:1")
+connector_client.connector.webhook.run_test_suite("erp-acme", "erp:suite:1")
+```
+
 ---
 
 ## License

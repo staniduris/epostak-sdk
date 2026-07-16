@@ -510,13 +510,41 @@ module EPostak
       end
 
       # List Connector webhook delivery attempts.
-      def deliveries(cursor: nil, limit: nil, status: nil)
+      def deliveries(cursor: nil, limit: nil, status: nil, customer_ref: nil, type: nil, test: nil, from: nil, to: nil)
         @http.request(
           :get,
           "/connector/webhook/deliveries",
-          query: { cursor: cursor, limit: limit, status: status&.to_s&.upcase },
+          query: { cursor: cursor, limit: limit, status: status&.to_s&.upcase, customerRef: customer_ref, type: type, test: test, from: from, to: to },
           omit_firm_id: true,
         )
+      end
+
+      def list_deliveries(**filters)
+        deliveries(**filters)
+      end
+
+      def get_delivery(delivery_id)
+        @http.request(:get, "/connector/webhook/deliveries/#{ERB::Util.url_encode(delivery_id)}", omit_firm_id: true)
+      end
+
+      def replay_delivery(delivery_id, idempotency_key, confirm_successful_replay: false)
+        key = idempotency_key.to_s.strip
+        raise ArgumentError, "Connector replay idempotency_key is required" if key.empty?
+        @http.request(:post, "/connector/webhook/deliveries/#{ERB::Util.url_encode(delivery_id)}/replay", body: { confirmSuccessfulReplay: confirm_successful_replay }, headers: { "Idempotency-Key" => key }, retry_on_failure: true, retry_network_errors: true, omit_firm_id: true)
+      end
+
+      def run_test_suite(customer_ref, idempotency_key, event: nil, scenarios: nil)
+        customer = Resources.connector_trim_string(customer_ref)
+        key = idempotency_key.to_s.strip
+        raise ArgumentError, "Connector customerRef and idempotency_key are required" if customer.empty? || key.empty?
+        body = { customerRef: customer }
+        body[:event] = event unless event.nil?
+        body[:scenarios] = scenarios.to_a unless scenarios.nil?
+        @http.request(:post, "/connector/webhook/test-suite", body: body, headers: { "Idempotency-Key" => key }, retry_on_failure: true, retry_network_errors: true, omit_firm_id: true)
+      end
+
+      def get_test_suite(test_run_id)
+        @http.request(:get, "/connector/webhook/test-suite/#{ERB::Util.url_encode(test_run_id)}", omit_firm_id: true)
       end
     end
 

@@ -693,6 +693,33 @@ public sealed class ConnectorWebhookDelivery
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = "";
+
+    [JsonPropertyName("documentId")]
+    public string? DocumentId { get; set; }
+
+    [JsonPropertyName("test")]
+    public bool? Test { get; set; }
+
+    [JsonPropertyName("testScenario")]
+    public string? TestScenario { get; set; }
+
+    [JsonPropertyName("diagnosisCode")]
+    public string? DiagnosisCode { get; set; }
+
+    [JsonPropertyName("nextAction")]
+    public string? NextAction { get; set; }
+
+    [JsonPropertyName("replayedFromId")]
+    public string? ReplayedFromId { get; set; }
+
+    [JsonPropertyName("canReplay")]
+    public bool? CanReplay { get; set; }
+
+    [JsonPropertyName("attemptHistoryComplete")]
+    public bool? AttemptHistoryComplete { get; set; }
+
+    [JsonPropertyName("links")]
+    public Dictionary<string, string>? Links { get; set; }
 }
 
 public sealed class ConnectorWebhookDeliveriesResponse
@@ -705,6 +732,95 @@ public sealed class ConnectorWebhookDeliveriesResponse
 
     [JsonPropertyName("hasMore")]
     public bool HasMore { get; set; }
+}
+
+public sealed class ConnectorWebhookDeliveryAttempt
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("number")] public int Number { get; set; }
+    [JsonPropertyName("outcome")] public string Outcome { get; set; } = "";
+    [JsonPropertyName("startedAt")] public string StartedAt { get; set; } = "";
+    [JsonPropertyName("completedAt")] public string? CompletedAt { get; set; }
+    [JsonPropertyName("durationMs")] public int? DurationMs { get; set; }
+    [JsonPropertyName("endpoint")] public string? Endpoint { get; set; }
+    [JsonPropertyName("requestTimestamp")] public string? RequestTimestamp { get; set; }
+    [JsonPropertyName("requestBodySha256")] public string? RequestBodySha256 { get; set; }
+    [JsonPropertyName("responseStatus")] public int? ResponseStatus { get; set; }
+    [JsonPropertyName("responseContentType")] public string? ResponseContentType { get; set; }
+    [JsonPropertyName("responseBody")] public string? ResponseBody { get; set; }
+    [JsonPropertyName("responseBodySha256")] public string? ResponseBodySha256 { get; set; }
+    [JsonPropertyName("responseBodyTruncated")] public bool ResponseBodyTruncated { get; set; }
+    [JsonPropertyName("retryable")] public bool? Retryable { get; set; }
+    [JsonPropertyName("retryAfterMs")] public int? RetryAfterMs { get; set; }
+    [JsonPropertyName("nextRetryAt")] public string? NextRetryAt { get; set; }
+    [JsonPropertyName("diagnosisCode")] public string? DiagnosisCode { get; set; }
+    [JsonPropertyName("errorMessage")] public string? ErrorMessage { get; set; }
+}
+
+public sealed class ConnectorWebhookDeliveryDetail
+{
+    [JsonPropertyName("delivery")] public ConnectorWebhookDelivery Delivery { get; set; } = new();
+    [JsonPropertyName("payload")] public Dictionary<string, object?> Payload { get; set; } = [];
+    [JsonPropertyName("rawBody")] public string? RawBody { get; set; }
+    [JsonPropertyName("rawBodySha256")] public string? RawBodySha256 { get; set; }
+    [JsonPropertyName("attemptHistoryComplete")] public bool AttemptHistoryComplete { get; set; }
+    [JsonPropertyName("endpoint")] public string? Endpoint { get; set; }
+    [JsonPropertyName("signature")] public Dictionary<string, object?> Signature { get; set; } = [];
+    [JsonPropertyName("attempts")] public List<ConnectorWebhookDeliveryAttempt> Attempts { get; set; } = [];
+}
+
+public sealed class ConnectorWebhookReplayResult
+{
+    [JsonPropertyName("accepted")] public bool Accepted { get; set; }
+    [JsonPropertyName("deduplicated")] public bool Deduplicated { get; set; }
+    [JsonPropertyName("replayedFrom")] public string ReplayedFrom { get; set; } = "";
+    [JsonPropertyName("deliveryId")] public string DeliveryId { get; set; } = "";
+    [JsonPropertyName("webhookId")] public string WebhookId { get; set; } = "";
+    [JsonPropertyName("eventId")] public string? EventId { get; set; }
+    [JsonPropertyName("status")] public string Status { get; set; } = "";
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; set; } = [];
+}
+
+public sealed class ConnectorWebhookTestSuiteAccepted
+{
+    [JsonPropertyName("testRunId")] public string TestRunId { get; set; } = "";
+    [JsonPropertyName("status")] public string Status { get; set; } = "";
+    [JsonPropertyName("deduplicated")] public bool Deduplicated { get; set; }
+    [JsonPropertyName("deliveryIds")] public List<string> DeliveryIds { get; set; } = [];
+    [JsonPropertyName("expiresAt")] public string ExpiresAt { get; set; } = "";
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; set; } = [];
+}
+
+public sealed class ConnectorWebhookTestSuiteStatus
+{
+    [JsonPropertyName("testRunId")] public string TestRunId { get; set; } = "";
+    [JsonPropertyName("event")] public string Event { get; set; } = "";
+    [JsonPropertyName("status")] public string Status { get; set; } = "";
+    [JsonPropertyName("scenarios")] public List<ConnectorWebhookTestSuiteScenario> Scenarios { get; set; } = [];
+    [JsonPropertyName("createdAt")] public string CreatedAt { get; set; } = "";
+    [JsonPropertyName("expiresAt")] public string ExpiresAt { get; set; } = "";
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; set; } = [];
+}
+
+public sealed class ConnectorWebhookTestSuiteScenario
+{
+    [JsonPropertyName("scenario")] public string Scenario { get; set; } = "";
+    [JsonPropertyName("complete")] public bool Complete { get; set; }
+    [JsonPropertyName("passed")] public bool? Passed { get; set; }
+    [JsonPropertyName("failureReason")] public string? FailureReason { get; set; }
+    [JsonPropertyName("actionRequired")] public string? ActionRequired { get; set; }
+    [JsonPropertyName("replayDeliveryId")] public string? ReplayDeliveryId { get; set; }
+    [JsonPropertyName("deliveries")] public List<ConnectorWebhookTestSuiteDelivery> Deliveries { get; set; } = [];
+}
+
+public sealed class ConnectorWebhookTestSuiteDelivery
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("status")] public string Status { get; set; } = "";
+    [JsonPropertyName("attempts")] public int Attempts { get; set; }
+    [JsonPropertyName("responseStatus")] public int? ResponseStatus { get; set; }
+    [JsonPropertyName("nextRetryAt")] public string? NextRetryAt { get; set; }
+    [JsonPropertyName("detail")] public string Detail { get; set; } = "";
 }
 
 public sealed class ConnectorStatusResponse

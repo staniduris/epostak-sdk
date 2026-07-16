@@ -1,5 +1,11 @@
 # Changelog
 
+## [Connector webhook debugger] — 2026-07-16
+
+- Added filtered delivery history, exact signed-body detail, safe attempt
+  evidence, human diagnosis, idempotent replay, and a seven-scenario webhook
+  test suite across all six SDKs without changing Enterprise or SAPI methods.
+
 ## [PHP inbound cursor patch] — 2026-07-16
 
 - Released PHP `1.1.1` with corrected Enterprise inbound pull pagination.

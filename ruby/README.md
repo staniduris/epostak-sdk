@@ -938,6 +938,18 @@ Slovak Peppol identifiers use a single scheme per Slovak PASR:
 
 **Do not use scheme `9950:SK...`** (VAT-number form) or `0191` — neither is valid for Slovak participants.
 
+## Connector webhook debugger
+
+Inspect the exact signed body and attempt timeline, then use idempotent replay
+after fixing the receiver. `run_test_suite` exercises all receiver scenarios.
+
+```ruby
+failed = connector_client.connector.webhook.list_deliveries(status: "FAILED")
+detail = connector_client.connector.webhook.get_delivery(failed["deliveries"].first["id"])
+connector_client.connector.webhook.replay_delivery(detail["delivery"]["id"], "erp:replay:1")
+connector_client.connector.webhook.run_test_suite("erp-acme", "erp:suite:1")
+```
+
 ## License
 
 MIT

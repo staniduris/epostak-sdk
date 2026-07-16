@@ -379,6 +379,24 @@ is never retried automatically.
 - [Enterprise API Docs](https://epostak.sk/api/docs/enterprise)
 - Each SDK directory contains a detailed README with language-specific examples
 
+## Connector webhook debugger
+
+The additive debugger API exposes the exact signed body, safe attempt evidence,
+human-readable diagnosis, idempotent replay, and a deterministic seven-scenario
+test suite. Existing Connector, Enterprise, and SAPI methods remain unchanged.
+
+```typescript
+const detail = await connectorClient.connector.webhook.getDelivery("delivery-id");
+await connectorClient.connector.webhook.replayDelivery(
+  detail.delivery.id,
+  "erp:replay:delivery-id",
+);
+const run = await connectorClient.connector.webhook.runTestSuite(
+  { customerRef: "erp-customer-1" },
+  "erp:test-suite:1",
+);
+```
+
 ---
 
 ## License

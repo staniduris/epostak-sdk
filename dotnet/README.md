@@ -798,6 +798,18 @@ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 var doc = await client.Enterprise.Documents.GetAsync("doc-id", cts.Token);
 ```
 
+## Connector webhook debugger
+
+Inspect the exact signed body and attempt timeline, then use idempotent replay
+after fixing the receiver. `RunTestSuiteAsync` exercises all receiver scenarios.
+
+```csharp
+var failed = await connectorClient.Connector.Webhook.ListDeliveriesAsync(status: "FAILED");
+var detail = await connectorClient.Connector.Webhook.GetDeliveryAsync(failed.Deliveries[0].Id);
+await connectorClient.Connector.Webhook.ReplayDeliveryAsync(detail.Delivery.Id, "erp:replay:1");
+await connectorClient.Connector.Webhook.RunTestSuiteAsync("erp-acme", "erp:suite:1");
+```
+
 ## License
 
 MIT

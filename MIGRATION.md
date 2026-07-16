@@ -164,6 +164,13 @@ Webhook calls omit `X-Firm-Id`. The pushed body is the same canonical event item
 returned by polling and includes `customerRef` at the root. Verify the signature
 as HMAC-SHA256 over `timestamp + "." + rawBody` before parsing the body.
 
+### Connector webhook debugger
+
+No migration is required. New SDK releases add filtered history, the
+exact signed body and attempt timeline, safe diagnosis, idempotent replay, and a
+seven-scenario test suite. Existing webhook configuration, Enterprise, and SAPI
+calls keep their current signatures and behavior.
+
 ## Compatibility rules
 
 - Existing Enterprise document, Inbox, pull, webhook, OAuth, and firm-scoped

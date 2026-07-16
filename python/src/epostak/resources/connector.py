@@ -71,6 +71,10 @@ if TYPE_CHECKING:
         ConnectorWebhookConfiguration,
         ConnectorWebhookDeliveriesResponse,
         ConnectorWebhookTestResponse,
+        ConnectorWebhookDeliveryDetail,
+        ConnectorWebhookReplayResult,
+        ConnectorWebhookTestSuiteAccepted,
+        ConnectorWebhookTestSuiteStatus,
         ConnectorZenInputRequest,
     )
 
@@ -611,12 +615,22 @@ class ConnectorWebhookResource:
         cursor: Optional[str] = None,
         limit: Optional[int] = None,
         status: Optional[str] = None,
+        customer_ref: Optional[str] = None,
+        event_type: Optional[str] = None,
+        test: Optional[bool] = None,
+        from_time: Optional[str] = None,
+        to_time: Optional[str] = None,
     ) -> ConnectorWebhookDeliveriesResponse:
         """List Connector webhook delivery attempts."""
         params = _build_query({
             "cursor": cursor,
             "limit": limit,
             "status": status.upper() if status else None,
+            "customerRef": customer_ref,
+            "type": event_type,
+            "test": str(test).lower() if test is not None else None,
+            "from": from_time,
+            "to": to_time,
         })
         return self._parent._request(
             "GET",
@@ -624,6 +638,40 @@ class ConnectorWebhookResource:
             params=params,
             omit_firm_id=True,
         )
+
+    def list_deliveries(self, **filters: Any) -> ConnectorWebhookDeliveriesResponse:
+        return self.deliveries(**filters)
+
+    def get_delivery(self, delivery_id: str) -> ConnectorWebhookDeliveryDetail:
+        return self._parent._request("GET", f"/connector/webhook/deliveries/{quote(delivery_id, safe='')}", omit_firm_id=True)
+
+    def replay_delivery(self, delivery_id: str, idempotency_key: str, *, confirm_successful_replay: bool = False) -> ConnectorWebhookReplayResult:
+        key = idempotency_key.strip()
+        if not key:
+            raise ValueError("Connector replay idempotency_key is required")
+        return self._parent._request(
+            "POST",
+            f"/connector/webhook/deliveries/{quote(delivery_id, safe='')}/replay",
+            json={"confirmSuccessfulReplay": confirm_successful_replay},
+            extra_headers={"Idempotency-Key": key},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        )
+
+    def run_test_suite(self, customer_ref: str, idempotency_key: str, *, event: Optional[str] = None, scenarios: Optional[list[str]] = None) -> ConnectorWebhookTestSuiteAccepted:
+        customer = _connector_trim_string(customer_ref)
+        key = idempotency_key.strip()
+        if not customer or not key:
+            raise ValueError("Connector customer_ref and idempotency_key are required")
+        body: Dict[str, Any] = {"customerRef": customer}
+        if event is not None:
+            body["event"] = event
+        if scenarios is not None:
+            body["scenarios"] = list(scenarios)
+        return self._parent._request("POST", "/connector/webhook/test-suite", json=body, extra_headers={"Idempotency-Key": key}, omit_firm_id=True, retry_on_failure=True)
+
+    def get_test_suite(self, test_run_id: str) -> ConnectorWebhookTestSuiteStatus:
+        return self._parent._request("GET", f"/connector/webhook/test-suite/{quote(test_run_id, safe='')}", omit_firm_id=True)
 
 
 class ConnectorAdvancedResource:

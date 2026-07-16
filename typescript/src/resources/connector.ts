@@ -18,6 +18,11 @@ import type {
   ConnectorWebhookDeliveriesParams,
   ConnectorWebhookDeliveriesResponse,
   ConnectorWebhookEvent,
+  ConnectorWebhookDeliveryDetail,
+  ConnectorWebhookReplayResult,
+  ConnectorWebhookTestSuiteRequest,
+  ConnectorWebhookTestSuiteAccepted,
+  ConnectorWebhookTestSuiteStatus,
   ConnectorWebhookTestResponse,
   ConnectorEventsParams,
   ConnectorEventsResponse,
@@ -409,13 +414,13 @@ export class ConnectorWebhookResource extends BaseResource {
     );
   }
 
-  test(customerRef: string): Promise<ConnectorWebhookTestResponse> {
+  test(customerRef: string, options?: { event?: ConnectorWebhookEvent; scenario?: import("../types.js").ConnectorWebhookTestScenario }): Promise<ConnectorWebhookTestResponse> {
     const normalized = normalizeConnectorIdentity(customerRef);
     if (!normalized) throw new Error("Connector customerRef is required");
     return this.request(
       "POST",
       "/connector/webhook/test",
-      { customerRef: normalized },
+      { customerRef: normalized, ...options },
       { omitFirmId: true },
     );
   }
@@ -429,10 +434,38 @@ export class ConnectorWebhookResource extends BaseResource {
         cursor: params?.cursor,
         limit: params?.limit,
         status: params?.status?.toUpperCase(),
+        customerRef: params?.customerRef,
+        type: params?.type,
+        test: params?.test === undefined ? undefined : String(params.test),
+        from: params?.from,
+        to: params?.to,
       })}`,
       undefined,
       { omitFirmId: true },
     );
+  }
+
+  listDeliveries(params?: ConnectorWebhookDeliveriesParams): Promise<ConnectorWebhookDeliveriesResponse> {
+    return this.deliveries(params);
+  }
+
+  getDelivery(deliveryId: string): Promise<ConnectorWebhookDeliveryDetail> {
+    return this.request("GET", `/connector/webhook/deliveries/${encodeURIComponent(deliveryId)}`, undefined, { omitFirmId: true });
+  }
+
+  replayDelivery(deliveryId: string, idempotencyKey: string, options?: { confirmSuccessfulReplay?: boolean }): Promise<ConnectorWebhookReplayResult> {
+    if (!idempotencyKey.trim()) throw new Error("Connector replay idempotencyKey is required");
+    return this.request("POST", `/connector/webhook/deliveries/${encodeURIComponent(deliveryId)}/replay`, { confirmSuccessfulReplay: options?.confirmSuccessfulReplay ?? false }, { omitFirmId: true, headers: { "Idempotency-Key": idempotencyKey.trim() }, retry: true });
+  }
+
+  runTestSuite(body: ConnectorWebhookTestSuiteRequest, idempotencyKey: string): Promise<ConnectorWebhookTestSuiteAccepted> {
+    if (!body.customerRef.trim()) throw new Error("Connector customerRef is required");
+    if (!idempotencyKey.trim()) throw new Error("Connector test-suite idempotencyKey is required");
+    return this.request("POST", "/connector/webhook/test-suite", { ...body, customerRef: body.customerRef.trim() }, { omitFirmId: true, headers: { "Idempotency-Key": idempotencyKey.trim() }, retry: true });
+  }
+
+  getTestSuite(testRunId: string): Promise<ConnectorWebhookTestSuiteStatus> {
+    return this.request("GET", `/connector/webhook/test-suite/${encodeURIComponent(testRunId)}`, undefined, { omitFirmId: true });
   }
 }
 

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "endpoint": "/connector/webhook",
   "configurationResponse": {
     "webhook": {
@@ -8,13 +8,15 @@
       "events": ["document.received"],
       "active": true,
       "failedAttempts": 0,
-      "createdAt": "2026-07-15T10:00:00Z",
-      "updatedAt": "2026-07-15T10:00:00Z"
+      "createdAt": "2026-07-16T10:00:00Z",
+      "updatedAt": "2026-07-16T10:00:00Z"
     },
     "secret": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "testRequest": {
-    "customerRef": "erp-customer-1"
+    "customerRef": "erp-customer-1",
+    "event": "document.received",
+    "scenario": "success"
   },
   "testResponse": {
     "deliveryId": "whd-1",
@@ -25,7 +27,7 @@
       "customerRef": "erp-customer-1",
       "documentId": "doc-1",
       "state": "received",
-      "occurredAt": "2026-07-15T10:00:00Z",
+      "occurredAt": "2026-07-16T10:00:00Z",
       "data": {
         "customerRef": "erp-customer-1",
         "direction": "inbound",
@@ -33,8 +35,17 @@
         "number": null,
         "response": null
       },
-      "test": true
+      "test": true,
+      "testScenario": "success"
     }
+  },
+  "deliveriesFilter": {
+    "status": "FAILED",
+    "customerRef": "erp-customer-1",
+    "type": "document.received",
+    "test": true,
+    "from": "2026-07-16T00:00:00Z",
+    "to": "2026-07-17T00:00:00Z"
   },
   "deliveriesResponse": {
     "deliveries": [
@@ -44,16 +55,126 @@
         "eventId": "evt-1",
         "customerRef": "erp-customer-1",
         "type": "document.received",
-        "status": "SUCCESS",
+        "status": "FAILED",
         "attempts": 1,
-        "responseStatus": 204,
+        "responseStatus": 422,
         "responseTimeMs": 83,
-        "lastAttemptAt": "2026-07-15T10:00:01Z",
+        "lastAttemptAt": "2026-07-16T10:00:01Z",
         "nextRetryAt": null,
-        "createdAt": "2026-07-15T10:00:00Z"
+        "createdAt": "2026-07-16T10:00:00Z",
+        "documentId": "doc-1",
+        "test": true,
+        "testScenario": "terminal_422",
+        "diagnosisCode": "RECEIVER_PAYLOAD_REJECTED",
+        "nextAction": "Skontrolujte validáciu JSON payloadu vo vašom webhook handleri.",
+        "replayedFromId": null,
+        "canReplay": true,
+        "attemptHistoryComplete": true,
+        "links": { "detail": "/api/v1/connector/webhook/deliveries/whd-1" }
       }
     ],
     "nextCursor": null,
     "hasMore": false
+  },
+  "detailResponse": {
+    "delivery": {
+      "id": "whd-1",
+      "webhookId": "wh-1",
+      "eventId": "evt-1",
+      "customerRef": "erp-customer-1",
+      "type": "document.received",
+      "status": "FAILED",
+      "attempts": 1,
+      "responseStatus": 422,
+      "responseTimeMs": 83,
+      "lastAttemptAt": "2026-07-16T10:00:01Z",
+      "nextRetryAt": null,
+      "createdAt": "2026-07-16T10:00:00Z"
+    },
+    "payload": { "id": "evt-1", "type": "document.received", "customerRef": "erp-customer-1", "test": true },
+    "rawBody": "{\"id\":\"evt-1\",\"type\":\"document.received\",\"customerRef\":\"erp-customer-1\",\"test\":true}",
+    "rawBodySha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "attemptHistoryComplete": true,
+    "endpoint": "https://erp.example/epostak",
+    "signature": {
+      "algorithm": "HMAC-SHA256",
+      "signedValue": "{X-Webhook-Timestamp}.{rawBody}",
+      "signaturePersisted": false
+    },
+    "attempts": [
+      {
+        "id": "wha-1",
+        "number": 1,
+        "outcome": "TERMINAL_FAILURE",
+        "startedAt": "2026-07-16T10:00:01Z",
+        "completedAt": "2026-07-16T10:00:01.083Z",
+        "durationMs": 83,
+        "endpoint": "https://erp.example/epostak",
+        "requestTimestamp": "1784196001",
+        "requestBodySha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "responseStatus": 422,
+        "responseContentType": "application/json",
+        "responseBody": "invalid payload",
+        "responseBodySha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "responseBodyTruncated": false,
+        "retryable": false,
+        "retryAfterMs": null,
+        "nextRetryAt": null,
+        "diagnosisCode": "RECEIVER_PAYLOAD_REJECTED",
+        "errorMessage": "HTTP 422: invalid payload"
+      }
+    ]
+  },
+  "replayRequest": {
+    "idempotencyKey": "erp-replay-whd-1-v1",
+    "confirmSuccessfulReplay": false
+  },
+  "replayResponse": {
+    "accepted": true,
+    "deduplicated": false,
+    "replayedFrom": "whd-1",
+    "deliveryId": "whd-2",
+    "webhookId": "wh-2",
+    "eventId": "evt-1",
+    "status": "PENDING",
+    "links": {
+      "source": "/api/v1/connector/webhook/deliveries/whd-1",
+      "detail": "/api/v1/connector/webhook/deliveries/whd-2"
+    }
+  },
+  "testSuiteRequest": {
+    "customerRef": "erp-customer-1",
+    "event": "document.received",
+    "scenarios": ["success", "deduplication", "retry_503", "rate_limit_429", "terminal_422", "timeout", "signature"]
+  },
+  "testSuiteAccepted": {
+    "testRunId": "4f2538e8-f8d4-4a4f-9274-a05081ee529f",
+    "status": "RUNNING",
+    "deduplicated": false,
+    "deliveryIds": ["whd-3", "whd-4"],
+    "expiresAt": "2026-07-16T10:15:00Z",
+    "links": {
+      "detail": "/api/v1/connector/webhook/test-suite/4f2538e8-f8d4-4a4f-9274-a05081ee529f",
+      "debugger": "/integrator/connector/debugger?testRunId=4f2538e8-f8d4-4a4f-9274-a05081ee529f"
+    }
+  },
+  "testSuiteStatus": {
+    "testRunId": "4f2538e8-f8d4-4a4f-9274-a05081ee529f",
+    "event": "document.received",
+    "status": "ACTION_REQUIRED",
+    "scenarios": [
+      {
+        "scenario": "deduplication",
+        "complete": false,
+        "passed": null,
+        "failureReason": null,
+        "actionRequired": "REPLAY_TEST_DELIVERY",
+        "replayDeliveryId": "whd-4",
+        "deliveries": [{ "id": "whd-4", "status": "SUCCESS", "attempts": 1, "responseStatus": 204, "nextRetryAt": null, "detail": "/api/v1/connector/webhook/deliveries/whd-4" }]
+      }
+    ],
+    "createdAt": "2026-07-16T10:00:00Z",
+    "expiresAt": "2026-07-16T10:15:00Z",
+    "links": { "detail": "/api/v1/connector/webhook/test-suite/4f2538e8-f8d4-4a4f-9274-a05081ee529f", "debugger": "/integrator/connector/debugger?testRunId=4f2538e8-f8d4-4a4f-9274-a05081ee529f" }
   }
 }

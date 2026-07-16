@@ -152,6 +152,32 @@ RSpec.describe EPostak::Resources::Connector do
     expect { webhook.test("  ") }.to raise_error(ArgumentError, /customerRef is required/)
   end
 
+  it "debugs and replays Connector webhooks without X-Firm-Id" do
+    detail_stub = stub_request(:get, "#{host}/connector/webhook/deliveries/delivery%201")
+      .to_return(status: 200, body: {}.to_json, headers: { "Content-Type" => "application/json" })
+    replay_stub = stub_request(:post, "#{host}/connector/webhook/deliveries/delivery%201/replay")
+      .with(headers: { "Idempotency-Key" => "replay-key" })
+      .to_return(status: 202, body: {}.to_json, headers: { "Content-Type" => "application/json" })
+    suite_stub = stub_request(:post, "#{host}/connector/webhook/test-suite")
+      .with(headers: { "Idempotency-Key" => "suite-key" })
+      .to_return(status: 202, body: {}.to_json, headers: { "Content-Type" => "application/json" })
+    status_stub = stub_request(:get, "#{host}/connector/webhook/test-suite/run%201")
+      .to_return(status: 200, body: {}.to_json, headers: { "Content-Type" => "application/json" })
+
+    webhook = firm_scoped_client.connector.webhook
+    webhook.get_delivery("delivery 1")
+    webhook.replay_delivery("delivery 1", "replay-key")
+    webhook.run_test_suite("erp-acme", "suite-key")
+    webhook.get_test_suite("run 1")
+
+    expect(detail_stub).to have_been_requested
+    expect(replay_stub).to have_been_requested
+    expect(suite_stub).to have_been_requested
+    expect(status_stub).to have_been_requested
+    expect_without_firm_header(:post, "#{host}/connector/webhook/deliveries/delivery%201/replay")
+    expect_without_firm_header(:post, "#{host}/connector/webhook/test-suite")
+  end
+
   it "keeps customer events tenant-scoped while advanced legacy events stay firm-scoped" do
     customer_events_stub = stub_request(:get, "#{host}/connector/events")
       .with(query: { "customerRef" => "erp-customer-1", "limit" => "10" })
