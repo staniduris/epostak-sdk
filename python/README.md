@@ -130,6 +130,13 @@ allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-19
+
+- Enterprise 1.6.0 JSON sends support `processId`, JSON self-billing and credit
+  notes through `documentType`, `supplier*`, and `precedingInvoiceRef`.
+- Send responses use the live camelCase replay/link fields. Document events now
+  use `{ process_id, pagination: { limit, nextCursor, hasMore } }`.
+
 ### Included in v1.1.0 — 2026-07-14
 
 - Connector is canonical at `client.connector`; the existing Enterprise
@@ -236,7 +243,7 @@ result = client.enterprise.documents.send({
         {"description": "Konzultácia", "quantity": 10, "unitPrice": 50, "vatRate": 23},
     ],
 })
-print(result["documentId"], result["messageId"], result["payload_sha256"])
+print(result["documentId"], result["messageId"], result["payloadSha256"])
 ```
 
 ### Connector golden path for ERP developers

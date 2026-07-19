@@ -82,6 +82,39 @@ def test_events_pull_normalizes_live_events_response():
     assert result["items"][0]["event_id"] == "evt-live"
 
 
+def test_current_enterprise_send_and_event_types_cover_live_contract():
+    from epostak.types import (
+        Document,
+        DocumentEvent,
+        DocumentEventsResponse,
+        SendDocumentResponse,
+        _SendDocumentBase,
+        _SendDocumentXmlOptional,
+    )
+
+    send_fields = _SendDocumentBase.__annotations__
+    assert {
+        "processId",
+        "documentType",
+        "supplierPeppolId",
+        "supplierName",
+        "precedingInvoiceRef",
+    }.issubset(send_fields)
+    assert "processId" in _SendDocumentXmlOptional.__annotations__
+    assert {
+        "submissionId",
+        "duplicate",
+        "payloadSha256",
+        "warning",
+        "links",
+    }.issubset(SendDocumentResponse.__annotations__)
+    assert "payload_sha256" not in SendDocumentResponse.__annotations__
+    assert "process_id" in Document.__annotations__
+    assert "process_id" in DocumentEvent.__annotations__
+    assert {"process_id", "pagination"}.issubset(DocumentEventsResponse.__annotations__)
+    assert "nextCursor" not in DocumentEventsResponse.__annotations__
+
+
 def _make_firm_scoped_connector():
     """Return a ConnectorResource wired to a mocked HTTP client with firm scope."""
     from epostak.resources.connector import ConnectorResource

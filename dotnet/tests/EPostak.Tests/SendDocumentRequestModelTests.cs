@@ -111,4 +111,37 @@ public sealed class SendDocumentRequestModelTests
         Assert.DoesNotContain("\"prepaidAmount\"", json);
         Assert.DoesNotContain("\"prepayments\"", json);
     }
+
+    [Fact]
+    public void SerializesSelfBillingProcessFieldsAndReadsCurrentResponseShapes()
+    {
+        var request = new SendDocumentRequest
+        {
+            ProcessId = "urn:peppol:bis:billing_with_response",
+            DocumentType = "self_billing_credit_note",
+            SupplierPeppolId = "0245:2123038963",
+            SupplierName = "Dodavatel s.r.o.",
+            SupplierIcDph = "SK2123038963",
+            PrecedingInvoiceRef = "FAK-2026-0001",
+            Items = [new LineItem { Description = "Oprava", Quantity = 1, UnitPrice = 10, VatRate = 23 }]
+        };
+
+        var json = JsonSerializer.Serialize(request, SdkJsonOptions);
+        var response = JsonSerializer.Deserialize<SendDocumentResponse>("""
+            {"documentId":"doc-1","submissionId":"doc-1","messageId":"msg-1","status":"DELIVERED","duplicate":true,"links":{"events":"/events"}}
+            """);
+        var events = JsonSerializer.Deserialize<DocumentEventsResponse>("""
+            {"process_id":"urn:process","documentId":"doc-1","events":[{"process_id":"urn:process","id":"evt-1","eventType":"document.sent","actor":"system","detail":null,"meta":{},"occurredAt":"2026-07-19T08:00:00Z"}],"pagination":{"limit":20,"nextCursor":null,"hasMore":false}}
+            """);
+
+        Assert.Contains("\"processId\":\"urn:peppol:bis:billing_with_response\"", json);
+        Assert.Contains("\"documentType\":\"self_billing_credit_note\"", json);
+        Assert.Contains("\"supplierPeppolId\":\"0245:2123038963\"", json);
+        Assert.Contains("\"precedingInvoiceRef\":\"FAK-2026-0001\"", json);
+        Assert.True(response?.Duplicate);
+        Assert.Equal("/events", response?.Links?.Events);
+        Assert.Equal("urn:process", events?.ProcessId);
+        Assert.False(events?.Pagination.HasMore);
+        Assert.Equal("urn:process", events?.Events[0].ProcessId);
+    }
 }

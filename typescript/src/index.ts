@@ -167,10 +167,12 @@ export type {
   PartyAddress,
   Party,
   // Send document
+  JsonBillingDocumentType,
   SendDocumentJsonRequest,
   SendDocumentXmlRequest,
   SendDocumentRequest,
   SendDocumentResponse,
+  SendDocumentLinks,
   DocumentAttachment,
   // Update document
   UpdateDocumentRequest,

@@ -980,6 +980,14 @@ class Party(TypedDict, total=False):
 # Send document
 # ---------------------------------------------------------------------------
 
+JsonBillingDocumentType = Literal[
+    "invoice",
+    "credit_note",
+    "self_billing",
+    "self_billing_credit_note",
+]
+"""Business document types supported by structured JSON billing mode."""
+
 
 class DocumentAttachment(TypedDict, total=False):
     """Invoice attachment (BG-24) embedded as base64 into the UBL XML.
@@ -1018,7 +1026,14 @@ class Prepayment(_PrepaymentOptional):
 class _SendDocumentBase(TypedDict, total=False):
     """Optional structured JSON send fields."""
 
+    processId: str  # Peppol process URN; profile 01 is used when omitted
+    documentType: JsonBillingDocumentType  # Canonical JSON billing document type
+    document_type: JsonBillingDocumentType  # Snake-case alias for documentType
+    docType: JsonBillingDocumentType  # Compatibility alias for documentType
+    receiverPeppolId: str  # Peppol ID of the counterparty/recipient
+    supplierPeppolId: str  # Self-billing alias for the supplier/recipient ID
     invoiceNumber: str  # Invoice number, e.g. "FV-2026-001"
+    precedingInvoiceRef: str  # Original invoice number corrected by a credit note
     issueDate: str  # Issue date in ISO 8601 / YYYY-MM-DD
     dueDate: str  # Payment due date in ISO 8601 / YYYY-MM-DD
     currency: str  # ISO 4217 currency code, default "EUR"
@@ -1027,6 +1042,7 @@ class _SendDocumentBase(TypedDict, total=False):
     paymentMethod: str  # Payment method code, e.g. "30" (credit transfer)
     variableSymbol: str  # Slovak variable symbol for bank payments (max 10 digits)
     buyerReference: str  # Buyer's reference / purchase order number
+    receiverName: str  # Counterparty name for invoice/credit-note modes
     receiverIco: str  # Receiver ICO, 8 digits
     receiverDic: str  # Receiver tax ID (DIC)
     receiverIcDph: str  # Receiver VAT ID (IC DPH)
@@ -1035,6 +1051,15 @@ class _SendDocumentBase(TypedDict, total=False):
     receiverCity: str  # Receiver city
     receiverPostalCode: str  # Receiver postal code
     receiverCountry: str  # Receiver ISO country code, e.g. "SK"
+    supplierName: str  # Self-billing alias for the supplier name
+    supplierIco: str  # Self-billing alias for supplier ICO
+    supplierDic: str  # Self-billing alias for supplier DIC
+    supplierIcDph: str  # Self-billing alias for supplier IC DPH
+    supplierStreet: str  # Self-billing alias for supplier street
+    supplierCity: str  # Self-billing alias for supplier city
+    supplierPostalCode: str  # Self-billing alias for supplier postal code
+    supplierAddress: str  # Self-billing alias for a single-line supplier address
+    supplierCountry: str  # Self-billing alias for supplier ISO country code
     prepaidAmount: float  # type: ignore[misc]  # Amount paid in advance
     prepayments: List[Prepayment]  # Structured settled prepayments for final invoices
     attachments: List[DocumentAttachment]  # JSON mode only -- embedded as BG-24 in UBL
@@ -1043,12 +1068,14 @@ class _SendDocumentBase(TypedDict, total=False):
 class SendDocumentJsonRequest(_SendDocumentBase):
     """Structured JSON send request. The API generates UBL XML."""
 
-    receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver
-    receiverName: str  # Receiver company name required by the live JSON schema
     items: List[LineItem]  # Line items (JSON mode) -- mutually exclusive with ``xml``
 
 
-class SendDocumentXmlRequest(TypedDict):
+class _SendDocumentXmlOptional(TypedDict, total=False):
+    processId: str  # Peppol process URN; must match the UBL ProfileID when provided
+
+
+class SendDocumentXmlRequest(_SendDocumentXmlOptional):
     """Raw UBL XML send request."""
 
     receiverPeppolId: str  # type: ignore[misc]  # Peppol ID of the receiver
@@ -1060,12 +1087,16 @@ SendDocumentRequest = Union[SendDocumentJsonRequest, SendDocumentXmlRequest]
 
 
 class SendDocumentResponse(TypedDict, total=False):
-    """Successful response from sending a document (HTTP 201)."""
+    """Successful response from sending or idempotently replaying a document."""
 
     documentId: str  # type: ignore[misc]  # UUID of the created document
+    submissionId: str  # Storecove-style alias for documentId
     messageId: str  # type: ignore[misc]  # Peppol AS4 message ID
-    status: str  # type: ignore[misc]  # Initial status, typically "SENT"
-    payload_sha256: str  # Hex SHA-256 over the canonical UBL XML wire payload
+    status: str  # type: ignore[misc]  # Latest persisted lifecycle status
+    duplicate: bool  # True only for HTTP 200 idempotent replays
+    payloadSha256: str  # Hex SHA-256 over the canonical UBL XML wire payload
+    warning: str  # Partial-failure explanation for SENT_DB_PENDING
+    links: Dict[str, str]  # Convenience document/status/evidence links
 
 
 # ---------------------------------------------------------------------------
@@ -1110,6 +1141,7 @@ class DocumentTotals(TypedDict):
 class Document(TypedDict, total=False):
     """Full document as returned by the API."""
 
+    process_id: Optional[str]  # Canonical bare Peppol process URN
     id: str  # type: ignore[misc]  # Unique document UUID
     number: str  # type: ignore[misc]  # Invoice / document number
     status: str  # type: ignore[misc]  # Current status, e.g. "SENT", "DELIVERED", "DRAFT"
@@ -2026,6 +2058,7 @@ class InvoiceResponsesListResponse(TypedDict):
 class DocumentEvent(TypedDict, total=False):
     """A single event in a document's audit trail."""
 
+    process_id: Optional[str]  # Canonical bare Peppol process URN
     id: str  # type: ignore[misc]  # Event UUID
     eventType: str  # type: ignore[misc]  # Event type identifier, e.g. "status_changed"
     actor: str  # type: ignore[misc]  # Actor that triggered the event
@@ -2034,12 +2067,21 @@ class DocumentEvent(TypedDict, total=False):
     occurredAt: str  # type: ignore[misc]  # ISO 8601 timestamp when the event occurred
 
 
-class DocumentEventsResponse(TypedDict):
+class DocumentEventsPagination(TypedDict):
+    """Cursor pagination metadata for document events."""
+
+    limit: int
+    nextCursor: Optional[str]
+    hasMore: bool
+
+
+class DocumentEventsResponse(TypedDict, total=False):
     """Response from GET /documents/{id}/events."""
 
+    process_id: Optional[str]  # Canonical bare Peppol process URN
     documentId: str  # Document UUID the events belong to
     events: List[DocumentEvent]  # Ordered array of events
-    nextCursor: Optional[str]  # Cursor for next page, or None when no more pages
+    pagination: DocumentEventsPagination
 
 
 # ---------------------------------------------------------------------------

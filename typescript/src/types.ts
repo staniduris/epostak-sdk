@@ -1119,16 +1119,35 @@ export interface Party {
 // Send document
 // ---------------------------------------------------------------------------
 
+/** Business document types supported by structured JSON billing mode. */
+export type JsonBillingDocumentType =
+  | "invoice"
+  | "credit_note"
+  | "self_billing"
+  | "self_billing_credit_note";
+
 /**
  * Request body for sending an invoice using structured JSON fields.
  * The API generates UBL XML automatically from these fields.
  * Up to 999 line items; body cap 25 MB (attachments are base64-embedded).
  */
 export interface SendDocumentJsonRequest {
-  /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
-  receiverPeppolId: string;
+  /** Peppol process URN. Profile 01 is used when omitted. */
+  processId?: string;
+  /** Business document type. Defaults to `"invoice"`. */
+  documentType?: JsonBillingDocumentType;
+  /** Snake-case compatibility alias for `documentType`. */
+  document_type?: JsonBillingDocumentType;
+  /** Legacy compatibility alias for `documentType`. */
+  docType?: JsonBillingDocumentType;
+  /** Peppol participant ID of the counterparty (e.g. `"0245:1234567890"`). */
+  receiverPeppolId?: string;
+  /** Self-billing alias for the supplier/Peppol recipient ID. */
+  supplierPeppolId?: string;
   /** Invoice number — auto-generated if omitted */
   invoiceNumber?: string;
+  /** Original invoice number corrected by a credit note. */
+  precedingInvoiceRef?: string;
   /** Issue date in `YYYY-MM-DD` format — defaults to today */
   issueDate?: string;
   /** Payment due date in `YYYY-MM-DD` format */
@@ -1145,8 +1164,8 @@ export interface SendDocumentJsonRequest {
   variableSymbol?: string;
   /** Buyer reference / purchase order number required by some buyers */
   buyerReference?: string;
-  /** Legal name of the receiver. Required by the live JSON billing schema. */
-  receiverName: string;
+  /** Legal name of the receiver. Required for invoice and credit-note modes. */
+  receiverName?: string;
   /** Receiver's ICO — Slovak business registration number (8 digits) */
   receiverIco?: string;
   /** Receiver's DIC — tax identification number */
@@ -1163,6 +1182,24 @@ export interface SendDocumentJsonRequest {
   receiverPostalCode?: string;
   /** Receiver's ISO 3166-1 alpha-2 country code (e.g. `"SK"`) */
   receiverCountry?: string;
+  /** Self-billing alias for the supplier/counterparty legal name. */
+  supplierName?: string;
+  /** Self-billing alias for the supplier's ICO. */
+  supplierIco?: string;
+  /** Self-billing alias for the supplier's DIC. */
+  supplierDic?: string;
+  /** Self-billing alias for the supplier's IC DPH. */
+  supplierIcDph?: string;
+  /** Self-billing alias for the supplier street and number. */
+  supplierStreet?: string;
+  /** Self-billing alias for the supplier city. */
+  supplierCity?: string;
+  /** Self-billing alias for the supplier postal code. */
+  supplierPostalCode?: string;
+  /** Self-billing alias for a single-line supplier address. */
+  supplierAddress?: string;
+  /** Self-billing alias for the supplier ISO country code. */
+  supplierCountry?: string;
   /**
    * Amount paid in advance. Do not combine with
    * `items[].lineType = "advance_deduction"`.
@@ -1231,6 +1268,8 @@ export interface DocumentAttachment {
  * Use this when you generate your own UBL 2.1 XML.
  */
 export interface SendDocumentXmlRequest {
+  /** Peppol process URN; must match the UBL ProfileID when provided. */
+  processId?: string;
   /** Peppol participant ID of the receiver (e.g. `"0245:1234567890"`) */
   receiverPeppolId: string;
   /** Complete UBL 2.1 Invoice XML document as a string */
@@ -1249,10 +1288,14 @@ export type SendDocumentRequest =
 export interface SendDocumentResponse {
   /** Unique document ID in the ePošťák system */
   documentId: string;
+  /** Storecove-style alias for `documentId`. */
+  submissionId?: string;
   /** Peppol AS4 message ID for tracking delivery */
   messageId: string;
-  /** Status is always `"SENT"` on success */
-  status: "SENT";
+  /** Latest persisted lifecycle status. */
+  status: string;
+  /** `true` only when this is an HTTP 200 idempotent replay. */
+  duplicate?: boolean;
   /**
    * Hex-lowercase SHA-256 digest over the canonical UBL XML wire payload —
    * lets the receiver verify the bytes off Peppol AS4 match what ePošťák
@@ -1260,6 +1303,20 @@ export interface SendDocumentResponse {
    * `202 SENT_DB_PENDING` recoveries.
    */
   payloadSha256?: string;
+  /** Partial-failure explanation for `SENT_DB_PENDING` responses. */
+  warning?: string;
+  /** Convenience links for the submitted document. */
+  links?: SendDocumentLinks;
+}
+
+/** Convenience links returned with a successful document submission. */
+export interface SendDocumentLinks {
+  document?: string;
+  status?: string;
+  events?: string;
+  ubl?: string;
+  evidence?: string;
+  evidenceBundle?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1324,6 +1381,8 @@ export interface DocumentTotals {
  * Used for both sent (outbound) and received (inbound) documents.
  */
 export interface InboxDocument {
+  /** Canonical bare Peppol process URN; legacy profile-01 rows may be `null`. */
+  process_id?: string | null;
   /** Unique document ID in the ePosťak system (UUID) */
   id: string;
   /** Invoice number (e.g. `"FV-2026-0042"`) */
@@ -3005,11 +3064,13 @@ export interface DocumentEventsParams {
 
 /** A single event in a document's audit trail. */
 export interface DocumentEvent {
+  /** Canonical bare Peppol process URN for this document. */
+  process_id?: string | null;
   /** Event UUID */
   id: string;
   /** Event type identifier (e.g. `"status_changed"`, `"respond_sent"`) */
   eventType: string;
-  /** Actor that triggered the event (e.g. `"system"`, `"api_key"`, `"user"`) */
+  /** Actor that triggered the event: `"system"`, `"user"`, or `"api"` */
   actor: string;
   /** Human-readable detail about the event, or `null` */
   detail: string | null;
@@ -3021,12 +3082,18 @@ export interface DocumentEvent {
 
 /** Response from `GET /documents/{id}/events`. */
 export interface DocumentEventsResponse {
+  /** Canonical bare Peppol process URN for this document. */
+  process_id?: string | null;
   /** Document UUID the events belong to */
   documentId: string;
   /** Ordered array of events for this document */
   events: DocumentEvent[];
-  /** Cursor to pass as `cursor` in the next request, or `null` when no more pages */
-  nextCursor: string | null;
+  /** Cursor pagination metadata returned by the current API. */
+  pagination: {
+    limit: number;
+    nextCursor: string | null;
+    hasMore: boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------

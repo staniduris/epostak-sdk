@@ -85,6 +85,12 @@ const result = await client.enterprise.documents.send({
 });
 ```
 
+Enterprise 1.6.0 structured JSON also supports `processId`, `documentType`
+(`invoice`, `credit_note`, `self_billing`, `self_billing_credit_note`), the
+self-billing `supplier*` aliases, and `precedingInvoiceRef` for credit notes.
+Send responses expose idempotent-replay `duplicate` plus convenience `links`;
+document/event payloads expose the canonical Peppol `process_id`.
+
 ## Connector ERP/Integrator Flow
 
 ePošťák approves the integrator, approves its firms, and registers those firms

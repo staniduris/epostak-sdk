@@ -63,10 +63,11 @@ public sealed class DocumentsResource
     /// </summary>
     /// <remarks>
     /// <para>
-    /// JSON mode follows the live <c>SendDocumentJsonRequest</c> schema. It
-    /// does not accept <c>DocType</c>; for custom UBL type codes or self-billing
-    /// documents, submit pre-built XML via <c>Xml</c>. JSON mode requires
-    /// <c>ReceiverPeppolId</c>, <c>ReceiverName</c>, and <c>Items</c>.
+    /// JSON mode supports invoice, credit-note, self-billing, and
+    /// self-billing-credit-note payloads. Regular billing uses
+    /// <c>ReceiverPeppolId</c>/<c>ReceiverName</c>; self-billing may use
+    /// <c>SupplierPeppolId</c>/<c>SupplierName</c>. Credit notes require
+    /// <c>PrecedingInvoiceRef</c>; <c>ProcessId</c> selects a non-default process.
     /// </para>
     /// <para>
     /// JSON mode also supports explicit receiver address fields, <c>PrepaidAmount</c>,
@@ -147,8 +148,11 @@ public sealed class DocumentsResource
         if (request.Items.Count == 0)
             throw new ArgumentException("JSON-mode send requires at least one line item.", nameof(request));
 
-        if (string.IsNullOrWhiteSpace(request.ReceiverName))
-            throw new ArgumentException("JSON-mode send requires ReceiverName.", nameof(request));
+        if (string.IsNullOrWhiteSpace(request.ReceiverPeppolId) && string.IsNullOrWhiteSpace(request.SupplierPeppolId))
+            throw new ArgumentException("JSON-mode send requires ReceiverPeppolId or SupplierPeppolId.", nameof(request));
+
+        if (string.IsNullOrWhiteSpace(request.ReceiverName) && string.IsNullOrWhiteSpace(request.SupplierName))
+            throw new ArgumentException("JSON-mode send requires ReceiverName or SupplierName.", nameof(request));
     }
 
     /// <summary>

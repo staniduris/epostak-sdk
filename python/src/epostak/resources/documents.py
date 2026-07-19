@@ -401,12 +401,12 @@ class DocumentsResource(_BaseResource):
         - **JSON mode**: pass structured data with ``items`` list, UBL is auto-generated.
         - **XML mode**: pass ``xml`` with a pre-built UBL XML string.
 
-        Both modes require ``receiverPeppolId``. JSON mode also requires
-        ``receiverName`` and ``items``.
-
-        JSON mode follows the live ``SendDocumentJsonRequest`` schema. It does
-        not accept ``docType``; for custom UBL type codes or self-billing
-        documents, submit pre-built XML via ``xml``.
+        JSON mode supports invoice, credit-note, self-billing, and
+        self-billing-credit-note payloads. Regular billing uses
+        ``receiverPeppolId`` / ``receiverName``; self-billing may use
+        ``supplierPeppolId`` / ``supplierName``. Credit notes require
+        ``precedingInvoiceRef``. ``processId`` selects a non-default Peppol
+        process such as billing-with-response.
 
         JSON mode also supports explicit receiver address fields
         (``receiverStreet``, ``receiverCity``, ``receiverPostalCode``),
@@ -433,7 +433,8 @@ class DocumentsResource(_BaseResource):
             body: Request body. See :class:`~epostak.types.SendDocumentRequest`.
 
         Returns:
-            Dict with ``documentId``, ``messageId``, and ``status``.
+            Dict with IDs, latest status, idempotent-replay ``duplicate`` flag,
+            wire-payload digest, warning, and convenience links when present.
 
         Example::
 
@@ -455,7 +456,7 @@ class DocumentsResource(_BaseResource):
                 {...},
                 idempotency_key="fv-2026-001-send",
             )
-            print(result["payload_sha256"])  # hex SHA-256 of UBL wire bytes
+            print(result["payloadSha256"])  # hex SHA-256 of UBL wire bytes
         """
         return self._request(
             "POST",
@@ -900,15 +901,16 @@ class DocumentsResource(_BaseResource):
             cursor: Cursor from previous page for cursor-based pagination.
 
         Returns:
-            Dict with ``documentId``, ``events`` list, and ``nextCursor`` (str or None).
+            Dict with ``documentId``, ``events``, and nested ``pagination`` metadata.
 
         Example::
 
             result = client.documents.events("doc-uuid", limit=50)
             for event in result["events"]:
                 print(event["eventType"], event["occurredAt"])
-            if result["nextCursor"]:
-                next_page = client.documents.events("doc-uuid", cursor=result["nextCursor"])
+            next_cursor = result["pagination"]["nextCursor"]
+            if next_cursor:
+                next_page = client.documents.events("doc-uuid", cursor=next_cursor)
         """
         params = _build_query({"limit": limit, "cursor": cursor})
         return self._request("GET", f"/documents/{quote(id, safe='')}/events", params=params)

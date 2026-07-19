@@ -957,6 +957,26 @@ public sealed class ConnectorFirmScopeTests
     }
 
     [Fact]
+    public async Task JsonModeDocumentsSendAcceptsSelfBillingSupplierIdentity()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        await client.Documents.SendAsync(new SendDocumentRequest
+        {
+            DocumentType = "self_billing",
+            SupplierPeppolId = "0245:2123038963",
+            SupplierName = "Dodavatel s.r.o.",
+            Items = [new LineItem { Description = "Item", Quantity = 1, UnitPrice = 100, VatRate = 23 }]
+        });
+
+        var request = Assert.Single(handler.ApiRequests);
+        Assert.Contains("\"supplierPeppolId\":\"0245:2123038963\"", request.Body);
+        Assert.DoesNotContain("receiverPeppolId", request.Body);
+    }
+
+    [Fact]
     public async Task XmlModeDocumentsSendDoesNotRequireReceiverName()
     {
         var handler = new CaptureHandler();

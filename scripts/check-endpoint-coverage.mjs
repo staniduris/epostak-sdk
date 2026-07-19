@@ -161,6 +161,40 @@ async function checkEnterpriseOpenApiContracts() {
   ]);
   if (!frozen || !current) return;
 
+  const requiredSchemaProperties = {
+    SendDocumentJsonRequest: [
+      "processId", "documentType", "supplierPeppolId", "supplierName",
+      "precedingInvoiceRef", "items",
+    ],
+    SendDocumentXmlRequest: ["processId", "receiverPeppolId", "xml"],
+    SendDocumentResponse: [
+      "documentId", "submissionId", "status", "duplicate", "payloadSha256",
+      "warning", "links",
+    ],
+    DocumentResponse: ["process_id", "id"],
+    DocumentEvent: ["process_id", "id", "eventType"],
+    DocumentEventsResponse: ["process_id", "documentId", "events", "pagination"],
+  };
+  for (const [schemaName, properties] of Object.entries(requiredSchemaProperties)) {
+    const schema = current.components?.schemas?.[schemaName];
+    if (!schema) {
+      failures.push(`current OpenAPI: missing schema ${schemaName}`);
+      continue;
+    }
+    for (const property of properties) {
+      if (!Object.hasOwn(schema.properties ?? {}, property)) {
+        failures.push(`current OpenAPI: ${schemaName} missing property ${property}`);
+      }
+    }
+  }
+  const pagination = current.components?.schemas?.DocumentEventsResponse?.properties?.pagination;
+  const paginationProperties = pagination?.properties ?? {};
+  for (const property of ["limit", "nextCursor", "hasMore"]) {
+    if (!Object.hasOwn(paginationProperties, property)) {
+      failures.push(`current OpenAPI: DocumentEventsResponse.pagination missing property ${property}`);
+    }
+  }
+
   for (const [legacyMethod, legacyPath, canonicalPath] of migrationPairs) {
     const canonicalMethod = legacyMethod === "delete" ? "post" : legacyMethod;
     for (const [method, apiPath] of [

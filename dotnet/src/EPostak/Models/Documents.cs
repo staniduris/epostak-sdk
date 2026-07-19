@@ -346,6 +346,10 @@ public sealed class DocumentTotals
 /// </summary>
 public sealed class Document
 {
+    /// <summary>Canonical bare Peppol process URN. Null means the legacy profile 01.</summary>
+    [JsonPropertyName("process_id")]
+    public string? ProcessId { get; set; }
+
     /// <summary>Unique document UUID.</summary>
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -417,13 +421,29 @@ public sealed class Document
 /// </summary>
 public sealed class SendDocumentRequest
 {
-    /// <summary>Peppol identifier of the receiver (e.g. "0245:12345678"). Required.</summary>
+    /// <summary>Peppol process URN. Profile 01 is used when omitted.</summary>
+    [JsonPropertyName("processId")]
+    public string? ProcessId { get; set; }
+
+    /// <summary>Business document type: invoice, credit_note, self_billing, or self_billing_credit_note.</summary>
+    [JsonPropertyName("documentType")]
+    public string? DocumentType { get; set; }
+
+    /// <summary>Peppol identifier of the receiver/counterparty (e.g. "0245:12345678").</summary>
     [JsonPropertyName("receiverPeppolId")]
-    public required string ReceiverPeppolId { get; set; }
+    public string? ReceiverPeppolId { get; set; }
+
+    /// <summary>Self-billing alias for the supplier/Peppol recipient identifier.</summary>
+    [JsonPropertyName("supplierPeppolId")]
+    public string? SupplierPeppolId { get; set; }
 
     /// <summary>Invoice number (e.g. "FV-2026-001"). Auto-generated if not provided.</summary>
     [JsonPropertyName("invoiceNumber")]
     public string? InvoiceNumber { get; set; }
+
+    /// <summary>Original invoice number corrected by a credit note.</summary>
+    [JsonPropertyName("precedingInvoiceRef")]
+    public string? PrecedingInvoiceRef { get; set; }
 
     /// <summary>Invoice issue date in YYYY-MM-DD format. Defaults to today.</summary>
     [JsonPropertyName("issueDate")]
@@ -492,6 +512,34 @@ public sealed class SendDocumentRequest
     /// <summary>Receiver's ISO 3166-1 alpha-2 country code (e.g. "SK").</summary>
     [JsonPropertyName("receiverCountry")]
     public string? ReceiverCountry { get; set; }
+
+    /// <summary>Self-billing alias for the supplier/counterparty legal name.</summary>
+    [JsonPropertyName("supplierName")]
+    public string? SupplierName { get; set; }
+
+    [JsonPropertyName("supplierIco")]
+    public string? SupplierIco { get; set; }
+
+    [JsonPropertyName("supplierDic")]
+    public string? SupplierDic { get; set; }
+
+    [JsonPropertyName("supplierIcDph")]
+    public string? SupplierIcDph { get; set; }
+
+    [JsonPropertyName("supplierStreet")]
+    public string? SupplierStreet { get; set; }
+
+    [JsonPropertyName("supplierCity")]
+    public string? SupplierCity { get; set; }
+
+    [JsonPropertyName("supplierPostalCode")]
+    public string? SupplierPostalCode { get; set; }
+
+    [JsonPropertyName("supplierAddress")]
+    public string? SupplierAddress { get; set; }
+
+    [JsonPropertyName("supplierCountry")]
+    public string? SupplierCountry { get; set; }
 
     /// <summary>Amount paid in advance. Do not combine with advance deduction lines.</summary>
     [JsonPropertyName("prepaidAmount")]
@@ -595,6 +643,10 @@ public sealed class SendDocumentResponse
     [JsonPropertyName("documentId")]
     public string DocumentId { get; set; } = "";
 
+    /// <summary>Storecove-style alias for <see cref="DocumentId"/>.</summary>
+    [JsonPropertyName("submissionId")]
+    public string? SubmissionId { get; set; }
+
     /// <summary>Peppol AS4 message identifier for tracking the delivery.</summary>
     [JsonPropertyName("messageId")]
     public string MessageId { get; set; } = "";
@@ -602,6 +654,10 @@ public sealed class SendDocumentResponse
     /// <summary>Initial delivery status (typically "sent" or "queued").</summary>
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
+
+    /// <summary>True only for HTTP 200 idempotent replay responses.</summary>
+    [JsonPropertyName("duplicate")]
+    public bool? Duplicate { get; set; }
 
     /// <summary>
     /// Hex-lowercase SHA-256 digest over the canonical UBL XML wire payload —
@@ -611,6 +667,24 @@ public sealed class SendDocumentResponse
     /// </summary>
     [JsonPropertyName("payloadSha256")]
     public string? PayloadSha256 { get; set; }
+
+    /// <summary>Partial-failure explanation when status is SENT_DB_PENDING.</summary>
+    [JsonPropertyName("warning")]
+    public string? Warning { get; set; }
+
+    /// <summary>Convenience links for the submitted document.</summary>
+    [JsonPropertyName("links")]
+    public SendDocumentLinks? Links { get; set; }
+}
+
+public sealed class SendDocumentLinks
+{
+    [JsonPropertyName("document")] public string? Document { get; set; }
+    [JsonPropertyName("status")] public string? Status { get; set; }
+    [JsonPropertyName("events")] public string? Events { get; set; }
+    [JsonPropertyName("ubl")] public string? Ubl { get; set; }
+    [JsonPropertyName("evidence")] public string? Evidence { get; set; }
+    [JsonPropertyName("evidenceBundle")] public string? EvidenceBundle { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -1639,6 +1713,10 @@ public sealed class DocumentEventsParams
 /// </summary>
 public sealed class DocumentEvent
 {
+    /// <summary>Canonical bare Peppol process URN for this document.</summary>
+    [JsonPropertyName("process_id")]
+    public string? ProcessId { get; set; }
+
     /// <summary>Event UUID.</summary>
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -1647,7 +1725,7 @@ public sealed class DocumentEvent
     [JsonPropertyName("eventType")]
     public string EventType { get; set; } = "";
 
-    /// <summary>Actor that triggered the event (e.g. "system", "api_key", "user").</summary>
+    /// <summary>Actor that triggered the event: "system", "user", or "api".</summary>
     [JsonPropertyName("actor")]
     public string Actor { get; set; } = "";
 
@@ -1669,6 +1747,10 @@ public sealed class DocumentEvent
 /// </summary>
 public sealed class DocumentEventsResponse
 {
+    /// <summary>Canonical bare Peppol process URN for this document.</summary>
+    [JsonPropertyName("process_id")]
+    public string? ProcessId { get; set; }
+
     /// <summary>Document UUID the events belong to.</summary>
     [JsonPropertyName("documentId")]
     public string DocumentId { get; set; } = "";
@@ -1677,7 +1759,19 @@ public sealed class DocumentEventsResponse
     [JsonPropertyName("events")]
     public List<DocumentEvent> Events { get; set; } = [];
 
-    /// <summary>Cursor to pass as <c>cursor</c> in the next request, or null when no more pages.</summary>
+    /// <summary>Cursor pagination metadata returned by the current API.</summary>
+    [JsonPropertyName("pagination")]
+    public DocumentEventsPagination Pagination { get; set; } = new();
+}
+
+public sealed class DocumentEventsPagination
+{
+    [JsonPropertyName("limit")]
+    public int Limit { get; set; }
+
     [JsonPropertyName("nextCursor")]
     public string? NextCursor { get; set; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; set; }
 }

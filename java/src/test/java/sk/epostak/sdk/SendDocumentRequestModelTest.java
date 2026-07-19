@@ -2,7 +2,9 @@ package sk.epostak.sdk;
 
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
+import sk.epostak.sdk.models.DocumentEventsResponse;
 import sk.epostak.sdk.models.SendDocumentRequest;
+import sk.epostak.sdk.models.SendDocumentResponse;
 
 import java.util.List;
 
@@ -107,5 +109,41 @@ final class SendDocumentRequestModelTest {
         assertEquals(true, json.contains("\"advanceInvoiceReference\":\"ZF-2026-001\""));
         assertEquals(false, json.contains("\"prepaidAmount\""));
         assertEquals(false, json.contains("\"prepayments\""));
+    }
+
+    @Test
+    void serializesSelfBillingProcessFieldsAndReadsReplayMetadata() {
+        SendDocumentRequest request = SendDocumentRequest.builder()
+                .processId("urn:peppol:bis:billing_with_response")
+                .documentType("self_billing_credit_note")
+                .supplierPeppolId("0245:2123038963")
+                .supplierName("Dodavatel s.r.o.")
+                .supplierIcDph("SK2123038963")
+                .precedingInvoiceRef("FAK-2026-0001")
+                .items(List.of(new SendDocumentRequest.LineItem("Oprava", 1, 10, 23)))
+                .build();
+
+        Gson gson = new Gson();
+        String json = gson.toJson(request);
+        SendDocumentResponse response = gson.fromJson("""
+                {"documentId":"doc-1","submissionId":"doc-1","messageId":"msg-1",\
+                "status":"DELIVERED","duplicate":true,"links":{"events":"/events"}}
+                """, SendDocumentResponse.class);
+        DocumentEventsResponse events = gson.fromJson("""
+                {"process_id":"urn:process","documentId":"doc-1","events":[{\
+                "process_id":"urn:process","id":"evt-1","eventType":"document.sent",\
+                "actor":"system","detail":null,"meta":{},"occurredAt":"2026-07-19T08:00:00Z"}],\
+                "pagination":{"limit":20,"nextCursor":null,"hasMore":false}}
+                """, DocumentEventsResponse.class);
+
+        assertEquals(true, json.contains("\"processId\":\"urn:peppol:bis:billing_with_response\""));
+        assertEquals(true, json.contains("\"documentType\":\"self_billing_credit_note\""));
+        assertEquals(true, json.contains("\"supplierPeppolId\":\"0245:2123038963\""));
+        assertEquals(true, json.contains("\"precedingInvoiceRef\":\"FAK-2026-0001\""));
+        assertEquals(true, response.duplicate());
+        assertEquals("/events", response.links().get("events"));
+        assertEquals("urn:process", events.processId());
+        assertEquals(false, events.pagination().hasMore());
+        assertEquals("urn:process", events.events().get(0).processId());
     }
 }

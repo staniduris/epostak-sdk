@@ -134,6 +134,14 @@ allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-19
+
+- Enterprise 1.6.0 JSON sends support `processId`, JSON self-billing and credit
+  notes through `documentType`, `supplier*`, and `precedingInvoiceRef`.
+- Send responses include idempotent-replay metadata and links. Document events
+  now use the live `{ process_id, pagination: { limit, nextCursor, hasMore } }`
+  shape.
+
 ### Included in v4.1.0 — 2026-07-14
 
 - **Connector is top-level:** use `client.connector`; the existing Enterprise

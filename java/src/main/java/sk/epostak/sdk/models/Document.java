@@ -1,5 +1,6 @@
 package sk.epostak.sdk.models;
 
+import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
@@ -10,6 +11,9 @@ import java.util.List;
  */
 public final class Document {
 
+    /** Canonical bare Peppol process URN. Null means the legacy profile 01. */
+    @SerializedName("process_id")
+    private final String processId;
     /** Unique document UUID. */
     private final String id;
     /** Document number, e.g. {@code "FV-2026-001"}. */
@@ -41,11 +45,12 @@ public final class Document {
     /** ISO 8601 timestamp of last update. */
     private final String updatedAt;
 
-    public Document(String id, String number, String status, String direction,
+    public Document(String processId, String id, String number, String status, String direction,
                     String docType, String issueDate, String dueDate, String currency,
                     Party supplier, Party customer, List<LineItemResponse> lines,
                     DocumentTotals totals, String peppolMessageId,
                     String createdAt, String updatedAt) {
+        this.processId = processId;
         this.id = id;
         this.number = number;
         this.status = status;
@@ -63,6 +68,18 @@ public final class Document {
         this.updatedAt = updatedAt;
     }
 
+    /** Source-compatible constructor for the response shape before process metadata. */
+    public Document(String id, String number, String status, String direction,
+                    String docType, String issueDate, String dueDate, String currency,
+                    Party supplier, Party customer, List<LineItemResponse> lines,
+                    DocumentTotals totals, String peppolMessageId,
+                    String createdAt, String updatedAt) {
+        this(null, id, number, status, direction, docType, issueDate, dueDate, currency,
+                supplier, customer, lines, totals, peppolMessageId, createdAt, updatedAt);
+    }
+
+    /** @return canonical bare Peppol process URN, or null for legacy profile-01 rows */
+    public String getProcessId() { return processId; }
     /** @return unique document UUID */
     public String getId() { return id; }
     /** @return document number, e.g. {@code "FV-2026-001"} */

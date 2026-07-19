@@ -7,12 +7,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
 > release is `1.x`.
 
-## Unreleased — 2026-07-16
+## Unreleased — 2026-07-19
 
 ### Added
 
 - Added Connector webhook debugger methods for filtered delivery history,
   exact signed-body detail, idempotent replay, and the seven-scenario test suite.
+
+### Changed
+
+- Documented Enterprise 1.6.0 JSON self-billing/process fields, idempotent send
+  response metadata, document `process_id`, and nested event pagination.
 
 ## 1.1.2-RC1 — 2026-07-16
 

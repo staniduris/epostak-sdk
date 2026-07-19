@@ -846,6 +846,26 @@ final class ConnectorFirmScopeTest {
     }
 
     @Test
+    void jsonModeDocumentsSendAcceptsSelfBillingSupplierIdentity() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.documents().send(
+                    SendDocumentRequest.builder()
+                            .documentType("self_billing")
+                            .supplierPeppolId("0245:2123038963")
+                            .supplierName("Dodavatel s.r.o.")
+                            .items(List.of(new SendDocumentRequest.LineItem("Item", 1, 100, 23)))
+                            .build()
+            );
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals(true, request.body().contains("\"supplierPeppolId\":\"0245:2123038963\""));
+            assertEquals(false, request.body().contains("receiverPeppolId"));
+        }
+    }
+
+    @Test
     void xmlModeDocumentsSendDoesNotRequireReceiverName() throws Exception {
         try (CaptureServer server = CaptureServer.start()) {
             EPostak client = createClient(server);

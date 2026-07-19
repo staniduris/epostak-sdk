@@ -169,6 +169,13 @@ window allows.
 
 ## Recent changes
 
+### Unreleased — 2026-07-19
+
+- Enterprise 1.6.0 JSON sends support `ProcessId`, JSON self-billing and credit
+  notes through `DocumentType`, `Supplier*`, and `PrecedingInvoiceRef`.
+- Send responses include replay/link metadata. Document events now deserialize
+  the live `process_id` and nested `pagination` object.
+
 ### Included in v1.1.0 — 2026-07-14
 
 - Connector is canonical at `client.Connector`; the Enterprise namespace alias

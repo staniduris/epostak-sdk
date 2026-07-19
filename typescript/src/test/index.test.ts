@@ -509,6 +509,55 @@ describe("UblValidationError", () => {
     });
   });
 
+  it("serializes process-aware JSON self-billing and exposes idempotent replay metadata", async () => {
+    const client = makeClient();
+    let capturedBody: Record<string, unknown> | null = null;
+
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({
+          access_token: "tok",
+          refresh_token: "ref",
+          token_type: "Bearer",
+          expires_in: 900,
+        });
+      }
+      capturedBody = typeof init?.body === "string" ? JSON.parse(init.body) : null;
+      return makeMockResponse({
+        documentId: "doc-self-1",
+        submissionId: "doc-self-1",
+        messageId: "msg-self-1",
+        status: "DELIVERED",
+        duplicate: true,
+        links: { events: "/api/v1/documents/doc-self-1/events" },
+      });
+    });
+
+    const result = await client.documents.send({
+      processId: "urn:peppol:bis:billing_with_response",
+      documentType: "self_billing_credit_note",
+      supplierPeppolId: "0245:2123038963",
+      supplierName: "Dodavatel s.r.o.",
+      supplierIcDph: "SK2123038963",
+      precedingInvoiceRef: "FAK-2026-0001",
+      items: [{ description: "Oprava", quantity: 1, unitPrice: 10, vatRate: 23 }],
+    });
+
+    assert.deepStrictEqual(capturedBody, {
+      processId: "urn:peppol:bis:billing_with_response",
+      documentType: "self_billing_credit_note",
+      supplierPeppolId: "0245:2123038963",
+      supplierName: "Dodavatel s.r.o.",
+      supplierIcDph: "SK2123038963",
+      precedingInvoiceRef: "FAK-2026-0001",
+      items: [{ description: "Oprava", quantity: 1, unitPrice: 10, vatRate: 23 }],
+    });
+    assert.equal(result.duplicate, true);
+    assert.equal(result.status, "DELIVERED");
+    assert.equal(result.links?.events, "/api/v1/documents/doc-self-1/events");
+  });
+
   it("serializes live JSON billing advance-deduction line fields", async () => {
     const client = makeClient();
     let capturedBody: Record<string, unknown> | null = null;

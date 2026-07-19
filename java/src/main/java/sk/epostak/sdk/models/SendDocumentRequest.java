@@ -7,8 +7,9 @@ import java.util.List;
  * Request body for sending a document via Peppol.
  * <p>
  * Use either JSON mode (structured data with {@code items}) or XML mode
- * (pre-built UBL with {@code xml}). The {@code receiverPeppolId} is always
- * required; JSON mode also requires {@code receiverName} and {@code items}.
+ * (pre-built UBL with {@code xml}). Regular JSON billing uses
+ * {@code receiverPeppolId}/{@code receiverName}; self-billing may use
+ * {@code supplierPeppolId}/{@code supplierName}. JSON mode requires items.
  *
  * <pre>{@code
  * // JSON mode
@@ -29,12 +30,24 @@ import java.util.List;
  */
 public final class SendDocumentRequest {
 
-    /** Receiver's Peppol participant ID (required), e.g. {@code "0245:12345678"}. */
+    /** Peppol process URN. Profile 01 is used when omitted. */
+    @SerializedName("processId")
+    private final String processId;
+    /** Business document type: invoice, credit_note, self_billing, or self_billing_credit_note. */
+    @SerializedName("documentType")
+    private final String documentType;
+    /** Receiver/counterparty Peppol participant ID, e.g. {@code "0245:12345678"}. */
     @SerializedName("receiverPeppolId")
     private final String receiverPeppolId;
+    /** Self-billing alias for the supplier/Peppol recipient ID. */
+    @SerializedName("supplierPeppolId")
+    private final String supplierPeppolId;
     /** Invoice number, e.g. {@code "FV-2026-001"}. */
     @SerializedName("invoiceNumber")
     private final String invoiceNumber;
+    /** Original invoice number corrected by a credit note. */
+    @SerializedName("precedingInvoiceRef")
+    private final String precedingInvoiceRef;
     /** Issue date in ISO 8601 format (YYYY-MM-DD). */
     @SerializedName("issueDate")
     private final String issueDate;
@@ -83,6 +96,24 @@ public final class SendDocumentRequest {
     /** Receiver country code (ISO 3166-1 alpha-2). */
     @SerializedName("receiverCountry")
     private final String receiverCountry;
+    @SerializedName("supplierName")
+    private final String supplierName;
+    @SerializedName("supplierIco")
+    private final String supplierIco;
+    @SerializedName("supplierDic")
+    private final String supplierDic;
+    @SerializedName("supplierIcDph")
+    private final String supplierIcDph;
+    @SerializedName("supplierStreet")
+    private final String supplierStreet;
+    @SerializedName("supplierCity")
+    private final String supplierCity;
+    @SerializedName("supplierPostalCode")
+    private final String supplierPostalCode;
+    @SerializedName("supplierAddress")
+    private final String supplierAddress;
+    @SerializedName("supplierCountry")
+    private final String supplierCountry;
     /** Amount paid in advance. Do not combine with advance deduction lines. */
     @SerializedName("prepaidAmount")
     private final Double prepaidAmount;
@@ -96,8 +127,12 @@ public final class SendDocumentRequest {
     private final String xml;
 
     private SendDocumentRequest(Builder builder) {
+        this.processId = builder.processId;
+        this.documentType = builder.documentType;
         this.receiverPeppolId = builder.receiverPeppolId;
+        this.supplierPeppolId = builder.supplierPeppolId;
         this.invoiceNumber = builder.invoiceNumber;
+        this.precedingInvoiceRef = builder.precedingInvoiceRef;
         this.issueDate = builder.issueDate;
         this.dueDate = builder.dueDate;
         this.currency = builder.currency;
@@ -115,6 +150,15 @@ public final class SendDocumentRequest {
         this.receiverCity = builder.receiverCity;
         this.receiverPostalCode = builder.receiverPostalCode;
         this.receiverCountry = builder.receiverCountry;
+        this.supplierName = builder.supplierName;
+        this.supplierIco = builder.supplierIco;
+        this.supplierDic = builder.supplierDic;
+        this.supplierIcDph = builder.supplierIcDph;
+        this.supplierStreet = builder.supplierStreet;
+        this.supplierCity = builder.supplierCity;
+        this.supplierPostalCode = builder.supplierPostalCode;
+        this.supplierAddress = builder.supplierAddress;
+        this.supplierCountry = builder.supplierCountry;
         this.prepaidAmount = builder.prepaidAmount;
         this.prepayments = builder.prepayments;
         this.items = builder.items;
@@ -132,10 +176,23 @@ public final class SendDocumentRequest {
         return new Builder(receiverPeppolId);
     }
 
+    /** Create a builder for self-billing or another conditionally addressed JSON request. */
+    public static Builder builder() {
+        return new Builder(null);
+    }
+
+    /** @return the Peppol process URN */
+    public String getProcessId() { return processId; }
+    /** @return the JSON billing document type */
+    public String getDocumentType() { return documentType; }
     /** @return the receiver's Peppol participant ID */
     public String getReceiverPeppolId() { return receiverPeppolId; }
+    /** @return the self-billing supplier/recipient Peppol ID */
+    public String getSupplierPeppolId() { return supplierPeppolId; }
     /** @return the invoice number */
     public String getInvoiceNumber() { return invoiceNumber; }
+    /** @return the original invoice number corrected by this credit note */
+    public String getPrecedingInvoiceRef() { return precedingInvoiceRef; }
     /** @return the issue date in ISO 8601 format */
     public String getIssueDate() { return issueDate; }
     /** @return the due date in ISO 8601 format */
@@ -170,6 +227,15 @@ public final class SendDocumentRequest {
     public String getReceiverPostalCode() { return receiverPostalCode; }
     /** @return the receiver country code */
     public String getReceiverCountry() { return receiverCountry; }
+    public String getSupplierName() { return supplierName; }
+    public String getSupplierIco() { return supplierIco; }
+    public String getSupplierDic() { return supplierDic; }
+    public String getSupplierIcDph() { return supplierIcDph; }
+    public String getSupplierStreet() { return supplierStreet; }
+    public String getSupplierCity() { return supplierCity; }
+    public String getSupplierPostalCode() { return supplierPostalCode; }
+    public String getSupplierAddress() { return supplierAddress; }
+    public String getSupplierCountry() { return supplierCountry; }
     /** @return the prepaid amount */
     public Double getPrepaidAmount() { return prepaidAmount; }
     /** @return structured settled prepayments */
@@ -339,14 +405,20 @@ public final class SendDocumentRequest {
     /**
      * Builder for constructing a {@link SendDocumentRequest}.
      * <p>
-     * The receiver Peppol ID is required and set via the constructor. JSON mode
-     * also requires {@link #receiverName(String)} and {@link #items(List)}.
+     * The receiver Peppol ID can be set through the compatibility constructor;
+     * self-billing callers can use {@link SendDocumentRequest#builder()} plus
+     * {@link #supplierPeppolId(String)}, {@link #supplierName(String)}, and
+     * {@link #items(List)}.
      */
     public static final class Builder {
-        /** Receiver's Peppol participant ID (required). */
+        private String processId;
+        private String documentType;
+        /** Receiver's Peppol participant ID. */
         private final String receiverPeppolId;
+        private String supplierPeppolId;
         /** Invoice number. */
         private String invoiceNumber;
+        private String precedingInvoiceRef;
         /** Issue date (YYYY-MM-DD). */
         private String issueDate;
         /** Due date (YYYY-MM-DD). */
@@ -381,6 +453,15 @@ public final class SendDocumentRequest {
         private String receiverPostalCode;
         /** Receiver country code. */
         private String receiverCountry;
+        private String supplierName;
+        private String supplierIco;
+        private String supplierDic;
+        private String supplierIcDph;
+        private String supplierStreet;
+        private String supplierCity;
+        private String supplierPostalCode;
+        private String supplierAddress;
+        private String supplierCountry;
         /** Amount paid in advance. */
         private Double prepaidAmount;
         /** Structured settled prepayments for final invoices. */
@@ -396,8 +477,12 @@ public final class SendDocumentRequest {
             this.receiverPeppolId = receiverPeppolId;
         }
 
+        public Builder processId(String processId) { this.processId = processId; return this; }
+        public Builder documentType(String documentType) { this.documentType = documentType; return this; }
+        public Builder supplierPeppolId(String supplierPeppolId) { this.supplierPeppolId = supplierPeppolId; return this; }
         /** @param invoiceNumber the invoice number, e.g. {@code "FV-2026-001"} @return this builder */
         public Builder invoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; return this; }
+        public Builder precedingInvoiceRef(String precedingInvoiceRef) { this.precedingInvoiceRef = precedingInvoiceRef; return this; }
         /** @param issueDate the issue date in YYYY-MM-DD format @return this builder */
         public Builder issueDate(String issueDate) { this.issueDate = issueDate; return this; }
         /** @param dueDate the due date in YYYY-MM-DD format @return this builder */
@@ -432,6 +517,15 @@ public final class SendDocumentRequest {
         public Builder receiverPostalCode(String receiverPostalCode) { this.receiverPostalCode = receiverPostalCode; return this; }
         /** @param receiverCountry the receiver's country code (ISO 3166-1 alpha-2) @return this builder */
         public Builder receiverCountry(String receiverCountry) { this.receiverCountry = receiverCountry; return this; }
+        public Builder supplierName(String supplierName) { this.supplierName = supplierName; return this; }
+        public Builder supplierIco(String supplierIco) { this.supplierIco = supplierIco; return this; }
+        public Builder supplierDic(String supplierDic) { this.supplierDic = supplierDic; return this; }
+        public Builder supplierIcDph(String supplierIcDph) { this.supplierIcDph = supplierIcDph; return this; }
+        public Builder supplierStreet(String supplierStreet) { this.supplierStreet = supplierStreet; return this; }
+        public Builder supplierCity(String supplierCity) { this.supplierCity = supplierCity; return this; }
+        public Builder supplierPostalCode(String supplierPostalCode) { this.supplierPostalCode = supplierPostalCode; return this; }
+        public Builder supplierAddress(String supplierAddress) { this.supplierAddress = supplierAddress; return this; }
+        public Builder supplierCountry(String supplierCountry) { this.supplierCountry = supplierCountry; return this; }
         /** @param prepaidAmount amount paid in advance @return this builder */
         public Builder prepaidAmount(Double prepaidAmount) { this.prepaidAmount = prepaidAmount; return this; }
         /** @param prepayments structured settled prepayments for final invoices @return this builder */

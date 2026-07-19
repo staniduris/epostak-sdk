@@ -55,10 +55,11 @@ module EPostak
       # Accepts either structured JSON (the API generates UBL XML) or
       # pre-built UBL XML via the +xml+ key.
       #
-      # JSON mode follows the live SendDocumentJsonRequest schema. It does
-      # not accept +docType+; for custom UBL type codes or self-billing
-      # documents, submit pre-built XML via +xml+. JSON mode requires
-      # +receiverPeppolId+, +receiverName+, and +items+.
+      # JSON mode supports invoice, credit-note, self-billing, and
+      # self-billing-credit-note payloads. Regular billing uses
+      # +receiverPeppolId+ / +receiverName+; self-billing may use
+      # +supplierPeppolId+ / +supplierName+. Credit notes require
+      # +precedingInvoiceRef+. +processId+ selects a non-default Peppol process.
       #
       # JSON mode also supports explicit receiver address fields
       # (+receiverStreet+, +receiverCity+, +receiverPostalCode+),
@@ -87,9 +88,8 @@ module EPostak
       # @param idempotency_key [String, nil] Optional client-chosen
       #   `Idempotency-Key` header. Replays of the same key surface as
       #   `EPostak::Error` with `code == "idempotency_conflict"`.
-      # @return [Hash] Document ID, Peppol message ID, status confirmation,
-      #   and `payload_sha256` (hex SHA-256 over the canonical UBL XML wire
-      #   payload)
+      # @return [Hash] Document/submission IDs, latest status, optional
+      #   idempotent-replay `duplicate`, `payloadSha256`, warning, and links
       #
       # @example Send with JSON (API generates UBL)
       #   result = client.documents.send_document(
@@ -443,7 +443,9 @@ module EPostak
       # @param id [String] Document UUID
       # @param limit [Integer, nil] Maximum number of events to return (default 20)
       # @param cursor [String, nil] Cursor from the previous page
-      # @return [Hash] { "documentId" => ..., "events" => [...], "nextCursor" => ... }
+      # @return [Hash] { "process_id" => ..., "documentId" => ...,
+      #   "events" => [...], "pagination" => { "limit" => ...,
+      #   "nextCursor" => ..., "hasMore" => ... } }
       #
       # @example
       #   result = client.documents.events("doc-uuid")

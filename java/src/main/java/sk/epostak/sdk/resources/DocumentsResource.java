@@ -86,11 +86,11 @@ public final class DocumentsResource {
      * Send a document via Peppol. Supports both JSON mode (structured data) and
      * XML mode (pre-built UBL).
      * <p>
-     * JSON mode follows the live {@code SendDocumentJsonRequest} schema. It
-     * does not accept {@code docType}; for custom UBL type codes or
-     * self-billing documents, submit pre-built XML via {@code xml}. JSON mode
-     * requires {@code receiverPeppolId}, {@code receiverName}, and
-     * {@code items}.
+     * JSON mode supports invoice, credit-note, self-billing, and
+     * self-billing-credit-note payloads. Regular billing uses
+     * {@code receiverPeppolId}/{@code receiverName}; self-billing may use
+     * {@code supplierPeppolId}/{@code supplierName}. Credit notes require
+     * {@code precedingInvoiceRef}; {@code processId} selects a non-default process.
      * <p>
      * JSON mode also supports explicit receiver address fields,
      * {@code prepaidAmount}, structured {@code prepayments}, and advanced
@@ -161,8 +161,13 @@ public final class DocumentsResource {
         if (request.getItems().isEmpty()) {
             throw new IllegalArgumentException("JSON-mode send requires at least one line item");
         }
-        if (request.getReceiverName() == null || request.getReceiverName().isBlank()) {
-            throw new IllegalArgumentException("JSON-mode send requires receiverName");
+        if ((request.getReceiverPeppolId() == null || request.getReceiverPeppolId().isBlank())
+                && (request.getSupplierPeppolId() == null || request.getSupplierPeppolId().isBlank())) {
+            throw new IllegalArgumentException("JSON-mode send requires receiverPeppolId or supplierPeppolId");
+        }
+        if ((request.getReceiverName() == null || request.getReceiverName().isBlank())
+                && (request.getSupplierName() == null || request.getSupplierName().isBlank())) {
+            throw new IllegalArgumentException("JSON-mode send requires receiverName or supplierName");
         }
     }
 

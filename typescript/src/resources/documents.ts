@@ -203,10 +203,12 @@ export class DocumentsResource extends BaseResource {
    * (the API generates UBL XML) or pre-built UBL XML. Body cap 25 MB
    * (attachments are base64-embedded).
    *
-   * JSON mode follows the live `SendDocumentJsonRequest` schema. It does not
-   * accept `docType`; for custom UBL type codes or self-billing documents,
-   * submit pre-built XML via `xml`. JSON mode requires `receiverPeppolId`,
-   * `receiverName`, and `items`.
+   * JSON mode follows the live `SendDocumentJsonRequest` schema. It supports
+   * invoice, credit-note, self-billing, and self-billing-credit-note payloads.
+   * Regular billing uses `receiverPeppolId` / `receiverName`; self-billing may
+   * use the clearer `supplierPeppolId` / `supplierName` aliases. Credit notes
+   * also require `precedingInvoiceRef`. Use `processId` to opt into a Peppol
+   * process such as billing-with-response.
    *
    * JSON mode also supports explicit receiver address fields
    * (`receiverStreet`, `receiverCity`, `receiverPostalCode`), `prepaidAmount`,

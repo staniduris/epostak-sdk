@@ -65,6 +65,51 @@
       "name": ".NET retry isolation",
       "file": "dotnet/tests/EPostak.Tests/ConnectorFirmScopeTests.cs",
       "contains": ["ConnectorRetryOptInDoesNotChangeSapiSendBehavior"]
+    },
+    {
+      "name": "TypeScript Enterprise 1.6 billing models",
+      "file": "typescript/src/types.ts",
+      "contains": ["JsonBillingDocumentType", "processId?: string", "supplierPeppolId?: string", "precedingInvoiceRef?: string", "duplicate?: boolean", "payloadSha256?: string", "process_id?: string | null", "pagination:"]
+    },
+    {
+      "name": "Python Enterprise 1.6 billing models",
+      "file": "python/src/epostak/types.py",
+      "contains": ["JsonBillingDocumentType", "processId: str", "supplierPeppolId: str", "precedingInvoiceRef: str", "duplicate: bool", "payloadSha256: str", "process_id: Optional[str]", "pagination: DocumentEventsPagination"]
+    },
+    {
+      "name": "PHP Enterprise 1.6 billing contract",
+      "file": "php/src/Resources/Documents.php",
+      "contains": ["supplierPeppolId", "precedingInvoiceRef", "duplicate?: bool", "process_id?: ?string", "pagination: array"]
+    },
+    {
+      "name": "Ruby Enterprise 1.6 billing contract",
+      "file": "ruby/lib/epostak/resources/documents.rb",
+      "contains": ["supplierPeppolId", "precedingInvoiceRef", "payloadSha256", "process_id", "pagination"]
+    },
+    {
+      "name": "Java Enterprise 1.6 billing request",
+      "file": "java/src/main/java/sk/epostak/sdk/models/SendDocumentRequest.java",
+      "contains": ["processId", "documentType", "supplierPeppolId", "supplierName", "precedingInvoiceRef"]
+    },
+    {
+      "name": "Java Enterprise 1.6 billing response",
+      "file": "java/src/main/java/sk/epostak/sdk/models/SendDocumentResponse.java",
+      "contains": ["submissionId", "duplicate", "payloadSha256", "warning", "Map<String, String> links"]
+    },
+    {
+      "name": "Java Enterprise 1.6 document events",
+      "file": "java/src/main/java/sk/epostak/sdk/models/DocumentEventsResponse.java",
+      "contains": ["@SerializedName(\"process_id\")", "Pagination pagination", "String nextCursor", "boolean hasMore"]
+    },
+    {
+      "name": "Java Enterprise 1.6 document process",
+      "file": "java/src/main/java/sk/epostak/sdk/models/Document.java",
+      "contains": ["@SerializedName(\"process_id\")", "String processId", "getProcessId"]
+    },
+    {
+      "name": ".NET Enterprise 1.6 billing models",
+      "file": "dotnet/src/EPostak/Models/Documents.cs",
+      "contains": ["JsonPropertyName(\"processId\")", "JsonPropertyName(\"supplierPeppolId\")", "JsonPropertyName(\"precedingInvoiceRef\")", "JsonPropertyName(\"duplicate\")", "JsonPropertyName(\"payloadSha256\")", "JsonPropertyName(\"process_id\")", "DocumentEventsPagination"]
     }
   ],
   "stableSurfaces": [

@@ -3,12 +3,18 @@
 All notable changes to the `epostak` Python SDK are documented in this
 file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-07-16
+## Unreleased — 2026-07-19
 
 ### Added
 
 - Added Connector webhook debugger methods for filtered delivery history,
   exact signed-body detail, idempotent replay, and the seven-scenario test suite.
+
+### Changed
+
+- Synced Enterprise 1.6.0 JSON self-billing/process fields, idempotent send
+  response metadata with live camelCase keys, document `process_id`, and nested
+  event pagination.
 
 ## 1.1.1rc1 — 2026-07-16
 

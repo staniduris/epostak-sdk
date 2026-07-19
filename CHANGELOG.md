@@ -1,5 +1,17 @@
 # Changelog
 
+## [Enterprise Peppol process and self-billing sync] — 2026-07-19
+
+- Synced structured JSON send models and docs with Enterprise API 1.6.0:
+  `processId`, JSON self-billing/credit-note fields, supplier aliases, and
+  `precedingInvoiceRef` now work across all six SDKs.
+- Aligned send responses with idempotent replay metadata (`submissionId`,
+  `duplicate`, `warning`, and `links`) and the live `payloadSha256` casing.
+- Added `process_id` to document/event models and corrected document-event
+  pagination from the stale top-level `nextCursor` to the live `pagination`
+  object.
+- Strengthened the live OpenAPI drift gate and cross-language model checks.
+
 ## [Connector webhook debugger] — 2026-07-16
 
 - Added filtered delivery history, exact signed-body detail, safe attempt

@@ -126,6 +126,12 @@ allows.
 
 ## Recent changes
 
+**Unreleased** (2026-07-19)
+- Enterprise 1.6.0 JSON sends accept `processId`, JSON self-billing and credit
+  notes through `documentType`, `supplier*`, and `precedingInvoiceRef`.
+- Send responses document replay/link metadata. Document events now document
+  `{ process_id, pagination: { limit, nextCursor, hasMore } }`.
+
 **Included in v1.1.0** (2026-07-14)
 - Connector is canonical at `client.connector`; the existing Enterprise
   namespace alias remains silently supported

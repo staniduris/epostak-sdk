@@ -56,10 +56,11 @@ class Documents
     /**
      * Send a document via Peppol.
      *
-     * JSON mode follows the live `SendDocumentJsonRequest` schema. It does
-     * not accept `docType`; for custom UBL type codes or self-billing
-     * documents, submit pre-built XML via `xml`. JSON mode requires
-     * `receiverPeppolId`, `receiverName`, and `items`.
+     * JSON mode supports invoice, credit-note, self-billing, and
+     * self-billing-credit-note payloads. Regular billing uses
+     * `receiverPeppolId` / `receiverName`; self-billing may use
+     * `supplierPeppolId` / `supplierName`. Credit notes require
+     * `precedingInvoiceRef`. `processId` selects a non-default Peppol process.
      *
      * JSON mode also supports explicit receiver address fields
      * (`receiverStreet`, `receiverCity`, `receiverPostalCode`),
@@ -87,7 +88,7 @@ class Documents
      *                                    request is still in flight returns 409
      *                                    `idempotency_conflict` (surfaced as
      *                                    EPostakError).
-     * @return array{documentId: string, messageId: string, status: string, payloadSha256?: string} Send confirmation.
+     * @return array{documentId: string, submissionId?: string, messageId: string, status: string, duplicate?: bool, payloadSha256?: string, warning?: string, links?: array<string, string>} Send confirmation.
      *         Includes `payloadSha256` (hex SHA-256 over the canonical UBL XML wire
      *         payload) on `201` send responses.
      * @throws EPostakError On validation or delivery error.
@@ -451,7 +452,7 @@ class Documents
      *
      * @param string $id     Document UUID.
      * @param array{limit?: int, cursor?: string} $params Optional pagination params.
-     * @return array Event list with optional next cursor.
+     * @return array{process_id?: ?string, documentId: string, events: array, pagination: array{limit: int, nextCursor: ?string, hasMore: bool}} Event page.
      * @throws EPostakError On API error.
      */
     public function events(string $id, array $params = []): array
