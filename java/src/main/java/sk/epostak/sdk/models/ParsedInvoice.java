@@ -7,9 +7,9 @@ import java.util.Map;
 
 /**
  * Result of parsing a UBL XML invoice into structured JSON via
- * {@code POST /documents/parse}.
+ * {@code POST /payloads/parse}.
  * <p>
- * The parsed shape matches the JSON side of {@code POST /documents/convert}
+ * The parsed shape matches the JSON side of {@code POST /payloads/convert}
  * with {@code output_format=json}: {@link #document()} is a free-form map with
  * fields such as {@code invoice_number}, {@code issue_date}, {@code supplier},
  * {@code customer}, {@code items}, and {@code totals}. {@link #warnings()} lists

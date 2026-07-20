@@ -113,16 +113,9 @@ client.enterprise.events.batch_ack(events["items"].map { |event| event["event_id
 support_packet = client.enterprise.documents.support_packet(sent["documentId"])
 ```
 
-The older `client.enterprise.webhooks.queue` resource remains available for
-compatibility. New pull-based integrations should prefer
-`client.enterprise.events`.
+Deprecated SDK resource and method names remain available as source-compatibility adapters. They already call the canonical `payloads`, `events`, and `supportPacket` routes; they do not call the retired URLs.
 
-Non-breaking adoption: facade helpers are additive. Existing
-`client.enterprise.extract`, `client.enterprise.documents.validate`,
-`client.enterprise.webhooks.queue`, and
-`client.enterprise.documents.evidence_bundle` integrations can keep running;
-migrate to `payloads`, `events`, and `support_packet` when your release window
-allows.
+The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP clients must use `/payloads/*`, `/events/*`, and `/documents/{id}/support-packet`. Existing SDK calls through deprecated names keep working because those adapters already delegate to the canonical routes.
 
 ## Recent changes
 

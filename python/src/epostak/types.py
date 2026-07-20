@@ -125,10 +125,10 @@ DocumentDirection = Literal["inbound", "outbound"]
 """Direction of a document relative to the authenticated firm."""
 
 ConvertInputFormat = Literal["json", "ubl"]
-"""Input format for the ``/documents/convert`` endpoint."""
+"""Input format for the ``/payloads/convert`` endpoint."""
 
 ConvertOutputFormat = Literal["ubl", "json"]
-"""Output format for the ``/documents/convert`` endpoint."""
+"""Output format for the ``/payloads/convert`` endpoint."""
 
 InboxStatus = Literal["RECEIVED", "ACKNOWLEDGED"]
 """Status filter for inbox queries: ``"RECEIVED"`` (new) or ``"ACKNOWLEDGED"`` (processed)."""
@@ -1368,7 +1368,7 @@ class PreflightResult(TypedDict, total=False):
 
 
 class ConvertRequest(TypedDict):
-    """Request body for ``POST /documents/convert``."""
+    """Request body for ``POST /payloads/convert``."""
 
     input_format: str  # "json" or "ubl" -- format of the supplied ``document``
     output_format: str  # "ubl" or "json" -- desired output format

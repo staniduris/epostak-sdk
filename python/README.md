@@ -117,16 +117,9 @@ client.enterprise.events.batch_ack([event["event_id"] for event in events["items
 support_packet = client.enterprise.documents.support_packet(sent["documentId"])
 ```
 
-The older `client.enterprise.webhooks.queue` resource remains available for
-compatibility. New pull-based integrations should prefer
-`client.enterprise.events`.
+Deprecated SDK resource and method names remain available as source-compatibility adapters. They already call the canonical `payloads`, `events`, and `supportPacket` routes; they do not call the retired URLs.
 
-Non-breaking adoption: facade helpers are additive. Existing
-`client.enterprise.extract`, `client.enterprise.documents.validate`,
-`client.enterprise.webhooks.queue`, and
-`client.enterprise.documents.evidence_bundle` integrations can keep running;
-migrate to `payloads`, `events`, and `support_packet` when your release window
-allows.
+The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP clients must use `/payloads/*`, `/events/*`, and `/documents/{id}/support-packet`. Existing SDK calls through deprecated names keep working because those adapters already delegate to the canonical routes.
 
 ## Recent changes
 
@@ -806,17 +799,17 @@ except EPostakError as err:
 | `documents.status(id)`                                         | GET    | `/documents/{id}/status`             |
 | `documents.status_batch(ids)`                                  | POST   | `/documents/status/batch`            |
 | `documents.evidence(id)`                                       | GET    | `/documents/{id}/evidence`           |
-| `documents.evidence_bundle(id)`                                | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents.evidence_bundle(id)`                                | GET    | `/documents/{id}/support-packet`    |
 | `documents.support_packet(id)`                                 | GET    | `/documents/{id}/support-packet`     |
 | `documents.envelope(id)`                                       | GET    | `/documents/{id}/envelope`           |
 | `documents.pdf(id)`                                            | GET    | `/documents/{id}/pdf`                |
 | `documents.ubl(id)`                                            | GET    | `/documents/{id}/ubl`                |
 | `documents.respond(id, status, note)`                          | POST   | `/documents/{id}/respond`            |
 | `documents.mark(id, state=..., note=...)`                      | POST   | `/documents/{id}/mark`               |
-| `documents.validate(body)`                                     | POST   | `/documents/validate`                |
+| `documents.validate(body)`                                     | POST   | `/payloads/validate`                |
 | `documents.preflight(receiver_peppol_id)`                      | POST   | `/documents/preflight`               |
-| `documents.convert(...)`                                       | POST   | `/documents/convert`                 |
-| `documents.parse(xml)`                                         | POST   | `/documents/parse`                   |
+| `documents.convert(...)`                                       | POST   | `/payloads/convert`                 |
+| `documents.parse(xml)`                                         | POST   | `/payloads/parse`                   |
 | `documents.outbox(**params)`                                   | GET    | `/documents/outbox`                  |
 | `documents.responses(id)`                                      | GET    | `/documents/{id}/responses`          |
 | `documents.events(id, **params)`                               | GET    | `/documents/{id}/events`             |
@@ -849,9 +842,9 @@ except EPostakError as err:
 | `webhooks.dead_letters(**params)`                              | GET    | `/webhook-dead-letter`               |
 | `webhooks.replay_dead_letter(id)`                              | POST   | `/webhook-dead-letter/{id}/replay`   |
 | `webhooks.resolve_dead_letter(id, reason=None)`                | POST   | `/webhook-dead-letter/{id}/resolve`  |
-| `webhooks.queue.pull(**params)`                                | GET    | `/webhook-queue`                     |
-| `webhooks.queue.ack(event_id)`                                 | DELETE | `/webhook-queue/{event_id}`          |
-| `webhooks.queue.batch_ack(ids)`                                | POST   | `/webhook-queue/batch-ack`           |
+| `webhooks.queue.pull(**params)`                                | GET    | `/events/pull`                     |
+| `webhooks.queue.ack(event_id)`                                 | POST   | `/events/{event_id}/ack`          |
+| `webhooks.queue.batch_ack(ids)`                                | POST   | `/events/batch-ack`           |
 | `webhooks.queue.pull_all(**params)`                            | GET    | `/webhook-queue/all`                 |
 | `webhooks.queue.batch_ack_all(ids)`                            | POST   | `/webhook-queue/all/batch-ack`       |
 | `payloads.extract(file, mime_type, file_name="document")`      | POST   | `/payloads/extract`                  |
@@ -869,8 +862,8 @@ except EPostakError as err:
 | `integrator.keys.list()`                                       | GET    | `/integrator/keys`                   |
 | `integrator.keys.deactivate(key_id=..., client_id=...)`        | DELETE | `/integrator/keys`                   |
 | `integrator.licenses.info(offset=..., limit=...)`              | GET    | `/integrator/licenses/info`          |
-| `extract.single(file, mime, name)`                             | POST   | `/extract`                           |
-| `extract.batch(files)`                                         | POST   | `/extract/batch`                     |
+| `extract.single(file, mime, name)`                             | POST   | `/payloads/extract`                           |
+| `extract.batch(files)`                                         | POST   | `/payloads/extract/batch`                     |
 | `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |
 | `box.list(**params)`                                           | GET    | `/box/items`                         |
 | `box.create({"payloadXml": ...})`                              | POST   | `/box/items`                         |

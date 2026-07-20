@@ -26,7 +26,7 @@ const lifecycleMetadataFiles = new Set([
   "dotnet/src/EPostak/Resources/ExtractResource.cs",
   "dotnet/src/EPostak/Resources/WebhookQueueResource.cs",
 ]);
-const migrationPairs = [
+const retiredRoutePairs = [
   ["post", "/extract", "/payloads/extract"],
   ["post", "/extract/batch", "/payloads/extract/batch"],
   ["post", "/documents/parse", "/payloads/parse"],
@@ -195,23 +195,33 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
-  for (const [legacyMethod, legacyPath, canonicalPath] of migrationPairs) {
+  for (const [legacyMethod, legacyPath, canonicalPath] of retiredRoutePairs) {
     const canonicalMethod = legacyMethod === "delete" ? "post" : legacyMethod;
-    for (const [method, apiPath] of [
-      [legacyMethod, legacyPath],
-      [canonicalMethod, canonicalPath],
-    ]) {
-      const frozenFacet = contractFacet(frozen, apiPath, method, "frozen");
-      const currentFacet = contractFacet(current, apiPath, method, "current");
-      if (
-        frozenFacet &&
-        currentFacet &&
-        JSON.stringify(frozenFacet) !== JSON.stringify(currentFacet)
-      ) {
-        failures.push(
-          `OpenAPI contract drift: ${method.toUpperCase()} ${apiPath} changed auth, required fields, responses, or schemas`,
-        );
-      }
+    const frozenFacet = contractFacet(
+      frozen,
+      canonicalPath,
+      canonicalMethod,
+      "frozen",
+    );
+    const currentFacet = contractFacet(
+      current,
+      canonicalPath,
+      canonicalMethod,
+      "current",
+    );
+    if (
+      frozenFacet &&
+      currentFacet &&
+      JSON.stringify(frozenFacet) !== JSON.stringify(currentFacet)
+    ) {
+      failures.push(
+        `OpenAPI contract drift: ${canonicalMethod.toUpperCase()} ${canonicalPath} changed auth, required fields, responses, or schemas`,
+      );
+    }
+    if (current.paths?.[legacyPath]?.[legacyMethod]) {
+      failures.push(
+        `current OpenAPI still publishes retired ${legacyMethod.toUpperCase()} ${legacyPath}`,
+      );
     }
   }
 }
@@ -651,5 +661,5 @@ const stableCheckCount = manifest.stableSurfaces.reduce((count, surface) => coun
 console.log(
   `SDK surface manifest passed: ${manifest.checks.length} product checks, ` +
   `${stableCheckCount} stable Enterprise/SAPI checks, ${manifest.documentation.length} docs, ` +
-  `2 response contracts, ${vectors.vectors.length} shared vectors, and 18 frozen/current Enterprise OpenAPI operations.`,
+  `2 response contracts, ${vectors.vectors.length} shared vectors, nine canonical Enterprise operations, and nine retired-route assertions.`,
 );

@@ -156,16 +156,14 @@ await client.Enterprise.Events.BatchAckAsync(events.Items.Select(e => e.EventId)
 var supportPacket = await client.Enterprise.Documents.SupportPacketAsync(sent.DocumentId);
 ```
 
-The older `client.Enterprise.Webhooks.Queue` resource remains available for
-compatibility. New pull-based integrations should prefer
-`client.Enterprise.Events`.
+Deprecated SDK resource and method names remain available as
+source-compatibility adapters. They already call the canonical `Payloads`,
+`Events`, and `SupportPacketAsync` routes; they do not call the retired URLs.
 
-Non-breaking adoption: facade helpers are additive. Existing
-`client.Enterprise.Extract`, `client.Enterprise.Documents.ValidateAsync`,
-`client.Enterprise.Webhooks.Queue`, and
-`client.Enterprise.Documents.EvidenceBundleAsync` integrations can keep running;
-migrate to `Payloads`, `Events`, and `SupportPacketAsync` when your release
-window allows.
+The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP
+clients must use `/payloads/*`, `/events/*`, and
+`/documents/{id}/support-packet`. Existing SDK calls through deprecated names
+keep working because those adapters already delegate to the canonical routes.
 
 ## Recent changes
 

@@ -1430,7 +1430,7 @@ public sealed class BatchSendResponse
 
 /// <summary>
 /// Result of parsing a UBL XML invoice into structured JSON via
-/// <c>POST /documents/parse</c>. The shape matches the JSON side of
+/// <c>POST /payloads/parse</c>. The shape matches the JSON side of
 /// <see cref="ConvertResult"/> with <see cref="ConvertOutputFormat.Json"/>:
 /// <see cref="Document"/> is a free-form object with fields such as
 /// <c>invoiceNumber</c>, <c>issueDate</c>, <c>supplier</c>, <c>customer</c>,

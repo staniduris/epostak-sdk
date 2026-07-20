@@ -3,7 +3,7 @@ package sk.epostak.sdk.models;
 import java.util.List;
 
 /**
- * Response from {@code POST /documents/validate}, returned with HTTP 200 when
+ * Response from {@code POST /payloads/validate}, returned with HTTP 200 when
  * {@code valid == true} and HTTP 422 when {@code valid == false}.
  *
  * @param valid        {@code true} when the document passed every Peppol BIS validation layer

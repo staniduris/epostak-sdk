@@ -1,5 +1,15 @@
 # Changelog
 
+## [Enterprise pre-launch alias removal sync] — 2026-07-20
+
+- Updated SDK documentation and the OpenAPI coverage gate for the removal of
+  nine unused Enterprise alias URLs in API contract 1.7.0.
+- Deprecated SDK method names remain source-compatible adapters, but every one
+  already calls the canonical `/payloads/*`, `/events/*`, or
+  `/documents/{id}/support-packet` route.
+- Raw HTTP integrations must use the canonical routes; the removed alias URLs
+  are no longer served.
+
 ## [Enterprise Peppol process and self-billing sync] — 2026-07-19
 
 - Synced structured JSON send models and docs with Enterprise API 1.6.0:

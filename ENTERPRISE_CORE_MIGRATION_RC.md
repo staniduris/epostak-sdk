@@ -1,6 +1,6 @@
 # Enterprise Core migration release candidates
 
-Prepared from base `e602ee5bf19bc43fa074e6910e34d30b5a722978` on 2026-07-16. These artifacts are local release candidates only. Nothing in this record authorizes registry publication or starts T0.
+Prepared from base `e602ee5bf19bc43fa074e6910e34d30b5a722978` on 2026-07-16. These artifacts were local release candidates only and did not authorize registry publication.
 
 Permanent migration guide: <https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation>
 
@@ -15,6 +15,6 @@ Permanent migration guide: <https://epostak.sk/api/docs/enterprise/migrations/en
 
 All six packages were built and then installed/imported from their packaged artifacts in separate clean temporary projects. The language suites passed: TypeScript 46 tests, Python 69 tests, PHP contract scripts, Ruby 60 examples, Java 35 tests, and .NET 39 tests.
 
-The compatibility release keeps every public class, method, signature, namespace, and Enterprise object identity. New examples and canonical resources use `payloads`, `events`, and `supportPacket`; the nine compatibility methods delegate internally and preserve the old `items` projection, acknowledgement result, and binary packet bytes. Enterprise `X-Firm-Id`, Connector `customerRef`, and SAPI participant scope code was not merged or redirected.
+The SDK adapters keep every public class, method, signature, namespace, and Enterprise object identity. Deprecated method names delegate internally to `payloads`, `events`, and `supportPacket`; they do not call retired URLs. The nine unused alias URLs were removed from Enterprise API 1.7.0 on 2026-07-20. Enterprise `X-Firm-Id`, Connector `customerRef`, and SAPI participant scope code was not merged or redirected.
 
-`scripts/check-endpoint-coverage.mjs` now loads frozen and current OpenAPI documents and verifies all 18 legacy/canonical operations for method/path presence, security, required parameters and bodies, response contracts, and transitively referenced schemas. The RC run compared the frozen production Enterprise contract with the generated current Full contract and passed.
+`scripts/check-endpoint-coverage.mjs` loads frozen and current OpenAPI documents, verifies the nine canonical operations for security, required parameters and bodies, response contracts, and transitively referenced schemas, and asserts that all nine retired routes are absent from the current contract.

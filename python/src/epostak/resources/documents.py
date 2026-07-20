@@ -789,7 +789,7 @@ class DocumentsResource(_BaseResource):
         Deprecated: use ``client.payloads.parse(...)``. See the Enterprise Core
         migration guide.
 
-        Convenience wrapper around the ``/documents/parse`` endpoint that
+        Convenience wrapper around the ``/payloads/parse`` endpoint that
         streams the XML as the raw request body with
         ``Content-Type: application/xml``.
 

@@ -55,7 +55,7 @@ public sealed class AccountUsage
     [JsonPropertyName("inbound")]
     public int Inbound { get; set; }
 
-    /// <summary>Number of OCR extractions (<c>POST /extract</c>) in the current calendar month.</summary>
+    /// <summary>Number of OCR extractions (<c>POST /payloads/extract</c>) in the current calendar month.</summary>
     [JsonPropertyName("ocr_extractions")]
     public int OcrExtractions { get; set; }
 }

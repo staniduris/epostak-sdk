@@ -166,16 +166,9 @@ client.enterprise().events().batchAck(
 byte[] supportPacket = client.enterprise().documents().supportPacket(sent.documentId());
 ```
 
-The older `client.enterprise().webhooks().queue()` resource remains available
-for compatibility. New pull-based integrations should prefer
-`client.enterprise().events()`.
+Deprecated SDK resource and method names remain available as source-compatibility adapters. They already call the canonical `payloads`, `events`, and `supportPacket` routes; they do not call the retired URLs.
 
-Non-breaking adoption: facade helpers are additive. Existing
-`client.enterprise().extract()`, `client.enterprise().documents().validate()`,
-`client.enterprise().webhooks().queue()`, and
-`client.enterprise().documents().evidenceBundle()` integrations can keep
-running; migrate to `payloads()`, `events()`, and `supportPacket()` when your
-release window allows.
+The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP clients must use `/payloads/*`, `/events/*`, and `/documents/{id}/support-packet`. Existing SDK calls through deprecated names keep working because those adapters already delegate to the canonical routes.
 
 ## Recent changes
 
@@ -985,17 +978,17 @@ try {
 | `documents().status(id)`              | GET    | `/documents/{id}/status`             |
 | `documents().statusBatch(ids)`        | POST   | `/documents/status/batch`            |
 | `documents().evidence(id)`            | GET    | `/documents/{id}/evidence`           |
-| `documents().evidenceBundle(id)`      | GET    | `/documents/{id}/evidence-bundle`    |
+| `documents().evidenceBundle(id)`      | GET    | `/documents/{id}/support-packet`    |
 | `documents().supportPacket(id)`       | GET    | `/documents/{id}/support-packet`     |
 | `documents().envelope(id)`            | GET    | `/documents/{id}/envelope`           |
 | `documents().pdf(id)`                 | GET    | `/documents/{id}/pdf`                |
 | `documents().ubl(id)`                 | GET    | `/documents/{id}/ubl`                |
 | `documents().respond(id, body)`       | POST   | `/documents/{id}/respond`            |
 | `documents().mark(id, state, note)`   | POST   | `/documents/{id}/mark`               |
-| `documents().validate(body)`          | POST   | `/documents/validate`                |
+| `documents().validate(body)`          | POST   | `/payloads/validate`                |
 | `documents().preflight(...)`          | POST   | `/documents/preflight`               |
-| `documents().convert(...)`            | POST   | `/documents/convert`                 |
-| `documents().parse(xml)`              | POST   | `/documents/parse`                   |
+| `documents().convert(...)`            | POST   | `/payloads/convert`                 |
+| `documents().parse(xml)`              | POST   | `/payloads/parse`                   |
 | `documents().outbox(...)`             | GET    | `/documents/outbox`                  |
 | `documents().responses(id)`           | GET    | `/documents/{id}/responses`          |
 | `documents().events(id, ...)`         | GET    | `/documents/{id}/events`             |
@@ -1027,16 +1020,16 @@ try {
 | `webhooks().deadLetters(params)`      | GET    | `/webhook-dead-letter`               |
 | `webhooks().replayDeadLetter(id)`     | POST   | `/webhook-dead-letter/{id}/replay`   |
 | `webhooks().resolveDeadLetter(id, reason)` | POST | `/webhook-dead-letter/{id}/resolve` |
-| `webhooks().queue().pull(...)`        | GET    | `/webhook-queue`                     |
-| `webhooks().queue().ack(eventId)`     | DELETE | `/webhook-queue/{eventId}`           |
-| `webhooks().queue().batchAck(ids)`    | POST   | `/webhook-queue/batch-ack`           |
+| `webhooks().queue().pull(...)`        | GET    | `/events/pull`                     |
+| `webhooks().queue().ack(eventId)`     | POST   | `/events/{eventId}/ack`           |
+| `webhooks().queue().batchAck(ids)`    | POST   | `/events/batch-ack`           |
 | `webhooks().queue().pullAll(...)`     | GET    | `/webhook-queue/all`                 |
 | `webhooks().queue().batchAckAll(ids)` | POST   | `/webhook-queue/all/batch-ack`       |
 | `reporting().statistics(...)`         | GET    | `/reporting/statistics`              |
 | `reporting().submissions(...)`        | GET    | `/reporting/submissions`             |
 | `account().get()`                     | GET    | `/account`                           |
-| `extract().single(...)`               | POST   | `/extract`                           |
-| `extract().batch(...)`                | POST   | `/extract/batch`                     |
+| `extract().single(...)`               | POST   | `/payloads/extract`                           |
+| `extract().batch(...)`                | POST   | `/payloads/extract/batch`                     |
 | `EPostak.validate(xml)`               | POST   | `https://epostak.sk/api/validate`    |
 | `box().list(params)`                  | GET    | `/box/items`                         |
 | `box().create(new BoxCreateRequest(...))` | POST | `/box/items`                         |

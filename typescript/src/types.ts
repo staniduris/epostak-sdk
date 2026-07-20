@@ -140,10 +140,10 @@ export type WebhookPayload = WebhookPayloadEnvelope;
  */
 export type DocumentDirection = "inbound" | "outbound";
 
-/** Input format accepted by the `/documents/convert` endpoint. */
+/** Input format accepted by the `/payloads/convert` endpoint. */
 export type ConvertInputFormat = "json" | "ubl";
 
-/** Output format produced by the `/documents/convert` endpoint. */
+/** Output format produced by the `/payloads/convert` endpoint. */
 export type ConvertOutputFormat = "ubl" | "json";
 
 /**
@@ -1701,10 +1701,10 @@ export interface InvoiceRespondResponse {
 // Validate / preflight / convert
 // ---------------------------------------------------------------------------
 
-/** Input format for the `/documents/validate` endpoint. */
+/** Input format for the `/payloads/validate` endpoint. */
 export type ValidateFormat = "json" | "ubl";
 
-/** Request body for `POST /documents/validate`. */
+/** Request body for `POST /payloads/validate`. */
 export interface ValidateDocumentRequest {
   /** `"json"` when `document` is a structured invoice object, `"ubl"` when it's a UBL XML string. */
   format: ValidateFormat;
@@ -1725,7 +1725,7 @@ export interface ValidationFinding {
 }
 
 /**
- * Response from `POST /documents/validate`. HTTP 200 when valid, 422 when
+ * Response from `POST /payloads/validate`. HTTP 200 when valid, 422 when
  * not (SDK raises on 422 by default — use `EPostakError.details` to read
  * the failing findings).
  */
@@ -1781,7 +1781,7 @@ export interface PreflightResult {
   warnings: string[];
 }
 
-/** Request body for `POST /documents/convert`. */
+/** Request body for `POST /payloads/convert`. */
 export interface ConvertRequest {
   /** Input format of `document` — `"json"` for structured object, `"ubl"` for XML string. */
   input_format: ConvertInputFormat;
@@ -1791,7 +1791,7 @@ export interface ConvertRequest {
   document: Record<string, unknown> | string;
 }
 
-/** Response from `POST /documents/convert`. */
+/** Response from `POST /payloads/convert`. */
 export interface ConvertResult {
   /** The output format that was produced */
   output_format: ConvertOutputFormat;
@@ -2748,7 +2748,7 @@ export interface BatchSendResponse {
 // ---------------------------------------------------------------------------
 
 /**
- * Response from `POST /documents/parse` — the normalized JSON invoice shape
+ * Response from `POST /payloads/parse` — the normalized JSON invoice shape
  * derived from a UBL XML input. Matches the structured fields accepted by
  * `send()` so the output can be edited and sent back through the pipeline.
  */
