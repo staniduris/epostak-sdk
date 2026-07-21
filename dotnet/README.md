@@ -503,8 +503,11 @@ var validation = await client.Enterprise.Documents.ValidateAsync(new SendDocumen
 // Preflight check (can receiver accept this document type?)
 var preflight = await client.Enterprise.Documents.PreflightAsync(new PreflightRequest
 {
-    ReceiverPeppolId = "0245:12345678"
+    ReceiverPeppolId = "0245:12345678",
+    UblDocument = "<Invoice>...</Invoice>"
 });
+if (!preflight.CanSend)
+    Console.WriteLine($"Preflight decision: {preflight.Decision}");
 
 // Convert between JSON and UBL
 var converted = await client.Enterprise.Documents.ConvertAsync(new ConvertRequest
@@ -571,11 +574,13 @@ Console.WriteLine($"{company.Name}, DIC: {company.Dic}");
 
 var matches = await client.Enterprise.Peppol.CompanySearchAsync("Demo", limit: 10);
 
-var resolved = await client.Enterprise.Peppol.ResolveAsync(new Dictionary<string, string?>
+var resolved = await client.Enterprise.Peppol.ResolveErpInfoAsync(new Dictionary<string, string?>
 {
     ["ico"] = "12345678",
     ["documentTypeId"] = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2::Invoice##..."
 });
+if (resolved.Capability?.NetworkReady == true)
+    Console.WriteLine($"Ready: {resolved.Participant?.PeppolId}");
 ```
 
 ### Firms

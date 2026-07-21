@@ -1267,7 +1267,7 @@ public sealed class ValidationResult
 }
 
 /// <summary>
-/// Request to check whether a receiver can accept documents via Peppol (SMP lookup).
+/// Request for a dry-run validation and Peppol routing check before sending.
 /// </summary>
 public sealed class PreflightRequest
 {
@@ -1275,31 +1275,253 @@ public sealed class PreflightRequest
     [JsonPropertyName("receiverPeppolId")]
     public required string ReceiverPeppolId { get; set; }
 
-    /// <summary>Optional Peppol document type ID to check support for (e.g. invoice, credit note). If omitted, checks general registration.</summary>
+    /// <summary>Optional Peppol document type ID. If omitted, BIS Billing 3.0 Invoice is used.</summary>
     [JsonPropertyName("documentTypeId")]
     public string? DocumentTypeId { get; set; }
+
+    /// <summary>Optional Peppol process ID. If omitted, BIS Billing 3.0 is used.</summary>
+    [JsonPropertyName("processId")]
+    public string? ProcessId { get; set; }
+
+    /// <summary>Optional raw UBL XML document to validate as part of the preflight check.</summary>
+    [JsonPropertyName("ublDocument")]
+    public string? UblDocument { get; set; }
 }
 
 /// <summary>
-/// Result of a preflight SMP lookup checking receiver registration and capability.
+/// Result of a dry-run send check covering UBL validation, Peppol participant discovery,
+/// and exact document/process routing capability.
 /// </summary>
 public sealed class PreflightResult
 {
-    /// <summary>The Peppol ID that was checked.</summary>
-    [JsonPropertyName("receiverPeppolId")]
-    public string ReceiverPeppolId { get; set; } = "";
+    /// <summary>Final preflight decision: <c>sendable</c>, <c>sendable_with_warnings</c>, <c>blocked</c>, or <c>retry_later</c>.</summary>
+    [JsonPropertyName("decision")]
+    public string Decision { get; set; } = "";
 
-    /// <summary>Whether the receiver is registered on the Peppol network.</summary>
-    [JsonPropertyName("registered")]
-    public bool Registered { get; set; }
+    /// <summary>Whether the receiver exists and advertises the requested document/process route.</summary>
+    [JsonPropertyName("networkReady")]
+    public bool NetworkReady { get; set; }
 
-    /// <summary>Whether the receiver's SMP entry supports the requested document type.</summary>
-    [JsonPropertyName("supportsDocumentType")]
-    public bool SupportsDocumentType { get; set; }
+    /// <summary>UBL validation result, or null when no document was supplied or validation was inconclusive.</summary>
+    [JsonPropertyName("valid")]
+    public bool? Valid { get; set; }
 
-    /// <summary>URL of the receiver's SMP (Service Metadata Publisher) entry. Null if not registered.</summary>
-    [JsonPropertyName("smpUrl")]
-    public string? SmpUrl { get; set; }
+    /// <summary>Whether the document can be sent according to all completed checks.</summary>
+    [JsonPropertyName("canSend")]
+    public bool CanSend { get; set; }
+
+    /// <summary>Whether the participant lookup found the receiver.</summary>
+    [JsonPropertyName("participantExists")]
+    public bool ParticipantExists { get; set; }
+
+    /// <summary>Blocking preflight findings.</summary>
+    [JsonPropertyName("errors")]
+    public List<PreflightIssue> Errors { get; set; } = [];
+
+    /// <summary>Non-blocking or retryable preflight findings.</summary>
+    [JsonPropertyName("warnings")]
+    public List<PreflightIssue> Warnings { get; set; } = [];
+
+    /// <summary>Individual validation, participant, and routing checks.</summary>
+    [JsonPropertyName("checks")]
+    public List<PreflightCheck> Checks { get; set; } = [];
+
+    /// <summary>Resolved Peppol receiver metadata.</summary>
+    [JsonPropertyName("recipient")]
+    public PreflightRecipient? Recipient { get; set; }
+
+    /// <summary>Document type, process, ruleset, and input mode used by the check.</summary>
+    [JsonPropertyName("documentProfile")]
+    public PreflightDocumentProfile? DocumentProfile { get; set; }
+
+    /// <summary>Request trace and timing metadata.</summary>
+    [JsonPropertyName("trace")]
+    public PreflightTrace? Trace { get; set; }
+
+    /// <summary>Compatibility participant-found flag returned by the API.</summary>
+    [JsonPropertyName("recipientFound")]
+    public bool RecipientFound { get; set; }
+
+    /// <summary>Whether the receiver advertises the requested document type.</summary>
+    [JsonPropertyName("recipientAcceptsDocumentType")]
+    public bool RecipientAcceptsDocumentType { get; set; }
+
+    /// <summary>Compatibility validation flag, or null when validation was skipped or inconclusive.</summary>
+    [JsonPropertyName("validationPassed")]
+    public bool? ValidationPassed { get; set; }
+
+    /// <summary>Compatibility list containing validation error messages only.</summary>
+    [JsonPropertyName("validationErrors")]
+    public List<string> ValidationErrors { get; set; } = [];
+
+    /// <summary>The resolved receiver Peppol ID. Use <see cref="Recipient"/> for the full result.</summary>
+    [JsonIgnore]
+    public string ReceiverPeppolId
+    {
+        get => Recipient?.PeppolId ?? "";
+        set
+        {
+            Recipient ??= new PreflightRecipient();
+            Recipient.PeppolId = value;
+        }
+    }
+
+    /// <summary>Compatibility alias for <see cref="ParticipantExists"/>.</summary>
+    [JsonIgnore]
+    public bool Registered
+    {
+        get => ParticipantExists;
+        set
+        {
+            ParticipantExists = value;
+            RecipientFound = value;
+        }
+    }
+
+    /// <summary>Compatibility alias for <see cref="RecipientAcceptsDocumentType"/>.</summary>
+    [JsonIgnore]
+    public bool SupportsDocumentType
+    {
+        get => RecipientAcceptsDocumentType;
+        set => RecipientAcceptsDocumentType = value;
+    }
+
+    /// <summary>The resolved AS4 endpoint URL. Use <see cref="Recipient"/> for full access-point metadata.</summary>
+    [JsonIgnore]
+    public string? SmpUrl
+    {
+        get => Recipient?.AccessPoint?.Url;
+        set
+        {
+            Recipient ??= new PreflightRecipient();
+            Recipient.AccessPoint ??= new PeppolAccessPoint();
+            Recipient.AccessPoint.Url = value;
+        }
+    }
+}
+
+/// <summary>A single finding produced by preflight validation or routing checks.</summary>
+public sealed class PreflightIssue
+{
+    /// <summary>Finding category: validation, participant, routing, or system.</summary>
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = "";
+
+    /// <summary>Stable machine-readable finding code.</summary>
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = "";
+
+    /// <summary>Finding severity: error or warning.</summary>
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = "";
+
+    /// <summary>Human-readable finding message.</summary>
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+
+    /// <summary>Request field or document location associated with the finding, when available.</summary>
+    [JsonPropertyName("location")]
+    public string? Location { get; set; }
+}
+
+/// <summary>Timing and status of one preflight layer.</summary>
+public sealed class PreflightCheck
+{
+    /// <summary>Check name: validation, participant, or routing.</summary>
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    /// <summary>Check status: passed, failed, warning, or skipped.</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    /// <summary>Elapsed check time in milliseconds.</summary>
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; }
+
+    /// <summary>Optional status detail, for example why validation was skipped.</summary>
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+}
+
+/// <summary>Peppol receiver metadata resolved during preflight.</summary>
+public sealed class PreflightRecipient
+{
+    /// <summary>Normalized Peppol participant ID.</summary>
+    [JsonPropertyName("peppolId")]
+    public string? PeppolId { get; set; }
+
+    /// <summary>Peppol identifier scheme.</summary>
+    [JsonPropertyName("scheme")]
+    public string? Scheme { get; set; }
+
+    /// <summary>Identifier value within the scheme.</summary>
+    [JsonPropertyName("identifier")]
+    public string? Identifier { get; set; }
+
+    /// <summary>Lookup source, such as <c>sml</c> or <c>internal</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>Resolved AS4 endpoint metadata.</summary>
+    [JsonPropertyName("accessPoint")]
+    public PeppolAccessPoint? AccessPoint { get; set; }
+
+    /// <summary>Resolved endpoint certificate metadata.</summary>
+    [JsonPropertyName("certificate")]
+    public PeppolCertificateInfo? Certificate { get; set; }
+
+    /// <summary>Document types advertised by the receiver.</summary>
+    [JsonPropertyName("supportedDocumentTypes")]
+    public List<string>? SupportedDocumentTypes { get; set; }
+}
+
+/// <summary>Document and process profile used by the preflight checks.</summary>
+public sealed class PreflightDocumentProfile
+{
+    /// <summary>Peppol document type identifier.</summary>
+    [JsonPropertyName("documentTypeId")]
+    public string DocumentTypeId { get; set; } = "";
+
+    /// <summary>Peppol process identifier.</summary>
+    [JsonPropertyName("processId")]
+    public string ProcessId { get; set; } = "";
+
+    /// <summary>Validation ruleset name.</summary>
+    [JsonPropertyName("ruleset")]
+    public string Ruleset { get; set; } = "";
+
+    /// <summary>Validation ruleset version.</summary>
+    [JsonPropertyName("rulesetVersion")]
+    public string RulesetVersion { get; set; } = "";
+
+    /// <summary>Input mode: ubl, json, or none.</summary>
+    [JsonPropertyName("inputMode")]
+    public string InputMode { get; set; } = "";
+}
+
+/// <summary>Trace and timing metadata for a preflight request.</summary>
+public sealed class PreflightTrace
+{
+    /// <summary>Request trace identifier.</summary>
+    [JsonPropertyName("traceId")]
+    public string TraceId { get; set; } = "";
+
+    /// <summary>ISO 8601 timestamp when the check ran.</summary>
+    [JsonPropertyName("checkedAt")]
+    public string CheckedAt { get; set; } = "";
+
+    /// <summary>Total preflight duration in milliseconds.</summary>
+    [JsonPropertyName("durationMs")]
+    public int DurationMs { get; set; }
+
+    /// <summary>UBL validation duration in milliseconds.</summary>
+    [JsonPropertyName("validationMs")]
+    public int ValidationMs { get; set; }
+
+    /// <summary>Participant lookup duration in milliseconds.</summary>
+    [JsonPropertyName("participantLookupMs")]
+    public int ParticipantLookupMs { get; set; }
 }
 
 /// <summary>

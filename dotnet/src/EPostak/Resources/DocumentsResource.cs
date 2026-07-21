@@ -321,20 +321,22 @@ public sealed class DocumentsResource
         => _http.RequestAsync<ValidationResult>(HttpMethod.Post, "/payloads/validate", request, ct);
 
     /// <summary>
-    /// Check whether a receiver is registered on the Peppol network and can accept a given
-    /// document type. Performs an SMP (Service Metadata Publisher) lookup without sending anything.
-    /// Use this before sending to verify the recipient exists.
+    /// Run a dry-run send check without creating or billing a document. The endpoint can validate
+    /// optional UBL XML, resolve the receiver, and verify exact Peppol document/process routing.
+    /// Read <see cref="PreflightResult.Decision"/>, <see cref="PreflightResult.CanSend"/>,
+    /// errors, and individual checks before sending.
     /// </summary>
     /// <param name="request">The receiver Peppol ID and optional document type to check.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Registration status, document type support, and SMP URL for the receiver.</returns>
+    /// <returns>Typed validation, participant, routing, and trace details for the dry run.</returns>
     /// <example>
     /// <code>
     /// var check = await client.Documents.PreflightAsync(new PreflightRequest
     /// {
-    ///     ReceiverPeppolId = "0245:12345678"
+    ///     ReceiverPeppolId = "0245:12345678",
+    ///     UblDocument = "&lt;Invoice&gt;...&lt;/Invoice&gt;"
     /// });
-    /// if (check.Registered &amp;&amp; check.SupportsDocumentType)
+    /// if (check.CanSend)
     ///     Console.WriteLine("Receiver is ready to accept invoices");
     /// </code>
     /// </example>

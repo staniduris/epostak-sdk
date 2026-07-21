@@ -258,10 +258,12 @@
           "contains": ["AuthResource Auth", "AccountResource Account", "AuditResource Audit", "DocumentsResource Documents", "InboxResource Inbox", "FirmsResource Firms", "PeppolResource Peppol", "WebhooksResource Webhooks", "ReportingResource Reporting", "ExtractResource Extract", "IntegratorResource Integrator", "BoxResource Box", "ConnectorResource Connector", "PayloadsResource Payloads", "EventsResource Events", "EnterprisePullResource Pull"]
         },
         { "name": "documents routes", "file": "dotnet/src/EPostak/Resources/DocumentsResource.cs", "contains": ["/documents/send", "/documents/status/batch"] },
+        { "name": "typed preflight models", "file": "dotnet/src/EPostak/Models/Documents.cs", "contains": ["public string? ProcessId", "public string? UblDocument", "public sealed class PreflightIssue", "public sealed class PreflightCheck", "public sealed class PreflightRecipient", "public sealed class PreflightDocumentProfile", "public sealed class PreflightTrace"] },
         { "name": "inbox routes", "file": "dotnet/src/EPostak/Resources/InboxResource.cs", "contains": ["/documents/inbox", "/acknowledge"] },
         { "name": "events routes", "file": "dotnet/src/EPostak/Resources/EventsResource.cs", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "dotnet/src/EPostak/Resources/WebhooksResource.cs", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
-        { "name": "Peppol routes", "file": "dotnet/src/EPostak/Resources/PeppolResource.cs", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
+        { "name": "Peppol routes", "file": "dotnet/src/EPostak/Resources/PeppolResource.cs", "contains": ["/peppol/participants/resolve", "ResolveErpInfoAsync", "/peppol/capabilities"] },
+        { "name": "typed ERP resolve models", "file": "dotnet/src/EPostak/Models/Peppol.cs", "contains": ["public sealed class ErpInfo", "public sealed class ErpQuery", "public sealed class ErpCompany", "public sealed class ErpParticipant", "public sealed class ErpCapability"] },
         { "name": "firm routes", "file": "dotnet/src/EPostak/Resources/FirmsResource.cs", "contains": ["/firms", "/firms/assign"] },
         { "name": "reporting routes", "file": "dotnet/src/EPostak/Resources/ReportingResource.cs", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "dotnet/src/EPostak/Resources/IntegratorResource.cs", "contains": ["/integrator/keys", "/integrator/licenses/info"] },

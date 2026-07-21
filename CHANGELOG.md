@@ -1,5 +1,16 @@
 # Changelog
 
+## [.NET typed preflight and ERP resolve] — 2026-07-21
+
+- Added `UblDocument` to the .NET `PreflightRequest` and aligned
+  `PreflightResult` with the live dry-run validation, participant, routing,
+  document-profile, and trace response.
+- Added the typed .NET Peppol `ResolveErpInfoAsync` result with `ErpInfo`
+  company, participant, and routing-capability models while preserving the
+  existing dictionary-returning `ResolveAsync` contract.
+- Kept the former preflight summary properties as computed compatibility
+  aliases so existing .NET callers remain source-compatible while migrating.
+
 ## [Enterprise pre-launch alias removal sync] — 2026-07-20
 
 - Updated SDK documentation and the OpenAPI coverage gate for the removal of

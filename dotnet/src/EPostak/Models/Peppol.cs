@@ -448,3 +448,142 @@ public sealed class BatchLookupResponse
     [JsonPropertyName("results")]
     public List<BatchLookupResult> Results { get; set; } = [];
 }
+
+// ---------------------------------------------------------------------------
+// ERP participant resolution
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Company identity and Peppol routing details returned by
+/// <c>GET /peppol/participants/resolve</c>.
+/// </summary>
+public sealed class ErpInfo
+{
+    /// <summary>The identifier form that was used for the lookup.</summary>
+    [JsonPropertyName("query")]
+    public ErpQuery? Query { get; set; }
+
+    /// <summary>Recommended next action, such as <c>sendable</c> or <c>retry_later</c>.</summary>
+    [JsonPropertyName("nextAction")]
+    public string NextAction { get; set; } = "";
+
+    /// <summary>Resolved company details. Null for a direct Peppol-ID lookup.</summary>
+    [JsonPropertyName("company")]
+    public ErpCompany? Company { get; set; }
+
+    /// <summary>Resolved Peppol participant and endpoint details.</summary>
+    [JsonPropertyName("participant")]
+    public ErpParticipant? Participant { get; set; }
+
+    /// <summary>Routing capability for the requested document type and process.</summary>
+    [JsonPropertyName("capability")]
+    public ErpCapability? Capability { get; set; }
+}
+
+/// <summary>Identifier used by the ERP participant resolver.</summary>
+public sealed class ErpQuery
+{
+    /// <summary>Lookup type, such as <c>ico</c>, <c>dic</c>, or <c>peppolId</c>.</summary>
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "";
+
+    /// <summary>Normalized lookup value.</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = "";
+}
+
+/// <summary>Company data enriched from the Slovak registries and Peppol directory.</summary>
+public sealed class ErpCompany
+{
+    /// <summary>Slovak business registration number.</summary>
+    [JsonPropertyName("ico")]
+    public string? Ico { get; set; }
+
+    /// <summary>Slovak tax identification number.</summary>
+    [JsonPropertyName("dic")]
+    public string? Dic { get; set; }
+
+    /// <summary>VAT identification number.</summary>
+    [JsonPropertyName("icDph")]
+    public string? IcDph { get; set; }
+
+    /// <summary>Legal company name.</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>Registered company address.</summary>
+    [JsonPropertyName("address")]
+    public PartyAddress? Address { get; set; }
+
+    /// <summary>Whether the company is active in the source registry.</summary>
+    [JsonPropertyName("active")]
+    public bool Active { get; set; }
+
+    /// <summary>Whether the company has a matching Peppol directory entry.</summary>
+    [JsonPropertyName("inPeppol")]
+    public bool InPeppol { get; set; }
+
+    /// <summary>Company-data source, such as <c>fs_tax_subjects</c> or <c>merged</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+}
+
+/// <summary>Resolved Peppol participant and routing endpoint.</summary>
+public sealed class ErpParticipant
+{
+    /// <summary>Normalized Peppol participant ID.</summary>
+    [JsonPropertyName("peppolId")]
+    public string? PeppolId { get; set; }
+
+    /// <summary>Peppol identifier scheme.</summary>
+    [JsonPropertyName("scheme")]
+    public string? Scheme { get; set; }
+
+    /// <summary>Identifier value within the scheme.</summary>
+    [JsonPropertyName("identifier")]
+    public string? Identifier { get; set; }
+
+    /// <summary>Whether the participant is registered on Peppol.</summary>
+    [JsonPropertyName("registered")]
+    public bool Registered { get; set; }
+
+    /// <summary>Lookup source, such as <c>sml</c> or <c>internal</c>.</summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>Resolved AS4 endpoint metadata.</summary>
+    [JsonPropertyName("accessPoint")]
+    public PeppolAccessPoint? AccessPoint { get; set; }
+
+    /// <summary>Resolved endpoint certificate metadata.</summary>
+    [JsonPropertyName("certificate")]
+    public PeppolCertificateInfo? Certificate { get; set; }
+
+    /// <summary>Document types advertised by the participant.</summary>
+    [JsonPropertyName("supportedDocumentTypes")]
+    public List<string>? SupportedDocumentTypes { get; set; }
+}
+
+/// <summary>Exact document/process routing capability resolved for the participant.</summary>
+public sealed class ErpCapability
+{
+    /// <summary>Peppol document type identifier that was checked.</summary>
+    [JsonPropertyName("documentTypeId")]
+    public string DocumentTypeId { get; set; } = "";
+
+    /// <summary>Peppol process identifier that was checked.</summary>
+    [JsonPropertyName("processId")]
+    public string ProcessId { get; set; } = "";
+
+    /// <summary>Whether the participant accepts the document/process pair.</summary>
+    [JsonPropertyName("accepts")]
+    public bool Accepts { get; set; }
+
+    /// <summary>Routing status, such as <c>ready</c> or <c>document_type_not_supported</c>.</summary>
+    [JsonPropertyName("routingStatus")]
+    public string? RoutingStatus { get; set; }
+
+    /// <summary>Whether the participant is registered and has a usable route.</summary>
+    [JsonPropertyName("networkReady")]
+    public bool NetworkReady { get; set; }
+}
