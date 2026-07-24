@@ -54,6 +54,15 @@ public final class SendDocumentRequest {
     /** Due date in ISO 8601 format (YYYY-MM-DD). */
     @SerializedName("dueDate")
     private final String dueDate;
+    /** VAT tax point date (BT-7) in ISO 8601 format (YYYY-MM-DD). */
+    @SerializedName("taxPointDate")
+    private final String taxPointDate;
+    /** Actual delivery date for the whole document (BT-72). */
+    @SerializedName("deliveryDate")
+    private final String deliveryDate;
+    /** Document-level discount percentage from 0 to 100. */
+    @SerializedName("documentDiscountPercent")
+    private final Double documentDiscountPercent;
     /** Currency code, e.g. {@code "EUR"}. Defaults to {@code "EUR"} if not set. */
     private final String currency;
     /** Optional note / payment instructions. */
@@ -135,6 +144,9 @@ public final class SendDocumentRequest {
         this.precedingInvoiceRef = builder.precedingInvoiceRef;
         this.issueDate = builder.issueDate;
         this.dueDate = builder.dueDate;
+        this.taxPointDate = builder.taxPointDate;
+        this.deliveryDate = builder.deliveryDate;
+        this.documentDiscountPercent = builder.documentDiscountPercent;
         this.currency = builder.currency;
         this.note = builder.note;
         this.iban = builder.iban;
@@ -197,6 +209,12 @@ public final class SendDocumentRequest {
     public String getIssueDate() { return issueDate; }
     /** @return the due date in ISO 8601 format */
     public String getDueDate() { return dueDate; }
+    /** @return the VAT tax point date (BT-7) */
+    public String getTaxPointDate() { return taxPointDate; }
+    /** @return the document-level actual delivery date (BT-72) */
+    public String getDeliveryDate() { return deliveryDate; }
+    /** @return the document-level discount percentage */
+    public Double getDocumentDiscountPercent() { return documentDiscountPercent; }
     /** @return the currency code */
     public String getCurrency() { return currency; }
     /** @return the optional note */
@@ -423,6 +441,12 @@ public final class SendDocumentRequest {
         private String issueDate;
         /** Due date (YYYY-MM-DD). */
         private String dueDate;
+        /** VAT tax point date (BT-7, YYYY-MM-DD). */
+        private String taxPointDate;
+        /** Actual delivery date for the whole document (BT-72). */
+        private String deliveryDate;
+        /** Document-level discount percentage from 0 to 100. */
+        private Double documentDiscountPercent;
         /** Currency code (e.g. "EUR"). */
         private String currency;
         /** Optional note. */
@@ -487,6 +511,9 @@ public final class SendDocumentRequest {
         public Builder issueDate(String issueDate) { this.issueDate = issueDate; return this; }
         /** @param dueDate the due date in YYYY-MM-DD format @return this builder */
         public Builder dueDate(String dueDate) { this.dueDate = dueDate; return this; }
+        public Builder taxPointDate(String taxPointDate) { this.taxPointDate = taxPointDate; return this; }
+        public Builder deliveryDate(String deliveryDate) { this.deliveryDate = deliveryDate; return this; }
+        public Builder documentDiscountPercent(Double documentDiscountPercent) { this.documentDiscountPercent = documentDiscountPercent; return this; }
         /** @param currency the ISO 4217 currency code, e.g. {@code "EUR"} @return this builder */
         public Builder currency(String currency) { this.currency = currency; return this; }
         /** @param note optional note or payment instructions @return this builder */

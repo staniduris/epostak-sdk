@@ -497,6 +497,9 @@ class ConnectorBusinessDocumentRequest(_ConnectorSubmitDocumentRequestRequired, 
     precedingDocumentNumber: str
     issueDate: str
     dueDate: str
+    taxPointDate: str
+    deliveryDate: str
+    documentDiscountPercent: float
     currency: str
     note: str
     iban: str
@@ -560,6 +563,9 @@ class ConnectorBusinessDocument(TypedDict, total=False):
     recipient: ConnectorBusinessParty
     issueDate: Optional[str]
     dueDate: Optional[str]
+    taxPointDate: Optional[str]
+    deliveryDate: Optional[str]
+    documentDiscountPercent: Optional[float]
     processedAt: Optional[str]
     processedReference: Optional[str]
     createdAt: Optional[str]
@@ -1036,6 +1042,9 @@ class _SendDocumentBase(TypedDict, total=False):
     precedingInvoiceRef: str  # Original invoice number corrected by a credit note
     issueDate: str  # Issue date in ISO 8601 / YYYY-MM-DD
     dueDate: str  # Payment due date in ISO 8601 / YYYY-MM-DD
+    taxPointDate: str  # VAT tax point date (BT-7), YYYY-MM-DD
+    deliveryDate: str  # Actual document delivery date (BT-72), YYYY-MM-DD
+    documentDiscountPercent: float  # type: ignore[misc]  # Document discount, 0-100
     currency: str  # ISO 4217 currency code, default "EUR"
     note: str  # Free-text note included in the document
     iban: str  # Seller bank account IBAN for payment

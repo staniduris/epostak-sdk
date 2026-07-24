@@ -63,6 +63,7 @@ module EPostak
       #
       # JSON mode also supports explicit receiver address fields
       # (+receiverStreet+, +receiverCity+, +receiverPostalCode+),
+      # +taxPointDate+, header +deliveryDate+, +documentDiscountPercent+,
       # +prepaidAmount+, structured +prepayments+, and advanced line-item
       # tax/classification fields such as +taxTreatment+, +vatCategoryCode+,
       # +deliveryDate+, +lineType+, +customsTariffCode+, and Slovak

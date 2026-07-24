@@ -411,7 +411,8 @@ class DocumentsResource(_BaseResource):
         JSON mode also supports explicit receiver address fields
         (``receiverStreet``, ``receiverCity``, ``receiverPostalCode``),
         ``prepaidAmount``, structured ``prepayments`` and advanced line-item
-        tax/classification fields such as ``taxTreatment``,
+        ``taxPointDate``, header ``deliveryDate``,
+        ``documentDiscountPercent``, and tax/classification fields such as ``taxTreatment``,
         ``vatCategoryCode``, ``deliveryDate``, ``lineType``,
         ``customsTariffCode`` and Slovak control-statement fields. Do not
         combine ``prepayments``/``prepaidAmount`` with

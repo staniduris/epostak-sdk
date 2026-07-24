@@ -15,6 +15,9 @@ public final class ConnectorBusinessDocumentRequest {
     private String precedingDocumentNumber;
     private String issueDate;
     private String dueDate;
+    private String taxPointDate;
+    private String deliveryDate;
+    private Double documentDiscountPercent;
     private String currency;
     private String note;
     private String iban;
@@ -51,6 +54,9 @@ public final class ConnectorBusinessDocumentRequest {
     public ConnectorBusinessDocumentRequest precedingDocumentNumber(String value) { this.precedingDocumentNumber = value; return this; }
     public ConnectorBusinessDocumentRequest issueDate(String value) { this.issueDate = value; return this; }
     public ConnectorBusinessDocumentRequest dueDate(String value) { this.dueDate = value; return this; }
+    public ConnectorBusinessDocumentRequest taxPointDate(String value) { this.taxPointDate = value; return this; }
+    public ConnectorBusinessDocumentRequest deliveryDate(String value) { this.deliveryDate = value; return this; }
+    public ConnectorBusinessDocumentRequest documentDiscountPercent(Double value) { this.documentDiscountPercent = value; return this; }
     public ConnectorBusinessDocumentRequest currency(String value) { this.currency = value; return this; }
     public ConnectorBusinessDocumentRequest note(String value) { this.note = value; return this; }
     public ConnectorBusinessDocumentRequest iban(String value) { this.iban = value; return this; }
@@ -83,6 +89,9 @@ public final class ConnectorBusinessDocumentRequest {
         put(body, "precedingDocumentNumber", precedingDocumentNumber);
         put(body, "issueDate", issueDate);
         put(body, "dueDate", dueDate);
+        put(body, "taxPointDate", taxPointDate);
+        put(body, "deliveryDate", deliveryDate);
+        put(body, "documentDiscountPercent", documentDiscountPercent);
         put(body, "currency", currency);
         put(body, "note", note);
         put(body, "iban", iban);

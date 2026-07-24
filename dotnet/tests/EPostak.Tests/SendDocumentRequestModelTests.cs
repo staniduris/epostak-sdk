@@ -22,6 +22,9 @@ public sealed class SendDocumentRequestModelTests
             ReceiverStreet = "Hlavna 1",
             ReceiverCity = "Bratislava",
             ReceiverPostalCode = "81101",
+            TaxPointDate = "2026-04-01",
+            DeliveryDate = "2026-03-31",
+            DocumentDiscountPercent = 5,
             PrepaidAmount = 1230,
             Prepayments =
             [
@@ -66,6 +69,9 @@ public sealed class SendDocumentRequestModelTests
         Assert.Contains("\"receiverStreet\":\"Hlavna 1\"", json);
         Assert.Contains("\"receiverCity\":\"Bratislava\"", json);
         Assert.Contains("\"receiverPostalCode\":\"81101\"", json);
+        Assert.Contains("\"taxPointDate\":\"2026-04-01\"", json);
+        Assert.Contains("\"deliveryDate\":\"2026-03-31\"", json);
+        Assert.Contains("\"documentDiscountPercent\":5", json);
         Assert.Contains("\"prepaidAmount\":1230", json);
         Assert.Contains("\"advanceInvoiceRef\":\"ZAL-2026-0004\"", json);
         Assert.Contains("\"amountWithVat\":1230", json);
@@ -93,9 +99,9 @@ public sealed class SendDocumentRequestModelTests
                 new LineItem
                 {
                     Description = "Zuctovanie zalohy",
-                    Quantity = 1,
+                    Quantity = -1,
                     Unit = "C62",
-                    UnitPrice = -1000,
+                    UnitPrice = 1000,
                     VatRate = 23,
                     LineType = "advance_deduction",
                     AdvanceInvoiceReference = "ZF-2026-001"

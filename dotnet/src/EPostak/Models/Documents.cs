@@ -378,6 +378,18 @@ public sealed class Document
     [JsonPropertyName("dueDate")]
     public string? DueDate { get; set; }
 
+    /// <summary>VAT tax point date (BT-7) in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("taxPointDate")]
+    public string? TaxPointDate { get; set; }
+
+    /// <summary>Actual delivery date for the whole document (BT-72).</summary>
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    /// <summary>Document-level discount percentage from 0 to 100.</summary>
+    [JsonPropertyName("documentDiscountPercent")]
+    public decimal? DocumentDiscountPercent { get; set; }
+
     /// <summary>ISO 4217 currency code (e.g. "EUR", "CZK", "USD").</summary>
     [JsonPropertyName("currency")]
     public string Currency { get; set; } = "";
@@ -452,6 +464,18 @@ public sealed class SendDocumentRequest
     /// <summary>Payment due date in YYYY-MM-DD format.</summary>
     [JsonPropertyName("dueDate")]
     public string? DueDate { get; set; }
+
+    /// <summary>VAT tax point date (Peppol BT-7) in YYYY-MM-DD format.</summary>
+    [JsonPropertyName("taxPointDate")]
+    public string? TaxPointDate { get; set; }
+
+    /// <summary>Document-level actual delivery date (Peppol BT-72).</summary>
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    /// <summary>Document-level percentage discount from 0 to 100.</summary>
+    [JsonPropertyName("documentDiscountPercent")]
+    public decimal? DocumentDiscountPercent { get; set; }
 
     /// <summary>ISO 4217 currency code (e.g. "EUR"). Defaults to "EUR".</summary>
     [JsonPropertyName("currency")]

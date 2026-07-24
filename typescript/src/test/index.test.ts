@@ -434,6 +434,9 @@ describe("UblValidationError", () => {
       receiverStreet: "Hlavna 1",
       receiverCity: "Bratislava",
       receiverPostalCode: "81101",
+      taxPointDate: "2026-04-01",
+      deliveryDate: "2026-03-31",
+      documentDiscountPercent: 5,
       prepaidAmount: 1230,
       prepayments: [
         {
@@ -474,6 +477,9 @@ describe("UblValidationError", () => {
       receiverStreet: "Hlavna 1",
       receiverCity: "Bratislava",
       receiverPostalCode: "81101",
+      taxPointDate: "2026-04-01",
+      deliveryDate: "2026-03-31",
+      documentDiscountPercent: 5,
       prepaidAmount: 1230,
       prepayments: [
         {
@@ -587,9 +593,9 @@ describe("UblValidationError", () => {
       items: [
         {
           description: "Zuctovanie zalohy",
-          quantity: 1,
+          quantity: -1,
           unit: "C62",
-          unitPrice: -1000,
+          unitPrice: 1000,
           vatRate: 23,
           lineType: "advance_deduction",
           advanceInvoiceReference: "ZF-2026-001",
@@ -603,9 +609,9 @@ describe("UblValidationError", () => {
       items: [
         {
           description: "Zuctovanie zalohy",
-          quantity: 1,
+          quantity: -1,
           unit: "C62",
-          unitPrice: -1000,
+          unitPrice: 1000,
           vatRate: 23,
           lineType: "advance_deduction",
           advanceInvoiceReference: "ZF-2026-001",
@@ -1452,6 +1458,9 @@ describe("major release workflow namespaces", () => {
         externalId: "FA-STAGE-1",
         type: "invoice",
         number: "FA-STAGE-1",
+        taxPointDate: "2026-07-13",
+        deliveryDate: "2026-07-12",
+        documentDiscountPercent: 5,
         recipient: { country: "SK", taxId: "2120123456" },
         lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
       },
@@ -1485,6 +1494,9 @@ describe("major release workflow namespaces", () => {
       externalId: "FA-STAGE-1",
       type: "invoice",
       number: "FA-STAGE-1",
+      taxPointDate: "2026-07-13",
+      deliveryDate: "2026-07-12",
+      documentDiscountPercent: 5,
       recipient: { country: "SK", taxId: "2120123456" },
       lines: [{ description: "Licence", quantity: 1, unitPrice: 100, vatRate: 23 }],
       customerRef: "erp-customer-1",

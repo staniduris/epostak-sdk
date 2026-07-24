@@ -539,7 +539,7 @@ public sealed class ConnectorFirmScopeTests
     {
         var handler = new CaptureHandler(request =>
             request.RequestUri?.AbsolutePath == "/api/v1/connector/documents"
-                ? """{"id":"11111111-1111-1111-1111-111111111111","customerRef":"erp-customer-1","externalId":"FA-1","direction":"outbound","type":"invoice","number":"FA-1","state":"queued","replayed":false,"currency":"EUR","amounts":{"withoutTax":100,"tax":23,"total":123,"due":73},"sender":{"name":"Sender","country":"SK","companyId":"12345678","resolution":"verified"},"recipient":{"name":"Buyer","country":"SK","taxId":"2120123456","resolution":"verified"},"issueDate":"2026-07-14","dueDate":"2026-07-28","processedAt":"2026-07-14T10:00:00Z","processedReference":"ERP-OK","createdAt":"2026-07-14T09:00:00Z","updatedAt":"2026-07-14T10:00:00Z","response":{"status":"accepted","direction":"sent","reason":"Approved","respondedAt":"2026-07-15T12:00:00Z"},"links":{"self":"/connector/documents/1"}}"""
+                ? """{"id":"11111111-1111-1111-1111-111111111111","customerRef":"erp-customer-1","externalId":"FA-1","direction":"outbound","type":"invoice","number":"FA-1","state":"queued","replayed":false,"currency":"EUR","amounts":{"withoutTax":100,"tax":23,"total":123,"due":73},"sender":{"name":"Sender","country":"SK","companyId":"12345678","resolution":"verified"},"recipient":{"name":"Buyer","country":"SK","taxId":"2120123456","resolution":"verified"},"issueDate":"2026-07-14","dueDate":"2026-07-28","taxPointDate":"2026-07-13","deliveryDate":"2026-07-12","documentDiscountPercent":5,"processedAt":"2026-07-14T10:00:00Z","processedReference":"ERP-OK","createdAt":"2026-07-14T09:00:00Z","updatedAt":"2026-07-14T10:00:00Z","response":{"status":"accepted","direction":"sent","reason":"Approved","respondedAt":"2026-07-15T12:00:00Z"},"links":{"self":"/connector/documents/1"}}"""
                 : "{}");
         using var http = new HttpClient(handler);
         var client = CreateClient(http);
@@ -548,6 +548,9 @@ public sealed class ConnectorFirmScopeTests
             ExternalId = "FA-1",
             Number = "FA-1",
             BuyerReference = "PO-7",
+            TaxPointDate = "2026-07-13",
+            DeliveryDate = "2026-07-12",
+            DocumentDiscountPercent = 5,
             PrepaidAmount = 50,
             Recipient = new ConnectorBusinessRecipient
             {
@@ -577,10 +580,16 @@ public sealed class ConnectorFirmScopeTests
         Assert.Contains("\"address\":{", sent.Body);
         Assert.Contains("\"discount\":5", sent.Body);
         Assert.Contains("\"deliveryDate\":\"2026-07-14\"", sent.Body);
+        Assert.Contains("\"taxPointDate\":\"2026-07-13\"", sent.Body);
+        Assert.Contains("\"deliveryDate\":\"2026-07-12\"", sent.Body);
+        Assert.Contains("\"documentDiscountPercent\":5", sent.Body);
         Assert.Contains("\"attachments\":[", sent.Body);
         Assert.Equal(73, result.Amounts?.Due);
         Assert.Equal("Sender", result.Sender?.Name);
         Assert.Equal("2026-07-14", result.IssueDate);
+        Assert.Equal("2026-07-13", result.TaxPointDate);
+        Assert.Equal("2026-07-12", result.DeliveryDate);
+        Assert.Equal(5, result.DocumentDiscountPercent);
         Assert.Equal("ERP-OK", result.ProcessedReference);
         Assert.Equal("accepted", result.Response?.Status);
         Assert.Equal("sent", result.Response?.Direction);

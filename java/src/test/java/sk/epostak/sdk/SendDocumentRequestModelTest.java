@@ -18,6 +18,9 @@ final class SendDocumentRequestModelTest {
                 .receiverStreet("Hlavna 1")
                 .receiverCity("Bratislava")
                 .receiverPostalCode("81101")
+                .taxPointDate("2026-04-01")
+                .deliveryDate("2026-03-31")
+                .documentDiscountPercent(5.0)
                 .prepaidAmount(1230.0)
                 .prepayments(List.of(new SendDocumentRequest.Prepayment(
                         "ZAL-2026-0004",
@@ -58,6 +61,12 @@ final class SendDocumentRequestModelTest {
         assertEquals(true, json.contains("\"receiverStreet\":\"Hlavna 1\""));
         assertEquals(true, json.contains("\"receiverCity\":\"Bratislava\""));
         assertEquals(true, json.contains("\"receiverPostalCode\":\"81101\""));
+        assertEquals(true, json.contains("\"taxPointDate\":\"2026-04-01\""));
+        assertEquals(true, json.contains("\"deliveryDate\":\"2026-03-31\""));
+        assertEquals(true, json.contains("\"documentDiscountPercent\":5.0"));
+        assertEquals("2026-04-01", request.getTaxPointDate());
+        assertEquals("2026-03-31", request.getDeliveryDate());
+        assertEquals(5.0, request.getDocumentDiscountPercent());
         assertEquals(true, json.contains("\"prepaidAmount\":1230.0"));
         assertEquals(true, json.contains("\"advanceInvoiceRef\":\"ZAL-2026-0004\""));
         assertEquals(true, json.contains("\"amountWithVat\":1230.0"));
@@ -81,9 +90,9 @@ final class SendDocumentRequestModelTest {
                 .receiverName("Zakaznik s.r.o.")
                 .items(List.of(new SendDocumentRequest.LineItem(
                         "Zuctovanie zalohy",
-                        1,
+                        -1,
                         "C62",
-                        -1000,
+                        1000,
                         23,
                         null,
                         null,

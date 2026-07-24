@@ -94,7 +94,8 @@ public final class DocumentsResource {
      * <p>
      * JSON mode also supports explicit receiver address fields,
      * {@code prepaidAmount}, structured {@code prepayments}, and advanced
-     * line-item tax/classification fields such as {@code taxTreatment},
+     * {@code taxPointDate}, header {@code deliveryDate},
+     * {@code documentDiscountPercent}, and line-item tax/classification fields such as {@code taxTreatment},
      * {@code vatCategoryCode}, {@code deliveryDate}, {@code lineType},
      * {@code customsTariffCode}, and Slovak control-statement fields. Do not
      * combine {@code prepayments}/{@code prepaidAmount} with

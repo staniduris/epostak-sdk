@@ -435,6 +435,9 @@ final class ConnectorFirmScopeTest {
                             "UNSPSC", null, "A1", 1.0, "C62"
                     ))
             ).buyerReference("PO-7")
+                    .taxPointDate("2026-07-13")
+                    .deliveryDate("2026-07-12")
+                    .documentDiscountPercent(5.0)
                     .prepaidAmount(50.0)
                     .prepayments(List.of(new ConnectorBusinessPrepayment(
                             "ADV-1", "TAX-1", "2026-07-01", 40.65, 9.35, 50, 23.0, "standard"
@@ -449,16 +452,22 @@ final class ConnectorFirmScopeTest {
             assertEquals(true, body.contains("\"address\""));
             assertEquals(true, body.contains("\"discount\":5.0"));
             assertEquals(true, body.contains("\"deliveryDate\":\"2026-07-14\""));
+            assertEquals(true, body.contains("\"taxPointDate\":\"2026-07-13\""));
+            assertEquals(true, body.contains("\"deliveryDate\":\"2026-07-12\""));
+            assertEquals(true, body.contains("\"documentDiscountPercent\":5.0"));
             assertEquals(true, body.contains("\"prepayments\""));
             assertEquals(true, body.contains("\"attachments\""));
         }
 
         ConnectorBusinessDocument response = new Gson().fromJson("""
-                {"id":"11111111-1111-1111-1111-111111111111","customerRef":"erp-customer-1","externalId":"FA-1","direction":"outbound","type":"invoice","number":"FA-1","state":"queued","replayed":false,"currency":"EUR","amounts":{"withoutTax":100,"tax":23,"total":123,"due":73},"sender":{"name":"Sender","country":"SK","companyId":"12345678","resolution":"verified"},"recipient":{"name":"Buyer","country":"SK","taxId":"2120123456","resolution":"verified"},"issueDate":"2026-07-14","dueDate":"2026-07-28","processedAt":"2026-07-14T10:00:00Z","processedReference":"ERP-OK","createdAt":"2026-07-14T09:00:00Z","updatedAt":"2026-07-14T10:00:00Z","response":{"status":"accepted","direction":"sent","reason":"Approved","respondedAt":"2026-07-15T12:00:00Z"},"links":{"self":"/connector/documents/1"}}
+                {"id":"11111111-1111-1111-1111-111111111111","customerRef":"erp-customer-1","externalId":"FA-1","direction":"outbound","type":"invoice","number":"FA-1","state":"queued","replayed":false,"currency":"EUR","amounts":{"withoutTax":100,"tax":23,"total":123,"due":73},"sender":{"name":"Sender","country":"SK","companyId":"12345678","resolution":"verified"},"recipient":{"name":"Buyer","country":"SK","taxId":"2120123456","resolution":"verified"},"issueDate":"2026-07-14","dueDate":"2026-07-28","taxPointDate":"2026-07-13","deliveryDate":"2026-07-12","documentDiscountPercent":5,"processedAt":"2026-07-14T10:00:00Z","processedReference":"ERP-OK","createdAt":"2026-07-14T09:00:00Z","updatedAt":"2026-07-14T10:00:00Z","response":{"status":"accepted","direction":"sent","reason":"Approved","respondedAt":"2026-07-15T12:00:00Z"},"links":{"self":"/connector/documents/1"}}
                 """, ConnectorBusinessDocument.class);
         assertEquals(73.0, response.amounts().due());
         assertEquals("Sender", response.sender().name());
         assertEquals("2026-07-14", response.issueDate());
+        assertEquals("2026-07-13", response.taxPointDate());
+        assertEquals("2026-07-12", response.deliveryDate());
+        assertEquals(5.0, response.documentDiscountPercent());
         assertEquals("ERP-OK", response.processedReference());
         assertEquals("accepted", response.response().status());
         assertEquals("sent", response.response().direction());

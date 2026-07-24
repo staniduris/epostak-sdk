@@ -71,6 +71,7 @@ public sealed class DocumentsResource
     /// </para>
     /// <para>
     /// JSON mode also supports explicit receiver address fields, <c>PrepaidAmount</c>,
+    /// <c>TaxPointDate</c>, header <c>DeliveryDate</c>, <c>DocumentDiscountPercent</c>,
     /// structured <c>Prepayments</c>, and advanced line-item tax/classification fields
     /// such as <c>TaxTreatment</c>, <c>VatCategoryCode</c>, <c>DeliveryDate</c>,
     /// <c>LineType</c>, <c>CustomsTariffCode</c>, and Slovak control-statement fields.

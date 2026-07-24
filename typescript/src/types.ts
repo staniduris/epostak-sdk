@@ -419,6 +419,12 @@ export interface ConnectorBusinessDocumentRequest {
   recipient: ConnectorBusinessRecipient;
   issueDate?: string;
   dueDate?: string;
+  /** VAT tax point date (Peppol BT-7), YYYY-MM-DD */
+  taxPointDate?: string;
+  /** Actual delivery date for the whole document (Peppol BT-72), YYYY-MM-DD */
+  deliveryDate?: string;
+  /** Document-level discount percentage, from 0 to 100 */
+  documentDiscountPercent?: number;
   currency?: string;
   note?: string;
   iban?: string;
@@ -477,6 +483,9 @@ export interface ConnectorBusinessDocument {
   recipient: ConnectorBusinessParty;
   issueDate?: string | null;
   dueDate?: string | null;
+  taxPointDate?: string | null;
+  deliveryDate?: string | null;
+  documentDiscountPercent?: number | null;
   processedAt?: string | null;
   processedReference?: string | null;
   replayed?: boolean;
@@ -1152,6 +1161,12 @@ export interface SendDocumentJsonRequest {
   issueDate?: string;
   /** Payment due date in `YYYY-MM-DD` format */
   dueDate?: string;
+  /** VAT tax point date (BT-7) in `YYYY-MM-DD` format */
+  taxPointDate?: string;
+  /** Actual delivery date for the whole document (BT-72) */
+  deliveryDate?: string;
+  /** Document-level discount percentage, from 0 to 100 */
+  documentDiscountPercent?: number;
   /** ISO 4217 currency code (e.g. `"EUR"`, `"CZK"`) — defaults to `"EUR"` */
   currency?: string;
   /** Free-text note included in the invoice (e.g. payment terms, thank-you message) */

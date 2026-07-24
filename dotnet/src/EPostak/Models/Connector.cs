@@ -81,6 +81,15 @@ public sealed class ConnectorBusinessDocumentRequest
     [JsonPropertyName("dueDate")]
     public string? DueDate { get; set; }
 
+    [JsonPropertyName("taxPointDate")]
+    public string? TaxPointDate { get; set; }
+
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    [JsonPropertyName("documentDiscountPercent")]
+    public decimal? DocumentDiscountPercent { get; set; }
+
     [JsonPropertyName("currency")]
     public string? Currency { get; set; }
 
@@ -287,6 +296,15 @@ public sealed class ConnectorBusinessDocument
 
     [JsonPropertyName("dueDate")]
     public string? DueDate { get; set; }
+
+    [JsonPropertyName("taxPointDate")]
+    public string? TaxPointDate { get; set; }
+
+    [JsonPropertyName("deliveryDate")]
+    public string? DeliveryDate { get; set; }
+
+    [JsonPropertyName("documentDiscountPercent")]
+    public decimal? DocumentDiscountPercent { get; set; }
 
     [JsonPropertyName("processedAt")]
     public string? ProcessedAt { get; set; }

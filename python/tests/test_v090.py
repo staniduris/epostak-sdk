@@ -926,6 +926,9 @@ def test_connector_business_model_fixture_and_advanced_document_home():
         "externalId": "FA-1",
         "number": "FA-1",
         "buyerReference": "PO-7",
+        "taxPointDate": "2026-07-13",
+        "deliveryDate": "2026-07-12",
+        "documentDiscountPercent": 5,
         "prepaidAmount": 50,
         "recipient": {
             "country": "SK",
@@ -954,6 +957,9 @@ def test_connector_business_model_fixture_and_advanced_document_home():
         "recipient": {"name": "Buyer", "country": "SK", "resolution": "verified"},
         "issueDate": "2026-07-14",
         "dueDate": "2026-07-28",
+        "taxPointDate": "2026-07-13",
+        "deliveryDate": "2026-07-12",
+        "documentDiscountPercent": 5,
         "processedAt": "2026-07-14T10:00:00Z",
         "processedReference": "ERP-OK",
     }
@@ -961,8 +967,14 @@ def test_connector_business_model_fixture_and_advanced_document_home():
         result = client.connector.customers.for_customer("erp-customer-1").documents.send(body)
     assert mock_req.call_args.kwargs["json"]["recipient"]["address"]["city"] == "Bratislava"
     assert mock_req.call_args.kwargs["json"]["lines"][0]["discount"] == 5
+    assert mock_req.call_args.kwargs["json"]["taxPointDate"] == "2026-07-13"
+    assert mock_req.call_args.kwargs["json"]["deliveryDate"] == "2026-07-12"
+    assert mock_req.call_args.kwargs["json"]["documentDiscountPercent"] == 5
     assert result["amounts"]["due"] == 73
     assert result["sender"]["name"] == "Sender"
+    assert result["taxPointDate"] == "2026-07-13"
+    assert result["deliveryDate"] == "2026-07-12"
+    assert result["documentDiscountPercent"] == 5
     assert result["processedReference"] == "ERP-OK"
 
     customer = client.connector.customers.for_customer("erp-customer-1")
