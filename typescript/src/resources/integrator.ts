@@ -49,11 +49,9 @@ export class IntegratorKeysResource extends BaseResource {
 /**
  * `GET /api/v1/integrator/licenses/info` and friends.
  *
- * Tier rates are applied to the AGGREGATE document count across all the
- * integrator's `integrator-managed` firms — not per-firm. A 100-firm × 50-doc
- * integrator lands in tier 2–3, not tier 1 like a standalone firm would.
- * Volumes above `contactThreshold` (5 000) flip `exceedsAutoTier` to `true`,
- * auto-billing pauses there and sales handles the contract manually.
+ * Progressive rates are applied separately to aggregate outbound and inbound
+ * counts across the integrator's production `integrator-managed` firms.
+ * Managed sandbox usage is returned separately and excluded from billing.
  */
 export class IntegratorLicensesResource extends BaseResource {
   /**
@@ -61,15 +59,13 @@ export class IntegratorLicensesResource extends BaseResource {
    * manages. Requires `account:read` scope on a `sk_int_*` key.
    *
    * @param params - Optional `offset` / `limit` for the per-firm breakdown
-   * @returns Plan, period, billable aggregate, non-managed aggregate, tiers,
-   *          and a paginated per-firm list (sorted by outbound count desc).
+   * @returns Plan, period, billed and sandbox aggregates, a production
+   *          estimate, signed pricing projection, and paginated firm rows.
    *
    * @example
    * ```ts
    * const usage = await client.integrator.licenses.info({ limit: 100 });
-   * if (usage.exceedsAutoTier) {
-   *   // sales review required — auto-billing has paused
-   * }
+   * console.log(usage.pricing.scheduleVersion, usage.productionEstimate.totalCharge);
    * ```
    */
   info(params?: IntegratorLicenseInfoParams): Promise<IntegratorLicenseInfo> {

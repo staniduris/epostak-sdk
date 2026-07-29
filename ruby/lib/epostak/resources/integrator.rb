@@ -54,11 +54,9 @@ module EPostak
 
     # +/integrator/licenses/*+ -- billing aggregate views.
     #
-    # Tier rates are applied to the AGGREGATE document count across all the
-    # integrator's +integrator-managed+ firms. A 100-firm x 50-doc integrator
-    # lands in tier 2-3, not tier 1 like a standalone firm would. Volumes
-    # above +contactThreshold+ (5 000 / month) flip +exceedsAutoTier+ to
-    # +true+; auto-billing pauses there and sales handles invoicing manually.
+    # Progressive rates are applied separately to aggregate outbound and
+    # inbound usage. Managed sandbox firms are returned separately and excluded
+    # from the billed aggregate.
     class IntegratorLicenses
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
@@ -76,17 +74,16 @@ module EPostak
       # @param limit [Integer] Page size for the per-firm list, max 100
       #   (default 50).
       # @return [Hash] Response with +integrator+, +period+, +nextResetAt+,
-      #   +billable+ (managed-plan aggregate + tier-applied charges),
-      #   +nonManaged+, +exceedsAutoTier+, +contactThreshold+,
-      #   +pricing+ ({+outboundTiers+, +inboundApiTiers+}), paginated +firms+
+      #   +billable+, +sandbox+, +productionEstimate+, +nonManaged+,
+      #   +exceedsAutoTier+, +contactThreshold+, +pricing+
+      #   ({+scheduleVersion+, +thresholdScope+, +marginalBandStartsAt+,
+      #   +outboundTiers+, +inboundApiTiers+}), paginated +firms+
       #   rows, and +pagination+.
       # @raise [EPostak::Error] On API error
       #
       # @example
       #   usage = client.integrator.licenses.info(limit: 100)
-      #   if usage["exceedsAutoTier"]
-      #     # sales review required, auto-billing has paused
-      #   end
+      #   puts usage["pricing"]["scheduleVersion"]
       def info(offset: 0, limit: 50)
         @http.request(:get, "/integrator/licenses/info", query: { offset: offset, limit: limit })
       end

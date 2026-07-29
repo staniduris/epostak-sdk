@@ -1,5 +1,16 @@
 # Changelog
 
+## [Integrator pricing V1.2 drift sync] — 2026-07-29
+
+- Aligned all six SDKs with the current integrator license response: billed,
+  sandbox, and production-estimate aggregates; per-firm billing flags and
+  rebilling estimates; and the signed progressive pricing projection.
+- Removed the stale 5,000-document manual-sales behavior from SDK types and
+  docs. The open 20,001+ marginal band now carries a non-null public rate, and
+  callers use `contactRequired` from the signed schedule.
+- Extended the live contract gate to verify the V1.2 pricing metadata and
+  non-null tier-rate contract.
+
 ## [.NET typed preflight and ERP resolve] — 2026-07-21
 
 - Added `UblDocument` to the .NET `PreflightRequest` and aligned

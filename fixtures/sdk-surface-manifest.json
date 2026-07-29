@@ -110,6 +110,36 @@
       "name": ".NET Enterprise 1.6 billing models",
       "file": "dotnet/src/EPostak/Models/Documents.cs",
       "contains": ["JsonPropertyName(\"processId\")", "JsonPropertyName(\"supplierPeppolId\")", "JsonPropertyName(\"precedingInvoiceRef\")", "JsonPropertyName(\"taxPointDate\")", "JsonPropertyName(\"documentDiscountPercent\")", "JsonPropertyName(\"duplicate\")", "JsonPropertyName(\"payloadSha256\")", "JsonPropertyName(\"process_id\")", "DocumentEventsPagination"]
+    },
+    {
+      "name": "TypeScript integrator pricing V1.2",
+      "file": "typescript/src/types.ts",
+      "contains": ["IntegratorSandboxUsage", "maximumActiveFirms", "productionEstimate", "rebillingEstimate", "scheduleVersion", "thresholdScope", "contactThreshold: number", "marginalBandStartsAt", "model: \"progressive\"", "rate: number;"]
+    },
+    {
+      "name": "Python integrator pricing V1.2",
+      "file": "python/src/epostak/types.py",
+      "contains": ["IntegratorSandboxUsage", "maximumActiveFirms", "productionEstimate", "rebillingEstimate", "scheduleVersion", "thresholdScope", "marginalBandStartsAt", "model: str  # \"progressive\"", "rate: float"]
+    },
+    {
+      "name": "PHP integrator pricing V1.2",
+      "file": "php/src/Resources/Integrator.php",
+      "contains": ["`sandbox`", "`productionEstimate`", "scheduleVersion", "thresholdScope", "marginalBandStartsAt"]
+    },
+    {
+      "name": "Ruby integrator pricing V1.2",
+      "file": "ruby/lib/epostak/resources/integrator.rb",
+      "contains": ["+sandbox+", "+productionEstimate+", "+scheduleVersion+", "+thresholdScope+", "+marginalBandStartsAt+"]
+    },
+    {
+      "name": "Java integrator pricing V1.2",
+      "file": "java/src/main/java/sk/epostak/sdk/models/IntegratorLicenseInfo.java",
+      "contains": ["Sandbox sandbox", "Billable productionEstimate", "maximumActiveFirms", "RebillingEstimate rebillingEstimate", "String scheduleVersion", "String thresholdScope", "int marginalBandStartsAt", "double rate"]
+    },
+    {
+      "name": ".NET integrator pricing V1.2",
+      "file": "dotnet/src/EPostak/Models/Integrator.cs",
+      "contains": ["IntegratorSandboxUsage", "JsonPropertyName(\"maximumActiveFirms\")", "JsonPropertyName(\"productionEstimate\")", "JsonPropertyName(\"rebillingEstimate\")", "JsonPropertyName(\"scheduleVersion\")", "JsonPropertyName(\"thresholdScope\")", "JsonPropertyName(\"marginalBandStartsAt\")", "public decimal Rate"]
     }
   ],
   "stableSurfaces": [

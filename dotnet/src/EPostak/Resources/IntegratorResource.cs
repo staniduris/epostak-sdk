@@ -18,8 +18,7 @@ namespace EPostak.Resources;
 /// var info = await integrator.Integrator.Licenses.InfoAsync();
 /// Console.WriteLine($"Managed firms: {info.Billable.ManagedFirms}");
 /// Console.WriteLine($"Outbound charge: {info.Billable.OutboundCharge} EUR");
-/// if (info.ExceedsAutoTier)
-///     Console.WriteLine("Manual review – sales handles invoicing");
+/// Console.WriteLine($"Schedule: {info.Pricing.ScheduleVersion}");
 /// </code>
 /// </example>
 public sealed class IntegratorResource
@@ -64,9 +63,8 @@ public sealed class IntegratorKeysResource
 /// <summary>
 /// <c>/integrator/licenses/*</c> — billing aggregate views.
 /// <para>
-/// Volumes above <c>contactThreshold</c> (5 000 / month) flip
-/// <see cref="IntegratorLicenseInfo.ExceedsAutoTier"/> to <c>true</c>;
-/// auto-billing pauses and sales handles invoicing manually.
+/// Progressive rates apply separately to aggregate outbound and inbound usage.
+/// Managed sandbox usage is returned separately and excluded from billing.
 /// </para>
 /// </summary>
 public sealed class IntegratorLicensesResource

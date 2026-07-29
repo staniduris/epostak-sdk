@@ -273,6 +273,7 @@ export type {
   DeactivateIntegratorKeyResponse,
   IntegratorPricingTier,
   IntegratorBillableUsage,
+  IntegratorSandboxUsage,
   IntegratorNonManagedUsage,
   IntegratorFirmUsage,
   // Extract

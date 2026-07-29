@@ -31,14 +31,9 @@ class IntegratorLicensesResource(_BaseResource):
     ) -> IntegratorLicenseInfo:
         """Aggregate plan + current-period usage across managed firms.
 
-        Wraps ``GET /api/v1/integrator/licenses/info``. Tier rates are applied
-        to the AGGREGATE document count (not per-firm summed) — a 100-firm ×
-        50-doc integrator lands in tier 2-3, not tier 1 like a standalone
-        firm would.
-
-        Volumes above ``contactThreshold`` (5 000 / month) flip
-        ``exceedsAutoTier`` to ``True``; auto-billing pauses there and sales
-        handles invoicing manually.
+        Wraps ``GET /api/v1/integrator/licenses/info``. Progressive rates are
+        applied separately to aggregate outbound and inbound usage. Managed
+        sandbox firms are reported separately and excluded from billing.
 
         Args:
             offset: Pagination offset for the per-firm list (default 0).
@@ -46,7 +41,8 @@ class IntegratorLicensesResource(_BaseResource):
 
         Returns:
             Dict with ``integrator``, ``period``, ``nextResetAt``,
-            ``billable`` (managed-plan aggregate + tier-applied charges),
+            ``billable`` (production aggregate + contract charges),
+            ``sandbox`` and ``productionEstimate``,
             ``nonManaged`` (firms paying their own plan),
             ``exceedsAutoTier``, ``contactThreshold``, ``pricing``,
             ``firms`` (paginated per-firm rows), and ``pagination``.
@@ -57,9 +53,7 @@ class IntegratorLicensesResource(_BaseResource):
         Example::
 
             usage = client.integrator.licenses.info(limit=100)
-            if usage["exceedsAutoTier"]:
-                # sales review required, auto-billing has paused
-                ...
+            print(usage["pricing"]["scheduleVersion"])
             print(usage["billable"]["totalCharge"], "EUR this month")
         """
         params = _build_query({"offset": offset, "limit": limit})

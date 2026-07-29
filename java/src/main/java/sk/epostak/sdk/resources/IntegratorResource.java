@@ -25,9 +25,7 @@ import java.util.Map;
  * IntegratorLicenseInfo info = client.integrator().licenses().info();
  * System.out.println("Managed firms: " + info.billable().managedFirms());
  * System.out.println("Outbound charge: " + info.billable().outboundCharge() + " EUR");
- * if (info.exceedsAutoTier()) {
- *     System.out.println("Manual review - sales handles invoicing");
- * }
+ * System.out.println("Schedule: " + info.pricing().scheduleVersion());
  * }</pre>
  */
 public final class IntegratorResource {
@@ -115,10 +113,9 @@ public final class IntegratorResource {
          * integrator manages, plus a per-firm breakdown for the first page
          * of firms (sorted by outbound count, descending).
          * <p>
-         * Tier rates are applied to the AGGREGATE document count, not
-         * per-firm. Above {@code 5000} outbound or inbound documents per
-         * month, {@code exceedsAutoTier} flips to {@code true}, auto-billing
-         * pauses, and sales handles invoicing manually.
+         * Progressive rates apply separately to aggregate outbound and inbound
+         * usage. Managed sandbox firms are returned separately and excluded
+         * from billing.
          * <p>
          * Requires an {@code sk_int_*} integrator key with the
          * {@code account:read} scope. The endpoint is integrator-scoped, so

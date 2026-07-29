@@ -195,6 +195,35 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
+  const licenseInfoSchema =
+    current.paths?.["/integrator/licenses/info"]?.get?.responses?.["200"]
+      ?.content?.["application/json"]?.schema;
+  const licensePricingProperties = licenseInfoSchema?.properties?.pricing?.properties;
+  for (const property of [
+    "scheduleVersion",
+    "model",
+    "currency",
+    "thresholdScope",
+    "marginalBandStartsAt",
+    "outboundTiers",
+    "inboundApiTiers",
+  ]) {
+    if (!Object.hasOwn(licensePricingProperties ?? {}, property)) {
+      failures.push(
+        `current OpenAPI: integrator license pricing missing property ${property}`,
+      );
+    }
+  }
+  for (const tierName of ["outboundTiers", "inboundApiTiers"]) {
+    const tierRate =
+      licensePricingProperties?.[tierName]?.items?.properties?.rate;
+    if (!tierRate || tierRate.nullable === true) {
+      failures.push(
+        `current OpenAPI: V1.2 integrator pricing ${tierName} rate must be non-null`,
+      );
+    }
+  }
+
   for (const [legacyMethod, legacyPath, canonicalPath] of retiredRoutePairs) {
     const canonicalMethod = legacyMethod === "delete" ? "post" : legacyMethod;
     const frozenFacet = contractFacet(

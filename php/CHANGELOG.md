@@ -16,6 +16,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Documented the pricing V1.2 integrator license response, including
+  sandbox/production estimates, per-firm billing metadata, signed schedule
+  fields, and the non-null 20,001+ marginal rate.
 - Documented Enterprise 1.6.0 JSON self-billing/process fields, idempotent send
   response metadata, document `process_id`, and nested event pagination.
 

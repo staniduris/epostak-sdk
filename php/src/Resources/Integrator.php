@@ -69,11 +69,9 @@ class IntegratorKeys
 /**
  * `/integrator/licenses/*` — billing aggregate views.
  *
- * Tier rates are applied to the AGGREGATE document count across all the
- * integrator's `integrator-managed` firms — a 100-firm × 50-doc integrator
- * lands in tier 2–3, not tier 1 like a standalone firm would. Volumes above
- * `contactThreshold` (5 000 / month) flip `exceedsAutoTier` to `true`;
- * auto-billing pauses there and sales handles invoicing manually.
+ * Progressive rates are applied separately to aggregate outbound and inbound
+ * usage. Managed sandbox firms are reported separately and excluded from the
+ * billed aggregate.
  */
 class IntegratorLicenses
 {
@@ -95,17 +93,16 @@ class IntegratorLicenses
      *   - `offset` Pagination offset for the per-firm list (default 0).
      *   - `limit`  Page size for the per-firm list, max 100 (default 50).
      * @return array Response with `integrator`, `period`, `nextResetAt`,
-     *               `billable` (managed-plan aggregate + tier-applied charges),
-     *               `nonManaged`, `exceedsAutoTier`, `contactThreshold`,
-     *               `pricing.{outboundTiers,inboundApiTiers}`, paginated
+     *               `billable`, `sandbox`, `productionEstimate`, `nonManaged`,
+     *               `exceedsAutoTier`, `contactThreshold`,
+     *               `pricing.{scheduleVersion,thresholdScope,
+     *               marginalBandStartsAt,outboundTiers,inboundApiTiers}`, paginated
      *               `firms` rows, and `pagination`.
      * @throws EPostakError On API error.
      *
      * @example
      *   $usage = $client->integrator->licenses->info(['limit' => 100]);
-     *   if ($usage['exceedsAutoTier']) {
-     *       // sales review required, auto-billing has paused
-     *   }
+     *   echo $usage['pricing']['scheduleVersion'];
      */
     public function info(array $params = []): array
     {
