@@ -5,6 +5,7 @@ import sk.epostak.sdk.models.BatchExtractResult;
 import sk.epostak.sdk.models.ExtractResult;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI-powered OCR extraction from PDFs and images.
@@ -52,6 +53,29 @@ public final class ExtractResource {
     @Deprecated(since = "1.1.1", forRemoval = false)
     public ExtractResult single(byte[] fileBytes, String fileName, String mimeType) {
         return http.postMultipart("/payloads/extract", fileBytes, fileName, mimeType, ExtractResult.class);
+    }
+
+    /**
+     * Extract one file while applying caller-reviewed OCR corrections.
+     *
+     * @param fields corrected values serialized into the multipart {@code fields} JSON part
+     * @deprecated Use {@link PayloadsResource#extract(byte[], String, String, Map)}.
+     */
+    @Deprecated(since = "1.1.1", forRemoval = false)
+    public ExtractResult single(
+            byte[] fileBytes,
+            String fileName,
+            String mimeType,
+            Map<String, ?> fields
+    ) {
+        return http.postMultipart(
+                "/payloads/extract",
+                fileBytes,
+                fileName,
+                mimeType,
+                fields,
+                ExtractResult.class
+        );
     }
 
     /**

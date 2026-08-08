@@ -1,5 +1,16 @@
 # Changelog
 
+## [OCR correction contract sync] — 2026-08-08
+
+- Added optional multipart `fields` corrections to single-file OCR extraction
+  across all six SDKs while preserving existing call shapes and source
+  compatibility.
+- Exposed `applied_overrides`, the complete missing-field guidance, field
+  provenance, and next-action field lists from Enterprise API 1.8.5.
+- Documented that a corrected extraction may still require review; callers must
+  follow `needs_review`, `missing_fields`, and `next_action` rather than assuming
+  that an accepted override makes the document send-ready.
+
 ## [Integrator pricing V1.2 drift sync] — 2026-07-29
 
 - Aligned all six SDKs with the current integrator license response: billed,

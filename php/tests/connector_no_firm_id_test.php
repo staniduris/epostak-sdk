@@ -50,6 +50,7 @@ namespace EPostak\Tests {
     use EPostak\HttpClient;
     use EPostak\Resources\Box;
     use EPostak\Resources\Connector;
+    use EPostak\Resources\Payloads;
     use EPostak\TokenManager;
     use GuzzleHttp\Client;
 
@@ -62,6 +63,7 @@ namespace EPostak\Tests {
     require_once __DIR__ . '/../src/HttpClient.php';
     require_once __DIR__ . '/../src/Resources/Box.php';
     require_once __DIR__ . '/../src/Resources/Connector.php';
+    require_once __DIR__ . '/../src/Resources/Payloads.php';
     require_once __DIR__ . '/../src/Resources/PeppolDirectory.php';
     require_once __DIR__ . '/../src/Resources/Peppol.php';
     require_once __DIR__ . '/../src/Resources/Sapi.php';
@@ -776,6 +778,26 @@ namespace EPostak\Tests {
     assertTrue(($body['participant']['scheme'] ?? null) === '0245', 'Expected nested participant.scheme.');
     assertTrue(($body['participant']['identifier'] ?? null) === '2020305606', 'Expected nested participant.identifier.');
     assertTrue(($body['documentType'] ?? null) === 'urn:invoice', 'Expected documentType to be forwarded.');
+
+    $payloads = new Payloads(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
+    Client::$requests = [];
+    $payloads->extract(
+        __FILE__,
+        'application/pdf',
+        'invoice.pdf',
+        ['vendor_dic' => '2020123456', 'iban' => 'SK6807200002891987426353']
+    );
+    $request = oneRequest();
+    $multipart = $request['options']['multipart'] ?? [];
+    assertTrue(($multipart[0]['name'] ?? null) === 'file', 'Expected OCR multipart file part.');
+    assertTrue(($multipart[1]['name'] ?? null) === 'fields', 'Expected OCR correction fields part.');
+    assertTrue(
+        json_decode($multipart[1]['contents'] ?? '', true, flags: JSON_THROW_ON_ERROR) === [
+            'vendor_dic' => '2020123456',
+            'iban' => 'SK6807200002891987426353',
+        ],
+        'Expected OCR corrections to be JSON encoded.'
+    );
 
     echo "connector_no_firm_id_test passed" . PHP_EOL;
 }

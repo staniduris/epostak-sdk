@@ -11,6 +11,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added optional corrected OCR `$fields` to `payloads->extract()` and the
+  compatibility `extract->single()` method, matching Enterprise API 1.8.5.
 - Added Connector webhook debugger methods for filtered delivery history,
   exact signed-body detail, idempotent replay, and the seven-scenario test suite.
 

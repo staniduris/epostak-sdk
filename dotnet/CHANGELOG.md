@@ -7,6 +7,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added additive single-file OCR methods for corrected `fields`, plus typed
+  `AppliedOverrides`, complete missing-field guidance, and next-action fields
+  from Enterprise API 1.8.5.
 - Added Connector webhook debugger methods and typed models for filtered
   history, exact signed-body detail, idempotent replay, and the test suite.
 

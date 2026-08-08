@@ -39,7 +39,12 @@ class Extract
      *   $data = $client->extract->single('/tmp/invoice.pdf', 'application/pdf');
      *   echo $data['invoiceNumber'] . ' - ' . $data['totalAmount'];
      */
-    public function single(string $filePath, string $mimeType, ?string $fileName = null): array
+    public function single(
+        string $filePath,
+        string $mimeType,
+        ?string $fileName = null,
+        ?array $fields = null
+    ): array
     {
         $multipart = [
             [
@@ -49,6 +54,12 @@ class Extract
                 'headers' => ['Content-Type' => $mimeType],
             ],
         ];
+        if ($fields !== null) {
+            $multipart[] = [
+                'name' => 'fields',
+                'contents' => json_encode($fields, JSON_THROW_ON_ERROR),
+            ];
+        }
 
         return $this->http->requestMultipart('POST', '/payloads/extract', $multipart);
     }

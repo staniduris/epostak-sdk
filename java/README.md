@@ -875,7 +875,19 @@ Requires Enterprise plan.
 byte[] pdf = java.nio.file.Files.readAllBytes(java.nio.file.Path.of("invoice.pdf"));
 ExtractResult result = client.enterprise().payloads().extract(pdf, "invoice.pdf", "application/pdf");
 // result.extraction(), result.ublXml(), result.confidence(), response field send_payload
+
+ExtractResult corrected = client.enterprise().payloads().extract(
+    pdf,
+    "invoice.pdf",
+    "application/pdf",
+    Map.of("vendor_dic", "2020123456", "iban", "SK6807200002891987426353")
+);
+// corrected.appliedOverrides() lists accepted corrections.
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `needsReview()`; follow `missingFields()` and
+`nextAction()` before sending.
 
 Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`. Max 20 MB.
 

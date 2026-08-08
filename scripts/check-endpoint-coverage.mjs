@@ -174,6 +174,10 @@ async function checkEnterpriseOpenApiContracts() {
     DocumentResponse: ["process_id", "id"],
     DocumentEvent: ["process_id", "id", "eventType"],
     DocumentEventsResponse: ["process_id", "documentId", "events", "pagination"],
+    ExtractResponse: [
+      "extraction", "needs_review", "applied_overrides", "missing_fields",
+      "field_sources", "next_action", "file_name",
+    ],
   };
   for (const [schemaName, properties] of Object.entries(requiredSchemaProperties)) {
     const schema = current.components?.schemas?.[schemaName];
@@ -192,6 +196,15 @@ async function checkEnterpriseOpenApiContracts() {
   for (const property of ["limit", "nextCursor", "hasMore"]) {
     if (!Object.hasOwn(paginationProperties, property)) {
       failures.push(`current OpenAPI: DocumentEventsResponse.pagination missing property ${property}`);
+    }
+  }
+
+  const extractMultipartProperties =
+    current.paths?.["/payloads/extract"]?.post?.requestBody?.content?.["multipart/form-data"]
+      ?.schema?.properties;
+  for (const property of ["file", "fields"]) {
+    if (!Object.hasOwn(extractMultipartProperties ?? {}, property)) {
+      failures.push(`current OpenAPI: POST /payloads/extract missing multipart property ${property}`);
     }
   }
 
@@ -448,6 +461,55 @@ for (const check of [
   },
 ]) {
   runCheck(check, "Enterprise migration adapter");
+}
+
+for (const check of [
+  {
+    file: "typescript/src/resources/payloads.ts",
+    contains: ['form.append("fields", JSON.stringify(fields))'],
+  },
+  {
+    file: "typescript/src/types.ts",
+    contains: ["applied_overrides", "how_to_fix", "accepted_format", "fields?: string[]"],
+  },
+  {
+    file: "python/src/epostak/resources/payloads.py",
+    contains: ['"fields": json.dumps(fields'],
+  },
+  {
+    file: "python/src/epostak/types.py",
+    contains: ["applied_overrides", "how_to_fix", "accepted_format", "fields: List[str]"],
+  },
+  {
+    file: "php/src/Resources/Payloads.php",
+    contains: ["'name' => 'fields'", "JSON_THROW_ON_ERROR"],
+  },
+  {
+    file: "ruby/lib/epostak/resources/payloads.rb",
+    contains: ["corrected_fields:", '"fields" => JSON.generate(corrected_fields)'],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/resources/PayloadsResource.java",
+    contains: ["Map<String, ?> fields"],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/HttpClient.java",
+    contains: ['name=\\"fields\\"', "GSON.toJson(fields)"],
+  },
+  {
+    file: "java/src/main/java/sk/epostak/sdk/models/ExtractResult.java",
+    contains: ["applied_overrides", "appliedOverrides"],
+  },
+  {
+    file: "dotnet/src/EPostak/Resources/PayloadsResource.cs",
+    contains: ["IReadOnlyDictionary<string, object?>? fields", '"fields"'],
+  },
+  {
+    file: "dotnet/src/EPostak/Models/Extract.cs",
+    contains: ["AppliedOverrides", "HowToFix", "AcceptedFormat"],
+  },
+]) {
+  runCheck(check, "OCR correction contract");
 }
 
 const webhookContractPath = manifest.contracts.webhook.fixture;

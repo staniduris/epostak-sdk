@@ -3121,6 +3121,18 @@ export interface ExtractMissingField {
   field: string;
   /** Human-readable label for review UIs */
   label?: string;
+  /** Optional EN 16931 business-term identifier */
+  bt?: string;
+  /** Whether the API requires the value before the next action */
+  required?: boolean;
+  /** Whether the field blocks processing or only requires review */
+  severity?: "blocking" | "review";
+  /** Machine-readable explanation of why the value needs attention */
+  reason?: string;
+  /** Human-readable correction guidance */
+  how_to_fix?: string;
+  /** Expected format, when the API can describe one */
+  accepted_format?: string;
   /** Explanation of why the value is needed */
   message?: string;
   /** `true` when the field blocks `/documents/send` */
@@ -3153,6 +3165,8 @@ export interface ExtractNextAction {
   endpoint?: string;
   /** HTTP method for `endpoint`, when applicable */
   method?: string;
+  /** Fields that should be completed or reviewed before the action */
+  fields?: string[];
   [key: string]: unknown;
 }
 
@@ -3178,6 +3192,8 @@ export interface ExtractResult {
   confidence_scores: Record<string, number>;
   /** `true` when `confidence === "low"` or `"medium"` — human review recommended */
   needs_review: boolean;
+  /** Names of caller-supplied OCR corrections accepted by the API */
+  applied_overrides?: string[];
   /** Review checklist for missing or low-confidence values */
   missing_fields?: ExtractMissingField[];
   /** Provenance map for extracted/enriched fields */

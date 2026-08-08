@@ -314,6 +314,20 @@ public final class HttpClient {
      * @throws EPostakException if the request fails
      */
     public <T> T postMultipart(String path, byte[] fileBytes, String fileName, String mimeType, Class<T> type) {
+        return postMultipart(path, fileBytes, fileName, mimeType, null, type);
+    }
+
+    /**
+     * POST with {@code multipart/form-data} for one file plus optional corrected OCR fields.
+     */
+    public <T> T postMultipart(
+            String path,
+            byte[] fileBytes,
+            String fileName,
+            String mimeType,
+            Map<String, ?> fields,
+            Class<T> type
+    ) {
         String boundary = "----EPostakBoundary" + System.currentTimeMillis();
 
         StringBuilder sb = new StringBuilder();
@@ -323,11 +337,24 @@ public final class HttpClient {
         sb.append("Content-Type: ").append(mimeType).append("\r\n\r\n");
 
         byte[] header = sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] fieldsPart = fields == null
+                ? new byte[0]
+                : ("\r\n--" + boundary + "\r\n"
+                    + "Content-Disposition: form-data; name=\"fields\"\r\n"
+                    + "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+                    + GSON.toJson(fields)).getBytes(StandardCharsets.UTF_8);
         byte[] footer = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
-        byte[] body = new byte[header.length + fileBytes.length + footer.length];
+        byte[] body = new byte[header.length + fileBytes.length + fieldsPart.length + footer.length];
         System.arraycopy(header, 0, body, 0, header.length);
         System.arraycopy(fileBytes, 0, body, header.length, fileBytes.length);
-        System.arraycopy(footer, 0, body, header.length + fileBytes.length, footer.length);
+        System.arraycopy(fieldsPart, 0, body, header.length + fileBytes.length, fieldsPart.length);
+        System.arraycopy(
+                footer,
+                0,
+                body,
+                header.length + fileBytes.length + fieldsPart.length,
+                footer.length
+        );
 
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + path))

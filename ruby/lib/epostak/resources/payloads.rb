@@ -10,10 +10,10 @@ module EPostak
         @http = http
       end
 
-      def extract(file_path_or_io, mime_type, file_name: "document")
+      def extract(file_path_or_io, mime_type, file_name: "document", corrected_fields: nil)
         @http.request_multipart("/payloads/extract", [
           { field: "file", io: resolve_io(file_path_or_io), mime_type: mime_type, filename: file_name }
-        ])
+        ], fields: multipart_corrections(corrected_fields))
       end
 
       def extract_batch(files)
@@ -45,6 +45,10 @@ module EPostak
       end
 
       private
+
+      def multipart_corrections(corrected_fields)
+        corrected_fields.nil? ? {} : { "fields" => JSON.generate(corrected_fields) }
+      end
 
       def resolve_io(file_path_or_io)
         file_path_or_io.is_a?(String) ? File.open(file_path_or_io, "rb") : file_path_or_io

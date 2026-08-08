@@ -24,6 +24,22 @@ public final class PayloadsResource {
         return http.postMultipart("/payloads/extract", fileBytes, fileName, mimeType, ExtractResult.class);
     }
 
+    public ExtractResult extract(
+            byte[] fileBytes,
+            String fileName,
+            String mimeType,
+            Map<String, ?> fields
+    ) {
+        return http.postMultipart(
+                "/payloads/extract",
+                fileBytes,
+                fileName,
+                mimeType,
+                fields,
+                ExtractResult.class
+        );
+    }
+
     public BatchExtractResult extractBatch(List<ExtractResource.FileInput> files) {
         List<HttpClient.FileUpload> uploads = files.stream()
                 .map(f -> new HttpClient.FileUpload(f.data(), f.fileName(), f.mimeType()))

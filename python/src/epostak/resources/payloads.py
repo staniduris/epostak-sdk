@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 from epostak.resources.documents import _BaseResource
@@ -15,9 +16,13 @@ class PayloadsResource(_BaseResource):
         file: bytes,
         mime_type: str,
         file_name: str = "document",
+        fields: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         files = [("file", (file_name, file, mime_type))]
-        return self._request("POST", "/payloads/extract", files=files)
+        data = None if fields is None else {
+            "fields": json.dumps(fields, ensure_ascii=False, separators=(",", ":"))
+        }
+        return self._request("POST", "/payloads/extract", data=data, files=files)
 
     def extract_batch(self, files: List[Dict[str, Any]]) -> Dict[str, Any]:
         upload_files = []

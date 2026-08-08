@@ -17,6 +17,7 @@ export class PayloadsResource extends BaseResource {
     file: Buffer | Blob,
     mimeType: string,
     fileName = "document",
+    fields?: Record<string, unknown>,
   ): Promise<ExtractResult> {
     const form = new FormData();
     const blob =
@@ -24,6 +25,7 @@ export class PayloadsResource extends BaseResource {
         ? file
         : new Blob([new Uint8Array(file)], { type: mimeType });
     form.append("file", blob, fileName);
+    if (fields !== undefined) form.append("fields", JSON.stringify(fields));
     return this.request("POST", "/payloads/extract", form);
   }
 

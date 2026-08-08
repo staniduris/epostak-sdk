@@ -9,6 +9,8 @@ earlier CHANGELOG headings used a different numbering scheme.
 
 ### Added
 
+- Added optional `corrected_fields:` to `payloads.extract` and the compatibility
+  `extract.single` method, matching Enterprise API 1.8.5.
 - Added Connector webhook debugger methods for filtered delivery history,
   exact signed-body detail, idempotent replay, and the seven-scenario test suite.
 

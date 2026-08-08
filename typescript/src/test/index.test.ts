@@ -210,7 +210,12 @@ it("box resource uses the public Box paths", async () => {
 
 it("payloads, events and support packet facade use preferred API paths", async () => {
   const client = makeClient();
-  const captured: Array<{ method: string; url: string; body: string | undefined }> = [];
+  const captured: Array<{
+    method: string;
+    url: string;
+    body: string | undefined;
+    form: FormData | undefined;
+  }> = [];
 
   mockFetch(async (input, init) => {
     const url = typeof input === "string" ? input : (input as URL).toString();
@@ -227,6 +232,7 @@ it("payloads, events and support packet facade use preferred API paths", async (
       method: init?.method ?? "GET",
       url,
       body: typeof init?.body === "string" ? init.body : undefined,
+      form: init?.body instanceof FormData ? init.body : undefined,
     });
     if (url.includes("/events/pull")) {
       return makeMockResponse({
@@ -245,7 +251,12 @@ it("payloads, events and support packet facade use preferred API paths", async (
     return makeMockResponse({ ok: true, acknowledged: 1, items: [] });
   });
 
-  await client.payloads.extract(Buffer.from("pdf"), "application/pdf", "invoice.pdf");
+  await client.payloads.extract(
+    Buffer.from("pdf"),
+    "application/pdf",
+    "invoice.pdf",
+    { vendor_dic: "2020123456", iban: "SK6807200002891987426353" },
+  );
   await client.payloads.extractBatch([
     { file: Buffer.from("pdf"), mimeType: "application/pdf", fileName: "invoice.pdf" },
   ]);
@@ -287,6 +298,10 @@ it("payloads, events and support packet facade use preferred API paths", async (
   assert.deepStrictEqual(JSON.parse(captured[7].body ?? "{}"), {
     event_ids: ["evt-1", "evt-2"],
   });
+  assert.deepStrictEqual(JSON.parse(String(captured[0].form?.get("fields"))), {
+    vendor_dic: "2020123456",
+    iban: "SK6807200002891987426353",
+  });
   assert.strictEqual(events.items[0]?.event_id, "evt-live");
 });
 
@@ -302,7 +317,15 @@ it("extract result types expose OCR review send payload fields", () => {
     confidence: "high",
     confidence_scores: { invoice_number: 0.95 },
     needs_review: true,
-    missing_fields: [{ field: "receiverPeppolId", blocking: true }],
+    applied_overrides: ["vendor_dic", "iban"],
+    missing_fields: [{
+      field: "receiverPeppolId",
+      label: "Peppol prijímateľ",
+      required: true,
+      severity: "blocking",
+      reason: "missing",
+      how_to_fix: "Doplňte identifikátor prijímateľa.",
+    }],
     field_sources: {
       invoice_number: { source: "ocr", value: "FAK-001", confidence: 0.95 },
     },
@@ -310,6 +333,7 @@ it("extract result types expose OCR review send payload fields", () => {
       type: "review_and_send",
       endpoint: "/api/v1/documents/send",
       method: "POST",
+      fields: ["receiverPeppolId"],
     },
     file_name: "invoice.pdf",
   };
@@ -324,7 +348,7 @@ it("extract result types expose OCR review send payload fields", () => {
         send_ready: false,
         extraction: single.extraction,
         confidence: single.confidence,
-        missing_fields: [{ field: "receiverPeppolId", blocking: true }],
+        missing_fields: [{ field: "receiverPeppolId", severity: "blocking" }],
         field_sources: {
           invoice_number: { source: "ocr", value: "FAK-001", confidence: 0.95 },
         },
@@ -338,6 +362,8 @@ it("extract result types expose OCR review send payload fields", () => {
   };
 
   assert.strictEqual(single.next_action?.endpoint, "/api/v1/documents/send");
+  assert.deepStrictEqual(single.applied_overrides, ["vendor_dic", "iban"]);
+  assert.deepStrictEqual(single.next_action?.fields, ["receiverPeppolId"]);
   assert.strictEqual(batch.results[0].send_payload_missing_fields?.[0], "receiverPeppolId");
 });
 

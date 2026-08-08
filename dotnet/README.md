@@ -766,6 +766,18 @@ Console.WriteLine($"Confidence: {extracted.Confidence}");
 Console.WriteLine($"UBL: {extracted.UblXml}");
 // Outbound invoices can include the response field send_payload for review + validate + send.
 
+stream.Position = 0;
+var corrected = await client.Enterprise.Payloads.ExtractWithFieldsAsync(
+    stream,
+    "application/pdf",
+    new Dictionary<string, object?>
+    {
+        ["vendor_dic"] = "2020123456",
+        ["iban"] = "SK6807200002891987426353",
+    },
+    "invoice.pdf");
+Console.WriteLine(string.Join(", ", corrected.AppliedOverrides));
+
 // Batch extraction
 var batchResult = await client.Enterprise.Payloads.ExtractBatchAsync(
 [
@@ -775,6 +787,10 @@ var batchResult = await client.Enterprise.Payloads.ExtractBatchAsync(
 
 Console.WriteLine($"Batch: {batchResult.Successful}/{batchResult.Total} successful");
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `NeedsReview`; follow `MissingFields` and
+`NextAction` before sending.
 
 `client.Enterprise.Extract` remains available for compatibility; new
 integrations should use `client.Enterprise.Payloads.ExtractAsync`.

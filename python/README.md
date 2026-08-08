@@ -702,7 +702,13 @@ print(account["firm"]["name"], account["plan"]["name"])
 ```python
 # Single file
 with open("invoice.pdf", "rb") as f:
-    result = client.enterprise.payloads.extract(f.read(), "application/pdf", "invoice.pdf")
+    result = client.enterprise.payloads.extract(
+        f.read(),
+        "application/pdf",
+        "invoice.pdf",
+        {"vendor_dic": "2020123456", "iban": "SK6807200002891987426353"},
+    )
+print(result.get("applied_overrides"))
 
 # Outbound invoices can include result["send_payload"] for review + validate + send.
 if result.get("send_payload"):
@@ -714,6 +720,10 @@ batch = client.enterprise.payloads.extract_batch([
     {"file": img_bytes, "mime_type": "image/png", "file_name": "inv2.png"},
 ])
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `needs_review`; follow `missing_fields` and
+`next_action` before sending.
 
 `client.enterprise.extract` remains available for compatibility; new
 integrations should use `client.enterprise.payloads.extract`.
@@ -847,7 +857,7 @@ except EPostakError as err:
 | `webhooks.queue.batch_ack(ids)`                                | POST   | `/events/batch-ack`           |
 | `webhooks.queue.pull_all(**params)`                            | GET    | `/webhook-queue/all`                 |
 | `webhooks.queue.batch_ack_all(ids)`                            | POST   | `/webhook-queue/all/batch-ack`       |
-| `payloads.extract(file, mime_type, file_name="document")`      | POST   | `/payloads/extract`                  |
+| `payloads.extract(file, mime_type, file_name="document", fields=None)` | POST   | `/payloads/extract`                  |
 | `payloads.extract_batch(files)`                                | POST   | `/payloads/extract/batch`            |
 | `payloads.parse(xml)`                                          | POST   | `/payloads/parse`                    |
 | `payloads.convert(input_format, output_format, document)`      | POST   | `/payloads/convert`                  |
@@ -862,7 +872,7 @@ except EPostakError as err:
 | `integrator.keys.list()`                                       | GET    | `/integrator/keys`                   |
 | `integrator.keys.deactivate(key_id=..., client_id=...)`        | DELETE | `/integrator/keys`                   |
 | `integrator.licenses.info(offset=..., limit=...)`              | GET    | `/integrator/licenses/info`          |
-| `extract.single(file, mime, name)`                             | POST   | `/payloads/extract`                           |
+| `extract.single(file, mime, name, fields=None)`                | POST   | `/payloads/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/payloads/extract/batch`                     |
 | `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |
 | `box.list(**params)`                                           | GET    | `/box/items`                         |

@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import sk.epostak.sdk.models.ExtractResult;
 import sk.epostak.sdk.models.WebhookQueueResponse;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -50,9 +52,17 @@ final class ExtractModelTest {
                   "confidence": "high",
                   "confidence_scores": { "invoice_number": 0.95 },
                   "needs_review": true,
-                  "missing_fields": [{ "field": "receiverPeppolId", "blocking": true }],
+                  "applied_overrides": ["vendor_dic", "iban"],
+                  "missing_fields": [{
+                    "field": "receiverPeppolId",
+                    "label": "Peppol prijímateľ",
+                    "required": true,
+                    "severity": "blocking",
+                    "reason": "missing",
+                    "how_to_fix": "Doplňte identifikátor prijímateľa."
+                  }],
                   "field_sources": { "invoice_number": { "source": "ocr", "value": "FAK-001", "confidence": 0.95 } },
-                  "next_action": { "type": "review_and_send", "endpoint": "/api/v1/documents/send", "method": "POST" },
+                  "next_action": { "type": "review_and_send", "endpoint": "/api/v1/documents/send", "method": "POST", "fields": ["receiverPeppolId"] },
                   "file_name": "invoice.pdf"
                 }
                 """;
@@ -63,8 +73,12 @@ final class ExtractModelTest {
         assertEquals("invoice", result.documentType());
         assertEquals("receiverPeppolId", result.sendPayloadMissingFields().get(0));
         assertFalse(result.sendReady());
+        assertEquals(List.of("vendor_dic", "iban"), result.appliedOverrides());
         assertEquals("receiverPeppolId", result.missingFields().get(0).field());
+        assertEquals("blocking", result.missingFields().get(0).severity());
+        assertEquals("Doplňte identifikátor prijímateľa.", result.missingFields().get(0).howToFix());
         assertEquals("ocr", result.fieldSources().get("invoice_number").source());
         assertEquals("/api/v1/documents/send", result.nextAction().endpoint());
+        assertEquals(List.of("receiverPeppolId"), result.nextAction().fields());
     }
 }

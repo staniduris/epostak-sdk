@@ -861,17 +861,22 @@ $account = $client->enterprise->account->get();
 
 Requires Enterprise plan.
 
-#### `payloads->extract($filePath, $mimeType, $fileName)` -- Single file
+#### `payloads->extract($filePath, $mimeType, $fileName, $fields)` -- Single file
 
 ```php
 $result = $client->enterprise->payloads->extract(
     '/path/to/invoice.pdf',
     'application/pdf',
-    'invoice.pdf'    // Optional, defaults to basename
+    'invoice.pdf',
+    ['vendor_dic' => '2020123456', 'iban' => 'SK6807200002891987426353']
 );
 // => ['extraction' => [...], 'ubl_xml' => '...', 'confidence' => 0.95, 'file_name' => '...']
 // Outbound invoices can include $result['send_payload'] for review + validate + send.
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `needs_review`; follow `missing_fields` and
+`next_action` before sending.
 
 Supported MIME types: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`. Max 20 MB.
 
@@ -1015,7 +1020,7 @@ try {
 | `webhooks->queue->batchAck($ids)`                            | POST   | `/events/batch-ack`           |
 | `webhooks->queue->pullAll($params)`                          | GET    | `/webhook-queue/all`                 |
 | `webhooks->queue->batchAckAll($ids)`                         | POST   | `/webhook-queue/all/batch-ack`       |
-| `payloads->extract($filePath, $mimeType, $fileName)`         | POST   | `/payloads/extract`                  |
+| `payloads->extract($filePath, $mimeType, $fileName, $fields)` | POST   | `/payloads/extract`                  |
 | `payloads->extractBatch($files)`                             | POST   | `/payloads/extract/batch`            |
 | `payloads->parse($xml)`                                      | POST   | `/payloads/parse`                    |
 | `payloads->convert($inputFormat, $outputFormat, $document)`  | POST   | `/payloads/convert`                  |
@@ -1039,7 +1044,7 @@ try {
 | `integrator->keys->list()`                                   | GET    | `/integrator/keys`                   |
 | `integrator->keys->deactivate($params)`                      | DELETE | `/integrator/keys`                   |
 | `integrator->licenses->info($params)`                        | GET    | `/integrator/licenses/info`          |
-| `extract->single($path, $mime)`                              | POST   | `/payloads/extract`                           |
+| `extract->single($path, $mime, $name, $fields)`             | POST   | `/payloads/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/payloads/extract/batch`                     |
 | `EPostak::validate($xml)`                                    | POST   | `https://epostak.sk/api/validate`    |
 | `box->list($params)`                                         | GET    | `/box/items`                         |

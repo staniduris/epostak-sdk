@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using EPostak.Models;
 
 namespace EPostak.Resources;
@@ -34,11 +36,37 @@ public sealed class ExtractResource
     /// </example>
     [Obsolete("Use Payloads.ExtractAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
     public Task<ExtractResult> SingleAsync(Stream stream, string mimeType, string? fileName = null, CancellationToken ct = default)
+        => SingleMultipartAsync(stream, mimeType, fileName, fields: null, ct);
+
+    [Obsolete("Use Payloads.ExtractWithFieldsAsync. See https://epostak.sk/api/docs/enterprise/migrations/enterprise-core-distillation", false)]
+    public Task<ExtractResult> SingleWithFieldsAsync(
+        Stream stream,
+        string mimeType,
+        IReadOnlyDictionary<string, object?>? fields,
+        string? fileName = null,
+        CancellationToken ct = default)
+        => SingleMultipartAsync(stream, mimeType, fileName, fields, ct);
+
+    private Task<ExtractResult> SingleMultipartAsync(
+        Stream stream,
+        string mimeType,
+        string? fileName,
+        IReadOnlyDictionary<string, object?>? fields,
+        CancellationToken ct)
     {
         var content = new MultipartFormDataContent();
         var streamContent = new StreamContent(stream);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
         content.Add(streamContent, "file", fileName ?? "document");
+        if (fields is not null)
+        {
+            content.Add(
+                new StringContent(
+                    JsonSerializer.Serialize(fields, HttpRequestor.JsonOptions),
+                    Encoding.UTF8,
+                    "application/json"),
+                "fields");
+        }
         return _http.RequestMultipartAsync<ExtractResult>(HttpMethod.Post, "/payloads/extract", content, ct);
     }
 

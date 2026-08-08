@@ -171,7 +171,7 @@ module EPostak
     # @param file_parts [Array<Hash>] Array of { field:, io:, mime_type:, filename: }
     # @return [Hash, nil] Parsed JSON response
     # @raise [EPostak::Error] On non-2xx responses
-    def request_multipart(path, file_parts)
+    def request_multipart(path, file_parts, fields: {})
       multipart_conn = Faraday.new(url: @base_url) do |f|
         f.request :multipart, flat_encode: true
         f.request :url_encoded
@@ -180,7 +180,7 @@ module EPostak
         f.headers["X-Firm-Id"] = @firm_id if @firm_id
       end
 
-      payload = {}
+      payload = fields.dup
       file_parts.each_with_index do |part, _idx|
         key = part[:field]
         upload = Faraday::Multipart::FilePart.new(

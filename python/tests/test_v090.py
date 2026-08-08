@@ -115,6 +115,32 @@ def test_current_enterprise_send_and_event_types_cover_live_contract():
     assert "nextCursor" not in DocumentEventsResponse.__annotations__
 
 
+def test_payload_extract_serializes_corrected_fields():
+    from epostak.resources.payloads import PayloadsResource
+    from epostak.types import ExtractMissingField, ExtractNextAction, ExtractResult
+
+    payloads = PayloadsResource(MagicMock(), "https://epostak.sk/api/v1", MagicMock(), None)
+    with patch.object(payloads, "_request", return_value={"needs_review": True}) as mock_req:
+        payloads.extract(
+            b"pdf",
+            "application/pdf",
+            "invoice.pdf",
+            {"vendor_dic": "2020123456", "iban": "SK6807200002891987426353"},
+        )
+
+    mock_req.assert_called_once_with(
+        "POST",
+        "/payloads/extract",
+        data={"fields": '{"vendor_dic":"2020123456","iban":"SK6807200002891987426353"}'},
+        files=[("file", ("invoice.pdf", b"pdf", "application/pdf"))],
+    )
+    assert "applied_overrides" in ExtractResult.__annotations__
+    assert {"required", "severity", "reason", "how_to_fix"}.issubset(
+        ExtractMissingField.__annotations__
+    )
+    assert "fields" in ExtractNextAction.__annotations__
+
+
 def _make_firm_scoped_connector():
     """Return a ConnectorResource wired to a mocked HTTP client with firm scope."""
     from epostak.resources.connector import ConnectorResource

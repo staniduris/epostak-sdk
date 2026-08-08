@@ -7,6 +7,7 @@ uploaded files.  Requires the Enterprise plan.  Supported formats:
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ class ExtractResource(_BaseResource):
         file: bytes,
         mime_type: str,
         file_name: str = "document",
+        fields: Optional[Dict[str, Any]] = None,
     ) -> ExtractResult:
         """Extract structured data from a single file.
 
@@ -51,7 +53,10 @@ class ExtractResource(_BaseResource):
             print(result["confidence"], result["extraction"])
         """
         files = [("file", (file_name, file, mime_type))]
-        return self._request("POST", "/payloads/extract", files=files)
+        data = None if fields is None else {
+            "fields": json.dumps(fields, ensure_ascii=False, separators=(",", ":"))
+        }
+        return self._request("POST", "/payloads/extract", data=data, files=files)
 
     def batch(
         self,

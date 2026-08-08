@@ -8,6 +8,9 @@ All notable changes to the official ePošťák Java SDK
 
 ### Added
 
+- Added single-file OCR overloads for corrected `fields`, plus typed
+  `appliedOverrides`, complete missing-field guidance, and next-action fields
+  from Enterprise API 1.8.5.
 - Added Connector webhook debugger methods and typed models for filtered
   history, exact signed-body detail, idempotent replay, and the test suite.
 

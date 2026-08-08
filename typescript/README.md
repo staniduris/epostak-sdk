@@ -799,7 +799,9 @@ const result = await client.enterprise.payloads.extract(
   readFileSync("invoice.pdf"),
   "application/pdf",
   "invoice.pdf",
+  { vendor_dic: "2020123456", iban: "SK6807200002891987426353" },
 );
+console.log(result.applied_overrides); // corrections accepted by the API
 // Outbound invoices can include result.send_payload for review + validate + send.
 if (result.send_payload) {
   await client.enterprise.payloads.validate(result.send_payload);
@@ -874,6 +876,10 @@ try {
   }
 }
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `needs_review`; follow `missing_fields` and
+`next_action` before sending.
 
 **Common error codes from `documents.send()`:**
 
@@ -952,7 +958,7 @@ try {
 | `webhooks.queue.batchAck(ids)`           | POST   | `/events/batch-ack`                   |
 | `webhooks.queue.pullAll(params?)`        | GET    | `/webhook-queue/all`                         |
 | `webhooks.queue.batchAckAll(ids)`        | POST   | `/webhook-queue/all/batch-ack`               |
-| `payloads.extract(file, mimeType, fileName?)` | POST | `/payloads/extract`                          |
+| `payloads.extract(file, mimeType, fileName?, fields?)` | POST | `/payloads/extract`                          |
 | `payloads.extractBatch(files)`           | POST   | `/payloads/extract/batch`                    |
 | `payloads.parse(xml)`                    | POST   | `/payloads/parse`                            |
 | `payloads.convert(body)`                 | POST   | `/payloads/convert`                          |
@@ -967,7 +973,7 @@ try {
 | `integrator.keys.list()`                 | GET    | `/integrator/keys`                           |
 | `integrator.keys.deactivate(body)`       | DELETE | `/integrator/keys`                           |
 | `integrator.licenses.info(params?)`      | GET    | `/integrator/licenses/info`                  |
-| `extract.single(file, mime, name)`       | POST   | `/payloads/extract`                                   |
+| `extract.single(file, mime, name, fields?)` | POST   | `/payloads/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/payloads/extract/batch`                             |
 | `EPostak.validate(xml)`                  | POST   | `https://epostak.sk/api/validate`            |
 | `box.list(params?)`                      | GET    | `/box/items`                                 |

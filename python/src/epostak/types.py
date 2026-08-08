@@ -2103,6 +2103,12 @@ class ExtractMissingField(TypedDict, total=False):
 
     field: str
     label: str
+    bt: str
+    required: bool
+    severity: str
+    reason: str
+    how_to_fix: str
+    accepted_format: str
     message: str
     blocking: bool
     value: Any
@@ -2124,6 +2130,7 @@ class ExtractNextAction(TypedDict, total=False):
     message: str
     endpoint: str
     method: str
+    fields: List[str]
 
 
 class ExtractResult(TypedDict, total=False):
@@ -2139,6 +2146,7 @@ class ExtractResult(TypedDict, total=False):
     confidence: Union[str, float]  # type: ignore[misc]  # Confidence bucket returned by API; float kept for older callers
     confidence_scores: Dict[str, float]  # type: ignore[misc]  # Per-field confidence scores
     needs_review: bool  # type: ignore[misc]  # Human review recommended
+    applied_overrides: List[str]  # type: ignore[misc]  # Caller corrections accepted by the API
     missing_fields: List[ExtractMissingField]  # type: ignore[misc]  # Review checklist
     field_sources: Dict[str, ExtractFieldSource]  # type: ignore[misc]  # Field provenance map
     next_action: ExtractNextAction  # type: ignore[misc]  # Recommended next API action

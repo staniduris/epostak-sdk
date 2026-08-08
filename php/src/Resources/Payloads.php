@@ -12,14 +12,26 @@ class Payloads
     {
     }
 
-    public function extract(string $filePath, string $mimeType, ?string $fileName = null): array
+    public function extract(
+        string $filePath,
+        string $mimeType,
+        ?string $fileName = null,
+        ?array $fields = null
+    ): array
     {
-        return $this->http->requestMultipart('POST', '/payloads/extract', [[
+        $multipart = [[
             'name' => 'file',
             'contents' => fopen($filePath, 'r'),
             'filename' => $fileName ?? basename($filePath),
             'headers' => ['Content-Type' => $mimeType],
-        ]]);
+        ]];
+        if ($fields !== null) {
+            $multipart[] = [
+                'name' => 'fields',
+                'contents' => json_encode($fields, JSON_THROW_ON_ERROR),
+            ];
+        }
+        return $this->http->requestMultipart('POST', '/payloads/extract', $multipart);
     }
 
     public function extractBatch(array $files): array

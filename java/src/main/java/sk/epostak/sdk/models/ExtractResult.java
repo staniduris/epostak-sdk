@@ -27,6 +27,7 @@ import java.util.Map;
  * @param needsReview      {@code true} when the overall confidence is {@code "low"} or
  *                         {@code "medium"} — the integrator SHOULD surface the
  *                         extracted data to a human before auto-processing
+ * @param appliedOverrides names of caller corrections accepted by the API
  * @param missingFields    review checklist for missing or low-confidence values
  * @param fieldSources     provenance map for extracted/enriched fields
  * @param nextAction       recommended next API action
@@ -43,11 +44,36 @@ public record ExtractResult(
         String confidence,
         @SerializedName("confidence_scores") Map<String, Double> confidenceScores,
         @SerializedName("needs_review") boolean needsReview,
+        @SerializedName("applied_overrides") List<String> appliedOverrides,
         @SerializedName("missing_fields") List<ExtractMissingField> missingFields,
         @SerializedName("field_sources") Map<String, ExtractFieldSource> fieldSources,
         @SerializedName("next_action") ExtractNextAction nextAction,
         @SerializedName("file_name") String fileName
 ) {
+    public ExtractResult(
+            Map<String, Object> extraction,
+            String direction,
+            String documentType,
+            Map<String, Object> sendPayload,
+            List<String> sendPayloadMissingFields,
+            Boolean sendReady,
+            String ublXml,
+            String confidence,
+            Map<String, Double> confidenceScores,
+            boolean needsReview,
+            List<ExtractMissingField> missingFields,
+            Map<String, ExtractFieldSource> fieldSources,
+            ExtractNextAction nextAction,
+            String fileName
+    ) {
+        this(
+                extraction, direction, documentType, sendPayload,
+                sendPayloadMissingFields, sendReady, ublXml, confidence,
+                confidenceScores, needsReview, null, missingFields,
+                fieldSources, nextAction, fileName
+        );
+    }
+
     public ExtractResult(
             Map<String, Object> extraction,
             String ublXml,
@@ -67,6 +93,7 @@ public record ExtractResult(
                 confidence,
                 confidenceScores,
                 needsReview,
+                null,
                 null,
                 null,
                 null,

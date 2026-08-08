@@ -37,11 +37,11 @@ module EPostak
       # @example From an IO object
       #   io = File.open("scan.png", "rb")
       #   result = client.extract.single(io, "image/png", file_name: "scan.png")
-      def single(file_path_or_io, mime_type, file_name: "document")
+      def single(file_path_or_io, mime_type, file_name: "document", corrected_fields: nil)
         io = resolve_io(file_path_or_io)
         @http.request_multipart("/payloads/extract", [
           { field: "file", io: io, mime_type: mime_type, filename: file_name }
-        ])
+        ], fields: multipart_corrections(corrected_fields))
       end
 
       # Extract structured data from multiple PDF or image files in a single request.
@@ -73,6 +73,10 @@ module EPostak
       end
 
       private
+
+      def multipart_corrections(corrected_fields)
+        corrected_fields.nil? ? {} : { "fields" => JSON.generate(corrected_fields) }
+      end
 
       # Convert a file path string to an IO object, or return an IO as-is.
       #

@@ -839,8 +839,14 @@ puts "Usage: #{account['usage']['outbound']} sent, #{account['usage']['inbound']
 
 ```ruby
 # From a file path
-result = client.enterprise.payloads.extract("invoice.pdf", "application/pdf", file_name: "invoice.pdf")
+result = client.enterprise.payloads.extract(
+  "invoice.pdf",
+  "application/pdf",
+  file_name: "invoice.pdf",
+  corrected_fields: { vendor_dic: "2020123456", iban: "SK6807200002891987426353" }
+)
 puts result["confidence"] # => 0.95
+puts result["applied_overrides"]
 puts result["ubl_xml"]    # => Generated UBL XML
 puts result["send_payload"] # Outbound draft for review + validate + send
 
@@ -848,6 +854,10 @@ puts result["send_payload"] # Outbound draft for review + validate + send
 io = File.open("scan.png", "rb")
 result = client.enterprise.payloads.extract(io, "image/png", file_name: "scan.png")
 ```
+
+Resend the same file with only the corrected values. An accepted correction
+does not automatically clear `needs_review`; follow `missing_fields` and
+`next_action` before sending.
 
 #### Extract from multiple files
 

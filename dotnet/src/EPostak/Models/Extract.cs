@@ -17,6 +17,30 @@ public sealed class ExtractMissingField
     [JsonPropertyName("label")]
     public string? Label { get; set; }
 
+    /// <summary>Optional EN 16931 business-term identifier.</summary>
+    [JsonPropertyName("bt")]
+    public string? BusinessTerm { get; set; }
+
+    /// <summary>Whether the API requires this value before the next action.</summary>
+    [JsonPropertyName("required")]
+    public bool? Required { get; set; }
+
+    /// <summary><c>blocking</c> or <c>review</c>.</summary>
+    [JsonPropertyName("severity")]
+    public string? Severity { get; set; }
+
+    /// <summary>Machine-readable reason why the value needs attention.</summary>
+    [JsonPropertyName("reason")]
+    public string? Reason { get; set; }
+
+    /// <summary>Human-readable correction guidance.</summary>
+    [JsonPropertyName("how_to_fix")]
+    public string? HowToFix { get; set; }
+
+    /// <summary>Expected value format, when available.</summary>
+    [JsonPropertyName("accepted_format")]
+    public string? AcceptedFormat { get; set; }
+
     /// <summary>Explanation of why the value is needed.</summary>
     [JsonPropertyName("message")]
     public string? Message { get; set; }
@@ -68,6 +92,10 @@ public sealed class ExtractNextAction
     /// <summary>HTTP method for <see cref="Endpoint"/>, when applicable.</summary>
     [JsonPropertyName("method")]
     public string? Method { get; set; }
+
+    /// <summary>Fields to complete or review before taking the action.</summary>
+    [JsonPropertyName("fields")]
+    public List<string> Fields { get; set; } = [];
 }
 
 /// <summary>
@@ -116,6 +144,10 @@ public sealed class ExtractResult
     /// <summary>True when the extraction should be manually reviewed (overall confidence is <c>medium</c> or <c>low</c>).</summary>
     [JsonPropertyName("needs_review")]
     public bool NeedsReview { get; set; }
+
+    /// <summary>Names of caller corrections accepted and applied by the API.</summary>
+    [JsonPropertyName("applied_overrides")]
+    public List<string> AppliedOverrides { get; set; } = [];
 
     /// <summary>Review checklist for missing or low-confidence values.</summary>
     [JsonPropertyName("missing_fields")]
