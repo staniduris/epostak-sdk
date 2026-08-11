@@ -634,6 +634,20 @@ $result = $client->enterprise->firms->registerPeppolId('firm-uuid', '0245', '123
 // => ['peppolId', 'scheme', 'identifier', 'registeredAt']
 ```
 
+#### `firms->createConsentLink($request)` -- Create owner/admin consent URL
+
+```php
+$consent = $client->enterprise->firms->createConsentLink([
+    'dic' => '2022988022',
+    'customerReference' => 'ERP-ACME',
+    'scopes' => ['firms:manage', 'documents:send', 'documents:read'],
+]);
+echo $consent['consent_url'];
+```
+
+The API creates only the invitation. The client firm's owner or admin must
+open the returned URL and approve the exact scopes.
+
 #### `firms->assign($ico)` -- Assign firm to integrator
 
 ```php
@@ -921,6 +935,7 @@ $clientB->enterprise->documents->inbox->list();
 
 | Method                               | Description                          |
 | ------------------------------------ | ------------------------------------ |
+| `firms->createConsentLink($request)` | Create a one-time owner/admin consent URL |
 | `firms->assign($ico)`                | Link a firm to the integrator        |
 | `firms->assignBatch($icos)`          | Batch link firms (max 50)            |
 | `documents->inbox->listAll()`        | Cross-firm inbox with firm_id filter |
@@ -1003,6 +1018,7 @@ try {
 | `firms->get($id)`                                            | GET    | `/firms/{id}`                        |
 | `firms->documents($id, $params)`                             | GET    | `/firms/{id}/documents`              |
 | `firms->registerPeppolId($id, $scheme, $identifier)`         | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms->createConsentLink($request)`                          | POST   | `/firms/consent-link`                |
 | `firms->assign($ico)`                                        | POST   | `/firms/assign`                      |
 | `firms->assignBatch($icos)`                                  | POST   | `/firms/assign/batch`                |
 | `webhooks->create($url, $events)`                            | POST   | `/webhooks`                          |

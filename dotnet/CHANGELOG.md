@@ -3,10 +3,12 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-07-19
+## Unreleased — 2026-08-11
 
 ### Added
 
+- Added typed `Firms.CreateConsentLinkAsync()` support for the Enterprise 1.8.6
+  one-time owner/admin consent URL contract.
 - Added additive single-file OCR methods for corrected `fields`, plus typed
   `AppliedOverrides`, complete missing-field guidance, and next-action fields
   from Enterprise API 1.8.5.

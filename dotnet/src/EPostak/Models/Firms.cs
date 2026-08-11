@@ -145,6 +145,61 @@ public sealed class PeppolIdentifierResponse
 // ---------------------------------------------------------------------------
 
 /// <summary>
+/// Request for a fresh one-time Enterprise firm-consent URL. Provide exactly
+/// one of <see cref="Dic"/> or <see cref="Ico"/>. Scopes must include
+/// <c>firms:manage</c> and at least one <c>documents:*</c> permission.
+/// </summary>
+public sealed class CreateFirmConsentLinkRequest
+{
+    /// <summary>Slovak tax ID (10 digits), mutually exclusive with IČO.</summary>
+    [JsonPropertyName("dic")]
+    public string? Dic { get; set; }
+
+    /// <summary>Slovak company ID (8 digits), mutually exclusive with DIČ.</summary>
+    [JsonPropertyName("ico")]
+    public string? Ico { get; set; }
+
+    /// <summary>Optional integrator-side customer reference (max. 120 chars).</summary>
+    [JsonPropertyName("customer_reference")]
+    public string? CustomerReference { get; set; }
+
+    /// <summary>Exact permissions shown to and approved by the owner or admin.</summary>
+    [JsonPropertyName("scopes")]
+    public IReadOnlyList<string> Scopes { get; set; } = [];
+}
+
+/// <summary>Fresh one-time firm-consent URL and immutable offer metadata.</summary>
+public sealed class FirmConsentLinkResponse
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("consent_url")]
+    public string ConsentUrl { get; set; } = "";
+
+    [JsonPropertyName("customer_reference")]
+    public string? CustomerReference { get; set; }
+
+    [JsonPropertyName("integration_path")]
+    public string IntegrationPath { get; set; } = "";
+
+    [JsonPropertyName("requested_interfaces")]
+    public IReadOnlyList<string> RequestedInterfaces { get; set; } = [];
+
+    [JsonPropertyName("scopes")]
+    public IReadOnlyList<string> Scopes { get; set; } = [];
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("expires_at")]
+    public string ExpiresAt { get; set; } = "";
+
+    [JsonPropertyName("created_at")]
+    public string CreatedAt { get; set; } = "";
+}
+
+/// <summary>
 /// Response from assigning a firm to an integrator account.
 /// </summary>
 public sealed class AssignFirmResponse

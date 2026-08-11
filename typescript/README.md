@@ -642,6 +642,14 @@ await client.enterprise.firms.registerPeppolId("firm-uuid", {
   identifier: "1234567890",
 });
 
+// Create a fresh one-time owner/admin consent URL
+const consent = await client.enterprise.firms.createConsentLink({
+  dic: "2022988022",
+  customerReference: "ERP-ACME",
+  scopes: ["firms:manage", "documents:send", "documents:read"],
+});
+console.log(consent.consentUrl);
+
 // Assign firm by ICO
 await client.enterprise.firms.assign({ ico: "12345678" });
 await client.enterprise.firms.assignBatch({ icos: ["12345678", "87654321"] });
@@ -940,6 +948,7 @@ does not automatically clear `needs_review`; follow `missing_fields` and
 | `firms.get(id)`                          | GET    | `/firms/{id}`                                |
 | `firms.documents(id, params?)`           | GET    | `/firms/{id}/documents`                      |
 | `firms.registerPeppolId(id, body)`       | POST   | `/firms/{id}/peppol-identifiers`             |
+| `firms.createConsentLink(body)`          | POST   | `/firms/consent-link`                        |
 | `firms.assign(body)`                     | POST   | `/firms/assign`                              |
 | `firms.assignBatch(body)`                | POST   | `/firms/assign/batch`                        |
 | `webhooks.create(body, opts?)`           | POST   | `/webhooks`                                  |

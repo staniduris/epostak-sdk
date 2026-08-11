@@ -1541,6 +1541,34 @@ class PeppolIdentifierResponse(TypedDict):
 # ---------------------------------------------------------------------------
 
 
+FirmConsentScope = Literal[
+    "firms:manage",
+    "documents:send",
+    "documents:read",
+    "documents:write",
+    "events:read",
+    "webhooks:read",
+    "webhooks:write",
+    "evidence:read",
+    "account:read",
+]
+"""Permission that can be granted through an Enterprise firm-consent link."""
+
+
+class FirmConsentLinkResponse(TypedDict):
+    """Fresh one-time firm-consent URL and its immutable offer metadata."""
+
+    id: str
+    consent_url: str
+    customer_reference: Optional[str]
+    integration_path: Literal["enterprise_api"]
+    requested_interfaces: List[Literal["enterprise_api"]]
+    scopes: List[FirmConsentScope]
+    status: Literal["issued"]
+    expires_at: str
+    created_at: str
+
+
 class _AssignedFirm(TypedDict, total=False):
     """Firm info returned in assignment responses (snake_case)."""
 

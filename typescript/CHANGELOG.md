@@ -3,10 +3,12 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-07-19
+## Unreleased — 2026-08-11
 
 ### Added
 
+- Added typed `firms.createConsentLink()` support for the Enterprise 1.8.6
+  one-time owner/admin consent URL contract.
 - Added optional corrected OCR `fields` to `payloads.extract()` and the
   compatibility `extract.single()` method, plus typed `applied_overrides` and
   complete review guidance from Enterprise API 1.8.5.

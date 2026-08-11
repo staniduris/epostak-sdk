@@ -222,6 +222,9 @@ export type {
   FirmsListResponse,
   FirmDocumentsParams,
   PeppolIdentifierResponse,
+  FirmConsentScope,
+  CreateFirmConsentLinkRequest,
+  FirmConsentLinkResponse,
   // Firm assignment (integrator)
   AssignFirmRequest,
   AssignFirmResponse,

@@ -141,6 +141,24 @@ public sealed class FirmsResource
         => _http.RequestAsync<AssignFirmResponse>(HttpMethod.Post, "/firms/assign", new { ico }, ct);
 
     /// <summary>
+    /// Create a fresh one-time Enterprise consent URL for a client firm. The
+    /// API creates only the invitation; an owner or admin of the target firm
+    /// must open the URL, sign in, and approve the exact scopes.
+    /// </summary>
+    /// <param name="request">Exactly one DIČ or IČO, optional customer reference, and scopes containing <c>firms:manage</c> plus a <c>documents:*</c> permission.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The one-time consent URL and immutable offer metadata.</returns>
+    public Task<FirmConsentLinkResponse> CreateConsentLinkAsync(
+        CreateFirmConsentLinkRequest request,
+        CancellationToken ct = default)
+        => _http.RequestAsync<FirmConsentLinkResponse>(
+            HttpMethod.Post,
+            "/firms/consent-link",
+            request,
+            ct,
+            omitFirmId: true);
+
+    /// <summary>
     /// Assign multiple firms by ICO in a single batch request (max 50).
     /// Each ICO is processed independently -- partial failures don't block other assignments.
     /// Integrator keys only.

@@ -26,6 +26,7 @@ import {
   type ExtractResult,
   type PeppolParticipant,
   type ConnectorMapperPreviewRequest,
+  type CreateFirmConsentLinkRequest,
 } from "../index.js";
 
 it("preserves nested business error metadata and Retry-After seconds", () => {
@@ -147,6 +148,61 @@ it("ConnectorMapperPreviewRequest is exported from the package root", () => {
     execute: "preview",
   };
   assert.strictEqual(request.execute, "preview");
+});
+
+it("creates an Enterprise firm consent link without X-Firm-Id", async () => {
+  const request: CreateFirmConsentLinkRequest = {
+    dic: "2022988022",
+    customerReference: "ERP-ACME",
+    scopes: ["firms:manage", "documents:send", "documents:read"],
+  };
+  const client = makeClient({ firmId: "firm-uuid" });
+  let capturedBody = "";
+  let capturedFirmId: string | null = "not-called";
+
+  mockFetch(async (input, init) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("/auth/token")) {
+      return makeMockResponse({
+        access_token: "tok",
+        refresh_token: "ref",
+        token_type: "Bearer",
+        expires_in: 900,
+      });
+    }
+    assert.ok(url.endsWith("/firms/consent-link"), `Unexpected URL ${url}`);
+    capturedBody = String(init?.body);
+    capturedFirmId = new Headers(init?.headers).get("X-Firm-Id");
+    return makeMockResponse(
+      {
+        id: "49702ea6-41bf-47ef-9cb6-657450fdb299",
+        consent_url: "https://epostak.sk/auth/integrator-consent?token=one-time",
+        customer_reference: "ERP-ACME",
+        integration_path: "enterprise_api",
+        requested_interfaces: ["enterprise_api"],
+        scopes: ["documents:read", "documents:send", "firms:manage"],
+        status: "issued",
+        expires_at: "2026-08-18T10:00:00.000Z",
+        created_at: "2026-08-11T10:00:00.000Z",
+      },
+      201,
+    );
+  });
+
+  const result = await client.enterprise.firms.createConsentLink(request);
+
+  assert.deepStrictEqual(JSON.parse(capturedBody), {
+    dic: "2022988022",
+    customer_reference: "ERP-ACME",
+    scopes: ["firms:manage", "documents:send", "documents:read"],
+  });
+  assert.strictEqual(capturedFirmId, null);
+  assert.strictEqual(
+    result.consentUrl,
+    "https://epostak.sk/auth/integrator-consent?token=one-time",
+  );
+  assert.strictEqual(result.integrationPath, "enterprise_api");
+  assert.strictEqual(result.customerReference, "ERP-ACME");
 });
 
 it("box resource uses the public Box paths", async () => {

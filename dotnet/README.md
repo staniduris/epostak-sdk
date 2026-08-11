@@ -602,6 +602,16 @@ var docs = await client.Enterprise.Firms.DocumentsAsync("firm-id", new FirmDocum
 // Register Peppol ID
 var peppolId = await client.Enterprise.Firms.RegisterPeppolIdAsync("firm-id", "0245", "12345678");
 
+// Create a fresh one-time owner/admin consent URL
+var consent = await client.Enterprise.Firms.CreateConsentLinkAsync(
+    new CreateFirmConsentLinkRequest
+    {
+        Dic = "2022988022",
+        CustomerReference = "ERP-ACME",
+        Scopes = ["firms:manage", "documents:send", "documents:read"],
+    });
+Console.WriteLine(consent.ConsentUrl);
+
 // Assign firm by ICO (integrator)
 var assigned = await client.Enterprise.Firms.AssignAsync("12345678");
 

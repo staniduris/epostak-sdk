@@ -658,6 +658,22 @@ var result = client.enterprise().firms().registerPeppolId("firm-uuid", "0245", "
 // result.peppolId(), result.registeredAt()
 ```
 
+#### `firms().createConsentLink(request)` -- Create owner/admin consent URL
+
+```java
+FirmConsentLinkResponse consent = client.enterprise().firms().createConsentLink(
+    CreateFirmConsentLinkRequest.forDic(
+        "2022988022",
+        "ERP-ACME",
+        List.of("firms:manage", "documents:send", "documents:read")
+    )
+);
+System.out.println(consent.consentUrl());
+```
+
+The API creates only the invitation. The client firm's owner or admin must
+open the returned URL and approve the exact scopes.
+
 #### `firms().assign(ico)` -- Assign firm to integrator
 
 ```java
@@ -939,6 +955,7 @@ clientB.enterprise().documents().inbox().list();
 
 | Method                                | Description                       |
 | ------------------------------------- | --------------------------------- |
+| `firms().createConsentLink(request)`  | Create a one-time owner/admin consent URL |
 | `firms().assign(ico)`                 | Link a firm to the integrator     |
 | `firms().assignBatch(icos)`           | Batch link firms (max 50)         |
 | `documents().inbox().listAll(...)`    | Cross-firm inbox with firm filter |
@@ -1020,6 +1037,7 @@ try {
 | `firms().get(id)`                     | GET    | `/firms/{id}`                        |
 | `firms().documents(id, ...)`          | GET    | `/firms/{id}/documents`              |
 | `firms().registerPeppolId(id, ...)`   | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms().createConsentLink(request)`  | POST   | `/firms/consent-link`                |
 | `firms().assign(ico)`                 | POST   | `/firms/assign`                      |
 | `firms().assignBatch(icos)`           | POST   | `/firms/assign/batch`                |
 | `webhooks().create(url, events)`      | POST   | `/webhooks`                          |

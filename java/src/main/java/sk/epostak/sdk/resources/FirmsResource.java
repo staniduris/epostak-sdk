@@ -137,6 +137,27 @@ public final class FirmsResource {
     }
 
     /**
+     * Create a fresh one-time Enterprise consent URL for a client firm.
+     * The API creates only the invitation; an owner or admin of the target
+     * firm must open the URL, sign in, and approve the exact scopes.
+     * Every successful call creates a new URL that is returned once.
+     *
+     * @param request exactly one DIČ or IČO, optional customer reference, and
+     *                scopes containing {@code firms:manage} plus a
+     *                {@code documents:*} permission
+     * @return the one-time consent URL and immutable offer metadata
+     * @throws sk.epostak.sdk.EPostakException if the request or integrator
+     *         authorization is invalid
+     */
+    public FirmConsentLinkResponse createConsentLink(CreateFirmConsentLinkRequest request) {
+        return http.postNoFirm(
+                "/firms/consent-link",
+                request,
+                FirmConsentLinkResponse.class
+        );
+    }
+
+    /**
      * Batch assign firms to this integrator by ICO (max 50 per request).
      *
      * @param icos list of Slovak company registration numbers (ICO), max 50

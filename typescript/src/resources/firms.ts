@@ -6,11 +6,25 @@ import type {
   FirmDocumentsParams,
   InboxListResponse,
   PeppolIdentifierResponse,
+  CreateFirmConsentLinkRequest,
+  FirmConsentLinkResponse,
   AssignFirmRequest,
   AssignFirmResponse,
   BatchAssignFirmsRequest,
   BatchAssignFirmsResponse,
 } from "../types.js";
+
+type FirmConsentLinkWireResponse = {
+  id: string;
+  consent_url: string;
+  customer_reference: string | null;
+  integration_path: "enterprise_api";
+  requested_interfaces: "enterprise_api"[];
+  scopes: FirmConsentLinkResponse["scopes"];
+  status: "issued";
+  expires_at: string;
+  created_at: string;
+};
 
 /**
  * Resource for managing firms (companies) associated with your account.
@@ -120,6 +134,56 @@ export class FirmsResource extends BaseResource {
       `/firms/${encodeURIComponent(id)}/peppol-identifiers`,
       peppolId,
     );
+  }
+
+  /**
+   * Create a fresh one-time Enterprise consent URL for a client firm.
+   * The API creates only the invitation; an owner or admin of the target firm
+   * must open the URL, sign in, and approve the exact scopes.
+   *
+   * Provide exactly one of `dic` or `ico`. The scopes must contain
+   * `firms:manage` and at least one `documents:*` permission. Every successful
+   * call creates a new URL, so store or deliver it from this response.
+   *
+   * @param body - Firm identifier, optional customer reference, and exact consent scopes
+   * @returns The fresh one-time consent URL and immutable offer metadata
+   *
+   * @example
+   * ```typescript
+   * const consent = await client.enterprise.firms.createConsentLink({
+   *   dic: "2022988022",
+   *   customerReference: "ERP-ACME",
+   *   scopes: ["firms:manage", "documents:send", "documents:read"],
+   * });
+   * console.log(consent.consentUrl);
+   * ```
+   */
+  async createConsentLink(
+    body: CreateFirmConsentLinkRequest,
+  ): Promise<FirmConsentLinkResponse> {
+    const response = await this.request<FirmConsentLinkWireResponse>(
+      "POST",
+      "/firms/consent-link",
+      {
+        dic: body.dic,
+        ico: body.ico,
+        customer_reference: body.customerReference,
+        scopes: body.scopes,
+      },
+      { omitFirmId: true },
+    );
+
+    return {
+      id: response.id,
+      consentUrl: response.consent_url,
+      customerReference: response.customer_reference,
+      integrationPath: response.integration_path,
+      requestedInterfaces: response.requested_interfaces,
+      scopes: response.scopes,
+      status: response.status,
+      expiresAt: response.expires_at,
+      createdAt: response.created_at,
+    };
   }
 
   /**

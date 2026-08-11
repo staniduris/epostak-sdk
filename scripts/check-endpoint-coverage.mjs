@@ -208,6 +208,51 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
+  const consentLink = current.paths?.["/firms/consent-link"]?.post;
+  if (!consentLink) {
+    failures.push("current OpenAPI: missing POST /firms/consent-link");
+  } else {
+    if (consentLink.operationId !== "createFirmConsentLink") {
+      failures.push(
+        "current OpenAPI: POST /firms/consent-link operationId must be createFirmConsentLink",
+      );
+    }
+    if (!consentLink["x-epostak-required-scopes"]?.includes("firms:manage")) {
+      failures.push(
+        "current OpenAPI: POST /firms/consent-link must require firms:manage",
+      );
+    }
+    const requestProperties =
+      consentLink.requestBody?.content?.["application/json"]?.schema?.properties;
+    for (const property of ["dic", "ico", "customer_reference", "scopes"]) {
+      if (!Object.hasOwn(requestProperties ?? {}, property)) {
+        failures.push(
+          `current OpenAPI: POST /firms/consent-link request missing ${property}`,
+        );
+      }
+    }
+    const responseProperties =
+      consentLink.responses?.["201"]?.content?.["application/json"]?.schema
+        ?.properties;
+    for (const property of [
+      "id",
+      "consent_url",
+      "customer_reference",
+      "integration_path",
+      "requested_interfaces",
+      "scopes",
+      "status",
+      "expires_at",
+      "created_at",
+    ]) {
+      if (!Object.hasOwn(responseProperties ?? {}, property)) {
+        failures.push(
+          `current OpenAPI: POST /firms/consent-link response missing ${property}`,
+        );
+      }
+    }
+  }
+
   const licenseInfoSchema =
     current.paths?.["/integrator/licenses/info"]?.get?.responses?.["200"]
       ?.content?.["application/json"]?.schema;

@@ -16,6 +16,8 @@ if TYPE_CHECKING:
         AssignFirmResponse,
         BatchAssignFirmsResponse,
         FirmDetail,
+        FirmConsentLinkResponse,
+        FirmConsentScope,
         FirmSummary,
         InboxListResponse,
         PeppolIdentifierResponse,
@@ -140,6 +142,55 @@ class FirmsResource(_BaseResource):
                     ...
         """
         return self._request("POST", "/firms/assign", json={"ico": ico})
+
+    def create_consent_link(
+        self,
+        *,
+        scopes: List[FirmConsentScope],
+        dic: Optional[str] = None,
+        ico: Optional[str] = None,
+        customer_reference: Optional[str] = None,
+    ) -> FirmConsentLinkResponse:
+        """Create a fresh one-time Enterprise consent URL for a client firm.
+
+        The API creates only the invitation. An owner or admin of the target
+        firm must open the URL, sign in, and approve the exact scopes.
+
+        Provide exactly one of ``dic`` or ``ico``. ``scopes`` must include
+        ``"firms:manage"`` and at least one ``"documents:*"`` permission.
+        Every successful call creates a new URL that is returned once.
+
+        Args:
+            scopes: Exact permissions shown to the firm's owner or admin.
+            dic: Slovak tax ID (10 digits). Mutually exclusive with ``ico``.
+            ico: Slovak company ID (8 digits). Mutually exclusive with ``dic``.
+            customer_reference: Optional integrator-side reference (max 120 chars).
+
+        Returns:
+            The one-time ``consent_url`` and immutable offer metadata.
+
+        Example::
+
+            consent = client.enterprise.firms.create_consent_link(
+                dic="2022988022",
+                customer_reference="ERP-ACME",
+                scopes=["firms:manage", "documents:send", "documents:read"],
+            )
+            print(consent["consent_url"])
+        """
+        body: Dict[str, Any] = {"scopes": scopes}
+        if dic is not None:
+            body["dic"] = dic
+        if ico is not None:
+            body["ico"] = ico
+        if customer_reference is not None:
+            body["customer_reference"] = customer_reference
+        return self._request(
+            "POST",
+            "/firms/consent-link",
+            json=body,
+            omit_firm_id=True,
+        )
 
     def assign_batch(self, icos: List[str]) -> BatchAssignFirmsResponse:
         """Batch assign firms to this integrator (max 50).

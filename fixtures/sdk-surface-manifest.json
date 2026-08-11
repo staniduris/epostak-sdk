@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "documentation": [
     "README.md",
     "typescript/README.md",
@@ -50,6 +50,36 @@
       "name": ".NET Connector",
       "file": "dotnet/src/EPostak/Resources/ConnectorWebhookResource.cs",
       "contains": ["class ConnectorWebhookResource", "/connector/webhook", "/connector/webhook/rotate-secret", "/connector/webhook/test", "/connector/webhook/deliveries", "/replay", "/connector/webhook/test-suite", "GetDeliveryAsync", "RunTestSuiteAsync", "omitFirmId: true", "[\"customerRef\"]"]
+    },
+    {
+      "name": "TypeScript firm consent link",
+      "file": "typescript/src/resources/firms.ts",
+      "contains": ["createConsentLink", "/firms/consent-link", "CreateFirmConsentLinkRequest", "omitFirmId: true"]
+    },
+    {
+      "name": "Python firm consent link",
+      "file": "python/src/epostak/resources/firms.py",
+      "contains": ["def create_consent_link(", "/firms/consent-link", "FirmConsentLinkResponse", "omit_firm_id=True"]
+    },
+    {
+      "name": "PHP firm consent link",
+      "file": "php/src/Resources/Firms.php",
+      "contains": ["function createConsentLink(", "/firms/consent-link", "customer_reference", "'omitFirmId' => true"]
+    },
+    {
+      "name": "Ruby firm consent link",
+      "file": "ruby/lib/epostak/resources/firms.rb",
+      "contains": ["def create_consent_link(", "/firms/consent-link", "customer_reference", "omit_firm_id: true"]
+    },
+    {
+      "name": "Java firm consent link",
+      "file": "java/src/main/java/sk/epostak/sdk/resources/FirmsResource.java",
+      "contains": ["createConsentLink(", "/firms/consent-link", "CreateFirmConsentLinkRequest", "postNoFirm"]
+    },
+    {
+      "name": ".NET firm consent link",
+      "file": "dotnet/src/EPostak/Resources/FirmsResource.cs",
+      "contains": ["CreateConsentLinkAsync(", "/firms/consent-link", "CreateFirmConsentLinkRequest", "omitFirmId: true"]
     },
     {
       "name": "TypeScript legacy Connector events optional cursor",
@@ -157,7 +187,7 @@
         { "name": "events routes", "file": "typescript/src/resources/events.ts", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "typescript/src/resources/webhooks.ts", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "typescript/src/resources/peppol.ts", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
-        { "name": "firm routes", "file": "typescript/src/resources/firms.ts", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "typescript/src/resources/firms.ts", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "typescript/src/resources/reporting.ts", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "typescript/src/resources/integrator.ts", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "typescript/src/resources/box.ts", "contains": ["/box/items", "/send-now", "/cancel"] },
@@ -184,7 +214,7 @@
         { "name": "events routes", "file": "python/src/epostak/resources/events.py", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "python/src/epostak/resources/webhooks.py", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "python/src/epostak/resources/peppol.py", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
-        { "name": "firm routes", "file": "python/src/epostak/resources/firms.py", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "python/src/epostak/resources/firms.py", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "python/src/epostak/resources/reporting.py", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "python/src/epostak/resources/integrator.py", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "python/src/epostak/resources/box.py", "contains": ["/box/items", "/send-now", "/cancel"] },
@@ -211,7 +241,7 @@
         { "name": "events routes", "file": "php/src/Resources/Events.php", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "php/src/Resources/Webhooks.php", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "php/src/Resources/Peppol.php", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
-        { "name": "firm routes", "file": "php/src/Resources/Firms.php", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "php/src/Resources/Firms.php", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "php/src/Resources/Reporting.php", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "php/src/Resources/Integrator.php", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "php/src/Resources/Box.php", "contains": ["/box/items", "/send-now", "/cancel"] },
@@ -238,7 +268,7 @@
         { "name": "events routes", "file": "ruby/lib/epostak/resources/events.rb", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "ruby/lib/epostak/resources/webhooks.rb", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "ruby/lib/epostak/resources/peppol.rb", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
-        { "name": "firm routes", "file": "ruby/lib/epostak/resources/firms.rb", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "ruby/lib/epostak/resources/firms.rb", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "ruby/lib/epostak/resources/reporting.rb", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "ruby/lib/epostak/resources/integrator.rb", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "ruby/lib/epostak/resources/box.rb", "contains": ["/box/items", "/send-now", "/cancel"] },
@@ -265,7 +295,7 @@
         { "name": "events routes", "file": "java/src/main/java/sk/epostak/sdk/resources/EventsResource.java", "contains": ["/events/pull", "/events/batch-ack"] },
         { "name": "webhook routes", "file": "java/src/main/java/sk/epostak/sdk/resources/WebhooksResource.java", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "java/src/main/java/sk/epostak/sdk/resources/PeppolResource.java", "contains": ["/peppol/participants/resolve", "/peppol/capabilities"] },
-        { "name": "firm routes", "file": "java/src/main/java/sk/epostak/sdk/resources/FirmsResource.java", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "java/src/main/java/sk/epostak/sdk/resources/FirmsResource.java", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "java/src/main/java/sk/epostak/sdk/resources/ReportingResource.java", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "java/src/main/java/sk/epostak/sdk/resources/IntegratorResource.java", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "java/src/main/java/sk/epostak/sdk/resources/BoxResource.java", "contains": ["/box/items", "/send-now", "/cancel"] },
@@ -294,7 +324,7 @@
         { "name": "webhook routes", "file": "dotnet/src/EPostak/Resources/WebhooksResource.cs", "contains": ["/webhooks", "/webhook-dead-letter", "/rotate-secret"] },
         { "name": "Peppol routes", "file": "dotnet/src/EPostak/Resources/PeppolResource.cs", "contains": ["/peppol/participants/resolve", "ResolveErpInfoAsync", "/peppol/capabilities"] },
         { "name": "typed ERP resolve models", "file": "dotnet/src/EPostak/Models/Peppol.cs", "contains": ["public sealed class ErpInfo", "public sealed class ErpQuery", "public sealed class ErpCompany", "public sealed class ErpParticipant", "public sealed class ErpCapability"] },
-        { "name": "firm routes", "file": "dotnet/src/EPostak/Resources/FirmsResource.cs", "contains": ["/firms", "/firms/assign"] },
+        { "name": "firm routes", "file": "dotnet/src/EPostak/Resources/FirmsResource.cs", "contains": ["/firms", "/firms/consent-link", "/firms/assign"] },
         { "name": "reporting routes", "file": "dotnet/src/EPostak/Resources/ReportingResource.cs", "contains": ["/reporting/statistics", "/reporting/submissions"] },
         { "name": "integrator routes", "file": "dotnet/src/EPostak/Resources/IntegratorResource.cs", "contains": ["/integrator/keys", "/integrator/licenses/info"] },
         { "name": "Box routes", "file": "dotnet/src/EPostak/Resources/BoxResource.cs", "contains": ["/box/items", "/send-now", "/cancel"] },

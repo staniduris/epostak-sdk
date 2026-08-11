@@ -29,6 +29,7 @@ import sk.epostak.sdk.models.ConnectorSendPolicyOptions;
 import sk.epostak.sdk.models.ConnectorSubmitDocumentRequest;
 import sk.epostak.sdk.models.ConnectorSyncParams;
 import sk.epostak.sdk.models.CapabilitiesRequest;
+import sk.epostak.sdk.models.CreateFirmConsentLinkRequest;
 import sk.epostak.sdk.models.SendDocumentRequest;
 import sk.epostak.sdk.resources.ConnectorCustomerDocumentsResource;
 import sk.epostak.sdk.resources.ConnectorCustomersResource;
@@ -51,6 +52,31 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class ConnectorFirmScopeTest {
+    @Test
+    void firmConsentLinkUsesCanonicalWireContractWithoutFirmId() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            var result = client.enterprise().firms().createConsentLink(
+                    CreateFirmConsentLinkRequest.forDic(
+                            "2022988022",
+                            "ERP-ACME",
+                            List.of("firms:manage", "documents:send")
+                    )
+            );
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals("POST", request.method());
+            assertEquals("/api/v1/firms/consent-link", request.path());
+            assertNull(request.firmId());
+            assertEquals(true, request.body().contains("\"dic\":\"2022988022\""));
+            assertEquals(true, request.body().contains("\"customer_reference\":\"ERP-ACME\""));
+            assertEquals(true, request.body().contains("\"firms:manage\""));
+            assertEquals("https://epostak.sk/auth/integrator-consent?token=one-time", result.consentUrl());
+            assertEquals("enterprise_api", result.integrationPath());
+        }
+    }
+
     @Test
     void connectorV2EndpointsDoNotSendGlobalFirmId() throws Exception {
         for (NamedCall call : v2Calls()) {
@@ -1102,6 +1128,10 @@ final class ConnectorFirmScopeTest {
             }
             if (path.equals("/api/v1/connector/webhook/deliveries")) {
                 respond(exchange, "application/json", "{\"deliveries\":[{\"id\":\"whd-1\",\"webhookId\":\"wh-1\",\"eventId\":\"evt-1\",\"customerRef\":\"erp-customer-1\",\"type\":\"document.received\",\"status\":\"SUCCESS\",\"attempts\":1,\"responseStatus\":204,\"responseTimeMs\":83,\"lastAttemptAt\":\"2026-07-15T10:00:01Z\",\"nextRetryAt\":null,\"createdAt\":\"2026-07-15T10:00:00Z\"}],\"nextCursor\":null,\"hasMore\":false}");
+                return;
+            }
+            if (path.equals("/api/v1/firms/consent-link")) {
+                respond(exchange, "application/json", "{\"id\":\"offer-1\",\"consent_url\":\"https://epostak.sk/auth/integrator-consent?token=one-time\",\"customer_reference\":\"ERP-ACME\",\"integration_path\":\"enterprise_api\",\"requested_interfaces\":[\"enterprise_api\"],\"scopes\":[\"firms:manage\",\"documents:send\"],\"status\":\"issued\",\"expires_at\":\"2026-08-18T10:00:00.000Z\",\"created_at\":\"2026-08-11T10:00:00.000Z\"}");
                 return;
             }
             if (path.equals("/api/v1/connector/webhook") && !exchange.getRequestMethod().equals("DELETE")) {

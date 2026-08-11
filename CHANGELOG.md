@@ -1,5 +1,15 @@
 # Changelog
 
+## [Enterprise firm consent-link SDK sync] — 2026-08-11
+
+- Added `POST /firms/consent-link` helpers across TypeScript, Python, PHP,
+  Ruby, Java, and .NET from Enterprise OpenAPI 1.8.6.
+- Each SDK exposes the one-time owner/admin consent URL, sends the canonical
+  snake_case request without `X-Firm-Id`, and documents the mandatory
+  `firms:manage` plus `documents:*` scopes.
+- The API creates only the invitation; the target firm's owner or admin must
+  open the returned URL and approve the exact scopes.
+
 ## [OCR correction contract sync] — 2026-08-08
 
 - Added optional multipart `fields` corrections to single-file OCR extraction

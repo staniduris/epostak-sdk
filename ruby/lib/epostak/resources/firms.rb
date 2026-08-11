@@ -112,6 +112,35 @@ module EPostak
         @http.request(:post, "/firms/assign", body: { ico: ico })
       end
 
+      # Create a fresh one-time Enterprise consent URL for a client firm.
+      # The API creates only the invitation; an owner or admin of the target
+      # firm must open the URL, sign in, and approve the exact scopes.
+      #
+      # Provide exactly one of +dic+ or +ico+. Scopes must contain
+      # +firms:manage+ and at least one +documents:*+ permission. Every
+      # successful call creates a new URL that is returned once.
+      #
+      # @param scopes [Array<String>] Exact permissions to show for approval
+      # @param dic [String, nil] Slovak tax ID (10 digits)
+      # @param ico [String, nil] Slovak company ID (8 digits)
+      # @param customer_reference [String, nil] Integrator-side reference
+      # @return [Hash] One-time consent URL and immutable offer metadata
+      #
+      # @example
+      #   consent = client.enterprise.firms.create_consent_link(
+      #     dic: "2022988022",
+      #     customer_reference: "ERP-ACME",
+      #     scopes: ["firms:manage", "documents:send", "documents:read"]
+      #   )
+      #   puts consent["consent_url"]
+      def create_consent_link(scopes:, dic: nil, ico: nil, customer_reference: nil)
+        body = { scopes: scopes }
+        body[:dic] = dic unless dic.nil?
+        body[:ico] = ico unless ico.nil?
+        body[:customer_reference] = customer_reference unless customer_reference.nil?
+        @http.request(:post, "/firms/consent-link", body: body, omit_firm_id: true)
+      end
+
       # Assign multiple firms at once by their Slovak ICOs.
       # Each ICO is processed independently -- individual failures don't affect others.
       # Maximum 50 ICOs per request.

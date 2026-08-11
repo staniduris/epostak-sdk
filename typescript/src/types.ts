@@ -2024,6 +2024,56 @@ export interface PeppolIdentifierResponse {
 // Firm assignment (integrator)
 // ---------------------------------------------------------------------------
 
+/** Scope that an owner or admin can grant through an Enterprise firm-consent link. */
+export type FirmConsentScope =
+  | "firms:manage"
+  | "documents:send"
+  | "documents:read"
+  | "documents:write"
+  | "events:read"
+  | "webhooks:read"
+  | "webhooks:write"
+  | "evidence:read"
+  | "account:read";
+
+type FirmConsentIdentifier =
+  | { dic: string; ico?: never }
+  | { ico: string; dic?: never };
+
+/**
+ * Request for a fresh, one-time Enterprise firm-consent URL.
+ * Provide exactly one of `dic` or `ico`. `scopes` must contain
+ * `firms:manage` and at least one `documents:*` scope.
+ */
+export type CreateFirmConsentLinkRequest = FirmConsentIdentifier & {
+  /** Optional integrator-side reference (max. 120 characters). */
+  customerReference?: string | null;
+  /** Exact permissions shown to and approved by the firm's owner or admin. */
+  scopes: FirmConsentScope[];
+};
+
+/** Response returned when a fresh one-time firm-consent URL is created. */
+export interface FirmConsentLinkResponse {
+  /** Consent-offer UUID. */
+  id: string;
+  /** One-time URL to send to the firm's owner or admin. */
+  consentUrl: string;
+  /** Integrator-side customer reference, if supplied. */
+  customerReference: string | null;
+  /** API interface authorized by the invitation. */
+  integrationPath: "enterprise_api";
+  /** Interfaces authorized by the invitation. */
+  requestedInterfaces: "enterprise_api"[];
+  /** Exact scopes the owner or admin will approve. */
+  scopes: FirmConsentScope[];
+  /** Newly created offers are always issued. */
+  status: "issued";
+  /** ISO 8601 expiration timestamp. */
+  expiresAt: string;
+  /** ISO 8601 creation timestamp. */
+  createdAt: string;
+}
+
 /**
  * Request to assign a firm to the integrator account by its ICO.
  * Once assigned, the integrator can send/receive documents on behalf of this firm.

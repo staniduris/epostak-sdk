@@ -50,6 +50,7 @@ namespace EPostak\Tests {
     use EPostak\HttpClient;
     use EPostak\Resources\Box;
     use EPostak\Resources\Connector;
+    use EPostak\Resources\Firms;
     use EPostak\Resources\Payloads;
     use EPostak\TokenManager;
     use GuzzleHttp\Client;
@@ -63,6 +64,7 @@ namespace EPostak\Tests {
     require_once __DIR__ . '/../src/HttpClient.php';
     require_once __DIR__ . '/../src/Resources/Box.php';
     require_once __DIR__ . '/../src/Resources/Connector.php';
+    require_once __DIR__ . '/../src/Resources/Firms.php';
     require_once __DIR__ . '/../src/Resources/Payloads.php';
     require_once __DIR__ . '/../src/Resources/PeppolDirectory.php';
     require_once __DIR__ . '/../src/Resources/Peppol.php';
@@ -778,6 +780,22 @@ namespace EPostak\Tests {
     assertTrue(($body['participant']['scheme'] ?? null) === '0245', 'Expected nested participant.scheme.');
     assertTrue(($body['participant']['identifier'] ?? null) === '2020305606', 'Expected nested participant.identifier.');
     assertTrue(($body['documentType'] ?? null) === 'urn:invoice', 'Expected documentType to be forwarded.');
+
+    $firms = new Firms(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
+    Client::$requests = [];
+    Client::$responses = [new FakeResponse(201, '{"id":"offer-1","consent_url":"https://epostak.sk/auth/integrator-consent?token=one-time","customer_reference":"ERP-ACME","integration_path":"enterprise_api","requested_interfaces":["enterprise_api"],"scopes":["firms:manage","documents:send"],"status":"issued","expires_at":"2026-08-18T10:00:00.000Z","created_at":"2026-08-11T10:00:00.000Z"}')];
+    $consent = $firms->createConsentLink([
+        'dic' => '2022988022',
+        'customerReference' => 'ERP-ACME',
+        'scopes' => ['firms:manage', 'documents:send'],
+    ]);
+    $request = oneRequest();
+    assertTrue($request['method'] === 'POST', 'Expected firm consent-link creation to POST.');
+    assertTrue($request['path'] === 'firms/consent-link', "Expected firm consent-link path, got {$request['path']}.");
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Did not expect X-Firm-Id on firm consent-link creation.');
+    assertTrue(($request['options']['json']['customer_reference'] ?? null) === 'ERP-ACME', 'Expected customer_reference wire key.');
+    assertTrue(($request['options']['json']['dic'] ?? null) === '2022988022', 'Expected DIC firm identifier.');
+    assertTrue(($consent['consent_url'] ?? null) === 'https://epostak.sk/auth/integrator-consent?token=one-time', 'Expected one-time consent URL response.');
 
     $payloads = new Payloads(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
     Client::$requests = [];

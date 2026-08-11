@@ -558,6 +558,14 @@ firm = client.enterprise.firms.get("firm-uuid")
 docs = client.enterprise.firms.documents("firm-uuid", limit=20, direction="inbound")
 client.enterprise.firms.register_peppol_id("firm-uuid", scheme="0245", identifier="1234567890")
 
+# Create a fresh one-time owner/admin consent URL
+consent = client.enterprise.firms.create_consent_link(
+    dic="2022988022",
+    customer_reference="ERP-ACME",
+    scopes=["firms:manage", "documents:send", "documents:read"],
+)
+print(consent["consent_url"])
+
 # Assign firm by ICO
 client.enterprise.firms.assign(ico="12345678")
 client.enterprise.firms.assign_batch(icos=["12345678", "87654321"])
@@ -839,6 +847,7 @@ except EPostakError as err:
 | `firms.get(id)`                                                | GET    | `/firms/{id}`                        |
 | `firms.documents(id, **params)`                                | GET    | `/firms/{id}/documents`              |
 | `firms.register_peppol_id(id, ...)`                            | POST   | `/firms/{id}/peppol-identifiers`     |
+| `firms.create_consent_link(...)`                               | POST   | `/firms/consent-link`                |
 | `firms.assign(...)`                                            | POST   | `/firms/assign`                      |
 | `firms.assign_batch(...)`                                      | POST   | `/firms/assign/batch`                |
 | `webhooks.create(url, events, idempotency_key=...)`            | POST   | `/webhooks`                          |

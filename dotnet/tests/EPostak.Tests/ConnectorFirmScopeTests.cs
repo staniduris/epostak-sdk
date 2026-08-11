@@ -11,6 +11,44 @@ namespace EPostak.Tests;
 public sealed class ConnectorFirmScopeTests
 {
     [Fact]
+    public async Task FirmConsentLinkUsesCanonicalWireContractWithoutFirmId()
+    {
+        var handler = new CaptureHandler(_ => """
+            {
+              "id":"offer-1",
+              "consent_url":"https://epostak.sk/auth/integrator-consent?token=one-time",
+              "customer_reference":"ERP-ACME",
+              "integration_path":"enterprise_api",
+              "requested_interfaces":["enterprise_api"],
+              "scopes":["firms:manage","documents:send"],
+              "status":"issued",
+              "expires_at":"2026-08-18T10:00:00.000Z",
+              "created_at":"2026-08-11T10:00:00.000Z"
+            }
+            """);
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        var result = await client.Enterprise.Firms.CreateConsentLinkAsync(
+            new CreateFirmConsentLinkRequest
+            {
+                Dic = "2022988022",
+                CustomerReference = "ERP-ACME",
+                Scopes = ["firms:manage", "documents:send"],
+            });
+
+        var request = Assert.Single(handler.ApiRequests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("/api/v1/firms/consent-link", request.Uri.AbsolutePath);
+        Assert.DoesNotContain("X-Firm-Id", request.Headers.Keys);
+        Assert.Contains("\"dic\":\"2022988022\"", request.Body);
+        Assert.Contains("\"customer_reference\":\"ERP-ACME\"", request.Body);
+        Assert.DoesNotContain("\"ico\"", request.Body);
+        Assert.Equal("https://epostak.sk/auth/integrator-consent?token=one-time", result.ConsentUrl);
+        Assert.Equal("enterprise_api", result.IntegrationPath);
+    }
+
+    [Fact]
     public async Task ConnectorV2EndpointsDoNotSendGlobalFirmId()
     {
         foreach (var call in V2Calls())

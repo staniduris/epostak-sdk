@@ -7,10 +7,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
 > release is `1.x`.
 
-## Unreleased — 2026-07-19
+## Unreleased — 2026-08-11
 
 ### Added
 
+- Added `firms->createConsentLink()` support for the Enterprise 1.8.6
+  one-time owner/admin consent URL contract.
 - Added optional corrected OCR `$fields` to `payloads->extract()` and the
   compatibility `extract->single()` method, matching Enterprise API 1.8.5.
 - Added Connector webhook debugger methods for filtered delivery history,

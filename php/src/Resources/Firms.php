@@ -113,6 +113,52 @@ class Firms
     }
 
     /**
+     * Create a fresh one-time Enterprise consent URL for a client firm.
+     *
+     * The API creates only the invitation. An owner or admin of the target
+     * firm must open the URL, sign in, and approve the exact scopes. Provide
+     * exactly one of `dic` or `ico`; scopes must contain `firms:manage` and at
+     * least one `documents:*` permission.
+     *
+     * @param array{
+     *   dic?: string,
+     *   ico?: string,
+     *   customerReference?: string|null,
+     *   scopes: list<string>
+     * } $request Firm identifier, optional customer reference, and exact scopes.
+     * @return array{
+     *   id: string,
+     *   consent_url: string,
+     *   customer_reference: string|null,
+     *   integration_path: string,
+     *   requested_interfaces: list<string>,
+     *   scopes: list<string>,
+     *   status: string,
+     *   expires_at: string,
+     *   created_at: string
+     * }
+     * @throws EPostakError On API error.
+     */
+    public function createConsentLink(array $request): array
+    {
+        $body = ['scopes' => $request['scopes']];
+        if (array_key_exists('dic', $request)) {
+            $body['dic'] = $request['dic'];
+        }
+        if (array_key_exists('ico', $request)) {
+            $body['ico'] = $request['ico'];
+        }
+        if (array_key_exists('customerReference', $request)) {
+            $body['customer_reference'] = $request['customerReference'];
+        }
+
+        return $this->http->request('POST', '/firms/consent-link', [
+            'json' => $body,
+            'omitFirmId' => true,
+        ]);
+    }
+
+    /**
      * Batch assign firms to this integrator.
      *
      * @param string[] $icos Array of Slovak ICO numbers (up to 50).

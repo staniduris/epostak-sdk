@@ -578,6 +578,20 @@ result = client.enterprise.firms.register_peppol_id("firm-uuid",
 puts result["peppolId"] # => "0245:1234567890"
 ```
 
+#### Create a one-time owner/admin consent URL
+
+```ruby
+consent = client.enterprise.firms.create_consent_link(
+  dic: "2022988022",
+  customer_reference: "ERP-ACME",
+  scopes: ["firms:manage", "documents:send", "documents:read"]
+)
+puts consent["consent_url"]
+```
+
+The API creates only the invitation. The client firm's owner or admin must
+open the returned URL and approve the exact scopes.
+
 #### Assign a firm by ICO
 
 ```ruby

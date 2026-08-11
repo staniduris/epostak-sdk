@@ -325,7 +325,7 @@ All SDKs cover the current Enterprise API and SAPI-SK 1.0 document flow:
 - **Inbox** — list, get, acknowledge, cross-firm list (integrator)
 - **Inbound / Outbound Pull API** — cursor-paginated document polling, UBL downloads, ACK, outbound events, raw AS4 MDN evidence
 - **Peppol** — SMP lookup, directory search, company lookup/search, participant resolve, capability checks, batch participant lookup
-- **Firms** — list, get, documents, register Peppol ID, assign, batch assign (integrator)
+- **Firms** — list, get, documents, register Peppol ID, create owner/admin consent links, assign, batch assign (integrator)
 - **Webhooks** — CRUD, queued tests, delivery history, dead-letter queue replay/resolve, pull queue with single/batch acknowledge
 - **Reporting** — aggregated statistics and submissions
 - **Account** — firm info, plan, usage, license info
@@ -342,6 +342,7 @@ links. Enterprise-only integrator endpoints:
 
 | Method              | Description                          |
 | ------------------- | ------------------------------------ |
+| `firms.createConsentLink` | Create a one-time owner/admin consent URL |
 | `firms.assign`      | Link a firm to the integrator by ICO |
 | `firms.assignBatch` | Batch link firms (max 50)            |
 | `inbox.listAll`     | Cross-firm inbox                     |
@@ -349,6 +350,10 @@ links. Enterprise-only integrator endpoints:
 | `queue.batchAckAll` | Cross-firm batch acknowledge         |
 | `integrator.keys`   | List and deactivate production integrator API keys |
 | `integrator.licenses.info` | Aggregate usage across managed firms |
+
+Consent-link creation requires an integrator JWT with `firms:manage`. The SDK
+creates only the invitation; the client firm's owner or admin must open the
+returned URL and approve the exact scopes.
 
 ---
 
