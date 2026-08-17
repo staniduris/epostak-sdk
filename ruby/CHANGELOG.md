@@ -5,10 +5,13 @@ The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;
 earlier CHANGELOG headings used a different numbering scheme.
 
-## Unreleased — 2026-08-11
+## 1.2.0 — 2026-08-17
 
 ### Added
 
+- Added the `white_label` participant lifecycle for FS SR token registration,
+  migration in/out, participant inventory, and operation polling. Mutations
+  require idempotency keys and always omit `X-Firm-Id`.
 - Added `firms.create_consent_link` support for the Enterprise 1.8.6 one-time
   owner/admin consent URL contract.
 - Added optional `corrected_fields:` to `payloads.extract` and the compatibility

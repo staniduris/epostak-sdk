@@ -596,11 +596,65 @@ def test_major_enterprise_namespace_exposes_full_platform_resources():
     assert client.enterprise.pull.outbound is client.outbound
     assert client.enterprise.connector is client.connector
     assert client.enterprise.webhooks is client.webhooks
+    assert client.enterprise.white_label is client.white_label
     assert client.connector.advanced.documents is not client.connector.documents
     customer = client.connector.customers.for_customer("erp-customer-1")
     assert customer.mailbox is customer.advanced.mailbox
     with pytest.raises(ValueError, match="customerRef is required"):
         client.connector.customers.for_customer("  ")
+
+
+def test_white_label_lifecycle_is_idempotent_and_never_firm_scoped():
+    from epostak.resources.white_label import WhiteLabelResource
+
+    resource = WhiteLabelResource(
+        MagicMock(),
+        "https://epostak.sk/api/v1",
+        MagicMock(),
+        "must-not-leak",
+        max_retries=0,
+    )
+    registration = {
+        "customerRef": "ERP-ACME",
+        "dic": "2022988022",
+        "companyEmail": "uctaren@example.sk",
+        "verificationToken": "one-time-secret",
+    }
+    with patch.object(resource, "_request", return_value={}) as mock_req:
+        resource.list_participants(limit=25, cursor="next")
+        resource.register_participant(registration, idempotency_key="wl-register-1")
+        resource.request_migration_code("participant/1", idempotency_key="wl-out-1")
+
+    assert mock_req.call_args_list == [
+        call(
+            "GET",
+            "/white-label/participants",
+            params={"limit": "25", "cursor": "next"},
+            omit_firm_id=True,
+        ),
+        call(
+            "POST",
+            "/white-label/participants/registrations",
+            json=registration,
+            extra_headers={"Idempotency-Key": "wl-register-1"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        ),
+        call(
+            "POST",
+            "/white-label/participants/participant%2F1/migration-code",
+            extra_headers={"Idempotency-Key": "wl-out-1"},
+            omit_firm_id=True,
+            retry_on_failure=True,
+        ),
+    ]
+
+    with patch.object(resource, "_request") as invalid_request:
+        with pytest.raises(ValueError, match="idempotency key must be 1-255 UTF-8 bytes"):
+            resource.register_participant(registration, idempotency_key="   ")
+        with pytest.raises(ValueError, match="idempotency key must be 1-255 UTF-8 bytes"):
+            resource.register_participant(registration, idempotency_key=None)  # type: ignore[arg-type]
+        invalid_request.assert_not_called()
 
 
 def test_connector_global_webhook_facade_never_uses_firm_scope():

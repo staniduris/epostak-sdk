@@ -27,5 +27,6 @@ public final class EnterpriseResource {
     public EventsResource events() { return client.events(); }
     public AuditResource audit() { return client.audit(); }
     public IntegratorResource integrator() { return client.integrator(); }
+    public WhiteLabelResource whiteLabel() { return client.whiteLabel(); }
     public EnterprisePullResource pull() { return pull; }
 }

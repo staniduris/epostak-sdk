@@ -19,6 +19,7 @@ public sealed class EnterpriseResource
     public PayloadsResource Payloads { get; }
     public EventsResource Events { get; }
     public EnterprisePullResource Pull { get; }
+    public WhiteLabelResource WhiteLabel { get; }
 
     internal EnterpriseResource(EPostakClient client)
     {
@@ -37,6 +38,7 @@ public sealed class EnterpriseResource
         Connector = client.Connector;
         Payloads = client.Payloads;
         Events = client.Events;
+        WhiteLabel = client.WhiteLabel;
         Pull = new EnterprisePullResource(client.Inbound, client.Outbound);
     }
 }

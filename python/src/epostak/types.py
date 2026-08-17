@@ -914,6 +914,84 @@ class BoxCreateRequest(BoxCreateRequestOptional):
 class BoxScheduleRequest(TypedDict):
     scheduledFor: str
 
+
+class WhiteLabelListParticipantsParams(TypedDict, total=False):
+    limit: int
+    cursor: str
+
+
+class WhiteLabelParticipantRegistrationRequest(TypedDict):
+    customerRef: str
+    dic: str
+    companyEmail: str
+    verificationToken: str  # One-time FS SR token. Never log it.
+
+
+class WhiteLabelParticipantMigrationRequest(TypedDict):
+    customerRef: str
+    dic: str
+    companyEmail: str
+    migrationCode: str  # SMP migration secret. Never log it.
+
+
+WhiteLabelOperationType = Literal["registration", "migration_in", "migration_out"]
+WhiteLabelOperationStatus = Literal[
+    "processing",
+    "smp_succeeded",
+    "succeeded",
+    "rejected",
+    "manual_review",
+    "released",
+]
+
+
+class WhiteLabelOperationError(TypedDict):
+    code: str
+    message: str
+
+
+class WhiteLabelParticipantOperation(TypedDict):
+    id: str
+    operationType: WhiteLabelOperationType
+    status: WhiteLabelOperationStatus
+    customerRef: str
+    dic: str
+    peppolId: str
+    legalName: str
+    companyEmail: Optional[str]
+    firmId: Optional[str]
+    participantId: Optional[str]
+    reviewRequired: bool
+    error: Optional[WhiteLabelOperationError]
+    createdAt: str
+    completedAt: Optional[str]
+
+
+class WhiteLabelParticipant(TypedDict):
+    id: str
+    customerRef: str
+    firmId: str
+    operationId: str
+    legalName: str
+    ico: Optional[str]
+    dic: str
+    icDph: Optional[str]
+    peppolId: str
+    status: str
+    authorizationSource: Literal["fs_verification_token", "smp_migration_code"]
+    endpointProfile: Literal["managed_by_epostak"]
+    managedSince: str
+
+
+class WhiteLabelParticipantList(TypedDict):
+    participants: List[WhiteLabelParticipant]
+    nextCursor: Optional[str]
+
+
+class WhiteLabelMigrationCodeResponse(TypedDict):
+    operation: WhiteLabelParticipantOperation
+    migrationCode: Optional[str]
+
 # ---------------------------------------------------------------------------
 # Line items
 # ---------------------------------------------------------------------------

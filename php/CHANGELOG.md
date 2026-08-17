@@ -7,10 +7,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 > `3.x.x`. The PHP SDK now follows its own SemVer line; the current source
 > release is `1.x`.
 
-## Unreleased — 2026-08-11
+## 1.2.0 — 2026-08-17
 
 ### Added
 
+- Added the `whiteLabel` participant lifecycle for FS SR token registration,
+  migration in/out, participant inventory, and operation polling. Mutations
+  require idempotency keys and always omit `X-Firm-Id`.
 - Added `firms->createConsentLink()` support for the Enterprise 1.8.6
   one-time owner/admin consent URL contract.
 - Added optional corrected OCR `$fields` to `payloads->extract()` and the

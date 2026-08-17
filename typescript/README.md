@@ -6,7 +6,7 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Major release API shape
 
-TypeScript `4.1.0` is the current workflow-first release with the managed
+TypeScript `4.2.0` is the current workflow-first release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
@@ -18,7 +18,9 @@ Connector is the recommended ERP path; Enterprise is the granular firm-scoped
 API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
 integrator, approves and Peppol-registers its firms, and issues Connector
 credentials. The integrator then chooses and stores a stable `customerRef` for
-each approved firm in the dashboard. The SDK cannot create or discover firms.
+each approved firm in the dashboard. The Connector resource cannot create or
+discover firms; approved White Label providers use the separate `whiteLabel`
+resource below.
 
 Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
 then set `customerRef` in the integrator dashboard. Connector omits
@@ -26,6 +28,33 @@ then set `customerRef` in the integrator dashboard. Connector omits
 
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## White Label participant onboarding
+
+Use this only with an approved White Label key. It is separate from the
+Enterprise owner-consent flow: the participant has no ePošťák login and the
+integrator supplies the `verification_token` received in its signed FS SR
+webhook.
+
+```typescript
+const operation = await client.whiteLabel.registerParticipant(
+  {
+    customerRef: "ERP-ACME",
+    dic: "2022988022",
+    companyEmail: "uctaren@example.sk",
+    verificationToken: fsWebhook.verification_token,
+  },
+  "fs-webhook:event-123",
+);
+const status = await client.whiteLabel.getOperation(operation.id);
+```
+
+Use `client.enterprise.whiteLabel` as an equivalent namespace. Reads require
+`participants:read`, registration `participants:write`, and migrations
+`participants:migrate`. All POST methods require a non-blank idempotency key of
+at most 255 UTF-8 bytes and omit
+`X-Firm-Id`. Never log `verificationToken`, `migrationCode`, or an outgoing
+migration code; the endpoint profile is fixed to `managed_by_epostak`.
 
 ## Connector quickstart
 
@@ -51,7 +80,7 @@ const document = await customer.documents.send(
 ```
 
 The integrator owns the stable `customerRef` after ePošťák has approved and
-Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+Peppol-registered the firm. The Connector resource does not register firms. It injects `customerRef`, sends
 immediately by default, and derives a stable idempotency key from `customerRef`
 and `externalId`.
 
@@ -227,11 +256,11 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 ## Installation
 
-Use npm only after the registry reports `4.1.0` or newer:
+Use npm only after the registry reports `4.2.0` or newer:
 
 ```bash
 npm view @epostak/sdk version
-npm install @epostak/sdk@^4.1.0
+npm install @epostak/sdk@^4.2.0
 ```
 
 Until then, install the reviewed source checkout locally:

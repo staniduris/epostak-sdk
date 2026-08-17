@@ -16,6 +16,7 @@ import { SapiResource } from "./resources/sapi.js";
 import { EnterpriseResource } from "./resources/enterprise.js";
 import { PayloadsResource } from "./resources/payloads.js";
 import { EventsResource } from "./resources/events.js";
+import { WhiteLabelResource } from "./resources/white-label.js";
 import type { ClientConfig } from "./utils/request.js";
 import type { PublicValidationReport, RateLimitState } from "./types.js";
 import { EPostakError, buildApiError } from "./utils/errors.js";
@@ -114,6 +115,8 @@ export class EPostak {
   outbound: OutboundResource;
   /** SAPI-SK 1.0 interoperable document send/receive endpoints. */
   sapi: SapiResource;
+  /** White Label participant registration and migration lifecycle. */
+  whiteLabel: WhiteLabelResource;
 
   /**
    * Rate-limit state from the most recent API response.
@@ -178,6 +181,7 @@ export class EPostak {
     this.inbound = new InboundResource(this.clientConfig);
     this.outbound = new OutboundResource(this.clientConfig);
     this.sapi = new SapiResource(this.clientConfig);
+    this.whiteLabel = new WhiteLabelResource(this.clientConfig);
     this.enterprise = new EnterpriseResource({
       auth: this.auth,
       box: this.box,
@@ -195,6 +199,7 @@ export class EPostak {
       events: this.events,
       inbound: this.inbound,
       outbound: this.outbound,
+      whiteLabel: this.whiteLabel,
     });
   }
 

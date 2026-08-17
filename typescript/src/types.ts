@@ -2021,6 +2021,102 @@ export interface PeppolIdentifierResponse {
 }
 
 // ---------------------------------------------------------------------------
+// White Label participant lifecycle
+// ---------------------------------------------------------------------------
+
+export interface WhiteLabelListParticipantsParams {
+  /** Page size (1-100, default 50). */
+  limit?: number;
+  /** Opaque cursor returned by the previous page. */
+  cursor?: string;
+}
+
+export interface WhiteLabelParticipantRegistrationRequest {
+  /** Stable participant reference in the integrator's system. */
+  customerRef: string;
+  /** Slovak tax identifier: exactly 10 digits. */
+  dic: string;
+  /** Company contact email used for participant setup. */
+  companyEmail: string;
+  /** One-time token received from the signed FS SR webhook. Never log it. */
+  verificationToken: string;
+}
+
+export interface WhiteLabelParticipantMigrationRequest {
+  /** Stable participant reference in the integrator's system. */
+  customerRef: string;
+  /** Slovak tax identifier: exactly 10 digits. */
+  dic: string;
+  /** Company contact email used for participant setup. */
+  companyEmail: string;
+  /** Migration code issued by the current SMP provider. Never log it. */
+  migrationCode: string;
+}
+
+export type WhiteLabelOperationType =
+  | "registration"
+  | "migration_in"
+  | "migration_out";
+
+export type WhiteLabelOperationStatus =
+  | "processing"
+  | "smp_succeeded"
+  | "succeeded"
+  | "rejected"
+  | "manual_review"
+  | "released";
+
+export interface WhiteLabelOperationError {
+  code: string;
+  message: string;
+}
+
+export interface WhiteLabelParticipantOperation {
+  id: string;
+  operationType: WhiteLabelOperationType;
+  status: WhiteLabelOperationStatus;
+  customerRef: string;
+  dic: string;
+  peppolId: string;
+  legalName: string;
+  companyEmail: string | null;
+  firmId: string | null;
+  participantId: string | null;
+  reviewRequired: boolean;
+  error: WhiteLabelOperationError | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface WhiteLabelParticipant {
+  id: string;
+  customerRef: string;
+  firmId: string;
+  operationId: string;
+  legalName: string;
+  ico: string | null;
+  dic: string;
+  icDph: string | null;
+  peppolId: string;
+  status: string;
+  authorizationSource: "fs_verification_token" | "smp_migration_code";
+  /** Fixed by ePošťák; integrators cannot select an SMP endpoint profile. */
+  endpointProfile: "managed_by_epostak";
+  managedSince: string;
+}
+
+export interface WhiteLabelParticipantList {
+  participants: WhiteLabelParticipant[];
+  nextCursor: string | null;
+}
+
+export interface WhiteLabelMigrationCodeResponse {
+  operation: WhiteLabelParticipantOperation;
+  /** Returned only while SMP makes the code available; do not log it. */
+  migrationCode: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Firm assignment (integrator)
 // ---------------------------------------------------------------------------
 

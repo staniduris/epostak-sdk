@@ -26,7 +26,7 @@ Then use the local artifact.
 <dependency>
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -34,12 +34,12 @@ Then use the local artifact.
 
 ```groovy
 repositories { mavenLocal() }
-implementation 'sk.epostak:epostak-sdk:1.1.0'
+implementation 'sk.epostak:epostak-sdk:1.2.0'
 ```
 
 ## Major release API shape
 
-Java `1.1.0` is the current workflow-first source release with the managed
+Java `1.2.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise().documents().send(...)`
@@ -51,7 +51,9 @@ Connector is the recommended ERP path; Enterprise is the granular firm-scoped
 API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
 integrator, approves and Peppol-registers its firms, and issues Connector
 credentials. The integrator then chooses and stores a stable `customerRef` for
-each approved firm in the dashboard. The SDK cannot create or discover firms.
+each approved firm in the dashboard. The Connector resource cannot create or
+discover firms; approved White Label providers use the separate `whiteLabel()`
+resource below.
 
 Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
 then set `customerRef` in the integrator dashboard. Connector omits
@@ -59,6 +61,30 @@ then set `customerRef` in the integrator dashboard. Connector omits
 
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## White Label participant onboarding
+
+With an approved White Label key, pass the `verification_token` from your
+signed FS SR webhook. This flow creates no ePošťák participant login and does
+not use Enterprise owner consent.
+
+```java
+var operation = client.whiteLabel().registerParticipant(
+    new WhiteLabelParticipantRegistrationRequest(
+        "ERP-ACME", "2022988022", "uctaren@example.sk",
+        fsWebhook.get("verification_token")
+    ),
+    "fs-webhook:event-123"
+);
+var status = client.whiteLabel().getOperation(operation.id());
+```
+
+`client.enterprise().whiteLabel()` is the same resource. Reads require
+`participants:read`, registration `participants:write`, and migrations
+`participants:migrate`. POST methods require a non-blank idempotency key of at
+most 255 UTF-8 bytes and omit
+`X-Firm-Id`. Never log `verificationToken`, `migrationCode`, or a returned
+migration code. The endpoint profile is fixed to `managed_by_epostak`.
 
 ## Connector quickstart
 
@@ -83,7 +109,7 @@ var events = customer.events().list(new ConnectorListParams(null, 50));
 for source and binary compatibility; both calls are customer-scoped.
 
 The integrator owns the stable `customerRef` after ePošťák has approved and
-Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+Peppol-registered the firm. The Connector resource does not register firms. It injects `customerRef`, sends
 immediately by default, and applies the backend ECMAScript `TrimString` set
 (`0009-000D`, `0020`, `00A0`, `1680`, `2000-200A`, `2028-2029`, `202F`,
 `205F`, `3000`, `FEFF`) to `customerRef` and `externalId`; `U+0085` is

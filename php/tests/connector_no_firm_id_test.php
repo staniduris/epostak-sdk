@@ -52,6 +52,7 @@ namespace EPostak\Tests {
     use EPostak\Resources\Connector;
     use EPostak\Resources\Firms;
     use EPostak\Resources\Payloads;
+    use EPostak\Resources\WhiteLabel;
     use EPostak\TokenManager;
     use GuzzleHttp\Client;
 
@@ -69,6 +70,7 @@ namespace EPostak\Tests {
     require_once __DIR__ . '/../src/Resources/PeppolDirectory.php';
     require_once __DIR__ . '/../src/Resources/Peppol.php';
     require_once __DIR__ . '/../src/Resources/Sapi.php';
+    require_once __DIR__ . '/../src/Resources/WhiteLabel.php';
 
     $retryableError = new \EPostak\EPostakError(409, [
         'error' => [
@@ -796,6 +798,33 @@ namespace EPostak\Tests {
     assertTrue(($request['options']['json']['customer_reference'] ?? null) === 'ERP-ACME', 'Expected customer_reference wire key.');
     assertTrue(($request['options']['json']['dic'] ?? null) === '2022988022', 'Expected DIC firm identifier.');
     assertTrue(($consent['consent_url'] ?? null) === 'https://epostak.sk/auth/integrator-consent?token=one-time', 'Expected one-time consent URL response.');
+
+    $whiteLabel = new WhiteLabel(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'must-not-leak', 0));
+    Client::$requests = [];
+    $whiteLabel->registerParticipant([
+        'customerRef' => 'ERP-ACME',
+        'dic' => '2022988022',
+        'companyEmail' => 'uctaren@example.sk',
+        'verificationToken' => 'one-time-secret',
+    ], 'wl-register-1');
+    $request = oneRequest();
+    assertTrue($request['path'] === 'white-label/participants/registrations', 'Expected White Label registration path.');
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Did not expect X-Firm-Id on White Label registration.');
+    assertTrue(($request['options']['headers']['Idempotency-Key'] ?? null) === 'wl-register-1', 'Expected White Label idempotency key.');
+    assertTrue(str_contains((string) ($request['options']['body'] ?? ''), 'one-time-secret'), 'Expected White Label registration JSON body.');
+    Client::$requests = [];
+    try {
+        $whiteLabel->registerParticipant([
+            'customerRef' => 'ERP-ACME',
+            'dic' => '2022988022',
+            'companyEmail' => 'uctaren@example.sk',
+            'verificationToken' => 'one-time-secret',
+        ], '   ');
+        fail('Expected blank White Label idempotency key to be rejected.');
+    } catch (\InvalidArgumentException $error) {
+        assertTrue(str_contains($error->getMessage(), '1-255 UTF-8 bytes'), 'Expected bounded idempotency-key error.');
+    }
+    assertTrue(Client::$requests === [], 'Invalid White Label key must not send a request.');
 
     $payloads = new Payloads(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
     Client::$requests = [];

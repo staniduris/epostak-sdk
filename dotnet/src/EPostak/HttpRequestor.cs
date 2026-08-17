@@ -111,6 +111,19 @@ internal sealed class HttpRequestor
         return await SendAsync<T>(request, ct).ConfigureAwait(false);
     }
 
+    internal async Task<T> RequestIdempotentAsync<T>(
+        HttpMethod method,
+        string path,
+        string idempotencyKey,
+        CancellationToken ct,
+        bool omitFirmId = false)
+    {
+        using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);
+        request.Options.Set(RetryUnsafeOption, true);
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
+        return await SendAsync<T>(request, ct).ConfigureAwait(false);
+    }
+
     internal async Task<T> RequestIdempotentAsync<T>(HttpMethod method, string path, object body, CancellationToken ct, bool omitFirmId = false)
     {
         using var request = await BuildRequestAsync(method, path, ct, omitFirmId).ConfigureAwait(false);

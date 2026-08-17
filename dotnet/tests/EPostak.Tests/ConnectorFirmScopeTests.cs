@@ -249,6 +249,53 @@ public sealed class ConnectorFirmScopeTests
         Assert.Same(client.Connector, client.Enterprise.Connector);
         Assert.Same(client.Box, client.Enterprise.Box);
         Assert.Same(client.Webhooks, client.Enterprise.Webhooks);
+        Assert.Same(client.WhiteLabel, client.Enterprise.WhiteLabel);
+    }
+
+    [Fact]
+    public async Task WhiteLabelRegistrationIsIdempotentAndNeverFirmScoped()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+
+        await client.WhiteLabel.RegisterParticipantAsync(
+            new WhiteLabelParticipantRegistrationRequest
+            {
+                CustomerRef = "ERP-ACME",
+                Dic = "2022988022",
+                CompanyEmail = "uctaren@example.sk",
+                VerificationToken = "one-time-secret",
+            },
+            "wl-register-1");
+
+        var request = Assert.Single(handler.ApiRequests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("/api/v1/white-label/participants/registrations", request.Uri.AbsolutePath);
+        Assert.DoesNotContain("X-Firm-Id", request.Headers.Keys);
+        Assert.Equal("wl-register-1", request.Headers["Idempotency-Key"]);
+        Assert.Contains("\"verificationToken\":\"one-time-secret\"", request.Body);
+    }
+
+    [Fact]
+    public async Task WhiteLabelRejectsInvalidIdempotencyBeforeSending()
+    {
+        var handler = new CaptureHandler();
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+        var registration = new WhiteLabelParticipantRegistrationRequest
+        {
+            CustomerRef = "ERP-ACME",
+            Dic = "2022988022",
+            CompanyEmail = "uctaren@example.sk",
+            VerificationToken = "one-time-secret",
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => client.WhiteLabel.RegisterParticipantAsync(registration, "   "));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => client.WhiteLabel.RegisterParticipantAsync(registration, null!));
+        Assert.Empty(handler.ApiRequests);
     }
 
     [Fact]

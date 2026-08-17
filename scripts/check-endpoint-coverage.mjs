@@ -253,6 +253,128 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
+  const whiteLabelOperations = [
+    ["get", "/white-label/participants", "participants:read", false],
+    ["post", "/white-label/participants/registrations", "participants:write", true],
+    ["post", "/white-label/participants/migrations", "participants:migrate", true],
+    ["get", "/white-label/participants/{participantId}", "participants:read", false],
+    ["post", "/white-label/participants/{participantId}/migration-code", "participants:migrate", true],
+    ["get", "/white-label/operations/{operationId}", "participants:read", false],
+  ];
+  for (const [method, apiPath, requiredScope, requiresIdempotency] of whiteLabelOperations) {
+    const frozenOperation = frozen.paths?.[apiPath]?.[method];
+    const operation = current.paths?.[apiPath]?.[method];
+    if (!frozenOperation) {
+      failures.push(`frozen OpenAPI: missing ${method.toUpperCase()} ${apiPath}`);
+    } else if (!frozenOperation["x-epostak-required-scopes"]?.includes(requiredScope)) {
+      failures.push(
+        `frozen OpenAPI: ${method.toUpperCase()} ${apiPath} must require ${requiredScope}`,
+      );
+    }
+    if (!operation) {
+      failures.push(`current OpenAPI: missing ${method.toUpperCase()} ${apiPath}`);
+      continue;
+    }
+    if (!operation["x-epostak-required-scopes"]?.includes(requiredScope)) {
+      failures.push(
+        `current OpenAPI: ${method.toUpperCase()} ${apiPath} must require ${requiredScope}`,
+      );
+    }
+    if (requiresIdempotency) {
+      const parameters = operation.parameters ?? [];
+      const rawParameter = parameters.find(
+        (parameter) =>
+          parameter?.name === "Idempotency-Key" ||
+          parameter?.$ref === "#/components/parameters/WhiteLabelIdempotencyKey",
+      );
+      const parameter = rawParameter?.$ref
+        ? current.components?.parameters?.[rawParameter.$ref.split("/").at(-1)]
+        : rawParameter;
+      if (!parameter) {
+        failures.push(
+          `current OpenAPI: ${method.toUpperCase()} ${apiPath} must require Idempotency-Key`,
+        );
+      } else {
+        if (
+          parameter.name !== "Idempotency-Key" ||
+          parameter.in !== "header" ||
+          parameter.required !== true
+        ) {
+          failures.push(
+            `current OpenAPI: ${method.toUpperCase()} ${apiPath} Idempotency-Key must be a required header`,
+          );
+        }
+        if (
+          parameter.schema?.type !== "string" ||
+          parameter.schema?.minLength !== 1 ||
+          parameter.schema?.maxLength !== 255
+        ) {
+          failures.push(
+            `current OpenAPI: ${method.toUpperCase()} ${apiPath} Idempotency-Key must be a 1-255 string`,
+          );
+        }
+      }
+    }
+
+    if (frozenOperation) {
+      const frozenFacet = contractFacet(frozen, apiPath, method, "frozen OpenAPI");
+      const currentFacet = contractFacet(current, apiPath, method, "current OpenAPI");
+      if (
+        frozenFacet &&
+        currentFacet &&
+        JSON.stringify(frozenFacet) !== JSON.stringify(currentFacet)
+      ) {
+        failures.push(
+          `OpenAPI drift: ${method.toUpperCase()} ${apiPath} differs between frozen and current specs`,
+        );
+      }
+    }
+  }
+
+  const whiteLabelSchemas = {
+    WhiteLabelParticipantRegistrationRequest: [
+      "customerRef", "dic", "companyEmail", "verificationToken",
+    ],
+    WhiteLabelParticipantMigrationRequest: [
+      "customerRef", "dic", "companyEmail", "migrationCode",
+    ],
+    WhiteLabelParticipantOperation: [
+      "id", "operationType", "status", "customerRef", "dic", "peppolId",
+      "legalName", "companyEmail", "firmId", "participantId",
+      "reviewRequired", "error", "createdAt", "completedAt",
+    ],
+    WhiteLabelParticipant: [
+      "id", "customerRef", "firmId", "operationId", "legalName", "ico",
+      "dic", "icDph", "peppolId", "status", "authorizationSource",
+      "endpointProfile", "managedSince",
+    ],
+    WhiteLabelParticipantList: ["participants", "nextCursor"],
+    WhiteLabelMigrationCodeResponse: ["operation", "migrationCode"],
+  };
+  for (const [schemaName, properties] of Object.entries(whiteLabelSchemas)) {
+    const schema = current.components?.schemas?.[schemaName];
+    if (!schema) {
+      failures.push(`current OpenAPI: missing schema ${schemaName}`);
+      continue;
+    }
+    for (const property of properties) {
+      if (!Object.hasOwn(schema.properties ?? {}, property)) {
+        failures.push(`current OpenAPI: ${schemaName} missing property ${property}`);
+      }
+      if (!(schema.required ?? []).includes(property)) {
+        failures.push(`current OpenAPI: ${schemaName}.${property} must be required`);
+      }
+    }
+  }
+
+  const endpointProfileEnum =
+    current.components?.schemas?.WhiteLabelParticipant?.properties?.endpointProfile?.enum;
+  if (JSON.stringify(endpointProfileEnum) !== JSON.stringify(["managed_by_epostak"])) {
+    failures.push(
+      "current OpenAPI: WhiteLabelParticipant.endpointProfile must be fixed to managed_by_epostak",
+    );
+  }
+
   const licenseInfoSchema =
     current.paths?.["/integrator/licenses/info"]?.get?.responses?.["200"]
       ?.content?.["application/json"]?.schema;

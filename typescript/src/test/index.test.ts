@@ -205,6 +205,91 @@ it("creates an Enterprise firm consent link without X-Firm-Id", async () => {
   assert.strictEqual(result.customerReference, "ERP-ACME");
 });
 
+it("uses the integrator-scoped White Label lifecycle with idempotency", async () => {
+  const client = makeClient({ firmId: "must-not-leak" });
+  const captured: Array<{
+    method: string;
+    path: string;
+    firmId: string | null;
+    idempotencyKey: string | null;
+    body: string | undefined;
+  }> = [];
+
+  mockFetch(async (input, init) => {
+    const url = new URL(typeof input === "string" ? input : input.toString());
+    if (url.pathname.endsWith("/auth/token")) {
+      return makeMockResponse({ access_token: "tok", expires_in: 900 });
+    }
+    const headers = new Headers(init?.headers);
+    captured.push({
+      method: init?.method ?? "GET",
+      path: `${url.pathname}${url.search}`,
+      firmId: headers.get("X-Firm-Id"),
+      idempotencyKey: headers.get("Idempotency-Key"),
+      body: typeof init?.body === "string" ? init.body : undefined,
+    });
+    return makeMockResponse({ participants: [], nextCursor: null });
+  });
+
+  assert.strictEqual(client.enterprise.whiteLabel, client.whiteLabel);
+  await client.whiteLabel.listParticipants({ limit: 25, cursor: "next page" });
+  await client.whiteLabel.registerParticipant(
+    {
+      customerRef: "ERP-ACME",
+      dic: "2022988022",
+      companyEmail: "uctaren@example.sk",
+      verificationToken: "one-time-secret",
+    },
+    "wl-register-1",
+  );
+  await client.whiteLabel.requestMigrationCode("participant/1", "wl-migrate-out-1");
+
+  assert.deepStrictEqual(
+    captured.map(({ method, path, firmId, idempotencyKey }) => ({ method, path, firmId, idempotencyKey })),
+    [
+      {
+        method: "GET",
+        path: "/api/v1/white-label/participants?limit=25&cursor=next+page",
+        firmId: null,
+        idempotencyKey: null,
+      },
+      {
+        method: "POST",
+        path: "/api/v1/white-label/participants/registrations",
+        firmId: null,
+        idempotencyKey: "wl-register-1",
+      },
+      {
+        method: "POST",
+        path: "/api/v1/white-label/participants/participant%2F1/migration-code",
+        firmId: null,
+        idempotencyKey: "wl-migrate-out-1",
+      },
+    ],
+  );
+  assert.deepStrictEqual(JSON.parse(captured[1]!.body!), {
+    customerRef: "ERP-ACME",
+    dic: "2022988022",
+    companyEmail: "uctaren@example.sk",
+    verificationToken: "one-time-secret",
+  });
+  const registration = {
+    customerRef: "ERP-ACME",
+    dic: "2022988022",
+    companyEmail: "uctaren@example.sk",
+    verificationToken: "one-time-secret",
+  };
+  assert.throws(
+    () => client.whiteLabel.registerParticipant(registration, "   "),
+    /idempotency key must be 1-255 UTF-8 bytes/,
+  );
+  assert.throws(
+    () => client.whiteLabel.registerParticipant(registration, undefined as unknown as string),
+    /idempotency key must be 1-255 UTF-8 bytes/,
+  );
+  assert.strictEqual(captured.length, 3, "invalid keys must not send a request");
+});
+
 it("box resource uses the public Box paths", async () => {
   const client = makeClient();
   const captured: Array<{ method: string; url: string; body: string | undefined }> = [];

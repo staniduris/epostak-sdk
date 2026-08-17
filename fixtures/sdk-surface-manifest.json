@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "documentation": [
     "README.md",
     "typescript/README.md",
@@ -18,7 +18,11 @@
     "SAPI",
     "webhook debugger",
     "exact signed body",
-    "replay"
+    "replay",
+    "White Label",
+    "verificationToken",
+    "participants:write",
+    "participants:migrate"
   ],
   "checks": [
     {
@@ -80,6 +84,36 @@
       "name": ".NET firm consent link",
       "file": "dotnet/src/EPostak/Resources/FirmsResource.cs",
       "contains": ["CreateConsentLinkAsync(", "/firms/consent-link", "CreateFirmConsentLinkRequest", "omitFirmId: true"]
+    },
+    {
+      "name": "TypeScript White Label lifecycle",
+      "file": "typescript/src/resources/white-label.ts",
+      "contains": ["class WhiteLabelResource", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "idempotencyKey", "omitFirmId: true", "retry: true", "1-255 UTF-8 bytes"]
+    },
+    {
+      "name": "Python White Label lifecycle",
+      "file": "python/src/epostak/resources/white_label.py",
+      "contains": ["class WhiteLabelResource", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "idempotency_key", "omit_firm_id=True", "retry_on_failure=True", "1-255 UTF-8 bytes"]
+    },
+    {
+      "name": "PHP White Label lifecycle",
+      "file": "php/src/Resources/WhiteLabel.php",
+      "contains": ["class WhiteLabel", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "Idempotency-Key", "'omitFirmId' => true", "'retryOnFailure' => true", "1-255 UTF-8 bytes"]
+    },
+    {
+      "name": "Ruby White Label lifecycle",
+      "file": "ruby/lib/epostak/resources/white_label.rb",
+      "contains": ["class WhiteLabel", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "idempotency_key", "omit_firm_id: true", "retry_on_failure: true", "1-255 UTF-8 bytes"]
+    },
+    {
+      "name": "Java White Label lifecycle",
+      "file": "java/src/main/java/sk/epostak/sdk/resources/WhiteLabelResource.java",
+      "contains": ["class WhiteLabelResource", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "postIdempotentNoFirm", "getNoFirm", "1-255 UTF-8 bytes"]
+    },
+    {
+      "name": ".NET White Label lifecycle",
+      "file": "dotnet/src/EPostak/Resources/WhiteLabelResource.cs",
+      "contains": ["class WhiteLabelResource", "/white-label/participants", "/registrations", "/migrations", "/migration-code", "/white-label/operations", "RequestIdempotentAsync", "omitFirmId: true", "1-255 UTF-8 bytes"]
     },
     {
       "name": "TypeScript legacy Connector events optional cursor",

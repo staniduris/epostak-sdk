@@ -17,6 +17,7 @@ from epostak.resources.peppol import PeppolDirectoryResource, PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.sapi import SapiResource
 from epostak.resources.webhooks import WebhookQueueResource, WebhooksResource
+from epostak.resources.white_label import WhiteLabelResource
 
 __all__ = [
     "AccountResource",
@@ -37,4 +38,5 @@ __all__ = [
     "SapiResource",
     "WebhookQueueResource",
     "WebhooksResource",
+    "WhiteLabelResource",
 ]

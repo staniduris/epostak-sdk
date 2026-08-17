@@ -20,6 +20,7 @@ use EPostak\Resources\Outbound;
 use EPostak\Resources\Peppol;
 use EPostak\Resources\Payloads;
 use EPostak\Resources\Webhooks;
+use EPostak\Resources\WhiteLabel;
 use EPostak\Resources\Reporting;
 use EPostak\Resources\Sapi;
 use EPostak\Resources\Extract;
@@ -48,6 +49,7 @@ use GuzzleHttp\Exception\GuzzleException;
  * @property-read Integrator $integrator Integrator-aggregate endpoints (sk_int_* keys)
  * @property-read Sapi $sapi SAPI-SK 1.0 interoperable document endpoints
  * @property-read Enterprise $enterprise Workflow-first Enterprise API namespace
+ * @property-read WhiteLabel $whiteLabel White Label participant lifecycle
  */
 class EPostak
 {
@@ -78,6 +80,7 @@ class EPostak
     public Integrator $integrator;
     public Sapi $sapi;
     public Enterprise $enterprise;
+    public WhiteLabel $whiteLabel;
 
     private HttpClient $http;
 
@@ -141,6 +144,7 @@ class EPostak
         $this->account = new Account($this->http);
         $this->integrator = new Integrator($this->http);
         $this->sapi = new Sapi($this->http);
+        $this->whiteLabel = new WhiteLabel($this->http);
         $this->enterprise = new Enterprise(
             $this->auth,
             $this->box,
@@ -157,7 +161,8 @@ class EPostak
             $this->payloads,
             $this->events,
             $this->inbound,
-            $this->outbound
+            $this->outbound,
+            $this->whiteLabel
         );
     }
 

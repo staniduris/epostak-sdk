@@ -35,7 +35,8 @@ class Enterprise
         public Payloads $payloads,
         public Events $events,
         Inbound $inbound,
-        Outbound $outbound
+        Outbound $outbound,
+        public WhiteLabel $whiteLabel
     ) {
         $this->connector = $connector;
         $this->inbox = $documents->inbox;

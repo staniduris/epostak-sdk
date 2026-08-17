@@ -69,6 +69,9 @@ module EPostak
     # @return [Resources::Enterprise] Workflow-first Enterprise API namespace
     attr_reader :enterprise
 
+    # @return [Resources::WhiteLabel] White Label participant lifecycle
+    attr_reader :white_label
+
     # @return [Resources::Box] ePošťák Box durable execution layer
     attr_reader :box
 
@@ -127,6 +130,7 @@ module EPostak
       @inbound    = Resources::Inbound.new(@http)
       @outbound   = Resources::Outbound.new(@http)
       @sapi       = Resources::Sapi.new(@http, base_url: @base_url)
+      @white_label = Resources::WhiteLabel.new(@http)
       @enterprise = Resources::Enterprise.new(self)
     end
 

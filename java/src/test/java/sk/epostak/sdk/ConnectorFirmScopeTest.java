@@ -31,6 +31,7 @@ import sk.epostak.sdk.models.ConnectorSyncParams;
 import sk.epostak.sdk.models.CapabilitiesRequest;
 import sk.epostak.sdk.models.CreateFirmConsentLinkRequest;
 import sk.epostak.sdk.models.SendDocumentRequest;
+import sk.epostak.sdk.models.WhiteLabelParticipantRegistrationRequest;
 import sk.epostak.sdk.resources.ConnectorCustomerDocumentsResource;
 import sk.epostak.sdk.resources.ConnectorCustomersResource;
 import sk.epostak.sdk.resources.ConnectorResource;
@@ -248,6 +249,51 @@ final class ConnectorFirmScopeTest {
             assertEquals(client.outbound(), client.enterprise().pull().outbound());
             assertEquals(client.connector(), client.enterprise().connector());
             assertEquals(client.webhooks(), client.enterprise().webhooks());
+            assertEquals(client.whiteLabel(), client.enterprise().whiteLabel());
+        }
+    }
+
+    @Test
+    void whiteLabelRegistrationIsIdempotentAndNeverFirmScoped() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+
+            client.whiteLabel().registerParticipant(
+                    new WhiteLabelParticipantRegistrationRequest(
+                            "ERP-ACME",
+                            "2022988022",
+                            "uctaren@example.sk",
+                            "one-time-secret"
+                    ),
+                    "wl-register-1"
+            );
+
+            CapturedRequest request = singleNonAuthRequest(server);
+            assertEquals("POST", request.method());
+            assertEquals("/api/v1/white-label/participants/registrations", request.path());
+            assertNull(request.firmId());
+            assertEquals("wl-register-1", request.idempotencyKey());
+            assertEquals(true, request.body().contains("\"verificationToken\":\"one-time-secret\""));
+        }
+    }
+
+    @Test
+    void whiteLabelRejectsInvalidIdempotencyBeforeSending() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+            var registration = new WhiteLabelParticipantRegistrationRequest(
+                    "ERP-ACME", "2022988022", "uctaren@example.sk", "one-time-secret"
+            );
+
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> client.whiteLabel().registerParticipant(registration, "   ")
+            );
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> client.whiteLabel().registerParticipant(registration, null)
+            );
+            assertEquals(0, server.requests().size());
         }
     }
 

@@ -15,6 +15,16 @@ migrate to deploy this release.
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
 
+## White Label participant lifecycle
+
+White Label onboarding is separate from the Enterprise owner-consent flow.
+Approved intermediaries call the participant resource with the
+`verificationToken` from their signed FS SR webhook; reads require
+`participants:read`, registration requires `participants:write`, and incoming
+or outgoing migrations require `participants:migrate`. Every mutation requires
+a non-blank idempotency key of at most 255 UTF-8 bytes, omits `X-Firm-Id`, and keeps the endpoint profile fixed to
+`managed_by_epostak`. Never log verification or migration secrets.
+
 ## Managed Connector onboarding
 
 1. ePošťák approves the integrator.

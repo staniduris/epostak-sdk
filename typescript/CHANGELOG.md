@@ -3,10 +3,13 @@
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-08-11
+## 4.2.0 — 2026-08-17
 
 ### Added
 
+- Added the typed `whiteLabel` participant lifecycle for FS SR token
+  registration, migration in/out, participant inventory, and operation polling.
+  Mutations require idempotency keys and always omit `X-Firm-Id`.
 - Added typed `firms.createConsentLink()` support for the Enterprise 1.8.6
   one-time owner/admin consent URL contract.
 - Added optional corrected OCR `fields` to `payloads.extract()` and the

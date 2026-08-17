@@ -15,7 +15,7 @@ dotnet add /path/to/your-project.csproj reference /path/to/epostak-sdk/dotnet/sr
 
 ## Major release API shape
 
-.NET `1.1.0` is the current workflow-first source release with the managed
+.NET `1.2.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.Enterprise.Documents.SendAsync(...)`
@@ -27,7 +27,9 @@ Connector is the recommended ERP path; Enterprise is the granular firm-scoped
 API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
 integrator, approves and Peppol-registers its firms, and issues Connector
 credentials. The integrator then chooses and stores a stable `CustomerRef` for
-each approved firm in the dashboard. The SDK cannot create or discover firms.
+each approved firm in the dashboard. The Connector resource cannot create or
+discover firms; approved White Label providers use the separate `WhiteLabel`
+resource below.
 
 Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
 then set `CustomerRef` in the integrator dashboard. Connector omits
@@ -35,6 +37,33 @@ then set `CustomerRef` in the integrator dashboard. Connector omits
 
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## White Label participant onboarding
+
+With an approved White Label key, pass the `verification_token` as
+`verificationToken` from your
+signed FS SR webhook. This flow creates no ePošťák participant login and does
+not use Enterprise owner consent.
+
+```csharp
+var operation = await client.WhiteLabel.RegisterParticipantAsync(
+    new WhiteLabelParticipantRegistrationRequest
+    {
+        CustomerRef = "ERP-ACME",
+        Dic = "2022988022",
+        CompanyEmail = "uctaren@example.sk",
+        VerificationToken = fsWebhook["verification_token"],
+    },
+    "fs-webhook:event-123");
+var status = await client.WhiteLabel.GetOperationAsync(operation.Id);
+```
+
+`client.Enterprise.WhiteLabel` is the same resource. Reads require
+`participants:read`, registration `participants:write`, and migrations
+`participants:migrate`. POST methods require a non-blank idempotency key of at
+most 255 UTF-8 bytes and omit
+`X-Firm-Id`. Never log `VerificationToken`, `MigrationCode`, or a returned
+migration code. The endpoint profile is fixed to `managed_by_epostak`.
 
 ## Connector quickstart
 
@@ -71,7 +100,7 @@ appends the URL-encoded `customerRef` query. The server verifies the document
 against the approved firm mapped to that integrator-owned reference.
 
 The integrator owns the stable `CustomerRef` after ePošťák has approved and
-Peppol-registered the firm. The SDK cannot create or discover firms. It injects `CustomerRef`, sends
+Peppol-registered the firm. The Connector resource does not register firms. It injects `CustomerRef`, sends
 immediately by default, and applies the backend ECMAScript `TrimString` set
 (`0009-000D`, `0020`, `00A0`, `1680`, `2000-200A`, `2028-2029`, `202F`,
 `205F`, `3000`, `FEFF`) to `CustomerRef` and `ExternalId`; `U+0085` is

@@ -101,6 +101,9 @@ public sealed class EPostakClient : IDisposable
     /// <summary>Workflow-first Enterprise API namespace for <c>/api/v1/*</c> resources.</summary>
     public EnterpriseResource Enterprise { get; }
 
+    /// <summary>White Label participant registration and migration lifecycle.</summary>
+    public WhiteLabelResource WhiteLabel { get; }
+
     /// <summary>
     /// Rate-limit information from the most recent API response received by this client.
     /// Populated from <c>X-RateLimit-Limit</c>, <c>X-RateLimit-Remaining</c>, and
@@ -176,6 +179,7 @@ public sealed class EPostakClient : IDisposable
         Inbound = new InboundResource(requestor);
         Outbound = new OutboundResource(requestor);
         Sapi = new SapiResource(new HttpRequestor(_http, _tokenManager, StripApiV1(config.BaseUrl), config.FirmId, config.MaxRetries));
+        WhiteLabel = new WhiteLabelResource(requestor);
         Enterprise = new EnterpriseResource(this);
     }
 

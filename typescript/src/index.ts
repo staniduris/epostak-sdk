@@ -45,6 +45,7 @@ export {
   ConnectorResource,
 } from "./resources/connector.js";
 export { EnterprisePullResource, EnterpriseResource } from "./resources/enterprise.js";
+export { WhiteLabelResource } from "./resources/white-label.js";
 export { DocumentsResource, InboxResource } from "./resources/documents.js";
 export { EventsResource } from "./resources/events.js";
 export { FirmsResource } from "./resources/firms.js";
@@ -358,4 +359,14 @@ export type {
   SapiDocumentListResponse,
   SapiDocumentDetail,
   SapiAcknowledgeResponse,
+  WhiteLabelListParticipantsParams,
+  WhiteLabelParticipantRegistrationRequest,
+  WhiteLabelParticipantMigrationRequest,
+  WhiteLabelOperationType,
+  WhiteLabelOperationStatus,
+  WhiteLabelOperationError,
+  WhiteLabelParticipantOperation,
+  WhiteLabelParticipant,
+  WhiteLabelParticipantList,
+  WhiteLabelMigrationCodeResponse,
 } from "./types.js";

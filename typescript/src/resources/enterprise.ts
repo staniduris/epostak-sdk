@@ -14,6 +14,7 @@ import type { PayloadsResource } from "./payloads.js";
 import type { PeppolResource } from "./peppol.js";
 import type { ReportingResource } from "./reporting.js";
 import type { WebhooksResource } from "./webhooks.js";
+import type { WhiteLabelResource } from "./white-label.js";
 
 export class EnterprisePullResource {
   constructor(
@@ -39,6 +40,7 @@ export interface EnterpriseResourceConfig {
   events: EventsResource;
   inbound: InboundResource;
   outbound: OutboundResource;
+  whiteLabel: WhiteLabelResource;
 }
 
 export class EnterpriseResource {
@@ -58,6 +60,7 @@ export class EnterpriseResource {
   readonly payloads: PayloadsResource;
   readonly events: EventsResource;
   readonly pull: EnterprisePullResource;
+  readonly whiteLabel: WhiteLabelResource;
 
   constructor(resources: EnterpriseResourceConfig) {
     this.auth = resources.auth;
@@ -75,6 +78,7 @@ export class EnterpriseResource {
     this.connector = resources.connector;
     this.payloads = resources.payloads;
     this.events = resources.events;
+    this.whiteLabel = resources.whiteLabel;
     this.pull = new EnterprisePullResource(resources.inbound, resources.outbound);
   }
 }

@@ -14,7 +14,7 @@ module EPostak
     class Enterprise
       attr_reader :auth, :audit, :documents, :inbox, :firms, :peppol,
                   :webhooks, :reporting, :account, :extract, :integrator,
-                  :payloads, :events, :box, :pull
+                  :payloads, :events, :box, :pull, :white_label
 
       attr_reader :connector
 
@@ -34,6 +34,7 @@ module EPostak
         @connector = client.connector
         @payloads = client.payloads
         @events = client.events
+        @white_label = client.white_label
         @pull = EnterprisePull.new(inbound: client.inbound, outbound: client.outbound)
       end
     end

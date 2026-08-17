@@ -17,8 +17,9 @@ when strict participant-scoped interoperability is the requirement.
 - Enterprise API facade flow: `client.enterprise.payloads.validate(...)`, `client.enterprise.events.pull(...)`, `client.enterprise.documents.supportPacket(...)`
 - ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
+- White Label participant flow: `client.whiteLabel.registerParticipant(...)`, `migrateParticipant(...)`, `requestMigrationCode(...)`
 
-TypeScript is `4.1.0`. PHP is `1.1.1`. Python, Ruby, Java, and .NET are `1.1.0`.
+TypeScript is `4.2.0`. Python, PHP, Ruby, Java, and .NET are `1.2.0`.
 
 ---
 
@@ -43,19 +44,45 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.1.0 | `npm install @epostak/sdk@^4.1.0` |
-| Python | [`python/`](./python/) | `epostak` | 1.1.0 | Source on GitHub |
-| PHP | [`php/`](./php/) | `epostak/sdk` | 1.1.1 | Source on GitHub |
-| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.1.0 | Source on GitHub |
-| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.1.0 | Source on GitHub |
-| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.1.0 | Source on GitHub |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.2.0 | `npm install @epostak/sdk@^4.2.0` |
+| Python | [`python/`](./python/) | `epostak` | 1.2.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 1.2.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.2.0 | Source on GitHub |
+| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.2.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.2.0 | Source on GitHub |
 
 The npm release is ready to announce only after `npm view @epostak/sdk version`
-returns `4.1.0` or newer; older npm releases do not contain this Connector
-surface. The normal current install is `npm install @epostak/sdk@^4.1.0`, with a
+returns `4.2.0` or newer; older npm releases do not contain the White Label
+surface. The normal current install is `npm install @epostak/sdk@^4.2.0`, with a
 local source fallback documented in [`typescript/README.md`](./typescript/README.md).
 The other five SDKs are source-only until their registry releases are explicitly
 published and verified; each language README contains a local-source install.
+
+## White Label participant onboarding
+
+Approved White Label intermediaries receive FS SR webhooks themselves. Pass the
+webhook `verification_token` as `verificationToken`; ePošťák validates it in
+SMP and creates only an integrator-owned management record. This flow does not
+create an ePošťák login for the participant and does not use owner consent.
+
+```typescript
+const operation = await client.whiteLabel.registerParticipant(
+  {
+    customerRef: "ERP-ACME",
+    dic: "2022988022",
+    companyEmail: "uctaren@example.sk",
+    verificationToken: fsWebhook.verification_token,
+  },
+  "fs-webhook:event-123",
+);
+const completed = await client.whiteLabel.getOperation(operation.id);
+```
+
+Reads require `participants:read`, registration requires `participants:write`,
+and migrations in or out require `participants:migrate`. Every POST requires a
+stable, non-blank `Idempotency-Key` of at most 255 UTF-8 bytes; SDK methods make
+it a required argument and omit `X-Firm-Id`. Never log `verificationToken`, `migrationCode`, or a returned
+migration code. The endpoint profile is fixed to `managed_by_epostak`.
 
 ---
 

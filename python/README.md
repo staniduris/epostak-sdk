@@ -4,7 +4,7 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v1.1.0** — current workflow-first source release with the managed Connector
+> **v1.2.0** — current workflow-first source release with the managed Connector
 > surface. Enterprise `/api/v1/*` resources remain under `client.enterprise`;
 > SAPI-SK document operations remain under
 > `client.sapi.participants.for_participant(...)`.
@@ -21,7 +21,9 @@ Connector is the recommended ERP path; Enterprise is the granular firm-scoped
 API; SAPI-SK is the strict participant-scoped profile. ePošťák approves the
 integrator, approves and Peppol-registers its firms, and issues Connector
 credentials. The integrator then chooses and stores a stable `customerRef` for
-each approved firm in the dashboard. The SDK cannot create or discover firms.
+each approved firm in the dashboard. The Connector resource cannot create or
+discover firms; approved White Label providers use the separate `white_label`
+resource below.
 
 Request Connector access and Peppol firm approval at `integracie@epostak.sk`,
 then set `customerRef` in the integrator dashboard. Connector omits
@@ -29,6 +31,29 @@ then set `customerRef` in the integrator dashboard. Connector omits
 
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
+
+## White Label participant onboarding
+
+With an approved White Label key, register a participant from the
+`verification_token` delivered to your signed FS SR webhook. This does not
+create an ePošťák login and does not use Enterprise owner consent.
+
+```python
+operation = client.white_label.register_participant({
+    "customerRef": "ERP-ACME",
+    "dic": "2022988022",
+    "companyEmail": "uctaren@example.sk",
+    "verificationToken": fs_webhook["verification_token"],
+}, idempotency_key="fs-webhook:event-123")
+status = client.white_label.get_operation(operation["id"])
+```
+
+`client.enterprise.white_label` is the same resource. Reads require
+`participants:read`, registration `participants:write`, and migrations
+`participants:migrate`. POST methods require a non-blank idempotency key of at
+most 255 UTF-8 bytes and omit
+`X-Firm-Id`. Never log `verificationToken`, `migrationCode`, or a returned
+migration code. The endpoint profile is fixed to `managed_by_epostak`.
 
 ## Connector quickstart
 
@@ -51,7 +76,7 @@ document = customer.documents.send({
 ```
 
 The integrator owns the stable `customerRef` after ePošťák has approved and
-Peppol-registered the firm. The SDK cannot create or discover firms. It injects `customerRef`, sends
+Peppol-registered the firm. The Connector resource does not register firms. It injects `customerRef`, sends
 immediately by default, and derives a stable idempotency key from `customerRef`
 and `externalId`.
 

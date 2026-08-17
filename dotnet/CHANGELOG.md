@@ -3,10 +3,13 @@
 All notable changes to the `EPostak` .NET SDK are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — 2026-08-11
+## 1.2.0 — 2026-08-17
 
 ### Added
 
+- Added the typed `WhiteLabel` participant lifecycle for FS SR token
+  registration, migration in/out, participant inventory, and operation polling.
+  Mutations require idempotency keys and always omit `X-Firm-Id`.
 - Added typed `Firms.CreateConsentLinkAsync()` support for the Enterprise 1.8.6
   one-time owner/admin consent URL contract.
 - Added additive single-file OCR methods for corrected `fields`, plus typed

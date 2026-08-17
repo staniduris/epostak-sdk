@@ -32,4 +32,5 @@ class EnterpriseResource:
         self.connector = client.connector
         self.payloads = client.payloads
         self.events = client.events
+        self.white_label = client.white_label
         self.pull = EnterprisePullResource(client.inbound, client.outbound)

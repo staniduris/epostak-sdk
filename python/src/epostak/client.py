@@ -32,6 +32,7 @@ from epostak.resources.peppol import PeppolResource
 from epostak.resources.reporting import ReportingResource
 from epostak.resources.sapi import SapiResource
 from epostak.resources.webhooks import WebhooksResource
+from epostak.resources.white_label import WhiteLabelResource
 from epostak.token_manager import TokenManager
 
 DEFAULT_BASE_URL = "https://epostak.sk/api/v1"
@@ -177,6 +178,9 @@ class EPostak:
     sapi: SapiResource
     """SAPI-SK 1.0 interoperable document send/receive endpoints."""
 
+    white_label: WhiteLabelResource
+    """White Label participant registration and migration lifecycle."""
+
     def __init__(
         self,
         client_id: str,
@@ -230,6 +234,7 @@ class EPostak:
         self.account = AccountResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.integrator = IntegratorResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.sapi = SapiResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
+        self.white_label = WhiteLabelResource(self._client, self._base_url, tm, self._firm_id, **retry_kw, **rl_kw)
         self.enterprise = EnterpriseResource(self)
 
     @property
