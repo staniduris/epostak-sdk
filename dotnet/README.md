@@ -38,6 +38,80 @@ then set `CustomerRef` in the integrator dashboard. Connector omits
 Reference: [Connector guide](https://epostak.sk/api/docs/connector) and
 [Connector OpenAPI](https://epostak.sk/api/openapi.connector.json).
 
+## Test onboarding in DEV, then use PROD
+
+Ordinary DEV consent requires `relationshipMode: "managed_service"` and an interface
+already allowed on the assigned sandbox binding. It cannot enable technical
+delegation or expand interface access.
+
+
+Choose one interface (Connector, Enterprise API, or SAPI) and request DEV access
+for that route. Configure `https://dev.epostak.sk/api/v1` with DEV credentials;
+keep production credentials and configuration separate. SAPI derives its host
+from the same base URL. The sequences below use TypeScript method names; use
+this SDK's corresponding method names listed below.
+
+1. **Ordinary client consent:** call `firms.createConsentOffer` with the assigned
+   synthetic firm's identifier, your interface, relationship and exact scopes.
+   Open the returned `consentUrl` as that firm's owner/admin and accept, then
+   call `firms.getConsentOffer` with the saved offer ID to check acceptance.
+   DEV uses the same owner/admin consent screen without a production agreement
+   or billing. It only accepts your pre-provisioned synthetic firms and scopes
+   held by both the issuing key and JWT. Offer creation and customer binding
+   also require `firms:manage` on the key and JWT. Test revocation and denied document
+   access too. Enterprise can also use `firms.createConsentLink`; the shared
+   offer helper supports all three interfaces. Creating an offer is not consent.
+2. **White Label registration:** request explicit White Label sandbox activation,
+   then call `whiteLabel.registerParticipant` with a synthetic DIČ, stable
+   `customerRef`, contact email and valid test PFS token. No client login or
+   client OAuth consent is needed. Read `getOperation`; after `succeeded`, read
+   `getParticipant` and save the returned participant ID and `firmId`.
+3. **White Label customer binding:** call `whiteLabel.createCustomer` using the
+   same `customerRef` and synthetic identity, `relationship: "represented"`,
+   contact email and `customerAuthorization: { confirmed: true, evidenceReference }`
+   referring to your actual authorization evidence. Supply a stable idempotency
+   key. DEV reuses your successfully registered/migrated firm; it cannot create
+   an arbitrary or foreign firm. Verify the binding with `listCustomers`, check
+   customer status, then use the selected document API.
+4. **White Label migration:** for a participant at another test SMP, call
+   `whiteLabel.migrateParticipant` with that provider's test migration code and
+   follow the operation to completion. For migration out, call
+   `requestMigrationCode` with a stable idempotency key and use the returned code
+   at the receiving test provider. Internal same-ePošťák-SMP handoff and return
+   into an already existing local identity remain unsupported sandbox cases;
+   use a separate synthetic identity and test provider. Never use live tokens
+   or migration codes in DEV.
+
+An accepted request or HTTP 202 is not completed onboarding. `processing` and
+`smp_succeeded` require another status check; `manual_review`/`reviewRequired`
+needs operator review, and `rejected` requires inspecting the error. Continue
+registration/migration-in only after `succeeded`; migration-out has its own
+operation state and must be confirmed at the receiving provider. Reuse the
+original idempotency key and body after a timeout. Consent-offer creation is
+not idempotent; retain its ID and one-time URL, and do not retry blindly.
+
+The older OAuth tester at `/integrator/settings#oauth-flow-tester` remains
+available for Connector/Enterprise technical consent checks. When using the
+standalone OAuth helper, configure its origin separately as
+`https://dev.epostak.sk`, an exact redirect URI, and fresh PKCE/state. Changing
+API base URL does not change that helper's default production origin.
+
+For PROD, obtain the production agreement, route entitlement and production
+key, then configure `https://epostak.sk/api/v1` and repeat the appropriate
+onboarding sequence with real identity and production authorization. White
+Label also requires active White Label authorization and billing readiness.
+DEV tokens, firm IDs, operation IDs, participant records and approvals do not
+transfer. You may keep the ERP `customerRef`, but create its PROD binding anew.
+Configure production webhooks separately and verify the intended participant
+before sending real documents.
+
+| SDK method | HTTP endpoint |
+|---|---|
+| `Firms.CreateConsentOfferAsync(request)` | `POST /consent-offers` |
+| `Firms.GetConsentOfferAsync(id)` | `GET /consent-offers/{offerId}` |
+| `WhiteLabel.CreateCustomerAsync(request, key)` | `POST /customers` |
+| `WhiteLabel.ListCustomersAsync(...)` | `GET /customers` |
+
 ## White Label participant onboarding
 
 With an approved White Label key, pass the `verification_token` as

@@ -1,5 +1,9 @@
 import { BaseResource, buildQuery } from "../utils/request.js";
 import type {
+  WhiteLabelCreateCustomerRequest,
+  WhiteLabelCustomer,
+  WhiteLabelListCustomersParams,
+  WhiteLabelCustomerList,
   WhiteLabelListParticipantsParams,
   WhiteLabelMigrationCodeResponse,
   WhiteLabelParticipant,
@@ -28,6 +32,19 @@ function whiteLabelIdempotencyKey(value: string): string {
  * by that integrator.
  */
 export class WhiteLabelResource extends BaseResource {
+  /** Binds the represented customer; in DEV register/migrate the participant first. */
+  createCustomer(body: WhiteLabelCreateCustomerRequest, idempotencyKey: string): Promise<WhiteLabelCustomer> {
+    const key = whiteLabelIdempotencyKey(idempotencyKey);
+    return this.request("POST", "/customers", body,
+      { omitFirmId: true, idempotencyKey: key, retry: true });
+  }
+
+  listCustomers(params?: WhiteLabelListCustomersParams): Promise<WhiteLabelCustomerList> {
+    return this.request("GET", `/customers${buildQuery({
+      limit: params?.limit, cursor: params?.cursor, status: params?.status,
+    })}`, undefined, { omitFirmId: true });
+  }
+
   listParticipants(
     params?: WhiteLabelListParticipantsParams,
   ): Promise<WhiteLabelParticipantList> {

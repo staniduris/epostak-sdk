@@ -1,5 +1,8 @@
 import { BaseResource, buildQuery } from "../utils/request.js";
 import type {
+  CreateConsentOfferRequest,
+  CreatedConsentOffer,
+  ConsentOfferStatus,
   FirmSummary,
   FirmDetail,
   FirmsListResponse,
@@ -41,6 +44,17 @@ type FirmConsentLinkWireResponse = {
  * ```
  */
 export class FirmsResource extends BaseResource {
+  /** Creates a one-time owner/admin invitation; not retried automatically. */
+  createConsentOffer(body: CreateConsentOfferRequest): Promise<CreatedConsentOffer> {
+    return this.request("POST", "/consent-offers", body, { omitFirmId: true });
+  }
+
+  /** Reads acceptance/revocation status; does not return the one-time URL. */
+  getConsentOffer(offerId: string): Promise<ConsentOfferStatus> {
+    return this.request("GET", `/consent-offers/${encodeURIComponent(offerId)}`,
+      undefined, { omitFirmId: true });
+  }
+
   /**
    * List all firms associated with the current account.
    * For integrator keys, returns all assigned client firms.

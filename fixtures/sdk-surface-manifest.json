@@ -25,6 +25,18 @@
     "participants:migrate"
   ],
   "checks": [
+    {"name": "TypeScript shared consent offers", "file": "typescript/src/resources/firms.ts", "contains": ["createConsentOffer", "getConsentOffer", "/consent-offers"]},
+    {"name": "TypeScript White Label customer binding", "file": "typescript/src/resources/white-label.ts", "contains": ["createCustomer", "listCustomers", "/customers"]},
+    {"name": "Python shared consent offers", "file": "python/src/epostak/resources/firms.py", "contains": ["create_consent_offer", "get_consent_offer", "/consent-offers"]},
+    {"name": "Python White Label customer binding", "file": "python/src/epostak/resources/white_label.py", "contains": ["create_customer", "list_customers", "/customers"]},
+    {"name": "PHP shared consent offers", "file": "php/src/Resources/Firms.php", "contains": ["createConsentOffer", "getConsentOffer", "/consent-offers"]},
+    {"name": "PHP White Label customer binding", "file": "php/src/Resources/WhiteLabel.php", "contains": ["createCustomer", "listCustomers", "/customers"]},
+    {"name": "Ruby shared consent offers", "file": "ruby/lib/epostak/resources/firms.rb", "contains": ["create_consent_offer", "get_consent_offer", "/consent-offers"]},
+    {"name": "Ruby White Label customer binding", "file": "ruby/lib/epostak/resources/white_label.rb", "contains": ["create_customer", "list_customers", "/customers"]},
+    {"name": "Java shared consent offers", "file": "java/src/main/java/sk/epostak/sdk/resources/FirmsResource.java", "contains": ["createConsentOffer", "getConsentOffer", "/consent-offers"]},
+    {"name": "Java White Label customer binding", "file": "java/src/main/java/sk/epostak/sdk/resources/WhiteLabelResource.java", "contains": ["createCustomer", "listCustomers", "/customers"]},
+    {"name": ".NET shared consent offers", "file": "dotnet/src/EPostak/Resources/FirmsResource.cs", "contains": ["CreateConsentOfferAsync", "GetConsentOfferAsync", "/consent-offers"]},
+    {"name": ".NET White Label customer binding", "file": "dotnet/src/EPostak/Resources/WhiteLabelResource.cs", "contains": ["CreateCustomerAsync", "ListCustomersAsync", "/customers"]},
     {
       "name": "TypeScript Connector",
       "file": "typescript/src/resources/connector.ts",

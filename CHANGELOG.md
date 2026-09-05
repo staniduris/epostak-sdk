@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.3.0] — 2026-09-05 — DEV onboarding and White Label parity
+
+- Add shared consent-offer creation/status and White Label customer creation/listing
+  helpers with integrator-scoped transport and idempotent customer writes.
+
+- Document route-specific DEV onboarding, explicit White Label sandbox activation,
+  test SMP registration/migration support, operation completion and production prerequisites
+  in all six SDK guides.
+- Expose White Label participant `vatRegType` and `isVatPayer` in typed SDKs;
+  retain the original Java participant constructor for source compatibility.
+
+
 ## [Enterprise firm consent-link SDK sync] — 2026-08-11
 
 - Added `POST /firms/consent-link` helpers across TypeScript, Python, PHP,

@@ -180,4 +180,12 @@ public sealed class FirmsResource
     /// </example>
     public Task<BatchAssignFirmsResponse> AssignBatchAsync(IEnumerable<string> icos, CancellationToken ct = default)
         => _http.RequestAsync<BatchAssignFirmsResponse>(HttpMethod.Post, "/firms/assign/batch", new { icos }, ct);
+    /// <summary>Create an invitation requiring acceptance by the target owner/admin.</summary>
+    public Task<ConsentOfferResponse> CreateConsentOfferAsync(CreateConsentOfferRequest request, CancellationToken ct = default)
+        => _http.RequestAsync<ConsentOfferResponse>(HttpMethod.Post, "/consent-offers", request, ct, omitFirmId: true);
+
+    /// <summary>Poll status; this endpoint does not return the one-time consent URL.</summary>
+    public Task<ConsentOfferResponse> GetConsentOfferAsync(string offerId, CancellationToken ct = default)
+        => _http.RequestAsync<ConsentOfferResponse>(HttpMethod.Get, $"/consent-offers/{Uri.EscapeDataString(offerId)}", ct, omitFirmId: true);
+
 }

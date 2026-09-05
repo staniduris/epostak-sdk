@@ -54,6 +54,50 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class ConnectorFirmScopeTest {
     @Test
+    void sharedOnboardingUsesCamelCaseAndNoFirmScope() throws Exception {
+        try (CaptureServer server = CaptureServer.start()) {
+            EPostak client = createClient(server);
+            client.firms().createConsentOffer(new sk.epostak.sdk.models.CreateConsentOfferRequest(
+                    "dic", "2022988022", "ERP-1", "sapi", "technical_delegation", List.of("firms:manage", "documents:read")));
+            client.firms().getConsentOffer("offer/1");
+            client.whiteLabel().listCustomers(10, "cursor 1", "active");
+            var input = new sk.epostak.sdk.models.WhiteLabelCustomerCreateRequest("ERP-1", "represented", "SK", null,
+                    "2022988022", null, "test@example.com", null,
+                    new sk.epostak.sdk.models.WhiteLabelCustomerAuthorization(true, "contract-1"));
+            client.whiteLabel().createCustomer(input, "customer-key");
+            var requests = server.requests().stream().filter(q -> !q.path().equals("/sapi/v1/auth/token")).toList();
+            assertEquals(4, requests.size());
+            requests.forEach(q -> assertNull(q.firmId()));
+            assertEquals("/api/v1/consent-offers", requests.get(0).path());
+            assertEquals("POST", requests.get(0).method());
+            assertEquals(true, requests.get(0).body().contains("\"targetIdentifierType\":\"dic\""));
+            assertEquals("GET", requests.get(1).method());
+            assertEquals("/api/v1/customers", requests.get(2).path());
+            assertEquals("limit=10&cursor=cursor+1&status=active", requests.get(2).rawQuery());
+            assertEquals("customer-key", requests.get(3).idempotencyKey());
+            assertEquals(true, requests.get(3).body().contains("\"evidenceReference\":\"contract-1\""));
+            assertThrows(IllegalArgumentException.class, () -> client.whiteLabel().createCustomer(input, " "));
+            assertThrows(IllegalArgumentException.class, () -> client.whiteLabel().createCustomer(input, "x".repeat(256)));
+        }
+        var offer = new Gson().fromJson("{\"consentUrl\":\"https://example.com\",\"acceptedAt\":\"now\"}", sk.epostak.sdk.models.ConsentOfferResponse.class);
+        assertEquals("now", offer.acceptedAt());
+        assertEquals("https://example.com", offer.consentUrl());
+        var customer = new Gson().fromJson("{\"firmId\":\"firm-1\",\"policy\":{\"version\":2}}", sk.epostak.sdk.models.WhiteLabelCustomer.class);
+        assertEquals("firm-1", customer.firmId());
+        assertEquals(2, customer.policy().version());
+    }
+
+    @Test
+    void whiteLabelParticipantRetainsVatClassification() {
+        var participant = new Gson().fromJson(
+                "{\"vatRegType\":\"§7a\",\"isVatPayer\":false,\"icDph\":\"SK2022988022\"}",
+                sk.epostak.sdk.models.WhiteLabelParticipant.class);
+        assertEquals("§7a", participant.vatRegType());
+        assertEquals(false, participant.isVatPayer());
+        assertEquals("SK2022988022", participant.icDph());
+    }
+
+    @Test
     void firmConsentLinkUsesCanonicalWireContractWithoutFirmId() throws Exception {
         try (CaptureServer server = CaptureServer.start()) {
             EPostak client = createClient(server);

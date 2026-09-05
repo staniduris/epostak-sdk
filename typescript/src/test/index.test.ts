@@ -2452,3 +2452,41 @@ it("WebhookDeliveriesParams accepts includeResponseBody", async () => {
     `Expected includeResponseBody in URL: ${capturedUrl}`,
   );
 });
+
+
+it("uses shared consent offers and White Label customer bindings without firm scope", async () => {
+  const client = makeClient({ firmId: "must-not-leak" });
+  const requests: Array<{ path: string; method: string; key: string | null; body: unknown }> = [];
+  mockFetch(async (input, init) => {
+    const url = new URL(typeof input === "string" ? input : input.toString());
+    if (url.pathname.endsWith("/auth/token")) {
+      return makeMockResponse({ access_token: "tok", expires_in: 900 });
+    }
+    const headers = new Headers(init?.headers);
+    assert.strictEqual(headers.get("X-Firm-Id"), null);
+    requests.push({ path: url.pathname + url.search, method: init?.method ?? "GET",
+      key: headers.get("Idempotency-Key"), body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (url.pathname === "/api/v1/consent-offers" && init?.method === "POST") {
+      return makeMockResponse({ id: "offer-1", consentUrl: "https://dev.epostak.sk/consent", status: "issued" });
+    }
+    return makeMockResponse({ status: "active", hasMore: false, customers: [] });
+  });
+  const offer = { targetIdentifierType: "dic" as const, targetIdentifier: "2022988022",
+    integrationPath: "connector" as const, relationshipMode: "managed_service" as const,
+    scopes: ["documents:send" as const] };
+  const created = await client.firms.createConsentOffer(offer);
+  assert.strictEqual(created.id, "offer-1");
+  await client.firms.getConsentOffer("offer/1");
+  const customer = { customerRef: "ERP-ACME", relationship: "represented" as const,
+    country: "SK", taxId: "2022988022", contactEmail: "test@example.sk",
+    customerAuthorization: { confirmed: true as const, evidenceReference: "signed-mandate-1" } };
+  await client.whiteLabel.createCustomer(customer, "customer-1");
+  await client.whiteLabel.listCustomers({ cursor: "next page", limit: 10, status: "active" });
+  assert.deepStrictEqual(requests, [
+    { path: "/api/v1/consent-offers", method: "POST", key: null, body: offer },
+    { path: "/api/v1/consent-offers/offer%2F1", method: "GET", key: null, body: null },
+    { path: "/api/v1/customers", method: "POST", key: "customer-1", body: customer },
+    { path: "/api/v1/customers?limit=10&cursor=next+page&status=active", method: "GET", key: null, body: null },
+  ]);
+  assert.throws(() => client.whiteLabel.createCustomer(customer, "  "), /idempotency key/);
+});

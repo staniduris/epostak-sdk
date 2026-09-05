@@ -13,6 +13,23 @@ class WhiteLabel
     {
     }
 
+    /** @param array{limit?: int, cursor?: string, status?: string} $params */
+    public function listCustomers(array $params = []): array
+    {
+        $query = HttpClient::buildQuery([
+            'limit' => $params['limit'] ?? null,
+            'cursor' => $params['cursor'] ?? null,
+            'status' => $params['status'] ?? null,
+        ]);
+        return $this->http->request('GET', '/customers' . $query, ['omitFirmId' => true]) ?? [];
+    }
+
+    /** Create a represented customer with explicit customerAuthorization evidence. */
+    public function createCustomer(array $request, string $idempotencyKey): array
+    {
+        return $this->postIdempotent('/customers', $request, $idempotencyKey);
+    }
+
     /** @param array{limit?: int, cursor?: string} $params */
     public function listParticipants(array $params = []): array
     {

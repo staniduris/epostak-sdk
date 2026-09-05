@@ -9,6 +9,9 @@ from epostak.resources.documents import _BaseResource, _build_query, _idempotenc
 
 if TYPE_CHECKING:
     from epostak.types import (
+        WhiteLabelCustomerRequest,
+        WhiteLabelCustomer,
+        WhiteLabelCustomerList,
         WhiteLabelMigrationCodeResponse,
         WhiteLabelParticipant,
         WhiteLabelParticipantList,
@@ -30,6 +33,27 @@ class WhiteLabelResource(_BaseResource):
     Calls never send ``X-Firm-Id``. The authenticated White Label integrator
     determines participant ownership on the server.
     """
+
+    def list_customers(
+        self, *, limit: Optional[int] = None, cursor: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> WhiteLabelCustomerList:
+        return self._request(
+            "GET", "/customers",
+            params=_build_query({"limit": limit, "cursor": cursor, "status": status}),
+            omit_firm_id=True,
+        )
+
+    def create_customer(
+        self, request: WhiteLabelCustomerRequest, *, idempotency_key: str,
+    ) -> WhiteLabelCustomer:
+        """Bind a represented customer with explicit customer authorization."""
+        key = _white_label_idempotency_key(idempotency_key)
+        return self._request(
+            "POST", "/customers", json=request,
+            extra_headers=_idempotency_headers(key), omit_firm_id=True,
+            retry_on_failure=True,
+        )
 
     def list_participants(
         self,

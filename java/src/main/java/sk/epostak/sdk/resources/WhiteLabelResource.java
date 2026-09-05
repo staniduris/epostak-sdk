@@ -82,6 +82,23 @@ public final class WhiteLabelResource {
         );
     }
 
+    public WhiteLabelCustomerList listCustomers(Integer limit, String cursor, String status) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("limit", limit);
+        params.put("cursor", cursor);
+        params.put("status", status);
+        return http.getNoFirm("/customers" + HttpClient.buildQuery(params), WhiteLabelCustomerList.class);
+    }
+
+    public WhiteLabelCustomerList listCustomers() {
+        return listCustomers(null, null, null);
+    }
+
+    /** Requires represented relationship and explicit customer authorization evidence. */
+    public WhiteLabelCustomer createCustomer(WhiteLabelCustomerCreateRequest request, String idempotencyKey) {
+        return http.postIdempotentNoFirm("/customers", request, WhiteLabelCustomer.class, idempotencyKey(idempotencyKey));
+    }
+
     private static String idempotencyKey(String value) {
         if (value == null || value.isBlank() || value.getBytes(StandardCharsets.UTF_8).length > 255) {
             throw new IllegalArgumentException("White Label idempotency key must be 1-255 UTF-8 bytes");

@@ -11,6 +11,49 @@ namespace EPostak.Tests;
 public sealed class ConnectorFirmScopeTests
 {
     [Fact]
+    public async Task SharedOnboardingUsesCamelCaseAndNoFirmScope()
+    {
+        var handler = new CaptureHandler(_ => """{"id":"offer-1","consentUrl":"https://example.com","firmId":"firm-1"}""");
+        using var http = new HttpClient(handler);
+        var client = CreateClient(http);
+        var offer = await client.Firms.CreateConsentOfferAsync(new CreateConsentOfferRequest {
+            TargetIdentifierType = "dic", TargetIdentifier = "2022988022", IntegrationPath = "sapi",
+            RelationshipMode = "technical_delegation", Scopes = ["firms:manage", "documents:read"] });
+        await client.Firms.GetConsentOfferAsync("offer/1");
+        await client.WhiteLabel.ListCustomersAsync(new WhiteLabelListCustomersParams { Limit = 10, Cursor = "cursor 1", Status = "active" });
+        var input = new WhiteLabelCustomerCreateRequest { CustomerRef = "ERP-1", Relationship = "represented", Country = "SK",
+            TaxId = "2022988022", ContactEmail = "test@example.com",
+            CustomerAuthorization = new WhiteLabelCustomerAuthorization { Confirmed = true, EvidenceReference = "contract-1" } };
+        var customer = await client.WhiteLabel.CreateCustomerAsync(input, "customer-key");
+        Assert.Equal(4, handler.ApiRequests.Count);
+        Assert.All(handler.ApiRequests, request => Assert.DoesNotContain("X-Firm-Id", request.Headers.Keys));
+        Assert.Equal("/api/v1/consent-offers", handler.ApiRequests[0].Uri.AbsolutePath);
+        Assert.Equal(HttpMethod.Post, handler.ApiRequests[0].Method);
+        Assert.Contains("\"targetIdentifierType\":\"dic\"", handler.ApiRequests[0].Body);
+        Assert.Contains("offer%2F1", handler.ApiRequests[1].Uri.AbsoluteUri);
+        Assert.Equal(HttpMethod.Get, handler.ApiRequests[1].Method);
+        Assert.Equal("/api/v1/customers", handler.ApiRequests[2].Uri.AbsolutePath);
+        Assert.Contains("status=active", handler.ApiRequests[2].Uri.Query);
+        Assert.Equal("customer-key", handler.ApiRequests[3].Headers["Idempotency-Key"]);
+        Assert.Contains("\"evidenceReference\":\"contract-1\"", handler.ApiRequests[3].Body);
+        Assert.Equal("https://example.com", offer.ConsentUrl);
+        Assert.Equal("firm-1", customer.FirmId);
+        await Assert.ThrowsAsync<ArgumentException>(() => client.WhiteLabel.CreateCustomerAsync(input, " "));
+        await Assert.ThrowsAsync<ArgumentException>(() => client.WhiteLabel.CreateCustomerAsync(input, new string('x', 256)));
+    }
+
+    [Fact]
+    public void WhiteLabelParticipantRetainsVatClassification()
+    {
+        var participant = JsonSerializer.Deserialize<WhiteLabelParticipant>(
+            """{"vatRegType":"§7a","isVatPayer":false,"icDph":"SK2022988022"}""");
+        Assert.NotNull(participant);
+        Assert.Equal("§7a", participant.VatRegType);
+        Assert.False(participant.IsVatPayer);
+        Assert.Equal("SK2022988022", participant.IcDph);
+    }
+
+    [Fact]
     public async Task FirmConsentLinkUsesCanonicalWireContractWithoutFirmId()
     {
         var handler = new CaptureHandler(_ => """

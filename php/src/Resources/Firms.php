@@ -158,6 +158,20 @@ class Firms
         ]);
     }
 
+    public function createConsentOffer(array $request): array
+    {
+        return $this->http->request('POST', '/consent-offers', [
+            'json' => $request, 'omitFirmId' => true,
+        ]);
+    }
+
+    public function getConsentOffer(string $offerId): array
+    {
+        return $this->http->request('GET', '/consent-offers/' . rawurlencode($offerId), [
+            'omitFirmId' => true,
+        ]);
+    }
+
     /**
      * Batch assign firms to this integrator.
      *

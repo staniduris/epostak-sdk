@@ -77,6 +77,16 @@ public sealed class WhiteLabelResource
             ct,
             omitFirmId: true);
 
+    public Task<WhiteLabelCustomerList> ListCustomersAsync(WhiteLabelListCustomersParams? parameters = null, CancellationToken ct = default)
+    {
+        var query = HttpRequestor.BuildQuery(("limit", parameters?.Limit?.ToString()), ("cursor", parameters?.Cursor), ("status", parameters?.Status));
+        return _http.RequestAsync<WhiteLabelCustomerList>(HttpMethod.Get, $"/customers{query}", ct, omitFirmId: true);
+    }
+
+    /// <summary>Requires represented relationship and explicit customer authorization evidence.</summary>
+    public Task<WhiteLabelCustomer> CreateCustomerAsync(WhiteLabelCustomerCreateRequest request, string idempotencyKey, CancellationToken ct = default)
+        => _http.RequestIdempotentAsync<WhiteLabelCustomer>(HttpMethod.Post, "/customers", request, IdempotencyKey(idempotencyKey), ct, omitFirmId: true);
+
     private static string IdempotencyKey(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || Encoding.UTF8.GetByteCount(value) > 255)

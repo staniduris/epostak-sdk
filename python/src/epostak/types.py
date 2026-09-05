@@ -976,6 +976,8 @@ class WhiteLabelParticipant(TypedDict):
     ico: Optional[str]
     dic: str
     icDph: Optional[str]
+    vatRegType: Optional[str]
+    isVatPayer: bool
     peppolId: str
     status: str
     authorizationSource: Literal["fs_verification_token", "smp_migration_code"]
@@ -2626,3 +2628,108 @@ class IntegratorLicenseInfo(TypedDict):
     pricing: _IntegratorPricing
     firms: List[IntegratorFirmUsage]
     pagination: _IntegratorPagination
+
+
+class _ConsentOfferRequestOptional(TypedDict, total=False):
+    customerReference: str
+
+
+class ConsentOfferRequest(_ConsentOfferRequestOptional):
+    targetIdentifierType: Literal["ico", "dic"]
+    targetIdentifier: str
+    integrationPath: Literal["sapi", "enterprise_api", "connector"]
+    relationshipMode: Literal["technical_delegation", "managed_service"]
+    scopes: List[str]
+
+
+class _ConsentOfferMetadata(TypedDict):
+    id: str
+    status: str
+    expiresAt: str
+    customerReference: Optional[str]
+    integrationPath: str
+    relationshipMode: str
+    scopes: List[str]
+
+
+class ConsentOfferResponse(_ConsentOfferMetadata):
+    consentUrl: str
+
+
+class ConsentOfferStatus(_ConsentOfferMetadata):
+    acceptedAt: Optional[str]
+    revokedAt: Optional[str]
+
+
+class WhiteLabelCustomerAuthorization(TypedDict):
+    confirmed: Literal[True]
+    evidenceReference: str
+
+
+class _WhiteLabelCustomerRequestOptional(TypedDict, total=False):
+    companyId: str
+    taxId: str
+    vatId: str
+    returnUrl: str
+
+
+class WhiteLabelCustomerRequest(_WhiteLabelCustomerRequestOptional):
+    customerRef: str
+    relationship: Literal["represented"]
+    country: str
+    contactEmail: str
+    customerAuthorization: WhiteLabelCustomerAuthorization
+
+
+class WhiteLabelCustomerPolicy(TypedDict):
+    sendMode: Literal["automatic", "manual"]
+    ublHandling: Literal["strict", "normalize"]
+    ocrAutoSend: bool
+    attachSourceFile: Literal["never", "when_ocr", "always"]
+    locale: Literal["sk", "en"]
+    version: int
+
+
+class WhiteLabelCustomerActivation(TypedDict):
+    url: str
+    expiresAt: str
+
+
+class _WhiteLabelCustomerNextActionOptional(TypedDict, total=False):
+    url: str
+
+
+class WhiteLabelCustomerNextAction(_WhiteLabelCustomerNextActionOptional):
+    code: str
+    message: str
+
+
+class _WhiteLabelCustomerOptional(TypedDict, total=False):
+    name: str
+    companyId: str
+    taxId: str
+    vatId: str
+    activation: WhiteLabelCustomerActivation
+    nextAction: WhiteLabelCustomerNextAction
+
+
+class WhiteLabelCustomer(_WhiteLabelCustomerOptional):
+    id: str
+    firmId: str
+    customerRef: str
+    relationship: Literal["represented", "self"]
+    country: str
+    status: str
+    policy: WhiteLabelCustomerPolicy
+    version: int
+    createdAt: str
+    updatedAt: str
+
+
+class _WhiteLabelCustomerListOptional(TypedDict, total=False):
+    nextCursor: str
+
+
+class WhiteLabelCustomerList(_WhiteLabelCustomerListOptional):
+    customers: List[WhiteLabelCustomer]
+    hasMore: bool

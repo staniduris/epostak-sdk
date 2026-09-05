@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.3.0] — 2026-09-05 — DEV onboarding and White Label parity
+
+- Add shared consent-offer creation/status and White Label customer creation/listing
+  helpers with integrator-scoped transport and idempotent customer writes.
+
+- Clarify DEV consent testing, separate OAuth origin configuration, White Label
+  sandbox registration/migration and customer binding and production onboarding prerequisites.
+- Expose participant `vatRegType` and `isVatPayer` from the current API response.
+
 All notable changes to `@epostak/sdk` are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

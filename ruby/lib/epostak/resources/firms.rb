@@ -161,6 +161,15 @@ module EPostak
         @http.request(:post, "/firms/assign/batch", body: { icos: icos })
       end
 
+      # Creates an invitation; approval is a separate customer action.
+      def create_consent_offer(request)
+        @http.request(:post, "/consent-offers", body: request, omit_firm_id: true)
+      end
+
+      def get_consent_offer(offer_id)
+        @http.request(:get, "/consent-offers/#{encode(offer_id)}", omit_firm_id: true)
+      end
+
       private
 
       def encode(value)

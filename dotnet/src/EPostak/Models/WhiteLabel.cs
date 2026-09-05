@@ -99,6 +99,10 @@ public sealed class WhiteLabelParticipant
     public string Dic { get; set; } = "";
     [JsonPropertyName("icDph")]
     public string? IcDph { get; set; }
+    [JsonPropertyName("vatRegType")]
+    public string? VatRegType { get; set; }
+    [JsonPropertyName("isVatPayer")]
+    public bool IsVatPayer { get; set; }
     [JsonPropertyName("peppolId")]
     public string PeppolId { get; set; } = "";
     [JsonPropertyName("status")]

@@ -826,6 +826,44 @@ namespace EPostak\Tests {
     }
     assertTrue(Client::$requests === [], 'Invalid White Label key must not send a request.');
 
+    Client::$requests = [];
+    $offerBody = ['targetIdentifierType' => 'dic', 'targetIdentifier' => '2022988022',
+        'integrationPath' => 'sapi', 'relationshipMode' => 'technical_delegation',
+        'scopes' => ['documents:read']];
+    $firms->createConsentOffer($offerBody);
+    $request = oneRequest();
+    assertTrue($request['path'] === 'consent-offers', 'Expected shared consent offer route.');
+    assertTrue(($request['options']['json'] ?? null) === $offerBody, 'Expected exact offer body.');
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Offer must omit firm header.');
+    Client::$requests = [];
+    $firms->getConsentOffer('offer/id');
+    $request = oneRequest();
+    assertTrue($request['path'] === 'consent-offers/offer%2Fid', 'Expected encoded offer ID.');
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Offer read must omit firm header.');
+    Client::$requests = [];
+    $whiteLabel->listCustomers(['limit' => 2, 'status' => 'active', 'cursor' => 'next +']);
+    $request = oneRequest();
+    parse_str(parse_url($request['path'], PHP_URL_QUERY), $query);
+    assertTrue($query === ['limit' => '2', 'cursor' => 'next +', 'status' => 'active'], 'Expected customer filters.');
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Customer list must omit firm header.');
+    Client::$requests = [];
+    $customerBody = ['customerRef' => 'ERP-1', 'relationship' => 'represented', 'country' => 'SK',
+        'taxId' => '2022988022', 'contactEmail' => 'test@example.com',
+        'customerAuthorization' => ['confirmed' => true, 'evidenceReference' => 'contract-1']];
+    $whiteLabel->createCustomer($customerBody, 'customer-1');
+    $request = oneRequest();
+    assertTrue($request['path'] === 'customers', 'Expected customer create path.');
+    assertTrue(($request['options']['headers']['Idempotency-Key'] ?? null) === 'customer-1', 'Expected customer key.');
+    assertTrue(json_decode($request['options']['body'], true) === $customerBody, 'Expected exact customer body.');
+    assertTrue(firmHeader($request['options']['headers'] ?? []) === null, 'Customer create must omit firm header.');
+    Client::$requests = [];
+    try {
+        $whiteLabel->createCustomer($customerBody, ' ');
+        fail('Expected blank customer key rejection.');
+    } catch (\InvalidArgumentException $error) {
+        assertTrue(Client::$requests === [], 'Invalid key must not send.');
+    }
+
     $payloads = new Payloads(new HttpClient('https://dev.epostak.sk/api/v1', new StaticTokenManager(), 'firm-1', 0));
     Client::$requests = [];
     $payloads->extract(

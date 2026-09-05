@@ -169,6 +169,16 @@ public final class FirmsResource {
         return http.post("/firms/assign/batch", body, BatchAssignResponse.class);
     }
 
+    /** Create an invitation; the target owner/admin must still accept it. */
+    public ConsentOfferResponse createConsentOffer(CreateConsentOfferRequest request) {
+        return http.postNoFirm("/consent-offers", request, ConsentOfferResponse.class);
+    }
+
+    /** Poll status; the one-time consent URL is not returned by this endpoint. */
+    public ConsentOfferResponse getConsentOffer(String offerId) {
+        return http.getNoFirm("/consent-offers/" + HttpClient.encode(offerId), ConsentOfferResponse.class);
+    }
+
     // -- internal wrapper for the list response --------------------------------
 
     private record FirmsListWrapper(List<FirmSummary> firms) {}

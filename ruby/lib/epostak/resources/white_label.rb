@@ -10,6 +10,17 @@ module EPostak
         @http = http
       end
 
+      def list_customers(limit: nil, cursor: nil, status: nil)
+        @http.request(:get, "/customers",
+          query: { limit: limit, cursor: cursor, status: status }.compact,
+          omit_firm_id: true)
+      end
+
+      # Requires represented relationship and explicit customerAuthorization evidence.
+      def create_customer(request, idempotency_key:)
+        post_idempotent("/customers", request, idempotency_key)
+      end
+
       def list_participants(limit: nil, cursor: nil)
         @http.request(
           :get,

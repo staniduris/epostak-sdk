@@ -253,6 +253,24 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
+  const participantProperties = current.components?.schemas?.WhiteLabelParticipant?.properties;
+  for (const property of ["vatRegType", "isVatPayer"]) {
+    if (!Object.hasOwn(participantProperties ?? {}, property)) {
+      failures.push(`current OpenAPI: WhiteLabelParticipant missing ${property}`);
+    }
+  }
+
+  for (const [method, apiPath] of [
+    ["post", "/consent-offers"], ["get", "/consent-offers/{offerId}"],
+    ["post", "/customers"], ["get", "/customers"],
+  ]) {
+    const operation = current.paths?.[apiPath]?.[method];
+    if (!operation) failures.push(`current OpenAPI: missing ${method.toUpperCase()} ${apiPath}`);
+    else if (apiPath !== "/consent-offers/{offerId}" && !operation["x-epostak-required-scopes"]?.includes("firms:manage")) {
+      failures.push(`current OpenAPI: ${method.toUpperCase()} ${apiPath} must require firms:manage`);
+    }
+  }
+
   const whiteLabelOperations = [
     ["get", "/white-label/participants", "participants:read", false],
     ["post", "/white-label/participants/registrations", "participants:write", true],

@@ -13,6 +13,9 @@ from urllib.parse import quote
 
 if TYPE_CHECKING:
     from epostak.types import (
+        ConsentOfferRequest,
+        ConsentOfferResponse,
+        ConsentOfferStatus,
         AssignFirmResponse,
         BatchAssignFirmsResponse,
         FirmDetail,
@@ -190,6 +193,16 @@ class FirmsResource(_BaseResource):
             "/firms/consent-link",
             json=body,
             omit_firm_id=True,
+        )
+
+    def create_consent_offer(self, request: ConsentOfferRequest) -> ConsentOfferResponse:
+        """Create a consent invitation; the customer must approve it separately."""
+        return self._request("POST", "/consent-offers", json=request, omit_firm_id=True)
+
+    def get_consent_offer(self, offer_id: str) -> ConsentOfferStatus:
+        """Read invitation status. The one-time consent URL is not returned."""
+        return self._request(
+            "GET", f"/consent-offers/{quote(offer_id, safe='')}", omit_firm_id=True
         )
 
     def assign_batch(self, icos: List[str]) -> BatchAssignFirmsResponse:

@@ -2097,6 +2097,8 @@ export interface WhiteLabelParticipant {
   ico: string | null;
   dic: string;
   icDph: string | null;
+  vatRegType: string | null;
+  isVatPayer: boolean;
   peppolId: string;
   status: string;
   authorizationSource: "fs_verification_token" | "smp_migration_code";
@@ -3973,4 +3975,87 @@ export interface SapiAcknowledgeResponse {
   status: "ACKNOWLEDGED";
   acknowledgedDateTime: string;
   [key: string]: unknown;
+}
+
+/** Shared owner/admin onboarding for the selected API interface. */
+export interface CreateConsentOfferRequest {
+  targetIdentifierType: "ico" | "dic";
+  targetIdentifier: string;
+  customerReference?: string;
+  integrationPath: "sapi" | "enterprise_api" | "connector";
+  relationshipMode: "technical_delegation" | "managed_service";
+  scopes: FirmConsentScope[];
+}
+
+export interface ConsentOfferResponse {
+  id: string;
+  status: string;
+  expiresAt: string;
+  customerReference: string | null;
+  integrationPath: CreateConsentOfferRequest["integrationPath"];
+  relationshipMode: CreateConsentOfferRequest["relationshipMode"];
+  scopes: FirmConsentScope[];
+}
+
+export interface CreatedConsentOffer extends ConsentOfferResponse {
+  /** One-time URL; returned only on creation. Store securely, never log. */
+  consentUrl: string;
+}
+
+export interface ConsentOfferStatus extends ConsentOfferResponse {
+  acceptedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface WhiteLabelCreateCustomerRequest {
+  customerRef: string;
+  relationship: "represented";
+  country: string;
+  companyId?: string;
+  taxId?: string;
+  vatId?: string;
+  contactEmail: string;
+  returnUrl?: string;
+  customerAuthorization: { confirmed: true; evidenceReference: string };
+}
+
+export type WhiteLabelCustomerStatus =
+  | "action_required" | "activating" | "active" | "suspended" | "blocked" | "revoked";
+
+export interface WhiteLabelCustomer {
+  id: string;
+  firmId: string;
+  customerRef: string;
+  relationship: "represented" | "self";
+  name?: string;
+  country: string;
+  companyId?: string;
+  taxId?: string;
+  vatId?: string;
+  status: WhiteLabelCustomerStatus;
+  activation?: { url: string; expiresAt: string };
+  nextAction?: { code: string; message: string; url?: string };
+  policy: {
+    sendMode: "automatic" | "manual";
+    ublHandling: "strict" | "normalize";
+    ocrAutoSend: boolean;
+    attachSourceFile: "never" | "when_ocr" | "always";
+    locale: "sk" | "en";
+    version: number;
+  };
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WhiteLabelListCustomersParams {
+  limit?: number;
+  cursor?: string;
+  status?: WhiteLabelCustomerStatus;
+}
+
+export interface WhiteLabelCustomerList {
+  customers: WhiteLabelCustomer[];
+  nextCursor?: string;
+  hasMore: boolean;
 }
