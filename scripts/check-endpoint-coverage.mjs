@@ -208,6 +208,26 @@ async function checkEnterpriseOpenApiContracts() {
     }
   }
 
+  for (const [method, apiPath] of [
+    ["post", "/onboarding-requests"],
+    ["get", "/onboarding-requests/{id}"],
+  ]) {
+    if (!current.paths?.[apiPath]?.[method]) {
+      failures.push(`current OpenAPI: missing ${method.toUpperCase()} ${apiPath}`);
+    }
+  }
+  if (current.paths?.["/reporting/submissions"]) {
+    failures.push("current OpenAPI: retired /reporting/submissions unexpectedly returned");
+  }
+
+  const billingTypes = current.components?.schemas?.SendDocumentJsonRequest
+    ?.properties?.documentType?.enum ?? [];
+  for (const documentType of ["debit_note", "prepayment_invoice", "correction"]) {
+    if (!billingTypes.includes(documentType)) {
+      failures.push(`current OpenAPI: SendDocumentJsonRequest missing ${documentType}`);
+    }
+  }
+
   const consentLink = current.paths?.["/firms/consent-link"]?.post;
   if (!consentLink) {
     failures.push("current OpenAPI: missing POST /firms/consent-link");

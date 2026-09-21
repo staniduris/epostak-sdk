@@ -15,7 +15,7 @@ dotnet add /path/to/your-project.csproj reference /path/to/epostak-sdk/dotnet/sr
 
 ## Major release API shape
 
-.NET `1.2.0` is the current workflow-first source release with the managed
+.NET `1.3.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.Enterprise.Documents.SendAsync(...)`
@@ -339,7 +339,8 @@ keep working because those adapters already delegate to the canonical routes.
   are not available with Connector credentials.
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence.
 - `client.Enterprise.Documents.StatusBatchAsync(ids)` covers `POST /documents/status/batch` for up to 100 document IDs.
-- `client.Enterprise.Reporting.SubmissionsAsync(...)` covers `GET /reporting/submissions`.
+- `client.Enterprise.Reporting.SubmissionsAsync(...)` is retained as a deprecated fail-fast adapter after endpoint removal.
+- `client.Enterprise.Integrator.Onboarding.CreateAsync(...)` and `GetAsync(...)` cover controlled-preview send-only onboarding.
 - `client.Enterprise.Integrator.Keys.ListAsync()` and `DeactivateAsync(...)` cover the production `GET`/`DELETE /integrator/keys` surface.
 - README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins.
 

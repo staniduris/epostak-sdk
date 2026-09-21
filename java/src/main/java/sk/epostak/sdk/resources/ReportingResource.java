@@ -104,11 +104,7 @@ public final class ReportingResource {
      * @return paginated report submission history
      */
     public ReportingSubmissionsResponse submissions(Integer limit, Integer offset, String reportType) {
-        Map<String, Object> params = new LinkedHashMap<>();
-        params.put("limit", limit);
-        params.put("offset", offset);
-        params.put("report_type", reportType);
-        return http.get("/reporting/submissions" + HttpClient.buildQuery(params), ReportingSubmissionsResponse.class);
+        throw new UnsupportedOperationException("reporting submissions are no longer available in the ePostak API");
     }
 
     /**

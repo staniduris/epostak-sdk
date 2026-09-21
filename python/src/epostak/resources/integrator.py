@@ -8,6 +8,7 @@ also reach via ``X-Firm-Id``), use :mod:`epostak.resources.account` instead.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict, Optional
+from urllib.parse import quote
 
 import httpx
 
@@ -82,6 +83,22 @@ class IntegratorKeysResource(_BaseResource):
         return self._request("DELETE", "/integrator/keys", json=body)
 
 
+class IntegratorOnboardingResource(_BaseResource):
+    """Controlled-preview send-only onboarding for allowlisted partners."""
+
+    def create(self, body: Dict[str, Any], idempotency_key: str) -> Dict[str, Any]:
+        return self._request(
+            "POST", "/onboarding-requests", json=body,
+            extra_headers={"Idempotency-Key": idempotency_key}, omit_firm_id=True,
+            retry_on_failure=True,
+        )
+
+    def get(self, request_id: str) -> Dict[str, Any]:
+        return self._request(
+            "GET", f"/onboarding-requests/{quote(request_id, safe='')}", omit_firm_id=True,
+        )
+
+
 class IntegratorResource:
     """Integrator-aggregate endpoints (``sk_int_*`` only)."""
 
@@ -100,6 +117,10 @@ class IntegratorResource:
             _rate_limit_store=_rate_limit_store,
         )
         self.licenses = IntegratorLicensesResource(
+            client, base_url, token_manager, firm_id, max_retries=max_retries,
+            _rate_limit_store=_rate_limit_store,
+        )
+        self.onboarding = IntegratorOnboardingResource(
             client, base_url, token_manager, firm_id, max_retries=max_retries,
             _rate_limit_store=_rate_limit_store,
         )

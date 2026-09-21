@@ -5,7 +5,7 @@ Connector workflows, the Enterprise API, and SAPI-SK interoperability.
 
 ## Major release API shape
 
-Ruby `1.2.0` is the current workflow-first source release with the managed
+Ruby `1.3.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
@@ -273,7 +273,7 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
   reconcile, mailbox, sync, document evidence, and event polling
 - Docs: added the Connector golden path for ERP developers: auth, preflight, stage, send, status, inbox, ACK, and evidence
 - `client.enterprise.documents.status_batch(ids)` covers `POST /documents/status/batch` for up to 100 document IDs
-- `client.enterprise.reporting.submissions(...)` covers `GET /reporting/submissions`
+- `client.enterprise.reporting.submissions(...)` is retained as a fail-fast compatibility adapter.
 - `client.enterprise.integrator.keys.list` and `deactivate(...)` cover the production `GET`/`DELETE /integrator/keys` surface
 - README environment data now lists production (`https://epostak.sk`) and test (`https://dev.epostak.sk`) Enterprise, SAPI, and OAuth origins
 
@@ -931,8 +931,7 @@ puts "Sent: #{stats['outbound']['total']}"
 puts "Received: #{stats['inbound']['total']}"
 puts "Delivery rate: #{stats['outbound']['delivered']}/#{stats['outbound']['total']}"
 
-submissions = client.enterprise.reporting.submissions(limit: 20, report_type: "EUSR")
-puts submissions["total"]
+# AP-wide reporting submission history was removed from the public API.
 ```
 
 ---

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 — 2026-09-21
+
+- Added `client.integrator.onboarding.create/get` for send-only onboarding.
+- Added billing 1.12 document types and complete Connector document detail fields.
+- Retired reporting submissions now fail fast.
+
 All notable changes to the `epostak` Python SDK are documented in this
 file. The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

@@ -18,8 +18,9 @@ when strict participant-scoped interoperability is the requirement.
 - ePošťák Box flow: `client.enterprise.box.list(...)`, `create({ payloadXml, ... })`, `schedule(...)`, `sendNow(...)`, `retry(...)`, `cancel(...)`
 - SAPI-SK interoperable flow: `client.sapi.participants.for(...).documents.send(...)`
 - White Label participant flow: `client.whiteLabel.registerParticipant(...)`, `migrateParticipant(...)`, `requestMigrationCode(...)`
+- Send-only partner onboarding: `client.integrator.onboarding.create(...)`, then poll `get(...)` until `active`
 
-TypeScript is `4.3.0`. Python, PHP, Ruby, Java, and .NET are `1.2.0`.
+TypeScript is `4.4.0`. Python, PHP, Ruby, Java, and .NET are `1.3.0`.
 
 ---
 
@@ -44,16 +45,16 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
-| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.3.0 | `npm install @epostak/sdk@^4.3.0` |
-| Python | [`python/`](./python/) | `epostak` | 1.2.0 | Source on GitHub |
-| PHP | [`php/`](./php/) | `epostak/sdk` | 1.2.0 | Source on GitHub |
-| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.2.0 | Source on GitHub |
-| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.2.0 | Source on GitHub |
-| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.2.0 | Source on GitHub |
+| TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.4.0 | `npm install @epostak/sdk@^4.4.0` |
+| Python | [`python/`](./python/) | `epostak` | 1.3.0 | Source on GitHub |
+| PHP | [`php/`](./php/) | `epostak/sdk` | 1.3.0 | Source on GitHub |
+| C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.3.0 | Source on GitHub |
+| Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.3.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.3.0 | Source on GitHub |
 
 The npm release is ready to announce only after `npm view @epostak/sdk version`
-returns `4.3.0` or newer; older npm releases do not contain the new consent-offer and White Label
-customer helpers. The normal current install is `npm install @epostak/sdk@^4.3.0`, with a
+returns `4.4.0` or newer; older npm releases do not contain send-only onboarding and billing 1.12
+types. The normal current install is `npm install @epostak/sdk@^4.4.0`, with a
 local source fallback documented in [`typescript/README.md`](./typescript/README.md).
 The other five SDKs are source-only until their registry releases are explicitly
 published and verified; each language README contains a local-source install.

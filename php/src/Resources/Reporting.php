@@ -66,11 +66,6 @@ class Reporting
      */
     public function submissions(array $params = []): array
     {
-        $qs = HttpClient::buildQuery([
-            'limit' => $params['limit'] ?? null,
-            'offset' => $params['offset'] ?? null,
-            'report_type' => $params['report_type'] ?? null,
-        ]);
-        return $this->http->request('GET', '/reporting/submissions' . $qs);
+        throw new \LogicException('reporting submissions are no longer available in the ePostak API');
     }
 }

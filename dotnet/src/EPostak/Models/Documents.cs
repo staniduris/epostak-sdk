@@ -437,7 +437,7 @@ public sealed class SendDocumentRequest
     [JsonPropertyName("processId")]
     public string? ProcessId { get; set; }
 
-    /// <summary>Business document type: invoice, credit_note, self_billing, or self_billing_credit_note.</summary>
+    /// <summary>Business document type, including debit_note, prepayment_invoice, and correction.</summary>
     [JsonPropertyName("documentType")]
     public string? DocumentType { get; set; }
 

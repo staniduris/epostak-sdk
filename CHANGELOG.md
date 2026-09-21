@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.0] — 2026-09-21 — Billing 1.12 and send-only onboarding
+
+- Add controlled-preview send-only onboarding helpers across all six SDKs.
+- Add debit note, prepayment invoice and correction types, plus complete Connector document content fields.
+- Keep the removed AP-wide reporting submission helper as a fail-fast compatibility adapter.
+- Extend the live contract gate to cover onboarding, billing types and the retired reporting route.
+
 ## [4.3.0] — 2026-09-05 — DEV onboarding and White Label parity
 
 - Add shared consent-offer creation/status and White Label customer creation/listing

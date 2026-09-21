@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "cgi"
+
 module EPostak
   module Resources
     # Integrator-aggregate endpoints (+sk_int_*+ keys only).
@@ -17,11 +19,29 @@ module EPostak
 
       # @return [Resources::IntegratorLicenses] Billing aggregate views.
       attr_reader :licenses
+      attr_reader :onboarding
 
       # @param http [EPostak::HttpClient] Internal HTTP client
       def initialize(http)
         @keys = IntegratorKeys.new(http)
         @licenses = IntegratorLicenses.new(http)
+        @onboarding = IntegratorOnboarding.new(http)
+      end
+    end
+
+    # Controlled-preview send-only onboarding for allowlisted partners.
+    class IntegratorOnboarding
+      def initialize(http)
+        @http = http
+      end
+
+      def create(body, idempotency_key:)
+        @http.request(:post, "/onboarding-requests", body: body,
+                      headers: { "Idempotency-Key" => idempotency_key }, omit_firm_id: true)
+      end
+
+      def get(id)
+        @http.request(:get, "/onboarding-requests/#{CGI.escapeURIComponent(id)}", omit_firm_id: true)
       end
     end
 

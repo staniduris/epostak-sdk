@@ -47,11 +47,7 @@ public sealed class ReportingResource
     /// <param name="ct">Cancellation token.</param>
     public Task<ReportingSubmissionsResponse> SubmissionsAsync(ReportingSubmissionsParams? @params = null, CancellationToken ct = default)
     {
-        var qs = HttpRequestor.BuildQuery(
-            ("limit", @params?.Limit?.ToString()),
-            ("offset", @params?.Offset?.ToString()),
-            ("report_type", @params?.ReportType));
-        return _http.RequestAsync<ReportingSubmissionsResponse>(HttpMethod.Get, $"/reporting/submissions{qs}", ct);
+        throw new NotSupportedException("Reporting submissions are no longer available in the ePostak API.");
     }
 
     private static string? PeriodToString(ReportingPeriod? p) => p switch

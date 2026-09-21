@@ -243,6 +243,9 @@ class ConnectorEventsResponse(TypedDict, total=False):
 ConnectorBusinessDocumentType = Literal[
     "invoice",
     "credit_note",
+    "debit_note",
+    "prepayment_invoice",
+    "correction",
     "self_billing_invoice",
     "self_billing_credit_note",
 ]
@@ -571,6 +574,20 @@ class ConnectorBusinessDocument(TypedDict, total=False):
     createdAt: Optional[str]
     updatedAt: Optional[str]
     response: Optional[ConnectorBusinessInvoiceResponse]
+    businessType: Optional[ConnectorBusinessDocumentType]
+    lines: List[ConnectorBusinessLine]
+    delivery: Literal["send", "stage"]
+    attachments: List[ConnectorBusinessAttachment]
+    precedingDocumentNumber: Optional[str]
+    note: Optional[str]
+    iban: Optional[str]
+    paymentMethod: Optional[str]
+    variableSymbol: Optional[str]
+    buyerReference: Optional[str]
+    paymentTerms: Optional[str]
+    orderReference: Optional[str]
+    prepaidAmount: Optional[float]
+    prepayments: List[ConnectorBusinessPrepayment]
     links: Dict[str, str]
 
 
@@ -1069,6 +1086,9 @@ class Party(TypedDict, total=False):
 JsonBillingDocumentType = Literal[
     "invoice",
     "credit_note",
+    "debit_note",
+    "prepayment_invoice",
+    "correction",
     "self_billing",
     "self_billing_credit_note",
 ]

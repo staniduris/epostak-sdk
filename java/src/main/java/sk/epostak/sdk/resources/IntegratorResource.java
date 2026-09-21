@@ -32,6 +32,7 @@ public final class IntegratorResource {
 
     private final IntegratorLicensesResource licenses;
     private final IntegratorKeysResource keys;
+    private final IntegratorOnboardingResource onboarding;
 
     /**
      * Creates a new integrator resource.
@@ -41,6 +42,7 @@ public final class IntegratorResource {
     public IntegratorResource(HttpClient http) {
         this.licenses = new IntegratorLicensesResource(http);
         this.keys = new IntegratorKeysResource(http);
+        this.onboarding = new IntegratorOnboardingResource(http);
     }
 
     /**
@@ -59,6 +61,25 @@ public final class IntegratorResource {
      */
     public IntegratorKeysResource keys() {
         return keys;
+    }
+
+    public IntegratorOnboardingResource onboarding() {
+        return onboarding;
+    }
+
+    /** Controlled-preview send-only onboarding for allowlisted partners. */
+    public static final class IntegratorOnboardingResource {
+        private final HttpClient http;
+
+        IntegratorOnboardingResource(HttpClient http) { this.http = http; }
+
+        public Map<String, Object> create(Map<String, Object> body, String idempotencyKey) {
+            return http.postIdempotentNoFirm("/onboarding-requests", body, Map.class, idempotencyKey);
+        }
+
+        public Map<String, Object> get(String id) {
+            return http.getNoFirm("/onboarding-requests/" + HttpClient.encode(id), Map.class);
+        }
     }
 
     /**

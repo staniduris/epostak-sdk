@@ -49,8 +49,7 @@ module EPostak
       # @param report_type [String, nil] Optional +EUSR+ or +TSR+
       # @return [Hash] Paginated report submission history
       def submissions(limit: nil, offset: nil, report_type: nil)
-        query = { limit: limit, offset: offset, report_type: report_type }.compact
-        @http.request(:get, "/reporting/submissions", query: query)
+        raise NotImplementedError, "reporting submissions are no longer available in the ePostak API"
       end
     end
   end

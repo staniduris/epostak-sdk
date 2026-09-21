@@ -5,6 +5,8 @@ import type {
   IntegratorKeysResponse,
   IntegratorLicenseInfo,
   IntegratorLicenseInfoParams,
+  SendOnlyOnboardingRequest,
+  SendOnlyOnboardingStatus,
 } from "../types.js";
 
 /**
@@ -29,6 +31,24 @@ export class IntegratorResource extends BaseResource {
    * ```
    */
   readonly licenses = new IntegratorLicensesResource(this.config);
+  /** Controlled-preview send-only onboarding for allowlisted partners. */
+  readonly onboarding = new IntegratorOnboardingResource(this.config);
+}
+
+export class IntegratorOnboardingResource extends BaseResource {
+  create(body: SendOnlyOnboardingRequest, idempotencyKey: string): Promise<SendOnlyOnboardingStatus> {
+    return this.request("POST", "/onboarding-requests", body, {
+      omitFirmId: true,
+      idempotencyKey,
+      retry: true,
+    });
+  }
+
+  get(id: string): Promise<SendOnlyOnboardingStatus> {
+    return this.request("GET", `/onboarding-requests/${encodeURIComponent(id)}`, undefined, {
+      omitFirmId: true,
+    });
+  }
 }
 
 /** `GET/DELETE /api/v1/integrator/keys`. */

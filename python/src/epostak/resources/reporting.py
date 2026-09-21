@@ -59,5 +59,4 @@ class ReportingResource(_BaseResource):
         report_type: Optional[str] = None,
     ) -> ReportingSubmissionsResponse:
         """List EUSR/TSR reports submitted to FS SR by ePošťák as AP operator."""
-        params = _build_query({"limit": limit, "offset": offset, "report_type": report_type})
-        return self._request("GET", "/reporting/submissions", params=params)
+        raise NotImplementedError("reporting.submissions() is no longer available in the ePostak API")

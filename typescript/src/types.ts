@@ -343,6 +343,9 @@ export interface ConnectorAutopilotRequest {
 export type ConnectorBusinessDocumentType =
   | "invoice"
   | "credit_note"
+  | "debit_note"
+  | "prepayment_invoice"
+  | "correction"
   | "self_billing_invoice"
   | "self_billing_credit_note";
 
@@ -492,6 +495,21 @@ export interface ConnectorBusinessDocument {
   createdAt: string | null;
   updatedAt: string | null;
   response: ConnectorBusinessInvoiceResponse | null;
+  /** Exact billing subtype when `type` is projected to a compatibility family. */
+  businessType?: ConnectorBusinessDocumentType | (string & {}) | null;
+  lines?: ConnectorBusinessLine[];
+  delivery?: "send" | "stage" | (string & {});
+  attachments?: ConnectorBusinessAttachment[];
+  precedingDocumentNumber?: string | null;
+  note?: string | null;
+  iban?: string | null;
+  paymentMethod?: string | null;
+  variableSymbol?: string | null;
+  buyerReference?: string | null;
+  paymentTerms?: string | null;
+  orderReference?: string | null;
+  prepaidAmount?: number | null;
+  prepayments?: ConnectorBusinessPrepayment[];
   links: Record<string, string>;
   [key: string]: unknown;
 }
@@ -1132,8 +1150,36 @@ export interface Party {
 export type JsonBillingDocumentType =
   | "invoice"
   | "credit_note"
+  | "debit_note"
+  | "prepayment_invoice"
+  | "correction"
   | "self_billing"
   | "self_billing_credit_note";
+
+export interface SendOnlyOnboardingRequest {
+  serviceMode: "send_only";
+  customerRef: string;
+  dic: string;
+  contactEmail: string;
+  relationshipMode?: "technical_delegation" | "managed_service";
+}
+
+export interface SendOnlyOnboardingStatus {
+  id: string;
+  customerRef: string;
+  serviceMode: "send_only";
+  status: "awaiting_pfs" | "action_required" | "activating" | "active" | "blocked" | "revoked";
+  firmId: string | null;
+  nextAction: string | null;
+  relationshipMode: "technical_delegation" | "managed_service";
+  payerMode: "firm_billed" | "integrator_billed";
+  keyCreation: {
+    method: "POST";
+    path: "/api/v1/integrator/keys";
+    scopedFirmId: string;
+    scopes: Array<"documents:send" | "documents:read">;
+  } | null;
+}
 
 /**
  * Request body for sending an invoice using structured JSON fields.
@@ -2656,7 +2702,7 @@ export interface Statistics {
   top_senders: StatisticsTopParty[];
 }
 
-/** Query parameters for `GET /reporting/submissions`. */
+/** Legacy parameters retained for the removed reporting submissions adapter. */
 export interface ReportingSubmissionsParams {
   /** Page size. Max 100. Default 20. */
   limit?: number;

@@ -321,6 +321,48 @@ public sealed class ConnectorBusinessDocument
     [JsonPropertyName("response")]
     public ConnectorBusinessInvoiceResponse? Response { get; set; }
 
+    [JsonPropertyName("businessType")]
+    public string? BusinessType { get; set; }
+
+    [JsonPropertyName("lines")]
+    public List<ConnectorBusinessLine>? Lines { get; set; }
+
+    [JsonPropertyName("delivery")]
+    public string? Delivery { get; set; }
+
+    [JsonPropertyName("attachments")]
+    public List<ConnectorBusinessAttachment>? Attachments { get; set; }
+
+    [JsonPropertyName("precedingDocumentNumber")]
+    public string? PrecedingDocumentNumber { get; set; }
+
+    [JsonPropertyName("note")]
+    public string? Note { get; set; }
+
+    [JsonPropertyName("iban")]
+    public string? Iban { get; set; }
+
+    [JsonPropertyName("paymentMethod")]
+    public string? PaymentMethod { get; set; }
+
+    [JsonPropertyName("variableSymbol")]
+    public string? VariableSymbol { get; set; }
+
+    [JsonPropertyName("buyerReference")]
+    public string? BuyerReference { get; set; }
+
+    [JsonPropertyName("paymentTerms")]
+    public string? PaymentTerms { get; set; }
+
+    [JsonPropertyName("orderReference")]
+    public string? OrderReference { get; set; }
+
+    [JsonPropertyName("prepaidAmount")]
+    public decimal? PrepaidAmount { get; set; }
+
+    [JsonPropertyName("prepayments")]
+    public List<ConnectorBusinessPrepayment>? Prepayments { get; set; }
+
     [JsonPropertyName("links")]
     public Dictionary<string, string> Links { get; set; } = [];
 }

@@ -6,7 +6,7 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Major release API shape
 
-TypeScript `4.3.0` is the current workflow-first release with the managed
+TypeScript `4.4.0` is the current workflow-first release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
@@ -345,11 +345,11 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 ## Installation
 
-Use npm only after the registry reports `4.3.0` or newer:
+Use npm only after the registry reports `4.4.0` or newer:
 
 ```bash
 npm view @epostak/sdk version
-npm install @epostak/sdk@^4.3.0
+npm install @epostak/sdk@^4.4.0
 ```
 
 Until then, install the reviewed source checkout locally:
@@ -1094,12 +1094,14 @@ does not automatically clear `needs_review`; follow `missing_fields` and
 | `events.ack(eventId)`                    | POST   | `/events/{eventId}/ack`                      |
 | `events.batchAck(ids)`                   | POST   | `/events/batch-ack`                          |
 | `reporting.statistics(params?)`          | GET    | `/reporting/statistics`                      |
-| `reporting.submissions(params?)`         | GET    | `/reporting/submissions`                     |
+| `reporting.submissions(params?)`         | —      | Deprecated fail-fast compatibility adapter   |
 | `account.get()`                          | GET    | `/account`                                   |
 | `account.licenseInfo()`                  | GET    | `/licenses/info`                             |
 | `integrator.keys.list()`                 | GET    | `/integrator/keys`                           |
 | `integrator.keys.deactivate(body)`       | DELETE | `/integrator/keys`                           |
 | `integrator.licenses.info(params?)`      | GET    | `/integrator/licenses/info`                  |
+| `integrator.onboarding.create(body, key)` | POST  | `/onboarding-requests`                       |
+| `integrator.onboarding.get(id)`          | GET    | `/onboarding-requests/{id}`                  |
 | `extract.single(file, mime, name, fields?)` | POST   | `/payloads/extract`                                   |
 | `extract.batch(files)`                   | POST   | `/payloads/extract/batch`                             |
 | `EPostak.validate(xml)`                  | POST   | `https://epostak.sk/api/validate`            |

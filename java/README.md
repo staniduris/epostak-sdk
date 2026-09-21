@@ -26,7 +26,7 @@ Then use the local artifact.
 <dependency>
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
@@ -34,12 +34,12 @@ Then use the local artifact.
 
 ```groovy
 repositories { mavenLocal() }
-implementation 'sk.epostak:epostak-sdk:1.2.0'
+implementation 'sk.epostak:epostak-sdk:1.3.0'
 ```
 
 ## Major release API shape
 
-Java `1.2.0` is the current workflow-first source release with the managed
+Java `1.3.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise().documents().send(...)`
@@ -1156,7 +1156,9 @@ try {
 | `webhooks().queue().pullAll(...)`     | GET    | `/webhook-queue/all`                 |
 | `webhooks().queue().batchAckAll(ids)` | POST   | `/webhook-queue/all/batch-ack`       |
 | `reporting().statistics(...)`         | GET    | `/reporting/statistics`              |
-| `reporting().submissions(...)`        | GET    | `/reporting/submissions`             |
+| `reporting().submissions(...)`        | —      | Deprecated fail-fast adapter         |
+| `integrator().onboarding().create(...)` | POST | `/onboarding-requests`               |
+| `integrator().onboarding().get(id)`   | GET    | `/onboarding-requests/{id}`          |
 | `account().get()`                     | GET    | `/account`                           |
 | `extract().single(...)`               | POST   | `/payloads/extract`                           |
 | `extract().batch(...)`                | POST   | `/payloads/extract/batch`                     |

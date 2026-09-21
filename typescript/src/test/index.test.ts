@@ -2191,30 +2191,12 @@ describe("current backend route coverage", () => {
     assert.strictEqual(result.results[1].error, "not_found");
   });
 
-  it("reporting.submissions() calls FS SR report history endpoint", async () => {
+  it("reporting.submissions() fails fast after endpoint removal", async () => {
     const client = makeClient();
-    let capturedUrl = "";
-
-    mockFetch(async (input) => {
-      const url = typeof input === "string" ? input : (input as URL).toString();
-      if (url.includes("/auth/token")) {
-        return makeMockResponse({
-          access_token: "tok",
-          refresh_token: "ref",
-          token_type: "Bearer",
-          expires_in: 900,
-        });
-      }
-      capturedUrl = url;
-      return makeMockResponse({ items: [], total: 0, limit: 20, offset: 0 });
-    });
-
-    const result = await client.reporting.submissions({ limit: 20, report_type: "EUSR" });
-
-    assert.ok(capturedUrl.includes("/reporting/submissions"), `URL ${capturedUrl} missing path`);
-    assert.ok(capturedUrl.includes("limit=20"), "Missing limit param");
-    assert.ok(capturedUrl.includes("report_type=EUSR"), "Missing report_type param");
-    assert.strictEqual(result.total, 0);
+    await assert.rejects(
+      client.reporting.submissions({ limit: 20, report_type: "EUSR" }),
+      /no longer available/,
+    );
   });
 
   it("integrator.keys exposes list/deactivate endpoints", async () => {
@@ -2242,6 +2224,34 @@ describe("current backend route coverage", () => {
     assert.deepStrictEqual(calls.map((c) => c.method), ["GET", "DELETE"]);
     assert.ok(calls.every((c) => c.url.endsWith("/integrator/keys")));
     assert.deepStrictEqual(JSON.parse(calls[1].body), { client_id: "sk_int_prefix" });
+  });
+
+  it("integrator.onboarding creates and reads send-only requests without firm scope", async () => {
+    const client = makeClient({ firmId: "must-not-leak" });
+    const calls: Array<{ method: string | undefined; url: string; headers: Headers }> = [];
+    mockFetch(async (input, init) => {
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (url.includes("/auth/token")) {
+        return makeMockResponse({ access_token: "tok", refresh_token: "ref", token_type: "Bearer", expires_in: 900 });
+      }
+      calls.push({ method: init?.method, url, headers: new Headers(init?.headers) });
+      return makeMockResponse({
+        id: "request-1", customerRef: "ERP-1", serviceMode: "send_only",
+        status: "awaiting_pfs", firmId: null, nextAction: "pfs_confirmation",
+        relationshipMode: "technical_delegation", payerMode: "firm_billed", keyCreation: null,
+      });
+    });
+
+    await client.integrator.onboarding.create({
+      serviceMode: "send_only", customerRef: "ERP-1", dic: "2022988022",
+      contactEmail: "owner@example.sk",
+    }, "onboarding:request-1");
+    await client.integrator.onboarding.get("request-1");
+
+    assert.deepStrictEqual(calls.map((call) => call.method), ["POST", "GET"]);
+    assert.equal(calls[0].headers.get("Idempotency-Key"), "onboarding:request-1");
+    assert.ok(calls.every((call) => call.headers.get("X-Firm-Id") === null));
+    assert.ok(calls[1].url.endsWith("/onboarding-requests/request-1"));
   });
 });
 

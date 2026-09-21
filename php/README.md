@@ -9,7 +9,7 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ## Major release API shape
 
-PHP `1.2.0` is the current workflow-first source release with the managed
+PHP `1.3.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
@@ -1153,12 +1153,14 @@ try {
 | `outbound->getMdn($id)`                                      | GET    | `/outbound/documents/{id}/mdn`       |
 | `outbound->events($params)`                                  | GET    | `/outbound/events`                   |
 | `reporting->statistics($params)`                             | GET    | `/reporting/statistics`              |
-| `reporting->submissions($params)`                            | GET    | `/reporting/submissions`             |
+| `reporting->submissions($params)`                            | —      | Deprecated fail-fast adapter         |
 | `account->get()`                                             | GET    | `/account`                           |
 | `account->licenseInfo()`                                     | GET    | `/licenses/info`                     |
 | `integrator->keys->list()`                                   | GET    | `/integrator/keys`                   |
 | `integrator->keys->deactivate($params)`                      | DELETE | `/integrator/keys`                   |
 | `integrator->licenses->info($params)`                        | GET    | `/integrator/licenses/info`          |
+| `integrator->onboarding->create($body, $key)`                | POST   | `/onboarding-requests`               |
+| `integrator->onboarding->get($id)`                           | GET    | `/onboarding-requests/{id}`          |
 | `extract->single($path, $mime, $name, $fields)`             | POST   | `/payloads/extract`                           |
 | `extract->batch($files)`                                     | POST   | `/payloads/extract/batch`                     |
 | `EPostak::validate($xml)`                                    | POST   | `https://epostak.sk/api/validate`    |

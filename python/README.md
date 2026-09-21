@@ -4,7 +4,7 @@ Official Python SDK for the [ePošťák API](https://epostak.sk/api/docs) — Pe
 
 Requires Python 3.9+. One runtime dependency: [httpx](https://www.python-httpx.org/).
 
-> **v1.2.0** — current workflow-first source release with the managed Connector
+> **v1.3.0** — current workflow-first source release with the managed Connector
 > surface. Enterprise `/api/v1/*` resources remain under `client.enterprise`;
 > SAPI-SK document operations remain under
 > `client.sapi.participants.for_participant(...)`.
@@ -974,12 +974,14 @@ except EPostakError as err:
 | `events.ack(event_id)`                                         | POST   | `/events/{eventId}/ack`              |
 | `events.batch_ack(ids)`                                        | POST   | `/events/batch-ack`                  |
 | `reporting.statistics(period=..., from_date=..., to_date=...)` | GET    | `/reporting/statistics`              |
-| `reporting.submissions(limit=..., offset=..., report_type=...)` | GET   | `/reporting/submissions`             |
+| `reporting.submissions(...)`                                  | —      | Deprecated fail-fast compatibility adapter |
 | `account.get()`                                                | GET    | `/account`                           |
 | `account.license_info()`                                       | GET    | `/licenses/info`                     |
 | `integrator.keys.list()`                                       | GET    | `/integrator/keys`                   |
 | `integrator.keys.deactivate(key_id=..., client_id=...)`        | DELETE | `/integrator/keys`                   |
 | `integrator.licenses.info(offset=..., limit=...)`              | GET    | `/integrator/licenses/info`          |
+| `integrator.onboarding.create(body, idempotency_key)`          | POST   | `/onboarding-requests`               |
+| `integrator.onboarding.get(request_id)`                        | GET    | `/onboarding-requests/{id}`          |
 | `extract.single(file, mime, name, fields=None)`                | POST   | `/payloads/extract`                           |
 | `extract.batch(files)`                                         | POST   | `/payloads/extract/batch`                     |
 | `validate(xml)` / `client.validate(xml)`                       | POST   | `https://epostak.sk/api/validate`    |

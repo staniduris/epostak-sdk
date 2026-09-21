@@ -20,6 +20,7 @@ class Integrator
 {
     public IntegratorKeys $keys;
     public IntegratorLicenses $licenses;
+    public IntegratorOnboarding $onboarding;
 
     /**
      * @param HttpClient $http Shared HTTP transport instance.
@@ -28,6 +29,31 @@ class Integrator
     {
         $this->keys = new IntegratorKeys($http);
         $this->licenses = new IntegratorLicenses($http);
+        $this->onboarding = new IntegratorOnboarding($http);
+    }
+}
+
+/** Controlled-preview send-only onboarding for allowlisted partners. */
+class IntegratorOnboarding
+{
+    public function __construct(private HttpClient $http)
+    {
+    }
+
+    public function create(array $body, string $idempotencyKey): array
+    {
+        return $this->http->request('POST', '/onboarding-requests', [
+            'json' => $body,
+            'headers' => ['Idempotency-Key' => $idempotencyKey],
+            'omitFirmId' => true,
+        ]);
+    }
+
+    public function get(string $id): array
+    {
+        return $this->http->request('GET', '/onboarding-requests/' . rawurlencode($id), [
+            'omitFirmId' => true,
+        ]);
     }
 }
 

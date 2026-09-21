@@ -49,14 +49,8 @@ export class ReportingResource extends BaseResource {
   /**
    * List EUSR/TSR reports submitted to FS SR by ePošťák as the AP operator.
    */
-  submissions(params?: ReportingSubmissionsParams): Promise<ReportingSubmissionsResponse> {
-    return this.request(
-      "GET",
-      `/reporting/submissions${buildQuery({
-        limit: params?.limit,
-        offset: params?.offset,
-        report_type: params?.report_type,
-      })}`,
-    );
+  /** Compatibility adapter for the AP-wide submission history removed from the public API. */
+  submissions(_params?: ReportingSubmissionsParams): Promise<ReportingSubmissionsResponse> {
+    return Promise.reject(new Error("reporting.submissions() is no longer available in the ePostak API"));
   }
 }

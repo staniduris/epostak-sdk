@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 — 2026-09-21
+
+- Added `client.integrator.onboarding.create/get` for send-only onboarding.
+- Synced billing 1.12 document types and Connector detail payloads.
+- Retired reporting submissions now fail fast.
+
 All notable changes to the `epostak` Ruby gem are documented in this file.
 The project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Going forward, the gem version (`VERSION` constant) is the source of truth;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [4.4.0] — 2026-09-21
+
+- Added `client.integrator.onboarding.create/get` for controlled-preview send-only onboarding.
+- Added billing 1.12 document types and complete Connector document detail fields.
+- Changed the retired `reporting.submissions()` adapter to fail fast without sending a stale request.
+
 ## [4.3.0] — 2026-09-05 — DEV onboarding and White Label parity
 
 - Add shared consent-offer creation/status and White Label customer creation/listing

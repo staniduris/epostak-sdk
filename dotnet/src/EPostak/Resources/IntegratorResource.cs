@@ -28,12 +28,30 @@ public sealed class IntegratorResource
 
     /// <summary>License/billing aggregate views (<c>/integrator/licenses/*</c>).</summary>
     public IntegratorLicensesResource Licenses { get; }
+    public IntegratorOnboardingResource Onboarding { get; }
 
     internal IntegratorResource(HttpRequestor http)
     {
         Keys = new IntegratorKeysResource(http);
         Licenses = new IntegratorLicensesResource(http);
+        Onboarding = new IntegratorOnboardingResource(http);
     }
+}
+
+/// <summary>Controlled-preview send-only onboarding for allowlisted partners.</summary>
+public sealed class IntegratorOnboardingResource
+{
+    private readonly HttpRequestor _http;
+    internal IntegratorOnboardingResource(HttpRequestor http) => _http = http;
+
+    public Task<Dictionary<string, object?>> CreateAsync(
+        Dictionary<string, object?> request,
+        string idempotencyKey,
+        CancellationToken ct = default)
+        => _http.RequestIdempotentAsync<Dictionary<string, object?>>(HttpMethod.Post, "/onboarding-requests", request, idempotencyKey, ct, omitFirmId: true);
+
+    public Task<Dictionary<string, object?>> GetAsync(string id, CancellationToken ct = default)
+        => _http.RequestAsync<Dictionary<string, object?>>(HttpMethod.Get, $"/onboarding-requests/{Uri.EscapeDataString(id)}", ct, omitFirmId: true);
 }
 
 /// <summary><c>/integrator/keys</c> — integrator API-key management.</summary>

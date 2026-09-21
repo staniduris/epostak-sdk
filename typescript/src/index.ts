@@ -60,6 +60,7 @@ export { PayloadsResource } from "./resources/payloads.js";
 export { AccountResource } from "./resources/account.js";
 export {
   IntegratorResource,
+  IntegratorOnboardingResource,
   IntegratorKeysResource,
   IntegratorLicensesResource,
 } from "./resources/integrator.js";
@@ -169,6 +170,8 @@ export type {
   Party,
   // Send document
   JsonBillingDocumentType,
+  SendOnlyOnboardingRequest,
+  SendOnlyOnboardingStatus,
   SendDocumentJsonRequest,
   SendDocumentXmlRequest,
   SendDocumentRequest,
