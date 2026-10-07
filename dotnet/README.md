@@ -13,6 +13,14 @@ git clone https://github.com/staniduris/epostak-sdk.git
 dotnet add /path/to/your-project.csproj reference /path/to/epostak-sdk/dotnet/src/EPostak/EPostak.csproj
 ```
 
+To update, pull the latest code (or check out the next `dotnet-v*` tag) and
+rebuild your project — the project reference always compiles the checked-out
+source:
+
+```shell
+cd /path/to/epostak-sdk && git pull
+```
+
 ## Major release API shape
 
 .NET `1.3.0` is the current workflow-first source release with the managed

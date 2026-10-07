@@ -294,17 +294,23 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 ## Installation
 
-The Ruby SDK is currently distributed as reviewed source, not through
-RubyGems. Clone this repository and reference its `ruby/` directory from your
-Gemfile:
+The Ruby SDK is distributed from GitHub, not through RubyGems. Reference a
+release tag directly from your Gemfile — no clone needed:
 
 ```ruby
-gem "epostak", path: "/path/to/epostak-sdk/ruby"
+gem "epostak",
+    git: "https://github.com/staniduris/epostak-sdk.git",
+    tag: "ruby-v1.3.0",
+    glob: "ruby/*.gemspec"
 ```
 
 ```bash
 bundle install
 ```
+
+To update, change `tag:` to the next `ruby-v*` tag and run `bundle install`.
+Use `branch: "main"` instead of `tag:` to track the latest unreleased code
+(`bundle update epostak` pulls new commits).
 
 ## Quick start
 

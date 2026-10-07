@@ -46,18 +46,22 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 | Language | Directory | Package | Version | Status |
 |-|-|-|-|-|
 | TypeScript / JavaScript | [`typescript/`](./typescript/) | `@epostak/sdk` | 4.4.0 | `npm install @epostak/sdk@^4.4.0` |
-| Python | [`python/`](./python/) | `epostak` | 1.3.0 | Source on GitHub |
+| Python | [`python/`](./python/) | `epostak` | 1.3.0 | `pip install "epostak @ git+https://github.com/staniduris/epostak-sdk.git@python-v1.3.0#subdirectory=python"` |
 | PHP | [`php/`](./php/) | `epostak/sdk` | 1.3.0 | Source on GitHub |
 | C# / .NET | [`dotnet/`](./dotnet/) | `EPostak` | 1.3.0 | Source on GitHub |
 | Java | [`java/`](./java/) | `sk.epostak:epostak-sdk` | 1.3.0 | Source on GitHub |
-| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.3.0 | Source on GitHub |
+| Ruby | [`ruby/`](./ruby/) | `epostak` | 1.3.0 | Gemfile `git:` + `tag: "ruby-v1.3.0"` (see README) |
 
 The npm release is ready to announce only after `npm view @epostak/sdk version`
 returns `4.4.0` or newer; older npm releases do not contain send-only onboarding and billing 1.12
 types. The normal current install is `npm install @epostak/sdk@^4.4.0`, with a
 local source fallback documented in [`typescript/README.md`](./typescript/README.md).
 The other five SDKs are source-only until their registry releases are explicitly
-published and verified; each language README contains a local-source install.
+published and verified; each language README shows how to install from GitHub
+and how to update. Every release is tagged per language (`python-v1.3.0`,
+`php-v1.3.0`, `ruby-v1.3.0`, `java-v1.3.0`, `dotnet-v1.3.0`,
+`typescript-v4.4.0`), so updating means moving to the newer tag — never editing
+SDK code by hand.
 
 ## Test onboarding in DEV, then use PROD
 

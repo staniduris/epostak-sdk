@@ -315,6 +315,14 @@ composer config repositories.epostak path /path/to/epostak-sdk/php
 composer require epostak/sdk:^1.1
 ```
 
+To update, pull the latest code (or check out the next `php-v*` tag) and let
+Composer pick it up:
+
+```bash
+cd /path/to/epostak-sdk && git pull
+cd /path/to/your-project && composer update epostak/sdk
+```
+
 ---
 
 ## Quick Start

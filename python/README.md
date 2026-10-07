@@ -307,12 +307,22 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 ## Installation
 
-The Python SDK is currently distributed as reviewed source, not through PyPI:
+The Python SDK is distributed from GitHub, not through PyPI. Install a
+release tag directly — no clone needed:
 
 ```bash
-git clone https://github.com/staniduris/epostak-sdk.git
-python -m pip install ./epostak-sdk/python
+python -m pip install "epostak @ git+https://github.com/staniduris/epostak-sdk.git@python-v1.3.0#subdirectory=python"
 ```
+
+Or pin it in `requirements.txt`:
+
+```text
+epostak @ git+https://github.com/staniduris/epostak-sdk.git@python-v1.3.0#subdirectory=python
+```
+
+To update, change the tag (e.g. `python-v1.3.0` → the next `python-v*` tag)
+and run `pip install` again. Use `@main` instead of a tag to track the latest
+unreleased code.
 
 ---
 

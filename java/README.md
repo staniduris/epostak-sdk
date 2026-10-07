@@ -18,7 +18,13 @@ cd epostak-sdk/java
 mvn clean install
 ```
 
-Then use the local artifact.
+Then use the local artifact. To update, pull the latest code (or check out
+the next `java-v*` tag), run `mvn clean install` again and bump the version
+below if it changed:
+
+```bash
+cd epostak-sdk && git pull && cd java && mvn clean install
+```
 
 ### Maven
 
