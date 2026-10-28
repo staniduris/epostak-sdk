@@ -105,8 +105,9 @@ public class UblValidationException extends EPostakException {
      * @return the rule identifier, or {@code null}
      * @see UblRule
      */
+    @Override
     public String getRule() {
-        return rule;
+        return rule != null ? rule : super.getRule();
     }
 
     @Override

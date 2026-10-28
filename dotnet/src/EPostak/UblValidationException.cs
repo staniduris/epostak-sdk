@@ -65,7 +65,7 @@ public sealed class UblValidationException : EPostakException
     /// the <see cref="UblRule"/> constants (e.g. <c>UblRule.BR_06</c>). May be
     /// an empty string if the server omitted the <c>rule</c> field.
     /// </summary>
-    public string Rule { get; }
+    public new string Rule { get; }
 
     internal UblValidationException(
         int status,

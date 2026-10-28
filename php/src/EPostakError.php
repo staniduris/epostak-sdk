@@ -20,6 +20,12 @@ namespace EPostak;
  *   `getTitle()`,        a problem+json envelope.
  *   `getDetail()`,
  *   `getInstance()`
+ * - `getApiCode()`, `getMessageSk()`, `getFields()`, `getRule()`,
+ *   `getFixHint()`, `getFixHintSk()`, `getDocs()` — the Enterprise API
+ *   error behind a Connector answer (error.code keeps the Connector
+ *   category), read from `error.apiCode`, `error.message_sk`,
+ *   `error.fields`, `error.rule`, `error.fix_hint`, `error.fix_hint_sk`
+ *   and `error.docs`. `null` when the API does not send them.
  * - `getRequiredScope()` — set when the server returns 403 with a
  *   `WWW-Authenticate: Bearer error="insufficient_scope" scope="..."` header.
  */
@@ -38,6 +44,14 @@ class EPostakError extends \Exception
     private ?string $detail;
     private ?string $instance;
     private ?string $requiredScope;
+    private ?string $apiCode;
+    private ?string $messageSk;
+    /** @var list<array<string, mixed>>|null */
+    private ?array $fields;
+    private ?string $rule;
+    private ?string $fixHint;
+    private ?string $fixHintSk;
+    private ?string $docs;
 
     /**
      * @param int                              $status  HTTP status code (0 for network errors).
@@ -62,6 +76,13 @@ class EPostakError extends \Exception
         $this->detail = null;
         $this->instance = null;
         $this->requiredScope = null;
+        $this->apiCode = null;
+        $this->messageSk = null;
+        $this->fields = null;
+        $this->rule = null;
+        $this->fixHint = null;
+        $this->fixHintSk = null;
+        $this->docs = null;
 
         $isProblem =
             (isset($body['title']) || isset($body['detail']))
@@ -146,6 +167,15 @@ class EPostakError extends \Exception
             if (array_key_exists('retryable', $error) && is_bool($error['retryable'])) {
                 $this->retryable = $error['retryable'];
             }
+            $this->apiCode = self::stringOrNull($error['apiCode'] ?? null);
+            $this->messageSk = self::stringOrNull($error['message_sk'] ?? null);
+            $this->rule = self::stringOrNull($error['rule'] ?? null);
+            $this->fixHint = self::stringOrNull($error['fix_hint'] ?? null);
+            $this->fixHintSk = self::stringOrNull($error['fix_hint_sk'] ?? null);
+            $this->docs = self::stringOrNull($error['docs'] ?? null);
+            if (isset($error['fields']) && is_array($error['fields']) && array_is_list($error['fields'])) {
+                $this->fields = array_values(array_filter($error['fields'], 'is_array'));
+            }
         }
         $retryAfter = $this->headerLine($headers, 'retry-after');
         if ($retryAfter !== null && ctype_digit(trim($retryAfter))) {
@@ -228,6 +258,58 @@ class EPostakError extends \Exception
     public function getRequiredScope(): ?string
     {
         return $this->requiredScope;
+    }
+
+    /** Enterprise API error code behind a Connector error (error.apiCode). */
+    public function getApiCode(): ?string
+    {
+        return $this->apiCode;
+    }
+
+    /** Slovak error message (error.message_sk). */
+    public function getMessageSk(): ?string
+    {
+        return $this->messageSk;
+    }
+
+    /**
+     * Offending fields (error.fields), each as sent by the API, for example
+     * `['path' => 'items[0].unitPrice', 'message' => ..., 'message_sk' => ...]`.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function getFields(): ?array
+    {
+        return $this->fields;
+    }
+
+    /** Validation rule that rejected the document, e.g. PEPPOL-EN16931-R003 (error.rule). */
+    public function getRule(): ?string
+    {
+        return $this->rule;
+    }
+
+    /** How to fix the request (error.fix_hint). */
+    public function getFixHint(): ?string
+    {
+        return $this->fixHint;
+    }
+
+    /** How to fix the request, in Slovak (error.fix_hint_sk). */
+    public function getFixHintSk(): ?string
+    {
+        return $this->fixHintSk;
+    }
+
+    /** Documentation link for this error (error.docs). */
+    public function getDocs(): ?string
+    {
+        return $this->docs;
+    }
+
+    private static function stringOrNull(mixed $value): ?string
+    {
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     /**

@@ -73,6 +73,27 @@ public class EPostakException : Exception
     /// </summary>
     public string? RequiredScope { get; }
 
+    /// <summary>Enterprise error code (<c>error.apiCode</c>) behind a Connector category; <see cref="Code"/> stays the Connector category.</summary>
+    public string? ApiCode { get; internal set; }
+
+    /// <summary>Slovak message (<c>error.message_sk</c>).</summary>
+    public string? MessageSk { get; internal set; }
+
+    /// <summary>Per-field problems (<c>error.fields</c>); each item is the raw JSON object (e.g. path, message, message_sk). Null when absent or not an array.</summary>
+    public IReadOnlyList<System.Text.Json.JsonElement>? Fields { get; internal set; }
+
+    /// <summary>Violated validation rule (<c>error.rule</c>, e.g. "PEPPOL-EN16931-R003").</summary>
+    public string? Rule { get; internal set; }
+
+    /// <summary>How to fix the problem (<c>error.fix_hint</c>).</summary>
+    public string? FixHint { get; internal set; }
+
+    /// <summary>Slovak fix hint (<c>error.fix_hint_sk</c>).</summary>
+    public string? FixHintSk { get; internal set; }
+
+    /// <summary>Documentation URL (<c>error.docs</c>).</summary>
+    public string? Docs { get; internal set; }
+
     /// <summary>
     /// Create an exception from an API error response.
     /// </summary>
@@ -132,6 +153,18 @@ public class EPostakException : Exception
         NextAction = nextAction;
         Retryable = retryable;
         RetryAfter = retryAfter;
+    }
+
+    internal void ApplyErrorBody(string? apiCode, string? messageSk, IReadOnlyList<System.Text.Json.JsonElement>? fields,
+        string? rule, string? fixHint, string? fixHintSk, string? docs)
+    {
+        ApiCode = apiCode;
+        MessageSk = messageSk;
+        Fields = fields;
+        Rule = rule;
+        FixHint = fixHint;
+        FixHintSk = fixHintSk;
+        Docs = docs;
     }
 
     /// <summary>

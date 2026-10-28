@@ -288,7 +288,8 @@ keep working because those adapters already delegate to the canonical routes.
   1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
   only when safe. Lifecycle calls are server-idempotent; `409` is never retried.
 - `EPostakException` exposes `Field`, `NextAction`, `Retryable`, `RequestId`,
-  and `RetryAfter`.
+  and `RetryAfter`, plus the API error fields `ApiCode`, `MessageSk`, `Fields`,
+  `Rule`, `FixHint`, `FixHintSk` and `Docs` (nullable).
 - Identity hashing uses the exact backend ECMAScript `TrimString` code points;
   `U+0085` is preserved.
 - `document.cancelled` is a first-class business event.

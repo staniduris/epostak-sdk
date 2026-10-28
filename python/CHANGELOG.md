@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 — 2026-10-28
+
+- `EPostakError` now exposes the additive error fields `api_code`, `message_sk`,
+  `fields`, `rule`, `fix_hint`, `fix_hint_sk`, and `docs` from `body.error`
+  (`None` when absent or of the wrong type).
+
 ## 1.3.0 — 2026-09-21
 
 - Added `client.integrator.onboarding.create/get` for send-only onboarding.

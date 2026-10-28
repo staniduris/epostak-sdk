@@ -519,6 +519,8 @@ internal sealed class HttpRequestor
         DuplicateInvoiceExistingDocument? existingDocument = null;
         string? ublRule = null;
         bool sawErrorObject = false;
+        string? apiCode = null, messageSk = null, ruleBody = null, fixHint = null, fixHintSk = null, docs = null;
+        List<JsonElement>? errorFields = null;
 
         try
         {
@@ -587,7 +589,18 @@ internal sealed class HttpRequestor
                             // so the dispatch below can pass it to
                             // UblValidationException.Rule.
                             if (errorProp.TryGetProperty("rule", out var ruleProp) && ruleProp.ValueKind == JsonValueKind.String)
-                                ublRule = ruleProp.GetString();
+                                ublRule = ruleBody = ruleProp.GetString();
+                            apiCode = OptString(errorProp, "apiCode");
+                            messageSk = OptString(errorProp, "message_sk");
+                            fixHint = OptString(errorProp, "fix_hint");
+                            fixHintSk = OptString(errorProp, "fix_hint_sk");
+                            docs = OptString(errorProp, "docs");
+                            if (errorProp.TryGetProperty("fields", out var fieldsProp) && fieldsProp.ValueKind == JsonValueKind.Array)
+                            {
+                                errorFields = new List<JsonElement>();
+                                foreach (var fi in fieldsProp.EnumerateArray())
+                                    if (fi.ValueKind == JsonValueKind.Object) errorFields.Add(fi.Clone());
+                            }
 
                             if (code == "DUPLICATE_INVOICE_NUMBER")
                             {
@@ -669,7 +682,7 @@ internal sealed class HttpRequestor
 
         if (sawErrorObject && code == "DUPLICATE_INVOICE_NUMBER")
         {
-            throw new DuplicateInvoiceNumberException(
+            var typedEx = new DuplicateInvoiceNumberException(
                 (int)response.StatusCode,
                 message ?? $"API request failed with status {(int)response.StatusCode}",
                 code,
@@ -686,6 +699,8 @@ internal sealed class HttpRequestor
                 nextAction,
                 retryable,
                 retryAfter);
+            typedEx.ApplyErrorBody(apiCode, messageSk, errorFields, ruleBody, fixHint, fixHintSk, docs);
+            throw typedEx;
         }
 
         if ((int)response.StatusCode == 422 && code == "UBL_VALIDATION_ERROR")
@@ -694,7 +709,7 @@ internal sealed class HttpRequestor
             // "UBL_VALIDATION_ERROR" exactly, with error.rule carrying the
             // specific BR-* / BT-* / PEPPOL-R008 violated. Previous dispatch
             // used StartsWith("UBL_") which matched only fictional codes.
-            throw new UblValidationException(
+            var typedEx = new UblValidationException(
                 (int)response.StatusCode,
                 message ?? $"API request failed with status {(int)response.StatusCode}",
                 ublRule ?? "",
@@ -709,9 +724,11 @@ internal sealed class HttpRequestor
                 nextAction,
                 retryable,
                 retryAfter);
+            typedEx.ApplyErrorBody(apiCode, messageSk, errorFields, ruleBody, fixHint, fixHintSk, docs);
+            throw typedEx;
         }
 
-        throw new EPostakException(
+        var apiEx = new EPostakException(
             (int)response.StatusCode,
             message ?? $"API request failed with status {(int)response.StatusCode}",
             code,
@@ -726,6 +743,8 @@ internal sealed class HttpRequestor
             nextAction,
             retryable,
             retryAfter);
+        apiEx.ApplyErrorBody(apiCode, messageSk, errorFields, ruleBody, fixHint, fixHintSk, docs);
+        throw apiEx;
     }
 
     /// <summary>

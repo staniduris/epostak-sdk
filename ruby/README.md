@@ -5,7 +5,7 @@ Connector workflows, the Enterprise API, and SAPI-SK interoperability.
 
 ## Major release API shape
 
-Ruby `1.3.0` is the current workflow-first source release with the managed
+Ruby `1.4.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
@@ -235,8 +235,9 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 - Customer document creation snapshots the request, validates explicit
   1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
   only when safe; lifecycle calls are server-idempotent and `409` is never retried
-- `EPostak::Error` exposes `field`, `next_action`, `retryable`, `request_id`, and
-  `retry_after`
+- `EPostak::Error` exposes `field`, `next_action`, `retryable`, `request_id`,
+  `retry_after`, and (since 1.4.0) `api_code`, `message_sk`, `fields`, `rule`,
+  `fix_hint`, `fix_hint_sk`, `docs`; each is `nil` when the API omits it
 - `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
   points before hashing; `U+0085` is preserved
 - `document.cancelled` is a first-class business event
@@ -1038,6 +1039,7 @@ rescue EPostak::Error => e
   puts "HTTP #{e.status}: #{e.message}"
   puts "Code: #{e.code}" if e.code           # e.g. "VALIDATION_ERROR"
   puts "Details: #{e.details}" if e.details   # field-level errors
+  puts "Apicode: #{e.api_code}, rule: #{e.rule}, hint: #{e.fix_hint_sk}" if e.api_code
 end
 ```
 

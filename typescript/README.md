@@ -6,7 +6,7 @@ Zero runtime dependencies. Requires Node.js 18+.
 
 ## Major release API shape
 
-TypeScript `4.4.0` is the current workflow-first release with the managed
+TypeScript `4.5.0` is the current workflow-first release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise.documents.send(...)`
@@ -264,7 +264,8 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
   `429`, and all `5xx` responses only when safe. Lifecycle calls are
   server-idempotent; `409` is never retried.
 - **Portable errors:** `EPostakError` exposes `field`, `nextAction`,
-  `retryable`, `requestId`, and `retryAfter`.
+  `retryable`, `requestId`, and `retryAfter`, plus the additive `apiCode`,
+  `messageSk`, `fields`, `rule`, `fixHint`, `fixHintSk`, and `docs` (`null` when absent).
 - **Exact identity contract:** `customerRef` and `externalId` use the backend
   ECMAScript `TrimString` code points before hashing; `U+0085` is preserved.
 - **Business events:** `document.cancelled` is a first-class event type.
@@ -345,11 +346,11 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
 
 ## Installation
 
-Use npm only after the registry reports `4.4.0` or newer:
+Use npm only after the registry reports `4.5.0` or newer:
 
 ```bash
 npm view @epostak/sdk version
-npm install @epostak/sdk@^4.4.0
+npm install @epostak/sdk@^4.5.0
 ```
 
 Until then, install the reviewed source checkout locally:
@@ -491,6 +492,7 @@ try {
   if (error instanceof EPostakError) {
     console.error(error.code, error.message, error.field, error.nextAction);
     console.error(error.retryable, error.requestId, error.retryAfter);
+    console.error(error.apiCode, error.messageSk, error.rule, error.fixHint, error.docs);
 
     if (error.code === "IDEMPOTENCY_CONFLICT") {
       // Replay the original content unchanged, or use a new externalId and key.

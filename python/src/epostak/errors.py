@@ -52,6 +52,10 @@ def _parse_required_scope(headers: Optional[Mapping[str, str]]) -> Optional[str]
     return m.group(1) if m else None
 
 
+def _str_or_none(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
 def _parse_retry_after(headers: Optional[Mapping[str, str]]) -> Optional[int]:
     """Parse a delta-seconds ``Retry-After`` response header."""
     if not headers:
@@ -122,6 +126,13 @@ class EPostakError(Exception):
     next_action: Optional[str]
     retryable: Optional[bool]
     retry_after: Optional[int]
+    api_code: Optional[str]
+    message_sk: Optional[str]
+    fields: Optional[List[dict[str, Any]]]
+    rule: Optional[str]
+    fix_hint: Optional[str]
+    fix_hint_sk: Optional[str]
+    docs: Optional[str]
     type: Optional[str]
     title: Optional[str]
     detail: Optional[str]
@@ -217,10 +228,29 @@ class EPostakError(Exception):
             self.next_action = next_action if isinstance(next_action, str) else None
             retryable = err.get("retryable")
             self.retryable = retryable if isinstance(retryable, bool) else None
+            self.api_code = _str_or_none(err.get("apiCode"))
+            self.message_sk = _str_or_none(err.get("message_sk"))
+            raw_fields = err.get("fields")
+            self.fields = (
+                [f for f in raw_fields if isinstance(f, dict)]
+                if isinstance(raw_fields, list)
+                else None
+            )
+            self.rule = _str_or_none(err.get("rule"))
+            self.fix_hint = _str_or_none(err.get("fix_hint"))
+            self.fix_hint_sk = _str_or_none(err.get("fix_hint_sk"))
+            self.docs = _str_or_none(err.get("docs"))
         else:
             self.field = None
             self.next_action = None
             self.retryable = None
+            self.api_code = None
+            self.message_sk = None
+            self.fields = None
+            self.rule = None
+            self.fix_hint = None
+            self.fix_hint_sk = None
+            self.docs = None
         self.retry_after = _parse_retry_after(headers)
 
         # Parse WWW-Authenticate for OAuth `insufficient_scope` rejections.

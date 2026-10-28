@@ -14,6 +14,10 @@
  *   validation messages or schematron rule IDs).
  * - `requestId` — server-assigned request identifier — present whenever the
  *   server returns `X-Request-Id`.
+ * - `apiCode`, `messageSk`, `fields`, `rule`, `fixHint`, `fixHintSk`, `docs` —
+ *   additive fields from `error` (API since 2026-10-27); `null` when absent
+ *   or of the wrong type. `apiCode` is the Enterprise code behind a Connector
+ *   category in `code`; `fields` keeps the raw field-level objects.
  * - RFC 7807 fields: `type`, `title`, `detail`, `instance`.
  * - `requiredScope` — set when the server returns `403` with a
  *   `WWW-Authenticate: Bearer error="insufficient_scope" scope="..."` header.
@@ -51,6 +55,20 @@ export class EPostakError extends Error {
   nextAction?: string;
   /** Whether the failed business operation can be retried without changing the request. */
   retryable?: boolean;
+  /** Enterprise error code behind a Connector category (`error.apiCode`), or `null`. */
+  readonly apiCode: string | null;
+  /** Slovak message (`error.message_sk`), or `null`. */
+  readonly messageSk: string | null;
+  /** Field-level problems (`error.fields`) as raw objects, or `null`. */
+  readonly fields: Record<string, unknown>[] | null;
+  /** Validation rule ID such as `PEPPOL-EN16931-R003` (`error.rule`), or `null`. */
+  readonly rule: string | null;
+  /** How to fix the request (`error.fix_hint`), or `null`. */
+  readonly fixHint: string | null;
+  /** Slovak fix hint (`error.fix_hint_sk`), or `null`. */
+  readonly fixHintSk: string | null;
+  /** Documentation URL (`error.docs`), or `null`. */
+  readonly docs: string | null;
   /** Delta seconds from `Retry-After`, when the header is present and valid. */
   retryAfter?: number;
 
@@ -164,6 +182,19 @@ export class EPostakError extends Error {
     if (typeof errorObjMap?.retryable === "boolean") {
       this.retryable = errorObjMap.retryable;
     }
+    const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+    this.apiCode = str(errorObjMap?.apiCode);
+    this.messageSk = str(errorObjMap?.message_sk);
+    this.fields = Array.isArray(errorObjMap?.fields)
+      ? (errorObjMap.fields as unknown[]).filter(
+          (f): f is Record<string, unknown> =>
+            f !== null && typeof f === "object" && !Array.isArray(f),
+        )
+      : null;
+    this.rule = str(errorObjMap?.rule);
+    this.fixHint = str(errorObjMap?.fix_hint);
+    this.fixHintSk = str(errorObjMap?.fix_hint_sk);
+    this.docs = str(errorObjMap?.docs);
     const retryAfter = parseRetryAfter(headers);
     if (retryAfter !== null) {
       this.retryAfter = retryAfter;
@@ -326,7 +357,7 @@ export class UblValidationError extends EPostakError {
    * One of: `"BR-02"`, `"BR-05"`, `"BR-06"`, `"BR-11"`, `"BR-16"`,
    * `"BT-1"`, `"PEPPOL-R008"`.
    */
-  readonly rule: string;
+  override readonly rule: string;
 
   constructor(payload: {
     message: string;

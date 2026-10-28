@@ -29,7 +29,7 @@ RSpec.describe EPostak::Resources::Firms do
           dic: "2022988022",
           customer_reference: "ERP-ACME",
           scopes: ["firms:manage", "documents:send"],
-        }.to_json,
+        },
       )
       .with { |request| request.headers.keys.none? { |key| key.casecmp("X-Firm-Id").zero? } }
       .to_return(

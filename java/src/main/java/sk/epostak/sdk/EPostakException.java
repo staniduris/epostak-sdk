@@ -1,5 +1,10 @@
 package sk.epostak.sdk;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Exception thrown when an ePosťak API request fails.
  * <p>
@@ -58,6 +63,15 @@ public class EPostakException extends RuntimeException {
      */
     private final String requiredScope;
 
+    // Additive API error fields (2026-10-27). All null when the server omits them.
+    private String apiCode;
+    private String messageSk;
+    private List<Map<String, Object>> fields;
+    private String rule;
+    private String fixHint;
+    private String fixHintSk;
+    private String docs;
+
     /**
      * Creates a new exception with full v2 error information.
      *
@@ -102,6 +116,51 @@ public class EPostakException extends RuntimeException {
         this.nextAction = nextAction;
         this.retryable = retryable;
         this.retryAfter = retryAfter;
+    }
+
+    /**
+     * Full constructor including the additive structured error fields
+     * ({@code apiCode}, {@code message_sk}, {@code fields}, {@code rule},
+     * {@code fix_hint}, {@code fix_hint_sk}, {@code docs}).
+     */
+    public EPostakException(
+            int status,
+            String message,
+            String code,
+            Object details,
+            String type,
+            String title,
+            String detail,
+            String instance,
+            String requestId,
+            String requiredScope,
+            String field,
+            String nextAction,
+            Boolean retryable,
+            Integer retryAfter,
+            String apiCode,
+            String messageSk,
+            List<Map<String, Object>> fields,
+            String rule,
+            String fixHint,
+            String fixHintSk,
+            String docs
+    ) {
+        this(status, message, code, details, type, title, detail, instance,
+                requestId, requiredScope, field, nextAction, retryable, retryAfter);
+        applyApiErrorFields(apiCode, messageSk, fields, rule, fixHint, fixHintSk, docs);
+    }
+
+    /** Package-private so HttpClient can populate subclasses built via their existing constructors. */
+    final void applyApiErrorFields(String apiCode, String messageSk, List<Map<String, Object>> fields,
+                                   String rule, String fixHint, String fixHintSk, String docs) {
+        this.apiCode = apiCode;
+        this.messageSk = messageSk;
+        this.fields = fields == null ? null : Collections.unmodifiableList(new ArrayList<>(fields));
+        this.rule = rule;
+        this.fixHint = fixHint;
+        this.fixHintSk = fixHintSk;
+        this.docs = docs;
     }
 
     /** Source-compatible constructor without business retry metadata. */
@@ -224,6 +283,29 @@ public class EPostakException extends RuntimeException {
     public Boolean isRetryable() { return retryable; }
 
     public Integer getRetryAfter() { return retryAfter; }
+
+    /** Enterprise error code behind a Connector category, or {@code null}. */
+    public String getApiCode() { return apiCode; }
+
+    /** Slovak error message ({@code message_sk}), or {@code null}. */
+    public String getMessageSk() { return messageSk; }
+
+    /** Per-field problems as raw maps; never {@code null} (empty list when absent). */
+    public List<Map<String, Object>> getFields() {
+        return fields == null ? Collections.emptyList() : fields;
+    }
+
+    /** Failing validation rule id (e.g. {@code PEPPOL-EN16931-R003}), or {@code null}. */
+    public String getRule() { return rule; }
+
+    /** English fix hint ({@code fix_hint}), or {@code null}. */
+    public String getFixHint() { return fixHint; }
+
+    /** Slovak fix hint ({@code fix_hint_sk}), or {@code null}. */
+    public String getFixHintSk() { return fixHintSk; }
+
+    /** Documentation URL, or {@code null}. */
+    public String getDocs() { return docs; }
 
     /**
      * Required OAuth scope when the server rejects with {@code 403 insufficient_scope}.

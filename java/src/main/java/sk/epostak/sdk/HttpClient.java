@@ -735,6 +735,13 @@ public final class HttpClient {
         Boolean retryable = null;
         Integer retryAfter = null;
         JsonObject errorObjForDup = null;
+        String apiCode = null;
+        String messageSk = null;
+        List<Map<String, Object>> errFields = null;
+        String errRule = null;
+        String fixHint = null;
+        String fixHintSk = null;
+        String docs = null;
 
         try {
             JsonElement parsed = JsonParser.parseString(body);
@@ -791,6 +798,20 @@ public final class HttpClient {
                                 && errorObj.get("retryable").getAsJsonPrimitive().isBoolean()) {
                             retryable = errorObj.get("retryable").getAsBoolean();
                         }
+                        apiCode = optStringStrict(errorObj, "apiCode");
+                        messageSk = optStringStrict(errorObj, "message_sk");
+                        errRule = optStringStrict(errorObj, "rule");
+                        fixHint = optStringStrict(errorObj, "fix_hint");
+                        fixHintSk = optStringStrict(errorObj, "fix_hint_sk");
+                        docs = optStringStrict(errorObj, "docs");
+                        if (errorObj.has("fields") && errorObj.get("fields").isJsonArray()) {
+                            errFields = new java.util.ArrayList<>();
+                            for (JsonElement el : errorObj.get("fields").getAsJsonArray()) {
+                                if (el.isJsonObject()) {
+                                    errFields.add(GSON.<Map<String, Object>>fromJson(el, new TypeToken<Map<String, Object>>() {}.getType()));
+                                }
+                            }
+                        }
                     }
                 } else if (obj.has("message") && obj.get("message").isJsonPrimitive()) {
                     message = obj.get("message").getAsString();
@@ -828,18 +849,28 @@ public final class HttpClient {
         }
 
         if ("DUPLICATE_INVOICE_NUMBER".equals(code) && errorObjForDup != null) {
-            throw buildDuplicateInvoiceException(
+            DuplicateInvoiceNumberException dup = buildDuplicateInvoiceException(
                 status, message, code, details, type, title, detail, instance,
                 requestId, requiredScope, field, nextAction, retryable, retryAfter, errorObjForDup);
+            dup.applyApiErrorFields(apiCode, messageSk, errFields, errRule, fixHint, fixHintSk, docs);
+            throw dup;
         }
         if ("UBL_VALIDATION_ERROR".equals(code)) {
             // Extract rule from first entry in details list or from the error detail field.
             String rule = extractUblRule(details, detail);
-            throw new UblValidationException(status, message, code, details, type, title, detail, instance,
-                    requestId, requiredScope, rule, field, nextAction, retryable, retryAfter);
+            UblValidationException ubl = new UblValidationException(status, message, code, details, type, title, detail, instance,
+                    requestId, requiredScope, errRule != null ? errRule : rule, field, nextAction, retryable, retryAfter);
+            ubl.applyApiErrorFields(apiCode, messageSk, errFields, errRule, fixHint, fixHintSk, docs);
+            throw ubl;
         }
         throw new EPostakException(status, message, code, details, type, title, detail, instance,
-                requestId, requiredScope, field, nextAction, retryable, retryAfter);
+                requestId, requiredScope, field, nextAction, retryable, retryAfter,
+                apiCode, messageSk, errFields, errRule, fixHint, fixHintSk, docs);
+    }
+
+    private static String optStringStrict(JsonObject obj, String key) {
+        JsonElement el = obj.get(key);
+        return el != null && el.isJsonPrimitive() && el.getAsJsonPrimitive().isString() ? el.getAsString() : null;
     }
 
     private static DuplicateInvoiceNumberException buildDuplicateInvoiceException(

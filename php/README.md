@@ -9,7 +9,7 @@ Requires PHP 8.1+ and Guzzle 7.
 
 ## Major release API shape
 
-PHP `1.3.0` is the current workflow-first source release with the managed
+PHP `1.4.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `$client->enterprise->documents->send(...)`
@@ -249,7 +249,9 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
   1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
   only when safe. Lifecycle calls are server-idempotent; `409` is never retried.
 - `EPostakError` exposes `getField()`, `getNextAction()`, `isRetryable()`,
-  `getRequestId()`, and `getRetryAfter()`.
+  `getRequestId()`, and `getRetryAfter()`, plus the reason behind a rejection:
+  `getApiCode()`, `getMessageSk()`, `getFields()`, `getRule()`, `getFixHint()`,
+  `getFixHintSk()` and `getDocs()`.
 - `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
   points before hashing; `U+0085` is preserved.
 - `document.cancelled` is a first-class business event.
@@ -424,6 +426,8 @@ try {
     error_log((string) $error->getErrorCode() . ' ' . $error->getMessage());
     error_log((string) $error->getField() . ' ' . (string) $error->getNextAction());
     error_log(json_encode([$error->isRetryable(), $error->getRequestId(), $error->getRetryAfter()]));
+    // Why the document was rejected (Enterprise code, rule, offending fields, fix hint).
+    error_log(json_encode([$error->getApiCode(), $error->getRule(), $error->getFields(), $error->getFixHintSk()]));
 }
 ```
 

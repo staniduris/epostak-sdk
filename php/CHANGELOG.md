@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0 — 2026-10-28
+
+- `EPostakError` now exposes why a document was rejected: `getApiCode()`,
+  `getMessageSk()`, `getFields()`, `getRule()`, `getFixHint()`,
+  `getFixHintSk()` and `getDocs()`, read from the `error` fields the API
+  returns since 2026-10-27. Existing getters are unchanged.
+
 ## 1.3.0 — 2026-09-21
 
 - Added `$client->integrator->onboarding->create/get` for send-only onboarding.

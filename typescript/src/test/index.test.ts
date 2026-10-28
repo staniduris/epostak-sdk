@@ -53,6 +53,41 @@ it("preserves nested business error metadata and Retry-After seconds", () => {
   assert.strictEqual(validation.retryAfter, undefined);
 });
 
+it("exposes additive API error fields and nulls when absent", () => {
+  const body = {"error":{"code":"DOCUMENT_INVALID","message":"unitPrice must be a number","retryable":false,
+    "nextAction":"Correct the indicated document field and retry.","apiCode":"VALIDATION_ERROR",
+    "message_sk":"Jednotková cena musí byť číslo",
+    "fields":[{"path":"items[0].unitPrice","message":"unitPrice must be a number","message_sk":"Jednotková cena musí byť číslo"}],
+    "rule":"PEPPOL-EN16931-R003","fix_hint":"Send unitPrice as a number.","fix_hint_sk":"Pošlite unitPrice ako číslo.",
+    "docs":"https://epostak.sk/api/docs","requestId":"request-ubl-validation"}};
+  const err = new EPostakError(422, body);
+  assert.strictEqual(err.code, "DOCUMENT_INVALID");
+  assert.strictEqual(err.message, "unitPrice must be a number");
+  assert.strictEqual(err.nextAction, "Correct the indicated document field and retry.");
+  assert.strictEqual(err.retryable, false);
+  assert.strictEqual(err.requestId, "request-ubl-validation");
+  assert.strictEqual(err.apiCode, "VALIDATION_ERROR");
+  assert.strictEqual(err.messageSk, "Jednotková cena musí byť číslo");
+  assert.deepStrictEqual(err.fields, body.error.fields);
+  assert.strictEqual(err.rule, "PEPPOL-EN16931-R003");
+  assert.strictEqual(err.fixHint, "Send unitPrice as a number.");
+  assert.strictEqual(err.fixHintSk, "Pošlite unitPrice ako číslo.");
+  assert.strictEqual(err.docs, "https://epostak.sk/api/docs");
+
+  for (const e of [
+    new EPostakError(500, { error: { code: "X", message: "m" } }),
+    new EPostakError(500, { error: { apiCode: 1, fields: "no", rule: {}, docs: 5 } }),
+  ]) {
+    assert.strictEqual(e.apiCode, null);
+    assert.strictEqual(e.messageSk, null);
+    assert.strictEqual(e.fields, null);
+    assert.strictEqual(e.rule, null);
+    assert.strictEqual(e.fixHint, null);
+    assert.strictEqual(e.fixHintSk, null);
+    assert.strictEqual(e.docs, null);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Minimal fetch mock infrastructure
 // ---------------------------------------------------------------------------

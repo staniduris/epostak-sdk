@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.5.0] — 2026-10-28 — Rejection reason on errors
+
+- All six SDK error types now expose the error fields the API returns since
+  2026-10-27: `apiCode`, `message_sk`, `fields`, `rule`, `fix_hint`,
+  `fix_hint_sk` and `docs`, so a Connector or Enterprise rejection shows why it
+  failed. Existing error fields are unchanged.
+- Versions: TypeScript 4.5.0; PHP, Python, Ruby, Java and .NET 1.4.0.
+
 ## [4.4.0] — 2026-09-21 — Billing 1.12 and send-only onboarding
 
 - Add controlled-preview send-only onboarding helpers across all six SDKs.

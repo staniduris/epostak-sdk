@@ -57,6 +57,28 @@ module EPostak
     # @return [Boolean, nil] Whether the same business operation can be retried.
     attr_reader :retryable
 
+    # @return [String, nil] Enterprise error code behind a Connector category
+    #   (`error.apiCode`); `code` stays the Connector category.
+    attr_reader :api_code
+
+    # @return [String, nil] Slovak error message (`error.message_sk`).
+    attr_reader :message_sk
+
+    # @return [Array<Hash>, nil] Field-level problems (`error.fields`), raw maps.
+    attr_reader :fields
+
+    # @return [String, nil] Validation rule id (e.g. `"PEPPOL-EN16931-R003"`).
+    attr_reader :rule
+
+    # @return [String, nil] English fix hint (`error.fix_hint`).
+    attr_reader :fix_hint
+
+    # @return [String, nil] Slovak fix hint (`error.fix_hint_sk`).
+    attr_reader :fix_hint_sk
+
+    # @return [String, nil] Documentation URL (`error.docs`).
+    attr_reader :docs
+
     # @return [Integer, nil] Delta seconds from the `Retry-After` header.
     attr_reader :retry_after
 
@@ -115,6 +137,14 @@ module EPostak
         @next_action = string_value(error_obj, "nextAction") || string_value(error_obj, "next_action")
         retryable = fetch_key(error_obj, "retryable")
         @retryable = retryable if retryable == true || retryable == false
+        @api_code = string_value(error_obj, "apiCode")
+        @message_sk = string_value(error_obj, "message_sk")
+        fields = fetch_key(error_obj, "fields")
+        @fields = fields.select { |f| f.is_a?(Hash) } if fields.is_a?(Array)
+        @rule = string_value(error_obj, "rule")
+        @fix_hint = string_value(error_obj, "fix_hint")
+        @fix_hint_sk = string_value(error_obj, "fix_hint_sk")
+        @docs = string_value(error_obj, "docs")
       end
       @retry_after = extract_retry_after(headers)
       @required_scope = extract_required_scope(body, headers)

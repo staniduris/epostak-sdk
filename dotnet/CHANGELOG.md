@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0 — 2026-10-28
+
+- `EPostakException` now exposes the additive API error fields `ApiCode`, `MessageSk`, `Fields`, `Rule`, `FixHint`, `FixHintSk` and `Docs` (all nullable; `null` when absent or wrong-typed).
+
 ## 1.3.0 — 2026-09-21
 
 - Added `client.Integrator.Onboarding.CreateAsync/GetAsync` for send-only onboarding.

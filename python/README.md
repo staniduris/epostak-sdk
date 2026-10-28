@@ -239,7 +239,7 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
   1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
   responses only when safe. Lifecycle calls are server-idempotent; `409` is
   never retried.
-- `EPostakError` exposes `field`, `next_action`, `retryable`, `request_id`, and
+- `EPostakError` exposes `field`, `next_action`, `retryable`, `request_id`, `api_code`, `message_sk`, `fields`, `rule`, `fix_hint`, `fix_hint_sk`, `docs`, and
   `retry_after`.
 - `customerRef` and `externalId` use the backend ECMAScript `TrimString` code
   points before hashing; `U+0085` is preserved.
@@ -416,6 +416,8 @@ try:
 except EPostakError as error:
     print(error.code, error.message, error.field, error.next_action)
     print(error.retryable, error.request_id, error.retry_after)
+    print(error.api_code, error.message_sk, error.fields, error.rule)
+    print(error.fix_hint, error.fix_hint_sk, error.docs)
 ```
 
 Keyed document creation retries network failures, `429`, and every `5xx` while

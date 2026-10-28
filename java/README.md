@@ -26,7 +26,7 @@ Then use the local artifact.
 <dependency>
     <groupId>sk.epostak</groupId>
     <artifactId>epostak-sdk</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
@@ -34,12 +34,12 @@ Then use the local artifact.
 
 ```groovy
 repositories { mavenLocal() }
-implementation 'sk.epostak:epostak-sdk:1.3.0'
+implementation 'sk.epostak:epostak-sdk:1.4.0'
 ```
 
 ## Major release API shape
 
-Java `1.3.0` is the current workflow-first source release with the managed
+Java `1.4.0` is the current workflow-first source release with the managed
 Connector surface:
 
 - Enterprise direct firm flow: `client.enterprise().documents().send(...)`
@@ -290,7 +290,9 @@ The nine unused pre-launch alias URLs were removed on 20 July 2026. Raw HTTP cli
   1-255-byte idempotency keys, and retries network errors, `429`, and all `5xx`
   only when safe. Lifecycle calls are server-idempotent; `409` is never retried.
 - `EPostakException` exposes `getField()`, `getNextAction()`, `isRetryable()`,
-  `getRequestId()`, and `getRetryAfter()`.
+  `getRequestId()`, and `getRetryAfter()`. Since 1.4.0 it also exposes
+  `getApiCode()`, `getMessageSk()`, `getFields()` (list of raw maps, empty when
+  absent), `getRule()`, `getFixHint()`, `getFixHintSk()`, and `getDocs()`.
 - Identity hashing uses the exact backend ECMAScript `TrimString` code points;
   `U+0085` is preserved.
 - `document.cancelled` is a first-class business event.

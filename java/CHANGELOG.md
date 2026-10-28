@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0 — 2026-10-28
+
+- `EPostakException` now exposes the additive API error fields `getApiCode()`,
+  `getMessageSk()`, `getFields()`, `getRule()`, `getFixHint()`, `getFixHintSk()`
+  and `getDocs()`. Missing or wrong-typed values are `null` (`getFields()` is an
+  empty list). Existing constructors and getters are unchanged.
+
 ## 1.3.0 — 2026-09-21
 
 - Added `client.integrator().onboarding().create/get` for send-only onboarding.
